@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum SubscriptionStatus {
+  INACTIVE
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum Gender {
+  WOMAN
+  MAN
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+}
+
+enum DiscoveryAction {
+  LIKE
+  PASS
+}
+
+enum MatchStatus {
+  ACTIVE
+  BLOCKED
+  UNMATCHED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum TicketStatus {
+  RESERVED
+  PAID
+  CHECKED_IN
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentPurpose {
+  SUBSCRIPTION
+  EVENT_TICKET
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  ABANDONED
+  REVERSED
+}
+
+model User {
+  id                 String             @id @default(cuid())
+  email              String             @unique
+  displayName        String
+  passwordHash       String
+  role               UserRole           @default(USER)
+  subscriptionStatus SubscriptionStatus @default(INACTIVE)
+  subscriptionEndsAt DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  profile            Profile?
+  photos             ProfilePhoto[]
+  discoveryActions   DiscoveryActionLog[] @relation("DiscoveryActor")
+  receivedActions    DiscoveryActionLog[] @relation("DiscoveryTarget")
+  matchesA           Match[]            @relation("MatchUserA")
+  matchesB           Match[]            @relation("MatchUserB")
+  chatMessages       ChatMessage[]
+  tickets            Ticket[]
+  payments           Payment[]
+}
+
+model Profile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio            String?
+  birthDate      DateTime?
+  gender         Gender?
+  city           String?
+  state          String?
+  interests      String[] @default([])
+  discoveryLive  Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ProfilePhoto {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model DiscoveryActionLog {
+  id        String          @id @default(cuid())
+  actorId   String
+  targetId  String
+  action    DiscoveryAction
+  actor     User            @relation("DiscoveryActor", fields: [actorId], references: [id], onDelete: Cascade)
+  target    User            @relation("DiscoveryTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+
+  @@unique([actorId, targetId])
+  @@index([targetId, action])
+}
+
+model Match {
+  id        String      @id @default(cuid())
+  userAId   String
+  userBId   String
+  userA     User        @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB     User        @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  status    MatchStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+
+  @@unique([userAId, userBId])
+}
+
+model ChatRoom {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  messages    ChatMessage[]
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  roomId    String
+  authorId  String
+  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([roomId, createdAt])
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String      @unique
+  description String?
+  coverImage  String?
+  venue       String
+  city        String
+  startsAt    DateTime
+  endsAt      DateTime?
+  status      EventStatus @default(DRAFT)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  ticketTypes TicketType[]
+  tickets     Ticket[]
+}
+
+model TicketType {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  priceKobo Int
+  capacity  Int
+  soldCount Int      @default(0)
+  createdAt DateTime @default(now())
+  tickets   Ticket[]
+}
+
+model Ticket {
+  id           String       @id @default(cuid())
+  eventId      String
+  userId       String
+  ticketTypeId String
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticketType   TicketType   @relation(fields: [ticketTypeId], references: [id])
+  code         String       @unique
+  status       TicketStatus @default(RESERVED)
+  checkedInAt  DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@index([eventId, status])
+}
+
+model Payment {
+  id                 String         @id @default(cuid())
+  userId             String
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose            PaymentPurpose
+  status             PaymentStatus  @default(PENDING)
+  amountKobo         Int
+  provider           String         @default("paystack")
+  providerReference  String         @unique
+  providerMetadata   Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+}
