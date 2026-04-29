@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { RedisIoAdapter } from "./realtime/redis-io.adapter";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
@@ -15,6 +16,9 @@ async function bootstrap() {
     origin: [webAppUrl],
     credentials: true
   });
+  const redisIoAdapter = new RedisIoAdapter(app, config);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
   app.use(helmet());
   app.useGlobalPipes(
     new ValidationPipe({

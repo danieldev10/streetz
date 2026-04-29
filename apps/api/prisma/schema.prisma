@@ -36,6 +36,13 @@ enum MatchStatus {
   UNMATCHED
 }
 
+enum ReportStatus {
+  OPEN
+  REVIEWED
+  DISMISSED
+  ACTIONED
+}
+
 enum EventStatus {
   DRAFT
   PUBLISHED
@@ -65,39 +72,44 @@ enum PaymentStatus {
 }
 
 model User {
-  id                 String             @id @default(cuid())
-  email              String             @unique
+  id                 String               @id @default(cuid())
+  email              String               @unique
   displayName        String
   passwordHash       String
-  role               UserRole           @default(USER)
-  subscriptionStatus SubscriptionStatus @default(INACTIVE)
+  role               UserRole             @default(USER)
+  subscriptionStatus SubscriptionStatus   @default(INACTIVE)
   subscriptionEndsAt DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
   profile            Profile?
   photos             ProfilePhoto[]
   discoveryActions   DiscoveryActionLog[] @relation("DiscoveryActor")
   receivedActions    DiscoveryActionLog[] @relation("DiscoveryTarget")
-  matchesA           Match[]            @relation("MatchUserA")
-  matchesB           Match[]            @relation("MatchUserB")
+  matchesA           Match[]              @relation("MatchUserA")
+  matchesB           Match[]              @relation("MatchUserB")
+  blockedUsers       UserBlock[]          @relation("Blocker")
+  blockedByUsers     UserBlock[]          @relation("Blocked")
+  reportsMade        UserReport[]         @relation("Reporter")
+  reportsReceived    UserReport[]         @relation("Reported")
+  directMessages     DirectMessage[]
   chatMessages       ChatMessage[]
   tickets            Ticket[]
   payments           Payment[]
 }
 
 model Profile {
-  id             String   @id @default(cuid())
-  userId         String   @unique
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bio            String?
-  birthDate      DateTime?
-  gender         Gender?
-  city           String?
-  state          String?
-  interests      String[] @default([])
-  discoveryLive  Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio           String?
+  birthDate     DateTime?
+  gender        Gender?
+  city          String?
+  state         String?
+  interests     String[]  @default([])
+  discoveryLive Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model ProfilePhoto {
@@ -105,6 +117,7 @@ model ProfilePhoto {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   url       String
+  objectKey String?
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 }
@@ -123,15 +136,59 @@ model DiscoveryActionLog {
 }
 
 model Match {
-  id        String      @id @default(cuid())
+  id        String          @id @default(cuid())
   userAId   String
   userBId   String
-  userA     User        @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
-  userB     User        @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
-  status    MatchStatus @default(ACTIVE)
-  createdAt DateTime    @default(now())
+  userA     User            @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB     User            @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  status    MatchStatus     @default(ACTIVE)
+  createdAt DateTime        @default(now())
+  messages  DirectMessage[]
 
   @@unique([userAId, userBId])
+}
+
+model DirectMessage {
+  id        String    @id @default(cuid())
+  matchId   String
+  senderId  String
+  match     Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender    User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([matchId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model UserBlock {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model UserReport {
+  id         String       @id @default(cuid())
+  reporterId String
+  reportedId String
+  reporter   User         @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported   User         @relation("Reported", fields: [reportedId], references: [id], onDelete: Cascade)
+  reason     String
+  details    String?
+  status     ReportStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([reportedId, status])
+  @@index([reporterId, createdAt])
 }
 
 model ChatRoom {
@@ -145,31 +202,31 @@ model ChatRoom {
 }
 
 model ChatMessage {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   roomId    String
   authorId  String
-  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  room      ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   body      String
   deletedAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([roomId, createdAt])
 }
 
 model Event {
-  id          String      @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
-  slug        String      @unique
+  slug        String       @unique
   description String?
   coverImage  String?
   venue       String
   city        String
   startsAt    DateTime
   endsAt      DateTime?
-  status      EventStatus @default(DRAFT)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  status      EventStatus  @default(DRAFT)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   ticketTypes TicketType[]
   tickets     Ticket[]
 }
@@ -203,15 +260,15 @@ model Ticket {
 }
 
 model Payment {
-  id                 String         @id @default(cuid())
-  userId             String
-  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  purpose            PaymentPurpose
-  status             PaymentStatus  @default(PENDING)
-  amountKobo         Int
-  provider           String         @default("paystack")
-  providerReference  String         @unique
-  providerMetadata   Json?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  id                String         @id @default(cuid())
+  userId            String
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose           PaymentPurpose
+  status            PaymentStatus  @default(PENDING)
+  amountKobo        Int
+  provider          String         @default("paystack")
+  providerReference String         @unique
+  providerMetadata  Json?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 }
