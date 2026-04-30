@@ -113,13 +113,20 @@ model Profile {
 }
 
 model ProfilePhoto {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  url       String
-  objectKey String?
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url            String
+  objectKey      String?
+  thumbUrl       String?
+  thumbObjectKey String?
+  cardUrl        String?
+  cardObjectKey  String?
+  fullUrl        String?
+  fullObjectKey  String?
+  blurDataUrl    String?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
 }
 
 model DiscoveryActionLog {

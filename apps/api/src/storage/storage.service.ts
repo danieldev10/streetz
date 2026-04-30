@@ -6,6 +6,16 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 type PhotoWithObjectKey = {
   url: string;
   objectKey?: string | null;
+  thumbUrl?: string | null;
+  thumbFallbackUrl?: string | null;
+  thumbObjectKey?: string | null;
+  cardUrl?: string | null;
+  cardFallbackUrl?: string | null;
+  cardObjectKey?: string | null;
+  fullUrl?: string | null;
+  fullFallbackUrl?: string | null;
+  fullObjectKey?: string | null;
+  fallbackUrl?: string | null;
 };
 
 @Injectable()
@@ -35,6 +45,35 @@ export class StorageService {
     );
   }
 
+  async getObjectBuffer(objectKey: string) {
+    const response = await this.createS3Client().send(
+      new GetObjectCommand({
+        Bucket: this.getBucket(),
+        Key: objectKey
+      })
+    );
+
+    if (!response.Body) {
+      throw new BadRequestException("Uploaded photo could not be read from storage.");
+    }
+
+    const bytes = await response.Body.transformToByteArray();
+
+    return Buffer.from(bytes);
+  }
+
+  putObject(objectKey: string, body: Buffer, contentType: string, cacheControl = "public, max-age=31536000, immutable") {
+    return this.createS3Client().send(
+      new PutObjectCommand({
+        Bucket: this.getBucket(),
+        Key: objectKey,
+        Body: body,
+        ContentType: contentType,
+        CacheControl: cacheControl
+      })
+    );
+  }
+
   deleteObject(objectKey: string) {
     return this.createS3Client().send(
       new DeleteObjectCommand({
@@ -44,24 +83,56 @@ export class StorageService {
     );
   }
 
+  async deleteObjects(objectKeys: Array<string | null | undefined>) {
+    const keys = Array.from(new Set(objectKeys.filter((key): key is string => Boolean(key))));
+
+    await Promise.all(keys.map((objectKey) => this.deleteObject(objectKey)));
+  }
+
   buildPublicUrl(objectKey: string) {
-    const publicBaseUrl = this.getOptionalConfig("S3_PUBLIC_BASE_URL", "AWS_S3_PUBLIC_BASE_URL");
+    const publicBaseUrl = this.getOptionalConfig(
+      "MEDIA_CDN_BASE_URL",
+      "CLOUDFRONT_BASE_URL",
+      "AWS_CLOUDFRONT_URL",
+      "S3_PUBLIC_BASE_URL",
+      "AWS_S3_PUBLIC_BASE_URL"
+    );
 
     if (publicBaseUrl) {
-      return `${publicBaseUrl.replace(/\/$/, "")}/${this.encodeObjectKey(objectKey)}`;
+      return `${this.normalizeBaseUrl(publicBaseUrl)}/${this.encodeObjectKey(objectKey)}`;
     }
 
     return `https://${this.getBucket()}.s3.${this.getRegion()}.amazonaws.com/${this.encodeObjectKey(objectKey)}`;
   }
 
   async signPhotoUrl<T extends PhotoWithObjectKey>(photo: T): Promise<T> {
-    if (!photo.objectKey) {
-      return photo;
-    }
+    const thumbObjectKey = photo.thumbObjectKey ?? photo.cardObjectKey ?? photo.fullObjectKey ?? photo.objectKey;
+    const cardObjectKey = photo.cardObjectKey ?? photo.fullObjectKey ?? photo.objectKey;
+    const fullObjectKey = photo.fullObjectKey ?? photo.cardObjectKey ?? photo.objectKey;
+
+    const [thumbUrl, cardUrl, fullUrl, originalUrl] = await Promise.all([
+      this.createDeliveryUrl(thumbObjectKey, photo.thumbUrl),
+      this.createDeliveryUrl(cardObjectKey, photo.cardUrl),
+      this.createDeliveryUrl(fullObjectKey, photo.fullUrl),
+      this.createDeliveryUrl(photo.objectKey, photo.url)
+    ]);
+    const [thumbFallbackUrl, cardFallbackUrl, fullFallbackUrl, originalFallbackUrl] = await Promise.all([
+      this.createSignedFallbackUrl(thumbObjectKey, thumbUrl),
+      this.createSignedFallbackUrl(cardObjectKey, cardUrl),
+      this.createSignedFallbackUrl(fullObjectKey, fullUrl),
+      this.createSignedFallbackUrl(photo.objectKey, originalUrl ?? photo.url)
+    ]);
 
     return {
       ...photo,
-      url: await this.createReadUrl(photo.objectKey)
+      url: cardUrl ?? fullUrl ?? originalUrl ?? photo.url,
+      thumbUrl,
+      cardUrl,
+      fullUrl,
+      fallbackUrl: cardFallbackUrl ?? fullFallbackUrl ?? originalFallbackUrl ?? photo.url,
+      thumbFallbackUrl,
+      cardFallbackUrl,
+      fullFallbackUrl
     };
   }
 
@@ -102,8 +173,50 @@ export class StorageService {
     return this.getOptionalConfig("AWS_REGION", "AWS_DEFAULT_REGION", "S3_REGION") ?? "eu-north-1";
   }
 
+  private async createDeliveryUrl(objectKey: string | null | undefined, fallbackUrl?: string | null) {
+    if (!objectKey) {
+      return fallbackUrl ?? null;
+    }
+
+    if (this.hasStableMediaBaseUrl()) {
+      return this.buildPublicUrl(objectKey);
+    }
+
+    return this.createReadUrl(objectKey);
+  }
+
+  private async createSignedFallbackUrl(objectKey: string | null | undefined, fallbackUrl?: string | null) {
+    if (!objectKey) {
+      return fallbackUrl ?? null;
+    }
+
+    return this.createReadUrl(objectKey);
+  }
+
+  private hasStableMediaBaseUrl() {
+    return Boolean(
+      this.getOptionalConfig(
+        "MEDIA_CDN_BASE_URL",
+        "CLOUDFRONT_BASE_URL",
+        "AWS_CLOUDFRONT_URL",
+        "S3_PUBLIC_BASE_URL",
+        "AWS_S3_PUBLIC_BASE_URL"
+      )
+    );
+  }
+
   private encodeObjectKey(objectKey: string) {
     return objectKey.split("/").map(encodeURIComponent).join("/");
+  }
+
+  private normalizeBaseUrl(baseUrl: string) {
+    const trimmedBaseUrl = baseUrl.trim().replace(/\/+$/, "");
+
+    if (/^https?:\/\//i.test(trimmedBaseUrl)) {
+      return trimmedBaseUrl;
+    }
+
+    return `https://${trimmedBaseUrl}`;
   }
 
   private getOptionalConfig(...keys: string[]) {

@@ -15,7 +15,18 @@ type CandidateUser = {
     state: string | null;
     interests: string[];
   } | null;
-  photos: Array<{ id: string; url: string; objectKey?: string | null; sortOrder: number }>;
+  photos: Array<{
+    id: string;
+    url: string;
+    objectKey?: string | null;
+    thumbUrl?: string | null;
+    thumbObjectKey?: string | null;
+    cardUrl?: string | null;
+    cardObjectKey?: string | null;
+    fullUrl?: string | null;
+    fullObjectKey?: string | null;
+    sortOrder: number;
+  }>;
 };
 
 type MatchWithUsers = {

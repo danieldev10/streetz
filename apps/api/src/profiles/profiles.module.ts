@@ -7,6 +7,7 @@ import { ProfilesService } from "./profiles.service";
 @Module({
   imports: [StorageModule],
   controllers: [ProfilesController],
-  providers: [ProfilesService, ActiveSubscriptionGuard]
+  providers: [ProfilesService, ActiveSubscriptionGuard],
+  exports: [ProfilesService]
 })
 export class ProfilesModule {}

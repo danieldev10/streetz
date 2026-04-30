@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { randomBytes } from "crypto";
+import sharp = require("sharp");
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { CreateProfilePhotoDto } from "./dto/create-profile-photo.dto";
@@ -14,6 +15,12 @@ const contentTypeExtensions: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp"
 };
+
+const profilePhotoVariants = [
+  { name: "thumb", width: 160, quality: 76 },
+  { name: "card", width: 800, quality: 82 },
+  { name: "full", width: 1400, quality: 84 }
+] as const;
 
 @Injectable()
 export class ProfilesService {
@@ -144,11 +151,20 @@ export class ProfilesService {
       throw new BadRequestException(`You can add up to ${MAX_PROFILE_PHOTOS} profile photos.`);
     }
 
+    const variants = await this.createOptimizedPhotoVariants(dto.objectKey);
+
     const photo = await this.prisma.profilePhoto.create({
       data: {
         userId,
         objectKey: dto.objectKey,
         url: this.storage.buildPublicUrl(dto.objectKey),
+        thumbObjectKey: variants.thumbObjectKey,
+        thumbUrl: variants.thumbUrl,
+        cardObjectKey: variants.cardObjectKey,
+        cardUrl: variants.cardUrl,
+        fullObjectKey: variants.fullObjectKey,
+        fullUrl: variants.fullUrl,
+        blurDataUrl: variants.blurDataUrl,
         sortOrder: dto.sortOrder ?? photoCount
       }
     });
@@ -173,11 +189,56 @@ export class ProfilesService {
       where: { id: photoId }
     });
 
-    if (photo.objectKey) {
-      await this.storage.deleteObject(photo.objectKey);
-    }
+    await this.storage.deleteObjects([
+      photo.objectKey,
+      photo.thumbObjectKey,
+      photo.cardObjectKey,
+      photo.fullObjectKey
+    ]);
 
     return { deleted: true };
+  }
+
+  async backfillMissingPhotoVariants(limit = 50) {
+    const photos = await this.prisma.profilePhoto.findMany({
+      where: {
+        objectKey: { not: null },
+        OR: [{ thumbObjectKey: null }, { cardObjectKey: null }, { fullObjectKey: null }, { blurDataUrl: null }]
+      },
+      orderBy: { createdAt: "asc" },
+      take: Math.max(1, Math.min(limit, 200))
+    });
+    const result = {
+      checked: photos.length,
+      optimized: 0,
+      failed: 0,
+      failures: [] as Array<{ photoId: string; reason: string }>
+    };
+
+    for (const photo of photos) {
+      if (!photo.objectKey) {
+        continue;
+      }
+
+      try {
+        const variants = await this.createOptimizedPhotoVariants(photo.objectKey);
+
+        await this.prisma.profilePhoto.update({
+          where: { id: photo.id },
+          data: variants
+        });
+
+        result.optimized += 1;
+      } catch (error) {
+        result.failed += 1;
+        result.failures.push({
+          photoId: photo.id,
+          reason: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+
+    return result;
   }
 
   private cleanNullableText(value: string | undefined) {
@@ -217,12 +278,91 @@ export class ProfilesService {
     }
   }
 
+  private async createOptimizedPhotoVariants(objectKey: string) {
+    const originalBuffer = await this.storage.getObjectBuffer(objectKey);
+    const baseObjectKey = this.getVariantBaseObjectKey(objectKey);
+
+    const [thumb, card, full, blurDataUrl] = await Promise.all([
+      this.createProfilePhotoVariant(originalBuffer, baseObjectKey, "thumb"),
+      this.createProfilePhotoVariant(originalBuffer, baseObjectKey, "card"),
+      this.createProfilePhotoVariant(originalBuffer, baseObjectKey, "full"),
+      this.createBlurDataUrl(originalBuffer)
+    ]);
+
+    return {
+      thumbObjectKey: thumb.objectKey,
+      thumbUrl: thumb.url,
+      cardObjectKey: card.objectKey,
+      cardUrl: card.url,
+      fullObjectKey: full.objectKey,
+      fullUrl: full.url,
+      blurDataUrl
+    };
+  }
+
+  private async createProfilePhotoVariant(
+    originalBuffer: Buffer,
+    baseObjectKey: string,
+    variantName: (typeof profilePhotoVariants)[number]["name"]
+  ) {
+    const variant = profilePhotoVariants.find((candidate) => candidate.name === variantName);
+
+    if (!variant) {
+      throw new BadRequestException("Unknown profile photo variant.");
+    }
+
+    const objectKey = `${baseObjectKey}/${variant.name}.webp`;
+    const body = await sharp(originalBuffer, { failOn: "none" })
+      .rotate()
+      .resize({ width: variant.width, withoutEnlargement: true })
+      .webp({ quality: variant.quality, effort: 4 })
+      .toBuffer();
+
+    await this.storage.putObject(objectKey, body, "image/webp");
+
+    return {
+      objectKey,
+      url: this.storage.buildPublicUrl(objectKey)
+    };
+  }
+
+  private async createBlurDataUrl(originalBuffer: Buffer) {
+    const blurBuffer = await sharp(originalBuffer, { failOn: "none" })
+      .rotate()
+      .resize({ width: 24, withoutEnlargement: true })
+      .webp({ quality: 42, effort: 3 })
+      .toBuffer();
+
+    return `data:image/webp;base64,${blurBuffer.toString("base64")}`;
+  }
+
+  private getVariantBaseObjectKey(objectKey: string) {
+    const lastSlashIndex = objectKey.lastIndexOf("/");
+    const lastDotIndex = objectKey.lastIndexOf(".");
+
+    if (lastDotIndex > lastSlashIndex) {
+      return objectKey.slice(0, lastDotIndex);
+    }
+
+    return objectKey;
+  }
+
   private async withSignedProfilePhotos<
     T extends {
       user: {
         photos: Array<{
           url: string;
           objectKey?: string | null;
+          thumbUrl?: string | null;
+          thumbFallbackUrl?: string | null;
+          thumbObjectKey?: string | null;
+          cardUrl?: string | null;
+          cardFallbackUrl?: string | null;
+          cardObjectKey?: string | null;
+          fullUrl?: string | null;
+          fullFallbackUrl?: string | null;
+          fullObjectKey?: string | null;
+          fallbackUrl?: string | null;
         }>;
       };
     }
