@@ -8,3 +8,6 @@ coverage
 *.log
 .DS_Store
 /awesome-design-md/
+/apps/web/AGENTS.md
+/apps/web/CLAUDE.md
+/docs/
