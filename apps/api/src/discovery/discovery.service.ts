@@ -16,6 +16,8 @@ export class DiscoveryService {
   ) {}
 
   async getCandidates(userId: string) {
+    await this.ensureCurrentProfileReady(userId);
+
     const now = new Date();
     const [actions, blocks, matches] = await Promise.all([
       this.prisma.discoveryActionLog.findMany({
@@ -65,9 +67,14 @@ export class DiscoveryService {
         subscriptionEndsAt: { gt: now },
         profile: {
           is: {
-            discoveryLive: true
+            bio: { not: null },
+            birthDate: { not: null },
+            city: { not: null },
+            state: { not: null },
+            interests: { isEmpty: false }
           }
-        }
+        },
+        photos: { some: {} }
       },
       include: {
         profile: true,
@@ -86,6 +93,7 @@ export class DiscoveryService {
   }
 
   async recordAction(userId: string, dto: DiscoveryActionDto) {
+    await this.ensureCurrentProfileReady(userId);
     await this.ensureActionTarget(userId, dto.targetUserId);
 
     const pair = this.getMatchPair(userId, dto.targetUserId);
@@ -272,9 +280,14 @@ export class DiscoveryService {
         subscriptionEndsAt: { gt: new Date() },
         profile: {
           is: {
-            discoveryLive: true
+            bio: { not: null },
+            birthDate: { not: null },
+            city: { not: null },
+            state: { not: null },
+            interests: { isEmpty: false }
           }
-        }
+        },
+        photos: { some: {} }
       },
       select: { id: true }
     });
@@ -295,6 +308,40 @@ export class DiscoveryService {
 
     if (existingBlock) {
       throw new ForbiddenException("This profile is no longer available.");
+    }
+  }
+
+  private async ensureCurrentProfileReady(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        profile: {
+          select: {
+            bio: true,
+            birthDate: true,
+            city: true,
+            state: true,
+            interests: true
+          }
+        },
+        photos: {
+          select: { id: true },
+          take: 1
+        }
+      }
+    });
+
+    const profile = user?.profile;
+    const isReady =
+      Boolean(profile?.bio?.trim()) &&
+      Boolean(profile?.birthDate) &&
+      Boolean(profile?.city?.trim()) &&
+      Boolean(profile?.state?.trim()) &&
+      Boolean(profile?.interests.length) &&
+      Boolean(user?.photos.length);
+
+    if (!isReady) {
+      throw new ForbiddenException("Complete your profile setup before using discovery.");
     }
   }
 

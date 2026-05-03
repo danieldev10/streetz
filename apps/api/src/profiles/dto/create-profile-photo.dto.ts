@@ -11,6 +11,6 @@ export class CreateProfilePhotoDto {
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(5)
+  @Max(3)
   sortOrder?: number;
 }

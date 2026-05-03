@@ -3,7 +3,6 @@ import { Gender } from "@prisma/client";
 import {
   ArrayMaxSize,
   IsArray,
-  IsBoolean,
   IsEnum,
   IsISO8601,
   IsOptional,
@@ -47,9 +46,4 @@ export class UpdateProfileDto {
   @IsString({ each: true })
   @MaxLength(32, { each: true })
   interests?: string[];
-
-  @ApiPropertyOptional({ example: true })
-  @IsOptional()
-  @IsBoolean()
-  discoveryLive?: boolean;
 }

@@ -7,7 +7,7 @@ import { CreateProfilePhotoDto } from "./dto/create-profile-photo.dto";
 import { PresignProfilePhotoDto } from "./dto/presign-profile-photo.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 
-const MAX_PROFILE_PHOTOS = 6;
+const MAX_PROFILE_PHOTOS = 4;
 const PHOTO_UPLOAD_EXPIRES_SECONDS = 300;
 
 const contentTypeExtensions: Record<string, string> = {
@@ -75,7 +75,7 @@ export class ProfilesService {
       city: null,
       state: null,
       interests: [],
-      discoveryLive: false,
+      discoveryLive: true,
       createdAt: null,
       updatedAt: null,
       user
@@ -96,7 +96,7 @@ export class ProfilesService {
         city: this.cleanNullableText(dto.city),
         state: this.cleanNullableText(dto.state),
         interests: interests ?? [],
-        discoveryLive: dto.discoveryLive ?? false
+        discoveryLive: true
       },
       update: {
         bio: dto.bio === undefined ? undefined : this.cleanNullableText(dto.bio),
@@ -105,7 +105,7 @@ export class ProfilesService {
         city: dto.city === undefined ? undefined : this.cleanNullableText(dto.city),
         state: dto.state === undefined ? undefined : this.cleanNullableText(dto.state),
         interests,
-        discoveryLive: dto.discoveryLive
+        discoveryLive: true
       },
       include: {
         user: {

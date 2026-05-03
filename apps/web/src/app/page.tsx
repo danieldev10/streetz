@@ -8,6 +8,7 @@ import {
   Ban,
   CalendarDays,
   Camera,
+  Eye,
   Flag,
   Heart,
   LoaderCircle,
@@ -125,6 +126,8 @@ type MatchThread = DiscoveryMatch & {
 
 type TabKey = "discovery" | "matches" | "profile" | "rooms" | "events";
 type DiscoveryActionName = "LIKE" | "PASS";
+type ProfileGateState = "checking" | "required" | "ready";
+type ProfileTabMode = "normal" | "setup";
 
 const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "discovery", label: "Discover", icon: Heart },
@@ -295,6 +298,86 @@ function getProfilePhotoFallbackUrl(photo: ProfilePhoto | undefined, variant: "t
 
 function getCandidatePhotoUrl(candidate: DiscoveryCandidate | undefined, variant: "thumb" | "card" | "full" = "card") {
   return getProfilePhotoUrl(candidate?.photos[0], variant);
+}
+
+function getProfileSetupIssuesFromForm(
+  form: {
+    bio: string;
+    birthDate: string;
+    city: string;
+    state: string;
+    interests: string;
+  },
+  photoCount: number
+) {
+  const interests = form.interests
+    .split(",")
+    .map((interest) => interest.trim())
+    .filter(Boolean);
+  const issues: string[] = [];
+
+  if (photoCount < 1) {
+    issues.push("add at least one profile photo");
+  }
+
+  if (!form.bio.trim()) {
+    issues.push("write a bio");
+  }
+
+  if (!form.birthDate) {
+    issues.push("add your birth date");
+  }
+
+  if (!form.city.trim()) {
+    issues.push("add your city");
+  }
+
+  if (!form.state.trim()) {
+    issues.push("add your state");
+  }
+
+  if (interests.length < 1) {
+    issues.push("add at least one interest");
+  }
+
+  return issues;
+}
+
+function getProfileSetupIssues(profile: StreetzProfile | null | undefined) {
+  if (!profile) {
+    return ["set up your profile"];
+  }
+
+  return getProfileSetupIssuesFromForm(
+    {
+      bio: profile.bio ?? "",
+      birthDate: profile.birthDate ? profile.birthDate.slice(0, 10) : "",
+      city: profile.city ?? "",
+      state: profile.state ?? "",
+      interests: profile.interests.join(", "),
+    },
+    profile.user.photos.length
+  );
+}
+
+function isProfileReadyForDiscovery(profile: StreetzProfile | null | undefined) {
+  return getProfileSetupIssues(profile).length === 0;
+}
+
+function formatProfileSetupIssues(issues: string[]) {
+  if (issues.length === 0) {
+    return "";
+  }
+
+  if (issues.length === 1) {
+    return issues[0];
+  }
+
+  if (issues.length === 2) {
+    return `${issues[0]} and ${issues[1]}`;
+  }
+
+  return `${issues.slice(0, -1).join(", ")}, and ${issues.at(-1)}`;
 }
 
 function mergeCandidateDeck(
@@ -694,7 +777,7 @@ export default function Home() {
     );
   }
 
-  return <MemberApp user={user} token={token ?? ""} onLogout={logout} />;
+  return <MemberApp key={user.id} user={user} token={token ?? ""} onLogout={logout} />;
 }
 
 function CenteredShell({ title, subtitle }: { title: string; subtitle: string }) {
@@ -889,8 +972,20 @@ function PaywallShell({
 }
 
 function MemberApp({ user, token, onLogout }: { user: StreetzUser; token: string; onLogout: () => void }) {
+  const shouldRequireProfileSetup = user.role === "USER";
   const [activeTab, setActiveTab] = useState<TabKey>("discovery");
+  const [profileGateState, setProfileGateState] = useState<ProfileGateState>(
+    shouldRequireProfileSetup ? "checking" : "ready"
+  );
+  const [profileGateNotice, setProfileGateNotice] = useState<string | null>(null);
   const [matchActivityCount, setMatchActivityCount] = useState(0);
+
+  function handleProfileReady() {
+    setProfileGateNotice(null);
+    setProfileGateState("ready");
+    setActiveTab("discovery");
+    void refreshMatchActivity({ seedIfNeeded: true });
+  }
 
   async function refreshMatchActivity(options: { seedIfNeeded?: boolean } = {}) {
     const { seedIfNeeded = false } = options;
@@ -926,6 +1021,54 @@ function MemberApp({ user, token, onLogout }: { user: StreetzUser; token: string
   }
 
   useEffect(() => {
+    if (!shouldRequireProfileSetup) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function checkProfileGate() {
+      try {
+        const profileResponse = await apiRequest<StreetzProfile | null>("/profiles/me", {
+          headers: authHeaders(token),
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (isProfileReadyForDiscovery(profileResponse)) {
+          setProfileGateNotice(null);
+          setProfileGateState("ready");
+          return;
+        }
+
+        setActiveTab("profile");
+        setProfileGateNotice(null);
+        setProfileGateState("required");
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setActiveTab("profile");
+        setProfileGateNotice(error instanceof Error ? error.message : "Unable to verify your profile setup.");
+        setProfileGateState("required");
+      }
+    }
+
+    void checkProfileGate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, shouldRequireProfileSetup]);
+
+  useEffect(() => {
+    if (profileGateState !== "ready") {
+      return undefined;
+    }
+
     const timer = window.setTimeout(() => {
       void refreshMatchActivity({ seedIfNeeded: true });
     }, 0);
@@ -939,58 +1082,87 @@ function MemberApp({ user, token, onLogout }: { user: StreetzUser; token: string
       window.clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, user.id]);
+  }, [token, user.id, profileGateState]);
 
   return (
     <main className="min-h-screen bg-white text-[#0d0d0d]">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-white px-4 py-5 md:block">
           <AppBrand user={user} onLogout={onLogout} />
-          <nav className="mt-8 grid gap-2">
+          {profileGateState === "ready" ? (
+            <nav className="mt-8 grid gap-2">
+              {tabs.map((tab) => (
+                <AppNavButton
+                  key={tab.id}
+                  tab={tab}
+                  active={activeTab === tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  variant="side"
+                  badgeCount={tab.id === "matches" ? matchActivityCount : 0}
+                />
+              ))}
+            </nav>
+          ) : (
+            <div className="mt-8 rounded-[18px] bg-[#d4fae8] p-4 text-sm font-medium leading-6 text-[#0b7a50]">
+              Complete your profile setup to unlock discovery, matches, rooms, and events.
+            </div>
+          )}
+        </aside>
+
+        <section className={`min-w-0 flex-1 ${profileGateState === "ready" ? "pb-24 md:pb-0" : "pb-8"}`}>
+          <MobileHeader user={user} onLogout={onLogout} />
+          {profileGateState === "checking" ? (
+            <div className="px-5 py-8 md:px-8">
+              <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05]">
+                <div className="text-center">
+                  <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
+                  <p className="mt-3 text-sm font-medium text-[#666666]">Checking profile setup</p>
+                </div>
+              </div>
+            </div>
+          ) : profileGateState === "required" ? (
+            <ProfileTab
+              token={token}
+              user={user}
+              mode="setup"
+              setupNotice={profileGateNotice}
+              onProfileReady={handleProfileReady}
+            />
+          ) : (
+            <>
+              {activeTab === "discovery" ? <DiscoveryTab token={token} onMatchCreated={handleMatchCreated} /> : null}
+              {activeTab === "matches" ? (
+                <MatchesTab
+                  token={token}
+                  user={user}
+                  onMatchesLoaded={handleMatchesLoaded}
+                  onMatchOpened={handleMatchOpened}
+                />
+              ) : null}
+              {activeTab === "profile" ? <ProfileTab token={token} user={user} /> : null}
+              {activeTab === "rooms" ? <RoomsTab /> : null}
+              {activeTab === "events" ? <EventsTab /> : null}
+            </>
+          )}
+        </section>
+      </div>
+
+      {profileGateState === "ready" ? (
+        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.05] bg-white/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
+          <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
             {tabs.map((tab) => (
               <AppNavButton
                 key={tab.id}
                 tab={tab}
                 active={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                variant="side"
+                variant="bottom"
                 badgeCount={tab.id === "matches" ? matchActivityCount : 0}
               />
             ))}
-          </nav>
-        </aside>
-
-        <section className="min-w-0 flex-1 pb-24 md:pb-0">
-          <MobileHeader user={user} onLogout={onLogout} />
-          {activeTab === "discovery" ? <DiscoveryTab token={token} onMatchCreated={handleMatchCreated} /> : null}
-          {activeTab === "matches" ? (
-            <MatchesTab
-              token={token}
-              user={user}
-              onMatchesLoaded={handleMatchesLoaded}
-              onMatchOpened={handleMatchOpened}
-            />
-          ) : null}
-          {activeTab === "profile" ? <ProfileTab token={token} user={user} /> : null}
-          {activeTab === "rooms" ? <RoomsTab /> : null}
-          {activeTab === "events" ? <EventsTab /> : null}
-        </section>
-      </div>
-
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.05] bg-white/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
-          {tabs.map((tab) => (
-            <AppNavButton
-              key={tab.id}
-              tab={tab}
-              active={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              variant="bottom"
-              badgeCount={tab.id === "matches" ? matchActivityCount : 0}
-            />
-          ))}
-        </div>
-      </nav>
+          </div>
+        </nav>
+      ) : null}
     </main>
   );
 }
@@ -1114,9 +1286,24 @@ function ScreenHeader({
   );
 }
 
-function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
+function ProfileTab({
+  token,
+  user,
+  mode = "normal",
+  setupNotice,
+  onProfileReady,
+}: {
+  token: string;
+  user: StreetzUser;
+  mode?: ProfileTabMode;
+  setupNotice?: string | null;
+  onProfileReady?: (profile: StreetzProfile) => void;
+}) {
+  const isSetupMode = mode === "setup";
   const [profile, setProfile] = useState<StreetzProfile | null>(null);
-  const [profileView, setProfileView] = useState<"overview" | "edit" | "preview">("overview");
+  const [profileView, setProfileView] = useState<"overview" | "edit" | "preview">(
+    isSetupMode ? "edit" : "overview"
+  );
   const [activeProfilePhotoIndex, setActiveProfilePhotoIndex] = useState(0);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -1129,7 +1316,6 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
     city: "",
     state: "",
     interests: "",
-    discoveryLive: false,
   });
 
   const profilePhotos = profile?.user.photos ?? [];
@@ -1155,7 +1341,6 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
       city: profileResponse.city ?? "",
       state: profileResponse.state ?? "",
       interests: profileResponse.interests.join(", "),
-      discoveryLive: profileResponse.discoveryLive,
     });
   }
 
@@ -1179,6 +1364,10 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
 
       if (profileResponse) {
         syncProfileForm(profileResponse);
+
+        if (isSetupMode) {
+          setProfileView("edit");
+        }
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to load profile.");
@@ -1198,10 +1387,32 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  useEffect(() => {
+    if (!setupNotice) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setNotice(setupNotice);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [setupNotice]);
+
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsSavingProfile(true);
     setNotice(null);
+
+    if (isSetupMode) {
+      const setupIssues = getProfileSetupIssuesFromForm(profileForm, visibleProfilePhotos.length);
+
+      if (setupIssues.length > 0) {
+        setNotice(`To continue, ${formatProfileSetupIssues(setupIssues)}.`);
+        return;
+      }
+    }
+
+    setIsSavingProfile(true);
 
     try {
       const savedProfile = await apiRequest<StreetzProfile>("/profiles/me", {
@@ -1217,14 +1428,25 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
             .split(",")
             .map((interest) => interest.trim())
             .filter(Boolean),
-          discoveryLive: profileForm.discoveryLive,
         }),
       });
 
       setProfile(savedProfile);
       syncProfileForm(savedProfile);
+
+      if (isSetupMode) {
+        if (!isProfileReadyForDiscovery(savedProfile)) {
+          const setupIssues = getProfileSetupIssues(savedProfile);
+          setNotice(`To continue, ${formatProfileSetupIssues(setupIssues)}.`);
+          return;
+        }
+
+        onProfileReady?.(savedProfile);
+        return;
+      }
+
       setProfileView("overview");
-      setNotice(savedProfile.discoveryLive ? "Your profile is live in discovery." : "Profile saved.");
+      setNotice("Profile saved.");
       void loadProfile({ clearNotice: false, showLoading: false });
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to save profile.");
@@ -1311,31 +1533,39 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
 
   return (
     <section>
-      {profileView === "overview" ? (
+      {profileView === "overview" && !isSetupMode ? (
         <ScreenHeader
           eyebrow="Profile"
           title="Your Streetz profile."
           action={
             <div className="hidden items-center rounded-full bg-[#d4fae8] px-4 py-2 text-sm font-medium text-[#0fa76e] md:inline-flex">
-              {profileForm.discoveryLive ? "Live" : "Hidden"}
+              Discoverable
             </div>
           }
         />
       ) : (
         <>
-          <div className="px-5 pt-5 md:px-8 md:pt-8">
-            <button
-              className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#0d0d0d]"
-              onClick={closeProfileEditor}
-              aria-label="Back to profile"
-              title="Back"
-            >
-              <ArrowLeft className="size-4" aria-hidden="true" />
-            </button>
-          </div>
+          {!isSetupMode ? (
+            <div className="px-5 pt-5 md:px-8 md:pt-8">
+              <button
+                className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#0d0d0d]"
+                onClick={closeProfileEditor}
+                aria-label="Back to profile"
+                title="Back"
+              >
+                <ArrowLeft className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+          ) : null}
           <ScreenHeader
-            eyebrow="Profile"
-            title={profileView === "edit" ? "Edit your profile." : "Preview your discovery card."}
+            eyebrow={isSetupMode ? "Profile setup" : "Profile"}
+            title={
+              isSetupMode
+                ? "Setup your profile first."
+                : profileView === "edit"
+                  ? "Edit your profile."
+                  : "Preview your discovery card."
+            }
           />
         </>
       )}
@@ -1432,9 +1662,7 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-lg font-semibold">Profile details</p>
-                      <p className="mt-1 text-sm text-[#666666]">
-                        {profile?.discoveryLive ? "Visible in discovery" : "Complete it and go live"}
-                      </p>
+                      <p className="mt-1 text-sm text-[#666666]">Used for discovery and matches</p>
                     </div>
                   </div>
 
@@ -1445,6 +1673,7 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
                       value={profileForm.bio}
                       onChange={(event) => setProfileForm((current) => ({ ...current, bio: event.target.value }))}
                       maxLength={500}
+                      required={isSetupMode}
                     />
                     <div className="grid gap-3 sm:grid-cols-2">
                       <input
@@ -1452,6 +1681,7 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
                         type="date"
                         value={profileForm.birthDate}
                         onChange={(event) => setProfileForm((current) => ({ ...current, birthDate: event.target.value }))}
+                        required={isSetupMode}
                       />
                       <select
                         className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
@@ -1470,12 +1700,14 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
                         placeholder="City"
                         value={profileForm.city}
                         onChange={(event) => setProfileForm((current) => ({ ...current, city: event.target.value }))}
+                        required={isSetupMode}
                       />
                       <input
                         className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                         placeholder="State"
                         value={profileForm.state}
                         onChange={(event) => setProfileForm((current) => ({ ...current, state: event.target.value }))}
+                        required={isSetupMode}
                       />
                     </div>
                     <input
@@ -1483,24 +1715,17 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
                       placeholder="Interests, comma separated"
                       value={profileForm.interests}
                       onChange={(event) => setProfileForm((current) => ({ ...current, interests: event.target.value }))}
+                      required={isSetupMode}
                     />
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <label className="flex items-center gap-2 text-sm font-medium">
-                      <input
-                        type="checkbox"
-                        checked={profileForm.discoveryLive}
-                        onChange={(event) => setProfileForm((current) => ({ ...current, discoveryLive: event.target.checked }))}
-                      />
-                      Discovery live
-                    </label>
+                  <div className="mt-4 flex justify-end">
                     <button
                       className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isSavingProfile}
                     >
                       {isSavingProfile ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                      Save
+                      {isSetupMode ? "Complete setup" : "Save"}
                     </button>
                   </div>
                 </section>
@@ -1568,7 +1793,7 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
                       iconSize="lg"
                     />
                     <div className="absolute left-4 top-4 inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
-                      {profileForm.discoveryLive ? "Live in discovery" : "Hidden from discovery"}
+                      Discoverable
                     </div>
                   </div>
 
@@ -1692,6 +1917,7 @@ function ProfileTab({ token, user }: { token: string; user: StreetzUser }) {
 
 function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatchCreated: () => void }) {
   const [candidates, setCandidates] = useState<DiscoveryCandidate[]>([]);
+  const [viewedCandidate, setViewedCandidate] = useState<DiscoveryCandidate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefilling, setIsRefilling] = useState(false);
   const [actionTargetId, setActionTargetId] = useState<string | null>(null);
@@ -1996,6 +2222,10 @@ function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatchCreated
     }
   }
 
+  if (viewedCandidate) {
+    return <MemberProfileView candidate={viewedCandidate} onBack={() => setViewedCandidate(null)} backLabel="Back to discovery" />;
+  }
+
   return (
     <section>
       <ScreenHeader
@@ -2056,6 +2286,7 @@ function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatchCreated
                       onLike={() => recordDiscoveryAction(candidate, "LIKE")}
                       onPass={() => recordDiscoveryAction(candidate, "PASS")}
                       onReport={() => reportCandidate(candidate.id)}
+                      onViewProfile={() => setViewedCandidate(candidate)}
                       priority={isTopCard}
                       swipeIntent={isTopCard ? swipeIntent : null}
                     />
@@ -2096,6 +2327,7 @@ function DiscoveryCandidateCard({
   onLike,
   onPass,
   onReport,
+  onViewProfile,
   priority,
   swipeIntent,
 }: {
@@ -2105,6 +2337,7 @@ function DiscoveryCandidateCard({
   onLike: () => void;
   onPass: () => void;
   onReport: () => void;
+  onViewProfile: () => void;
   priority: boolean;
   swipeIntent: DiscoveryActionName | null;
 }) {
@@ -2151,10 +2384,20 @@ function DiscoveryCandidateCard({
             </span>
           ))}
         </div>
+        <button
+          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={onViewProfile}
+          onPointerDown={(event) => event.stopPropagation()}
+          disabled={isActionDisabled}
+        >
+          <Eye className="size-4" aria-hidden="true" />
+          View Profile
+        </button>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <button
             className="inline-flex h-12 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onPass}
+            onPointerDown={(event) => event.stopPropagation()}
             disabled={isActionDisabled}
             aria-label="Pass"
             title="Pass"
@@ -2164,6 +2407,7 @@ function DiscoveryCandidateCard({
           <button
             className="inline-flex h-12 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onLike}
+            onPointerDown={(event) => event.stopPropagation()}
             disabled={isActionDisabled}
             aria-label="Like"
             title="Like"
@@ -2175,6 +2419,7 @@ function DiscoveryCandidateCard({
           <button
             className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#fafafa] px-3 text-xs font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onBlock}
+            onPointerDown={(event) => event.stopPropagation()}
             disabled={isActionDisabled}
           >
             <Ban className="size-4" aria-hidden="true" />
@@ -2183,6 +2428,7 @@ function DiscoveryCandidateCard({
           <button
             className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#fafafa] px-3 text-xs font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onReport}
+            onPointerDown={(event) => event.stopPropagation()}
             disabled={isActionDisabled}
           >
             <Flag className="size-4" aria-hidden="true" />
@@ -2191,6 +2437,130 @@ function DiscoveryCandidateCard({
         </div>
       </div>
     </>
+  );
+}
+
+function MemberProfileView({
+  candidate,
+  onBack,
+  backLabel,
+}: {
+  candidate: DiscoveryCandidate;
+  onBack: () => void;
+  backLabel: string;
+}) {
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const visiblePhotos = candidate.photos.slice(0, PROFILE_PHOTO_LIMIT);
+  const safeActivePhotoIndex = activePhotoIndex < visiblePhotos.length ? activePhotoIndex : 0;
+  const activePhoto = visiblePhotos[safeActivePhotoIndex] ?? visiblePhotos[0];
+  const location = [candidate.city, candidate.state].filter(Boolean).join(", ") || "Nigeria";
+
+  return (
+    <section>
+      <div className="px-5 pt-5 md:px-8 md:pt-8">
+        <button
+          className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#0d0d0d]"
+          onClick={onBack}
+          aria-label={backLabel}
+          title="Back"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+      <ScreenHeader
+        eyebrow="Profile"
+        title={`${candidate.displayName}${candidate.age ? `, ${candidate.age}` : ""}`}
+      />
+
+      <div className="px-5 pb-24 md:px-8 md:pb-8">
+        <div className="mx-auto max-w-[560px]">
+          <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
+            <div className="relative aspect-[1.05] min-h-[320px] bg-[#d4fae8]">
+              <ProfilePhotoImage
+                photo={activePhoto}
+                alt={`${candidate.displayName} profile photo`}
+                variant="full"
+                sizes="(max-width: 768px) 100vw, 560px"
+                iconSize="lg"
+              />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5 text-white">
+                {candidate.interests[0] ? (
+                  <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
+                    {candidate.interests[0]}
+                  </span>
+                ) : null}
+                <h2 className="mt-3 text-3xl font-semibold">
+                  {candidate.displayName}
+                  {candidate.age ? `, ${candidate.age}` : ""}
+                </h2>
+                <p className="mt-1 flex items-center gap-1 text-sm font-medium">
+                  <MapPin className="size-4" aria-hidden="true" />
+                  {location}
+                </p>
+              </div>
+            </div>
+
+            {visiblePhotos.length > 1 ? (
+              <div className="grid grid-cols-4 gap-2 p-3">
+                {visiblePhotos.map((photo, index) => {
+                  const isActive = index === safeActivePhotoIndex;
+
+                  return (
+                    <button
+                      key={photo.id}
+                      className={`relative aspect-square overflow-hidden rounded-[16px] border ${
+                        isActive ? "border-[#18E299] ring-2 ring-[#18E299]/30" : "border-black/[0.06]"
+                      }`}
+                      type="button"
+                      onClick={() => setActivePhotoIndex(index)}
+                      aria-label={`Show ${candidate.displayName} photo ${index + 1}`}
+                    >
+                      <ProfilePhotoImage
+                        photo={photo}
+                        alt={`${candidate.displayName} thumbnail ${index + 1}`}
+                        variant="thumb"
+                        sizes="96px"
+                        iconSize="sm"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <div className="px-5 pb-5 pt-2">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Bio</p>
+                <p className="mt-2 text-sm leading-6 text-[#444444]">{candidate.bio || "No bio added yet."}</p>
+              </div>
+
+              <div className="mt-5">
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Location</p>
+                <p className="mt-2 flex items-center gap-1 text-sm font-medium text-[#444444]">
+                  <MapPin className="size-4 text-[#18E299]" aria-hidden="true" />
+                  {location}
+                </p>
+              </div>
+
+              <div className="mt-5">
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Interests</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {candidate.interests.length > 0 ? (
+                    candidate.interests.slice(0, 10).map((interest) => (
+                      <span key={interest} className="rounded-full bg-[#fafafa] px-3 py-1 text-xs font-medium text-[#666666]">
+                        {interest}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-[#777777]">No interests added yet.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -2207,6 +2577,7 @@ function MatchesTab({
 }) {
   const [matches, setMatches] = useState<MatchThread[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [viewedMatchProfile, setViewedMatchProfile] = useState<DiscoveryCandidate | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [messageBody, setMessageBody] = useState("");
   const [matchSearch, setMatchSearch] = useState("");
@@ -2270,6 +2641,7 @@ function MatchesTab({
 
     setNotice(null);
     setSelectedMatchId(matchId);
+    setViewedMatchProfile(null);
 
     if (match) {
       onMatchOpened(match);
@@ -2279,6 +2651,7 @@ function MatchesTab({
 
   function closeMatch() {
     setSelectedMatchId(null);
+    setViewedMatchProfile(null);
     setMessages([]);
     setMessageBody("");
     setNotice(null);
@@ -2451,6 +2824,16 @@ function MatchesTab({
     );
   }
 
+  if (selectedMatch && viewedMatchProfile) {
+    return (
+      <MemberProfileView
+        candidate={viewedMatchProfile}
+        onBack={() => setViewedMatchProfile(null)}
+        backLabel="Back to chat"
+      />
+    );
+  }
+
   if (selectedMatch) {
     return (
       <section className="px-0 md:px-8 md:py-8">
@@ -2466,16 +2849,23 @@ function MatchesTab({
               <ArrowLeft className="size-4" aria-hidden="true" />
             </button>
 
-            <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
-              <CandidatePhoto candidate={selectedMatch.user} variant="thumb" />
-            </div>
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-[18px] p-1 text-left transition hover:bg-[#fafafa]"
+              onClick={() => setViewedMatchProfile(selectedMatch.user)}
+              aria-label={`View ${selectedMatch.user.displayName} profile`}
+            >
+              <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                <CandidatePhoto candidate={selectedMatch.user} variant="thumb" />
+              </div>
 
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg font-semibold">{selectedMatch.user.displayName}</h1>
-              <p className="truncate text-sm text-[#666666]">
-                {[selectedMatch.user.city, selectedMatch.user.state].filter(Boolean).join(", ") || "Nigeria"}
-              </p>
-            </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-lg font-semibold">{selectedMatch.user.displayName}</h1>
+                <p className="truncate text-sm text-[#666666]">
+                  {[selectedMatch.user.city, selectedMatch.user.state].filter(Boolean).join(", ") || "Nigeria"}
+                </p>
+              </div>
+            </button>
 
             <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
               <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
@@ -2498,9 +2888,14 @@ function MatchesTab({
                   return (
                     <div key={message.id} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
                       {!isMine ? (
-                        <div className="relative size-7 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                        <button
+                          type="button"
+                          className="relative size-7 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]"
+                          onClick={() => setViewedMatchProfile(selectedMatch.user)}
+                          aria-label={`View ${selectedMatch.user.displayName} profile`}
+                        >
                           <CandidatePhoto candidate={selectedMatch.user} variant="thumb" />
-                        </div>
+                        </button>
                       ) : null}
                       <div
                         className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${

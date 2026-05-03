@@ -107,7 +107,7 @@ model Profile {
   city          String?
   state         String?
   interests     String[]  @default([])
-  discoveryLive Boolean   @default(false)
+  discoveryLive Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }

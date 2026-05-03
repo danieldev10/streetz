@@ -245,7 +245,7 @@ export class MessagesService {
         profile: true,
         photos: {
           orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
-          take: 1
+          take: 6
         }
       }
     };
