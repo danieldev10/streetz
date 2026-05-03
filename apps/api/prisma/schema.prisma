@@ -25,6 +25,13 @@ enum Gender {
   PREFER_NOT_TO_SAY
 }
 
+enum ConnectionStatus {
+  MEET_NOW
+  FWB
+  JUST_FRIENDS
+  DATING
+}
+
 enum DiscoveryAction {
   LIKE
   PASS
@@ -98,18 +105,21 @@ model User {
 }
 
 model Profile {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bio           String?
-  birthDate     DateTime?
-  gender        Gender?
-  city          String?
-  state         String?
-  interests     String[]  @default([])
-  discoveryLive Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id               String            @id @default(cuid())
+  userId           String            @unique
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio              String?
+  birthDate        DateTime?
+  gender           Gender?
+  connectionStatus ConnectionStatus?
+  city             String?
+  state            String?
+  interests        String[]          @default([])
+  discoveryLive    Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([connectionStatus])
 }
 
 model ProfilePhoto {

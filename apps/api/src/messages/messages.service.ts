@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { MatchStatus, SubscriptionStatus } from "@prisma/client";
+import { ConnectionStatus, MatchStatus, SubscriptionStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 
@@ -11,6 +11,7 @@ type CandidateUser = {
   profile: {
     bio: string | null;
     birthDate: Date | null;
+    connectionStatus: ConnectionStatus | null;
     city: string | null;
     state: string | null;
     interests: string[];
@@ -208,6 +209,7 @@ export class MessagesService {
       displayName: candidate.displayName,
       age: candidate.profile?.birthDate ? this.calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,
+      connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
       state: candidate.profile?.state ?? null,
       interests: candidate.profile?.interests ?? [],

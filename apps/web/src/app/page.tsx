@@ -61,6 +61,7 @@ type AuthResponse = {
 };
 
 type Gender = "WOMAN" | "MAN" | "NON_BINARY" | "PREFER_NOT_TO_SAY";
+type ConnectionStatus = "MEET_NOW" | "FWB" | "JUST_FRIENDS" | "DATING";
 
 type ProfilePhoto = {
   id: string;
@@ -81,6 +82,7 @@ type StreetzProfile = {
   bio: string | null;
   birthDate: string | null;
   gender: Gender | null;
+  connectionStatus: ConnectionStatus | null;
   city: string | null;
   state: string | null;
   interests: string[];
@@ -98,6 +100,7 @@ type DiscoveryCandidate = {
   displayName: string;
   age: number | null;
   bio: string | null;
+  connectionStatus: ConnectionStatus | null;
   city: string | null;
   state: string | null;
   interests: string[];
@@ -136,6 +139,20 @@ const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "rooms", label: "Rooms", icon: MessageCircle },
   { id: "events", label: "Events", icon: Ticket },
 ];
+
+const connectionStatusOptions: Array<{ value: ConnectionStatus; label: string }> = [
+  { value: "MEET_NOW", label: "Meet Now" },
+  { value: "FWB", label: "FWB" },
+  { value: "JUST_FRIENDS", label: "Just Friends" },
+  { value: "DATING", label: "Dating" },
+];
+
+const connectionStatusLabels: Record<ConnectionStatus, string> = {
+  MEET_NOW: "Meet Now",
+  FWB: "FWB",
+  JUST_FRIENDS: "Just Friends",
+  DATING: "Dating",
+};
 
 const rooms = [
   {
@@ -300,10 +317,15 @@ function getCandidatePhotoUrl(candidate: DiscoveryCandidate | undefined, variant
   return getProfilePhotoUrl(candidate?.photos[0], variant);
 }
 
+function formatConnectionStatus(status: ConnectionStatus | null | undefined) {
+  return status ? connectionStatusLabels[status] : "Streetz member";
+}
+
 function getProfileSetupIssuesFromForm(
   form: {
     bio: string;
     birthDate: string;
+    connectionStatus: ConnectionStatus | "";
     city: string;
     state: string;
     interests: string;
@@ -326,6 +348,10 @@ function getProfileSetupIssuesFromForm(
 
   if (!form.birthDate) {
     issues.push("add your birth date");
+  }
+
+  if (!form.connectionStatus) {
+    issues.push("choose your status");
   }
 
   if (!form.city.trim()) {
@@ -352,6 +378,7 @@ function getProfileSetupIssues(profile: StreetzProfile | null | undefined) {
     {
       bio: profile.bio ?? "",
       birthDate: profile.birthDate ? profile.birthDate.slice(0, 10) : "",
+      connectionStatus: profile.connectionStatus ?? "",
       city: profile.city ?? "",
       state: profile.state ?? "",
       interests: profile.interests.join(", "),
@@ -1313,6 +1340,7 @@ function ProfileTab({
     bio: "",
     birthDate: "",
     gender: "PREFER_NOT_TO_SAY" as Gender,
+    connectionStatus: "" as ConnectionStatus | "",
     city: "",
     state: "",
     interests: "",
@@ -1328,6 +1356,7 @@ function ProfileTab({
   const nextAvailablePhotoSlot = Math.min(visibleProfilePhotos.length, PROFILE_PHOTO_LIMIT - 1);
   const profileAge = getAgeFromBirthDate(profileForm.birthDate);
   const profileLocation = [profileForm.city, profileForm.state].filter(Boolean).join(", ") || "Nigeria";
+  const profileStatusLabel = profileForm.connectionStatus ? formatConnectionStatus(profileForm.connectionStatus) : "Set status";
   const previewInterests = profileForm.interests
     .split(",")
     .map((interest) => interest.trim())
@@ -1338,6 +1367,7 @@ function ProfileTab({
       bio: profileResponse.bio ?? "",
       birthDate: profileResponse.birthDate ? profileResponse.birthDate.slice(0, 10) : "",
       gender: profileResponse.gender ?? "PREFER_NOT_TO_SAY",
+      connectionStatus: profileResponse.connectionStatus ?? "",
       city: profileResponse.city ?? "",
       state: profileResponse.state ?? "",
       interests: profileResponse.interests.join(", "),
@@ -1422,6 +1452,7 @@ function ProfileTab({
           bio: profileForm.bio,
           birthDate: profileForm.birthDate || undefined,
           gender: profileForm.gender,
+          connectionStatus: profileForm.connectionStatus || undefined,
           city: profileForm.city,
           state: profileForm.state,
           interests: profileForm.interests
@@ -1675,6 +1706,26 @@ function ProfileTab({
                       maxLength={500}
                       required={isSetupMode}
                     />
+                    <select
+                      className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                      value={profileForm.connectionStatus}
+                      onChange={(event) =>
+                        setProfileForm((current) => ({
+                          ...current,
+                          connectionStatus: event.target.value as ConnectionStatus | "",
+                        }))
+                      }
+                      required={isSetupMode}
+                    >
+                      <option value="" disabled>
+                        Choose status
+                      </option>
+                      {connectionStatusOptions.map((status) => (
+                        <option key={status.value} value={status.value}>
+                          {status.label}
+                        </option>
+                      ))}
+                    </select>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <input
                         className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
@@ -1751,11 +1802,9 @@ function ProfileTab({
                     </div>
                   ) : null}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-5 text-white">
-                    {previewInterests[0] ? (
-                      <div className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
-                        {previewInterests[0]}
-                      </div>
-                    ) : null}
+                    <div className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
+                      {profileStatusLabel}
+                    </div>
                     <h2 className="mt-3 text-3xl font-semibold">
                       {user.displayName}
                       {profileAge ? `, ${profileAge}` : ""}
@@ -1793,7 +1842,7 @@ function ProfileTab({
                       iconSize="lg"
                     />
                     <div className="absolute left-4 top-4 inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
-                      Discoverable
+                      {profileStatusLabel}
                     </div>
                   </div>
 
@@ -1846,6 +1895,11 @@ function ProfileTab({
                       <span className="shrink-0 rounded-full bg-[#d4fae8] px-3 py-1 text-xs font-medium text-[#0fa76e]">
                         {visibleProfilePhotos.length} photo{visibleProfilePhotos.length === 1 ? "" : "s"}
                       </span>
+                    </div>
+
+                    <div className="mt-5">
+                      <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Status</p>
+                      <p className="mt-2 text-sm font-medium text-[#444444]">{profileStatusLabel}</p>
                     </div>
 
                     <div className="mt-5">
@@ -2363,7 +2417,7 @@ function DiscoveryCandidateCard({
         </div>
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-5 text-white">
           <div className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
-            {candidate.interests[0] ?? "Streetz member"}
+            {formatConnectionStatus(candidate.connectionStatus)}
           </div>
           <h2 className="mt-3 text-3xl font-semibold">
             {candidate.displayName}
@@ -2484,11 +2538,9 @@ function MemberProfileView({
                 iconSize="lg"
               />
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5 text-white">
-                {candidate.interests[0] ? (
-                  <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
-                    {candidate.interests[0]}
-                  </span>
-                ) : null}
+                <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
+                  {formatConnectionStatus(candidate.connectionStatus)}
+                </span>
                 <h2 className="mt-3 text-3xl font-semibold">
                   {candidate.displayName}
                   {candidate.age ? `, ${candidate.age}` : ""}
@@ -2532,6 +2584,13 @@ function MemberProfileView({
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Bio</p>
                 <p className="mt-2 text-sm leading-6 text-[#444444]">{candidate.bio || "No bio added yet."}</p>
+              </div>
+
+              <div className="mt-5">
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Status</p>
+                <p className="mt-2 text-sm font-medium text-[#444444]">
+                  {formatConnectionStatus(candidate.connectionStatus)}
+                </p>
               </div>
 
               <div className="mt-5">

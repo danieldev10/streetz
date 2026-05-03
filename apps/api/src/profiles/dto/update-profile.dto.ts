@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Gender } from "@prisma/client";
+import { ConnectionStatus, Gender } from "@prisma/client";
 import {
   ArrayMaxSize,
   IsArray,
@@ -26,6 +26,11 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;
+
+  @ApiPropertyOptional({ enum: ConnectionStatus })
+  @IsOptional()
+  @IsEnum(ConnectionStatus)
+  connectionStatus?: ConnectionStatus;
 
   @ApiPropertyOptional({ example: "Lagos" })
   @IsOptional()

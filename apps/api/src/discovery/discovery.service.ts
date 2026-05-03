@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { DiscoveryAction, MatchStatus, SubscriptionStatus, UserRole } from "@prisma/client";
+import { ConnectionStatus, DiscoveryAction, MatchStatus, SubscriptionStatus, UserRole } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { BlockUserDto } from "./dto/block-user.dto";
@@ -16,7 +16,7 @@ export class DiscoveryService {
   ) {}
 
   async getCandidates(userId: string) {
-    await this.ensureCurrentProfileReady(userId);
+    const currentProfile = await this.ensureCurrentProfileReady(userId);
 
     const now = new Date();
     const [actions, blocks, matches] = await Promise.all([
@@ -71,6 +71,7 @@ export class DiscoveryService {
             birthDate: { not: null },
             city: { not: null },
             state: { not: null },
+            connectionStatus: currentProfile.connectionStatus,
             interests: { isEmpty: false }
           }
         },
@@ -93,8 +94,8 @@ export class DiscoveryService {
   }
 
   async recordAction(userId: string, dto: DiscoveryActionDto) {
-    await this.ensureCurrentProfileReady(userId);
-    await this.ensureActionTarget(userId, dto.targetUserId);
+    const currentProfile = await this.ensureCurrentProfileReady(userId);
+    await this.ensureActionTarget(userId, dto.targetUserId, currentProfile.connectionStatus);
 
     const pair = this.getMatchPair(userId, dto.targetUserId);
 
@@ -269,7 +270,7 @@ export class DiscoveryService {
     };
   }
 
-  private async ensureActionTarget(userId: string, targetUserId: string) {
+  private async ensureActionTarget(userId: string, targetUserId: string, connectionStatus: ConnectionStatus) {
     this.ensureDifferentUsers(userId, targetUserId);
 
     const target = await this.prisma.user.findFirst({
@@ -284,6 +285,7 @@ export class DiscoveryService {
             birthDate: { not: null },
             city: { not: null },
             state: { not: null },
+            connectionStatus,
             interests: { isEmpty: false }
           }
         },
@@ -319,6 +321,7 @@ export class DiscoveryService {
           select: {
             bio: true,
             birthDate: true,
+            connectionStatus: true,
             city: true,
             state: true,
             interests: true
@@ -332,17 +335,23 @@ export class DiscoveryService {
     });
 
     const profile = user?.profile;
+    const connectionStatus = profile?.connectionStatus;
     const isReady =
       Boolean(profile?.bio?.trim()) &&
       Boolean(profile?.birthDate) &&
+      Boolean(connectionStatus) &&
       Boolean(profile?.city?.trim()) &&
       Boolean(profile?.state?.trim()) &&
       Boolean(profile?.interests.length) &&
       Boolean(user?.photos.length);
 
-    if (!isReady) {
+    if (!isReady || !connectionStatus) {
       throw new ForbiddenException("Complete your profile setup before using discovery.");
     }
+
+    return {
+      connectionStatus
+    };
   }
 
   private ensureDifferentUsers(userId: string, targetUserId: string) {
@@ -377,6 +386,7 @@ export class DiscoveryService {
     profile: {
       bio: string | null;
       birthDate: Date | null;
+      connectionStatus: ConnectionStatus | null;
       city: string | null;
       state: string | null;
       interests: string[];
@@ -399,6 +409,7 @@ export class DiscoveryService {
       displayName: candidate.displayName,
       age: candidate.profile?.birthDate ? this.calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,
+      connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
       state: candidate.profile?.state ?? null,
       interests: candidate.profile?.interests ?? [],
