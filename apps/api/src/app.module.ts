@@ -8,6 +8,7 @@ import { MessagesModule } from "./messages/messages.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { ProfilesModule } from "./profiles/profiles.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { RoomsModule } from "./rooms/rooms.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
@@ -28,7 +29,8 @@ import { UsersModule } from "./users/users.module";
     PaymentsModule,
     ProfilesModule,
     DiscoveryModule,
-    MessagesModule
+    MessagesModule,
+    RoomsModule
   ]
 })
 export class AppModule {}

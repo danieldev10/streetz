@@ -1,31 +1,30 @@
 # Streetz
 
-Streetz is a prototype for a Nigerian-focused social membership platform with three core modules:
+Streetz is a Nigerian-focused social membership platform for paid community access, social discovery, public rooms, and event experiences.
 
-- Social discovery and dating-style matching
-- Admin-created public chat rooms
-- Admin-managed events and ticketing
+The product combines member profiles, status-based discovery, matching, direct messaging, public community spaces, subscriptions, and ticketed events behind a web-first experience.
 
 ## Stack
 
-- Next.js frontend
-- NestJS API
-- PostgreSQL with Prisma
-- Redis-ready infrastructure
-- S3-compatible media storage
-- Paystack payments
-- AWS-ready deployment boundaries
+- Frontend: Next.js, React, TypeScript, Tailwind CSS
+- Backend: NestJS, TypeScript
+- Database: PostgreSQL with Prisma
+- Realtime: Socket.IO with Redis adapter support
+- Media: S3-compatible object storage with CDN-ready delivery
+- Payments: Paystack
+- Infrastructure: Docker Compose for local Postgres and Redis
 
-## First Build Slices
+## Architecture
 
-1. Foundation: app shell, API health, configuration, Prisma schema
-2. Auth and roles: users, admins, JWT, subscription status
-3. Payments: Paystack subscription and event ticket webhooks
-4. Profiles and discovery: photos, preferences, likes, passes, matches
-5. Public chat rooms: admin-created rooms, real-time messages, moderation
-6. Events and tickets: event CRUD, ticket purchase, QR/code validation
+Streetz is organized as a small monorepo:
 
-## Local Apps
+- `apps/web`: Next.js application and user interface
+- `apps/api`: NestJS API, Prisma schema, migrations, and service modules
+- `docker-compose.yml`: local Postgres and Redis services
+
+The browser talks to the NestJS API over HTTP and Socket.IO. The API owns authentication, subscription checks, profile and discovery rules, payments, media orchestration, and database access. PostgreSQL stores core application data, Redis supports realtime scaling, and object storage handles profile media.
+
+## Local Development
 
 ```bash
 npm run web:dev
@@ -42,5 +41,3 @@ npm --prefix apps/api run prisma:migrate
 ```
 
 Local env files live at `apps/api/.env` and `apps/web/.env`.
-
-The module-by-module roadmap lives in `docs/MODULE_ROADMAP.md`.
