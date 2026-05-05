@@ -5,6 +5,7 @@ import { AuthModule } from "./auth/auth.module";
 import { DiscoveryModule } from "./discovery/discovery.module";
 import { HealthModule } from "./health/health.module";
 import { MessagesModule } from "./messages/messages.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { ProfilesModule } from "./profiles/profiles.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -30,7 +31,8 @@ import { UsersModule } from "./users/users.module";
     ProfilesModule,
     DiscoveryModule,
     MessagesModule,
-    RoomsModule
+    RoomsModule,
+    NotificationsModule
   ]
 })
 export class AppModule {}

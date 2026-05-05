@@ -8,7 +8,6 @@ import {
   ArrowRight,
   LoaderCircle,
   LogOut,
-  MapPin,
   MessageCircle,
   RefreshCw,
   SendHorizontal,
@@ -17,16 +16,38 @@ import {
 } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
+import { buildDatedMessageItems } from "@/lib/chat-dates";
 import type { ChatRoom, RoomMessage, StreetzUser } from "@/lib/types";
 
 type RoomViewMode = "explore" | "joined";
 
-export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) {
+function getRoomActivityTime(room: ChatRoom) {
+  return Date.parse(room.updatedAt) || Date.parse(room.createdAt) || 0;
+}
+
+function getRoomMessageTime(message: RoomMessage) {
+  return Date.parse(message.createdAt) || 0;
+}
+
+export function RoomsTab({
+  token,
+  user,
+  onRoomsLoaded,
+  onRoomOpened,
+  onNotificationsChanged,
+}: {
+  token: string;
+  user: StreetzUser;
+  onRoomsLoaded: (rooms: ChatRoom[]) => void;
+  onRoomOpened: (room: ChatRoom) => void;
+  onNotificationsChanged: () => void;
+}) {
   const isAdmin = user.role === "ADMIN";
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [pendingJoinRoom, setPendingJoinRoom] = useState<ChatRoom | null>(null);
-  const [viewMode, setViewMode] = useState<RoomViewMode>("explore");
+  const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<RoomViewMode>("joined");
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [messageBody, setMessageBody] = useState("");
   const [isLoadingRooms, setIsLoadingRooms] = useState(true);
@@ -39,13 +60,26 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
   const socketRef = useRef<Socket | null>(null);
   const selectedRoomIdRef = useRef<string | null>(selectedRoomId);
   const roomMessageIdsRef = useRef<Set<string>>(new Set());
+  const messageScrollerRef = useRef<HTMLDivElement | null>(null);
+  const onRoomsLoadedRef = useRef(onRoomsLoaded);
+  const onNotificationsChangedRef = useRef(onNotificationsChanged);
 
   const selectedRoom = useMemo(
     () => rooms.find((room) => room.id === selectedRoomId) ?? null,
     [rooms, selectedRoomId]
   );
-  const joinedRooms = rooms.filter((room) => room.hasJoined);
-  const exploreRooms = isAdmin ? rooms : rooms.filter((room) => !room.hasJoined);
+  const displayedMessages = useMemo(
+    () => [...messages].sort((first, second) => getRoomMessageTime(first) - getRoomMessageTime(second)),
+    [messages]
+  );
+  const datedMessages = useMemo(() => buildDatedMessageItems(displayedMessages), [displayedMessages]);
+  const latestDisplayedMessageId = displayedMessages[displayedMessages.length - 1]?.id ?? null;
+  const orderedRooms = useMemo(
+    () => [...rooms].sort((first, second) => getRoomActivityTime(second) - getRoomActivityTime(first)),
+    [rooms]
+  );
+  const joinedRooms = orderedRooms.filter((room) => room.hasJoined);
+  const exploreRooms = isAdmin ? orderedRooms : orderedRooms.filter((room) => !room.hasJoined);
   const visibleRooms = viewMode === "joined" && !isAdmin ? joinedRooms : exploreRooms;
 
   async function loadRooms(options: { clearNotice?: boolean; showLoading?: boolean } = {}) {
@@ -90,6 +124,8 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
       });
       setMessages(response.messages);
       roomMessageIdsRef.current = new Set(response.messages.map((message) => message.id));
+      clearRoomUnread(roomId);
+      onNotificationsChangedRef.current();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to load room messages.");
     } finally {
@@ -103,6 +139,12 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
     roomMessageIdsRef.current = new Set();
     setMessageBody("");
     setNotice(null);
+
+    if (!isAdmin) {
+      onRoomOpened(room);
+      clearRoomUnread(room.id);
+      void markRoomRead(room.id);
+    }
   }
 
   function requestJoinRoom(room: ChatRoom) {
@@ -120,6 +162,7 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
       socketRef.current?.emit("room:leave", { roomId: selectedRoomId });
     }
 
+    setIsLeaveConfirmOpen(false);
     setSelectedRoomId(null);
     setMessages([]);
     roomMessageIdsRef.current = new Set();
@@ -127,18 +170,57 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
     setNotice(null);
   }
 
-  function upsertMessage(message: RoomMessage) {
-    if (roomMessageIdsRef.current.has(message.id)) {
-      return;
+  function upsertMessage(message: RoomMessage, options: { appendToMessages?: boolean } = {}) {
+    const { appendToMessages = true } = options;
+
+    if (appendToMessages) {
+      if (roomMessageIdsRef.current.has(message.id)) {
+        return;
+      }
+
+      roomMessageIdsRef.current.add(message.id);
+      setMessages((current) => [...current, message]);
     }
 
-    roomMessageIdsRef.current.add(message.id);
-    setMessages((current) => [...current, message]);
-    setRooms((current) =>
-      current.map((room) =>
-        room.id === message.roomId ? { ...room, messageCount: room.messageCount + 1, updatedAt: message.createdAt } : room
-      )
-    );
+    setRooms((current) => {
+      const nextRooms = current.map((room) => {
+        if (room.id !== message.roomId) {
+          return room;
+        }
+
+        const isSelected = room.id === selectedRoomIdRef.current;
+        const isMine = message.authorId === user.id;
+
+        return {
+          ...room,
+          messageCount: room.messageCount === undefined ? undefined : room.messageCount + 1,
+          unreadCount: isSelected || isMine ? 0 : (room.unreadCount ?? 0) + 1,
+          updatedAt: message.createdAt,
+        };
+      });
+
+      return nextRooms;
+    });
+  }
+
+  function clearRoomUnread(roomId: string) {
+    setRooms((current) => {
+      const nextRooms = current.map((room) => (room.id === roomId ? { ...room, unreadCount: 0 } : room));
+
+      return nextRooms;
+    });
+  }
+
+  async function markRoomRead(roomId: string) {
+    try {
+      await apiRequest(`/rooms/${roomId}/read`, {
+        method: "POST",
+        headers: authHeaders(token),
+      });
+      onNotificationsChangedRef.current();
+    } catch {
+      // The periodic notification refresh will reconcile read state.
+    }
   }
 
   async function joinPendingRoom() {
@@ -157,13 +239,13 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
       setRooms((current) =>
         current.map((room) =>
           room.id === pendingJoinRoom.id
-            ? { ...room, hasJoined: true, memberCount: room.hasJoined ? room.memberCount : room.memberCount + 1 }
+            ? { ...room, hasJoined: true, memberCount: room.hasJoined ? room.memberCount : room.memberCount + 1, unreadCount: 0 }
             : room
         )
       );
       setPendingJoinRoom(null);
       setViewMode("joined");
-      openJoinedRoom({ ...pendingJoinRoom, hasJoined: true, memberCount: pendingJoinRoom.memberCount + 1 });
+      openJoinedRoom({ ...pendingJoinRoom, hasJoined: true, memberCount: pendingJoinRoom.memberCount + 1, unreadCount: 0 });
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to join room.");
@@ -186,10 +268,11 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
         headers: authHeaders(token),
       });
       socketRef.current?.emit("room:leave", { roomId: selectedRoom.id });
+      setIsLeaveConfirmOpen(false);
       setRooms((current) =>
         current.map((room) =>
           room.id === selectedRoom.id
-            ? { ...room, hasJoined: false, memberCount: Math.max(0, room.memberCount - 1) }
+            ? { ...room, hasJoined: false, memberCount: Math.max(0, room.memberCount - 1), unreadCount: 0 }
             : room
         )
       );
@@ -200,6 +283,7 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
       setViewMode("joined");
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
+      setIsLeaveConfirmOpen(false);
       setNotice(error instanceof Error ? error.message : "Unable to leave room.");
     } finally {
       setIsLeavingRoom(false);
@@ -233,12 +317,9 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
     socket.on("room-message:new", (message: RoomMessage) => {
       if (message.roomId === selectedRoomIdRef.current) {
         upsertMessage(message);
+        void markRoomRead(message.roomId);
       } else {
-        setRooms((current) =>
-          current.map((room) =>
-            room.id === message.roomId ? { ...room, messageCount: room.messageCount + 1, updatedAt: message.createdAt } : room
-          )
-        );
+        upsertMessage(message, { appendToMessages: false });
       }
     });
 
@@ -247,11 +328,21 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
       socket.disconnect();
       socketRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   useEffect(() => {
     selectedRoomIdRef.current = selectedRoomId;
   }, [selectedRoomId]);
+
+  useEffect(() => {
+    onRoomsLoadedRef.current = onRoomsLoaded;
+    onNotificationsChangedRef.current = onNotificationsChanged;
+  }, [onRoomsLoaded, onNotificationsChanged]);
+
+  useEffect(() => {
+    onRoomsLoadedRef.current(rooms);
+  }, [rooms]);
 
   useEffect(() => {
     if (!selectedRoomId || (!selectedRoom?.hasJoined && !isAdmin)) {
@@ -266,6 +357,22 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoomId, selectedRoom?.hasJoined, isAdmin]);
+
+  useEffect(() => {
+    if (!selectedRoomId || isLoadingMessages) {
+      return undefined;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const scroller = messageScrollerRef.current;
+
+      if (scroller) {
+        scroller.scrollTop = scroller.scrollHeight;
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedRoomId, latestDisplayedMessageId, isLoadingMessages]);
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -311,8 +418,9 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
 
   if (selectedRoom) {
     return (
-      <section className="px-0 md:px-8 md:py-8">
-        <article className="mx-auto flex min-h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:min-h-[720px] md:rounded-[28px] md:border md:border-black/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+      <>
+        <section className="px-0 md:px-8 md:py-8">
+          <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-[720px] md:rounded-[28px] md:border md:border-black/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
           <div className="flex items-center gap-3 border-b border-black/[0.05] px-4 py-3">
             <button
               type="button"
@@ -327,7 +435,7 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-lg font-semibold">{selectedRoom.name}</h1>
               <p className="truncate text-sm text-[#666666]">
-                {selectedRoom.city} · {selectedRoom.category}
+                {selectedRoom.category}
               </p>
             </div>
 
@@ -335,7 +443,7 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
               <button
                 type="button"
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-sm font-medium md:h-10 md:w-auto md:gap-2 md:px-4"
-                onClick={leaveSelectedRoom}
+                onClick={() => setIsLeaveConfirmOpen(true)}
                 disabled={isLeavingRoom}
                 aria-label={`Leave ${selectedRoom.name}`}
                 title="Leave"
@@ -353,18 +461,29 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
 
           {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
-          <div className="flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
+          <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
             {isLoadingMessages ? (
               <div className="grid h-full min-h-[360px] place-items-center text-sm font-medium text-[#666666]">
                 Loading room messages
               </div>
             ) : messages.length > 0 ? (
               <div className="grid gap-3">
-                {messages.map((message) => {
+                {datedMessages.map((item) => {
+                  if (item.type === "date") {
+                    return (
+                      <div key={item.key} className="flex justify-center py-1">
+                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#777777] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  const message = item.message;
                   const isMine = message.authorId === user.id;
 
                   return (
-                    <div key={message.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                    <div key={item.key} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                       <div
                         className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${
                           isMine ? "rounded-br-md bg-[#18E299] text-[#0d0d0d]" : "rounded-bl-md bg-white text-[#0d0d0d]"
@@ -397,11 +516,11 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
           </div>
 
           {isAdmin ? (
-            <div className="border-t border-black/[0.05] bg-white p-4 text-center text-sm font-medium text-[#666666]">
+            <div className="shrink-0 border-t border-black/[0.05] bg-white p-4 text-center text-sm font-medium text-[#666666]">
               Moderator view only
             </div>
           ) : (
-            <form onSubmit={sendMessage} className="flex gap-3 border-t border-black/[0.05] bg-white p-4">
+            <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
               <input
                 className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                 placeholder="Write to the room"
@@ -422,8 +541,60 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
               </button>
             </form>
           )}
-        </article>
-      </section>
+          </article>
+        </section>
+
+        {isLeaveConfirmOpen ? (
+          <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5">
+            <section
+              className="w-full max-w-sm rounded-[24px] bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="leave-room-title"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 id="leave-room-title" className="text-xl font-semibold">
+                    Leave this room?
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-[#666666]">
+                    {selectedRoom.name} will move back to Explore. You can join again later.
+                  </p>
+                </div>
+                <button
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
+                  type="button"
+                  onClick={() => setIsLeaveConfirmOpen(false)}
+                  disabled={isLeavingRoom}
+                  aria-label="Close"
+                  title="Close"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <button
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                  type="button"
+                  onClick={() => setIsLeaveConfirmOpen(false)}
+                  disabled={isLeavingRoom}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  type="button"
+                  onClick={leaveSelectedRoom}
+                  disabled={isLeavingRoom}
+                >
+                  {isLeavingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+                  Leave
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+      </>
     );
   }
 
@@ -445,17 +616,17 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
           <div className="mb-4 grid grid-cols-2 rounded-full border border-black/[0.05] bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
             <button
               type="button"
-              className={`rounded-full px-4 py-2 ${viewMode === "explore" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-              onClick={() => setViewMode("explore")}
-            >
-              Explore
-            </button>
-            <button
-              type="button"
               className={`rounded-full px-4 py-2 ${viewMode === "joined" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
               onClick={() => setViewMode("joined")}
             >
               Joined
+            </button>
+            <button
+              type="button"
+              className={`rounded-full px-4 py-2 ${viewMode === "explore" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+              onClick={() => setViewMode("explore")}
+            >
+              Explore
             </button>
           </div>
         ) : null}
@@ -497,17 +668,20 @@ export function RoomsTab({ token, user }: { token: string; user: StreetzUser }) 
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
                   <span className="inline-flex items-center gap-1 rounded-full bg-[#fafafa] px-3 py-1">
-                    <MapPin className="size-3.5" aria-hidden="true" />
-                    {room.city}
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#fafafa] px-3 py-1">
                     <Users className="size-3.5" aria-hidden="true" />
                     {room.memberCount} members
                   </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#fafafa] px-3 py-1">
-                    <MessageCircle className="size-3.5" aria-hidden="true" />
-                    {room.messageCount} messages
-                  </span>
+                  {isAdmin ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#fafafa] px-3 py-1">
+                      <MessageCircle className="size-3.5" aria-hidden="true" />
+                      {room.messageCount ?? 0} messages
+                    </span>
+                  ) : null}
+                  {!isAdmin && room.hasJoined && (room.unreadCount ?? 0) > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#18E299] px-3 py-1 font-semibold text-[#0d0d0d]">
+                      {(room.unreadCount ?? 0) > 9 ? "9+" : room.unreadCount} new
+                    </span>
+                  ) : null}
                 </div>
               </article>
             ))}

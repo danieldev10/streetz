@@ -77,18 +77,19 @@ export type DirectMessage = {
 
 export type MatchThread = DiscoveryMatch & {
   lastMessage: DirectMessage | null;
+  unreadCount: number;
 };
 
 export type ChatRoom = {
   id: string;
   name: string;
   description: string | null;
-  city: string;
   category: string;
   isActive: boolean;
   hasJoined: boolean;
   memberCount: number;
-  messageCount: number;
+  messageCount?: number;
+  unreadCount?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -107,3 +108,9 @@ export type TabKey = "discovery" | "matches" | "profile" | "rooms" | "events" | 
 export type DiscoveryActionName = "LIKE" | "PASS";
 export type ProfileGateState = "checking" | "required" | "ready";
 export type ProfileTabMode = "normal" | "setup";
+
+export type NotificationSummary = {
+  matchesUnreadCount: number;
+  roomsUnreadCount: number;
+  totalUnreadCount: number;
+};

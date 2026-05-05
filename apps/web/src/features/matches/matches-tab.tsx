@@ -3,24 +3,41 @@
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
-import { ArrowLeft, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
+import { ArrowLeft, CheckCheck, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
-import { getMatchActivityWeight } from "@/lib/match-activity";
+import { buildDatedMessageItems } from "@/lib/chat-dates";
 import type { DirectMessage, DiscoveryCandidate, MatchThread, StreetzUser } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
+
+function getMatchActivityTime(match: MatchThread) {
+  return Date.parse(match.lastMessage?.createdAt ?? match.createdAt) || 0;
+}
+
+function getDirectMessageTime(message: DirectMessage) {
+  return Date.parse(message.createdAt) || 0;
+}
+
+type DirectMessageReadReceipt = {
+  matchId: string;
+  readerId: string;
+  messageIds: string[];
+  readAt: string;
+};
 
 export function MatchesTab({
   token,
   user,
   onMatchesLoaded,
   onMatchOpened,
+  onNotificationsChanged,
 }: {
   token: string;
   user: StreetzUser;
   onMatchesLoaded: (matches: MatchThread[]) => void;
   onMatchOpened: (match: MatchThread) => void;
+  onNotificationsChanged: () => void;
 }) {
   const [matches, setMatches] = useState<MatchThread[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -33,47 +50,42 @@ export function MatchesTab({
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "offline">("connecting");
   const [notice, setNotice] = useState<string | null>(null);
-  const [activityVersion, setActivityVersion] = useState(0);
   const socketRef = useRef<Socket | null>(null);
   const selectedMatchIdRef = useRef<string | null>(selectedMatchId);
-  const matchesRef = useRef<MatchThread[]>(matches);
+  const directMessageIdsRef = useRef<Set<string>>(new Set());
+  const messageScrollerRef = useRef<HTMLDivElement | null>(null);
   const onMatchesLoadedRef = useRef(onMatchesLoaded);
-  const onMatchOpenedRef = useRef(onMatchOpened);
+  const onNotificationsChangedRef = useRef(onNotificationsChanged);
 
   const selectedMatch = matches.find((match) => match.id === selectedMatchId) ?? null;
+  const displayedMessages = useMemo(
+    () => [...messages].sort((first, second) => getDirectMessageTime(first) - getDirectMessageTime(second)),
+    [messages]
+  );
+  const datedMessages = useMemo(() => buildDatedMessageItems(displayedMessages), [displayedMessages]);
+  const latestDisplayedMessageId = displayedMessages[displayedMessages.length - 1]?.id ?? null;
   const filteredMatches = useMemo(() => {
     const query = matchSearch.trim().toLowerCase();
 
-    if (!query) {
-      return matches;
-    }
+    const visibleMatches = query
+      ? matches.filter((match) => {
+          const haystack = [
+            match.user.displayName,
+            match.user.city,
+            match.user.state,
+            match.lastMessage?.body,
+            ...match.user.interests,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
 
-    return matches.filter((match) => {
-      const haystack = [
-        match.user.displayName,
-        match.user.city,
-        match.user.state,
-        match.lastMessage?.body,
-        ...match.user.interests,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+          return haystack.includes(query);
+        })
+      : matches;
 
-      return haystack.includes(query);
-    });
+    return [...visibleMatches].sort((first, second) => getMatchActivityTime(second) - getMatchActivityTime(first));
   }, [matches, matchSearch]);
-  const matchActivityWeights = useMemo(() => {
-    const weights = new Map<string, number>();
-
-    for (const match of matches) {
-      weights.set(match.id, getMatchActivityWeight(user.id, match));
-    }
-
-    return weights;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matches, user.id, activityVersion]);
-
   function getMatchPreview(match: MatchThread) {
     if (match.lastMessage) {
       const prefix = match.lastMessage.senderId === user.id ? "You: " : "";
@@ -92,7 +104,8 @@ export function MatchesTab({
 
     if (match) {
       onMatchOpened(match);
-      setActivityVersion((current) => current + 1);
+      clearMatchUnread(matchId);
+      void markMatchRead(matchId);
     }
   }
 
@@ -100,6 +113,7 @@ export function MatchesTab({
     setSelectedMatchId(null);
     setViewedMatchProfile(null);
     setMessages([]);
+    directMessageIdsRef.current = new Set();
     setMessageBody("");
     setNotice(null);
   }
@@ -113,7 +127,6 @@ export function MatchesTab({
         headers: authHeaders(token),
       });
       setMatches(response.matches);
-      onMatchesLoaded(response.matches);
       setSelectedMatchId((current) => {
         if (current && response.matches.some((match) => match.id === current)) {
           return current;
@@ -136,6 +149,9 @@ export function MatchesTab({
         headers: authHeaders(token),
       });
       setMessages(response.messages);
+      directMessageIdsRef.current = new Set(response.messages.map((message) => message.id));
+      clearMatchUnread(matchId);
+      onNotificationsChangedRef.current();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to load messages.");
     } finally {
@@ -143,17 +159,75 @@ export function MatchesTab({
     }
   }
 
-  function upsertMessage(message: DirectMessage) {
-    setMessages((current) => {
-      if (current.some((item) => item.id === message.id)) {
-        return current;
+  function upsertMessage(message: DirectMessage, options: { appendToMessages?: boolean } = {}) {
+    const { appendToMessages = true } = options;
+
+    if (appendToMessages) {
+      if (directMessageIdsRef.current.has(message.id)) {
+        return;
       }
 
-      return [...current, message];
+      directMessageIdsRef.current.add(message.id);
+      setMessages((current) => [...current, message]);
+    }
+
+    setMatches((current) => {
+      const nextMatches = current.map((match) => {
+        if (match.id !== message.matchId) {
+          return match;
+        }
+
+        const isSelected = match.id === selectedMatchIdRef.current;
+        const isMine = message.senderId === user.id;
+
+        return {
+          ...match,
+          lastMessage: message,
+          unreadCount: isSelected || isMine ? 0 : (match.unreadCount ?? 0) + 1,
+        };
+      });
+
+      return nextMatches;
     });
-    setMatches((current) =>
-      current.map((match) => (match.id === message.matchId ? { ...match, lastMessage: message } : match))
+  }
+
+  function clearMatchUnread(matchId: string) {
+    setMatches((current) => {
+      const nextMatches = current.map((match) => (match.id === matchId ? { ...match, unreadCount: 0 } : match));
+
+      return nextMatches;
+    });
+  }
+
+  function applyReadReceipt(receipt: DirectMessageReadReceipt) {
+    if (receipt.readerId === user.id || receipt.messageIds.length === 0) {
+      return;
+    }
+
+    const readMessageIds = new Set(receipt.messageIds);
+
+    setMessages((current) =>
+      current.map((message) => (readMessageIds.has(message.id) ? { ...message, readAt: receipt.readAt } : message))
     );
+    setMatches((current) =>
+      current.map((match) =>
+        match.id === receipt.matchId && match.lastMessage && readMessageIds.has(match.lastMessage.id)
+          ? { ...match, lastMessage: { ...match.lastMessage, readAt: receipt.readAt } }
+          : match
+      )
+    );
+  }
+
+  async function markMatchRead(matchId: string) {
+    try {
+      await apiRequest(`/matches/${matchId}/read`, {
+        method: "POST",
+        headers: authHeaders(token),
+      });
+      onNotificationsChangedRef.current();
+    } catch {
+      // The next summary refresh will reconcile read state.
+    }
   }
 
   useEffect(() => {
@@ -183,19 +257,13 @@ export function MatchesTab({
     socket.on("direct-message:new", (message: DirectMessage) => {
       if (message.matchId === selectedMatchIdRef.current) {
         upsertMessage(message);
-        const currentMatch = matchesRef.current.find((match) => match.id === message.matchId);
-
-        if (currentMatch) {
-          onMatchOpenedRef.current({ ...currentMatch, lastMessage: message });
-          setActivityVersion((current) => current + 1);
-        }
+        void markMatchRead(message.matchId);
       } else {
-        setMatches((current) => {
-          const nextMatches = current.map((match) => (match.id === message.matchId ? { ...match, lastMessage: message } : match));
-          onMatchesLoadedRef.current(nextMatches);
-          return nextMatches;
-        });
+        upsertMessage(message, { appendToMessages: false });
       }
+    });
+    socket.on("direct-message:read", (receipt: DirectMessageReadReceipt) => {
+      applyReadReceipt(receipt);
     });
 
     return () => {
@@ -203,6 +271,7 @@ export function MatchesTab({
       socket.disconnect();
       socketRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   useEffect(() => {
@@ -210,17 +279,20 @@ export function MatchesTab({
   }, [selectedMatchId]);
 
   useEffect(() => {
-    matchesRef.current = matches;
+    onMatchesLoadedRef.current = onMatchesLoaded;
+    onNotificationsChangedRef.current = onNotificationsChanged;
+  }, [onMatchesLoaded, onNotificationsChanged]);
+
+  useEffect(() => {
+    onMatchesLoadedRef.current(matches);
   }, [matches]);
 
   useEffect(() => {
-    onMatchesLoadedRef.current = onMatchesLoaded;
-    onMatchOpenedRef.current = onMatchOpened;
-  }, [onMatchesLoaded, onMatchOpened]);
-
-  useEffect(() => {
     if (!selectedMatchId) {
-      const timer = window.setTimeout(() => setMessages([]), 0);
+      const timer = window.setTimeout(() => {
+        setMessages([]);
+        directMessageIdsRef.current = new Set();
+      }, 0);
 
       return () => window.clearTimeout(timer);
     }
@@ -233,6 +305,22 @@ export function MatchesTab({
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMatchId]);
+
+  useEffect(() => {
+    if (!selectedMatchId || isLoadingMessages) {
+      return undefined;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const scroller = messageScrollerRef.current;
+
+      if (scroller) {
+        scroller.scrollTop = scroller.scrollHeight;
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedMatchId, latestDisplayedMessageId, isLoadingMessages]);
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -284,7 +372,7 @@ export function MatchesTab({
   if (selectedMatch) {
     return (
       <section className="px-0 md:px-8 md:py-8">
-        <article className="mx-auto flex min-h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:min-h-[720px] md:rounded-[28px] md:border md:border-black/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+        <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-[720px] md:rounded-[28px] md:border md:border-black/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
           <div className="flex items-center gap-3 border-b border-black/[0.05] px-4 py-3">
             <button
               type="button"
@@ -322,18 +410,29 @@ export function MatchesTab({
 
           {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
-          <div className="flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
+          <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
             {isLoadingMessages ? (
               <div className="grid h-full min-h-[360px] place-items-center text-sm font-medium text-[#666666]">
                 Loading messages
               </div>
             ) : messages.length > 0 ? (
               <div className="grid gap-3">
-                {messages.map((message) => {
+                {datedMessages.map((item) => {
+                  if (item.type === "date") {
+                    return (
+                      <div key={item.key} className="flex justify-center py-1">
+                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#777777] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  const message = item.message;
                   const isMine = message.senderId === user.id;
 
                   return (
-                    <div key={message.id} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
+                    <div key={item.key} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
                       {!isMine ? (
                         <button
                           type="button"
@@ -350,11 +449,29 @@ export function MatchesTab({
                         }`}
                       >
                         <p>{message.body}</p>
-                        <p className={`mt-1 text-[11px] ${isMine ? "text-[#0d0d0d]/55" : "text-[#888888]"}`}>
-                          {new Date(message.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                        <p
+                          className={`mt-1 flex items-center gap-1 text-[11px] ${
+                            isMine ? "justify-end text-[#0d0d0d]/55" : "text-[#888888]"
+                          }`}
+                        >
+                          <span>
+                            {new Date(message.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                          {isMine ? (
+                            <span
+                              className="inline-flex"
+                              aria-label={message.readAt ? "Read" : "Delivered"}
+                              title={message.readAt ? "Read" : "Delivered"}
+                            >
+                              <CheckCheck
+                                className={`size-3.5 ${message.readAt ? "text-[#1b7cff]" : "text-[#0d0d0d]/45"}`}
+                                aria-hidden="true"
+                              />
+                            </span>
+                          ) : null}
                         </p>
                       </div>
                     </div>
@@ -372,7 +489,7 @@ export function MatchesTab({
             )}
           </div>
 
-          <form onSubmit={sendMessage} className="flex gap-3 border-t border-black/[0.05] bg-white p-4">
+          <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
             <input
               className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
               placeholder="Write a message"
@@ -439,7 +556,7 @@ export function MatchesTab({
             <div className="mt-4 overflow-hidden rounded-[24px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
               {filteredMatches.length > 0 ? (
                 filteredMatches.map((match) => {
-                  const activityWeight = matchActivityWeights.get(match.id) ?? 0;
+                  const unreadCount = match.unreadCount ?? 0;
 
                   return (
                     <button
@@ -453,9 +570,9 @@ export function MatchesTab({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                           <p className="truncate text-lg font-semibold">{match.user.displayName}</p>
-                          {activityWeight > 0 ? (
+                          {unreadCount > 0 ? (
                             <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-[#18E299] px-1 text-[10px] font-semibold leading-5 text-[#0d0d0d]">
-                              {activityWeight > 9 ? "9+" : activityWeight}
+                              {unreadCount > 9 ? "9+" : unreadCount}
                             </span>
                           ) : (
                             <p className="shrink-0 text-xs font-medium text-[#999999]">

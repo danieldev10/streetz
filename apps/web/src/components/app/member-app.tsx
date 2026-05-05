@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { io } from "socket.io-client";
 import { LoaderCircle } from "lucide-react";
 import { AppBrand, AppNavButton, MobileHeader, adminTabs, tabs } from "@/components/app/navigation";
 import { AdminDashboard } from "@/features/admin/admin-dashboard";
@@ -9,10 +10,9 @@ import { EventsTab } from "@/features/events/events-tab";
 import { MatchesTab } from "@/features/matches/matches-tab";
 import { ProfileTab } from "@/features/profile/profile-tab";
 import { RoomsTab } from "@/features/rooms/rooms-tab";
-import { apiRequest, authHeaders } from "@/lib/api";
-import { getMatchActivityWeight, getUnreadMatchActivityCount, markMatchThreadOpened } from "@/lib/match-activity";
+import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
 import { isProfileReadyForDiscovery } from "@/lib/profile";
-import type { MatchThread, ProfileGateState, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
+import type { ChatRoom, MatchThread, NotificationSummary, ProfileGateState, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
 
 export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token: string; onLogout: () => void }) {
   const shouldRequireProfileSetup = user.role === "USER";
@@ -22,45 +22,102 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
     shouldRequireProfileSetup ? "checking" : "ready"
   );
   const [profileGateNotice, setProfileGateNotice] = useState<string | null>(null);
-  const [matchActivityCount, setMatchActivityCount] = useState(0);
+  const [notificationSummary, setNotificationSummary] = useState<NotificationSummary>({
+    matchesUnreadCount: 0,
+    roomsUnreadCount: 0,
+    totalUnreadCount: 0,
+  });
+
+  const refreshNotificationSummary = useCallback(async () => {
+    try {
+      const response = await apiRequest<NotificationSummary>("/notifications/summary", {
+        headers: authHeaders(token),
+      });
+
+      setNotificationSummary(response);
+    } catch {
+      // Badges are secondary; each tab still owns its visible fetch error state.
+    }
+  }, [token]);
+
+  function updateNotificationSummary(update: Partial<Omit<NotificationSummary, "totalUnreadCount">>) {
+    setNotificationSummary((current) => {
+      const next = {
+        ...current,
+        ...update,
+      };
+
+      return {
+        ...next,
+        totalUnreadCount: next.matchesUnreadCount + next.roomsUnreadCount,
+      };
+    });
+  }
+
+  function getTabBadgeCount(tabId: TabKey) {
+    if (tabId === "matches") {
+      return notificationSummary.matchesUnreadCount;
+    }
+
+    if (tabId === "rooms") {
+      return notificationSummary.roomsUnreadCount;
+    }
+
+    return 0;
+  }
 
   function handleProfileReady() {
     setProfileGateNotice(null);
     setProfileGateState("ready");
     setActiveTab("discovery");
-    void refreshMatchActivity({ seedIfNeeded: true });
-  }
-
-  async function refreshMatchActivity(options: { seedIfNeeded?: boolean } = {}) {
-    const { seedIfNeeded = false } = options;
-
-    try {
-      const response = await apiRequest<{ matches: MatchThread[] }>("/matches", {
-        headers: authHeaders(token),
-      });
-
-      setMatchActivityCount(getUnreadMatchActivityCount(user.id, response.matches, seedIfNeeded));
-    } catch {
-      // Match activity is decorative; the tab itself will show any fetch errors when opened.
-    }
+    void refreshNotificationSummary();
   }
 
   function handleMatchCreated() {
-    setMatchActivityCount((current) => current + 1);
-    void refreshMatchActivity({ seedIfNeeded: false });
+    void refreshNotificationSummary();
   }
 
   function handleMatchesLoaded(matches: MatchThread[]) {
-    setMatchActivityCount(getUnreadMatchActivityCount(user.id, matches, true));
+    updateNotificationSummary({
+      matchesUnreadCount: matches.reduce((total, match) => total + (match.unreadCount ?? 0), 0),
+    });
   }
 
   function handleMatchOpened(match: MatchThread) {
-    const activityWeight = getMatchActivityWeight(user.id, match);
+    const unreadCount = match.unreadCount ?? 0;
 
-    markMatchThreadOpened(user.id, match);
+    if (unreadCount > 0) {
+      setNotificationSummary((current) => {
+        const matchesUnreadCount = Math.max(0, current.matchesUnreadCount - unreadCount);
 
-    if (activityWeight > 0) {
-      setMatchActivityCount((current) => Math.max(0, current - activityWeight));
+        return {
+          ...current,
+          matchesUnreadCount,
+          totalUnreadCount: matchesUnreadCount + current.roomsUnreadCount,
+        };
+      });
+    }
+  }
+
+  function handleRoomsLoaded(rooms: ChatRoom[]) {
+    updateNotificationSummary({
+      roomsUnreadCount: rooms.reduce((total, room) => total + (room.hasJoined ? room.unreadCount ?? 0 : 0), 0),
+    });
+  }
+
+  function handleRoomOpened(room: ChatRoom) {
+    const unreadCount = room.unreadCount ?? 0;
+
+    if (unreadCount > 0) {
+      setNotificationSummary((current) => {
+        const roomsUnreadCount = Math.max(0, current.roomsUnreadCount - unreadCount);
+
+        return {
+          ...current,
+          roomsUnreadCount,
+          totalUnreadCount: current.matchesUnreadCount + roomsUnreadCount,
+        };
+      });
     }
   }
 
@@ -113,20 +170,34 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
       return undefined;
     }
 
-    const timer = window.setTimeout(() => {
-      void refreshMatchActivity({ seedIfNeeded: true });
-    }, 0);
+    const timer = window.setTimeout(() => void refreshNotificationSummary(), 0);
 
-    const interval = window.setInterval(() => {
-      void refreshMatchActivity({ seedIfNeeded: false });
-    }, 30000);
+    const interval = window.setInterval(() => void refreshNotificationSummary(), 30000);
 
     return () => {
       window.clearTimeout(timer);
       window.clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, user.id, profileGateState]);
+  }, [profileGateState, refreshNotificationSummary]);
+
+  useEffect(() => {
+    if (profileGateState !== "ready") {
+      return undefined;
+    }
+
+    const socket = io(SOCKET_URL, {
+      auth: { token },
+      transports: ["websocket"],
+    });
+
+    socket.on("notifications:changed", () => {
+      void refreshNotificationSummary();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [profileGateState, refreshNotificationSummary, token]);
 
   return (
     <main className="min-h-screen bg-white text-[#0d0d0d]">
@@ -142,7 +213,7 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
                   active={activeTab === tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   variant="side"
-                  badgeCount={tab.id === "matches" ? matchActivityCount : 0}
+                  badgeCount={getTabBadgeCount(tab.id)}
                 />
               ))}
             </nav>
@@ -181,10 +252,19 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
                   user={user}
                   onMatchesLoaded={handleMatchesLoaded}
                   onMatchOpened={handleMatchOpened}
+                  onNotificationsChanged={refreshNotificationSummary}
                 />
               ) : null}
               {activeTab === "profile" ? <ProfileTab token={token} user={user} /> : null}
-              {activeTab === "rooms" ? <RoomsTab token={token} user={user} /> : null}
+              {activeTab === "rooms" ? (
+                <RoomsTab
+                  token={token}
+                  user={user}
+                  onRoomsLoaded={handleRoomsLoaded}
+                  onRoomOpened={handleRoomOpened}
+                  onNotificationsChanged={refreshNotificationSummary}
+                />
+              ) : null}
               {activeTab === "events" ? <EventsTab /> : null}
               {activeTab === "admin" && user.role === "ADMIN" ? <AdminDashboard token={token} /> : null}
             </>
@@ -202,7 +282,7 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
                 active={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 variant="bottom"
-                badgeCount={tab.id === "matches" ? matchActivityCount : 0}
+                badgeCount={getTabBadgeCount(tab.id)}
               />
             ))}
           </div>

@@ -40,6 +40,15 @@ export class RoomsController {
     return this.roomsService.joinRoom(user.id, roomId);
   }
 
+  @Post("rooms/:roomId/read")
+  @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
+  async markRoomRead(@CurrentUser() user: AuthUser, @Param("roomId") roomId: string) {
+    const result = await this.roomsService.markRoomRead(user.id, roomId);
+    await this.roomsGateway.emitNotificationChanged(roomId);
+
+    return result;
+  }
+
   @Post("rooms/:roomId/leave")
   @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
   leaveRoom(@CurrentUser() user: AuthUser, @Param("roomId") roomId: string) {
@@ -55,6 +64,7 @@ export class RoomsController {
   ) {
     const message = await this.roomsService.createRoomMessage(user.id, roomId, dto.body);
     this.roomsGateway.emitRoomMessage(roomId, message);
+    await this.roomsGateway.emitNotificationChanged(roomId);
 
     return message;
   }

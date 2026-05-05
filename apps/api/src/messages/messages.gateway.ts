@@ -13,6 +13,7 @@ import {
 import { UserRole } from "@prisma/client";
 import { Server, Socket } from "socket.io";
 import { AuthUser } from "../auth/types/auth-user";
+import { getUserNotificationRoom } from "../notifications/notification-rooms";
 import { MessagesService } from "./messages.service";
 
 type JwtPayload = {
@@ -25,6 +26,11 @@ type AuthenticatedSocket = Socket & {
   data: {
     user?: AuthUser;
   };
+};
+
+type DirectMessageReadReceipt = {
+  messageIds: string[];
+  readAt: Date;
 };
 
 @WebSocketGateway({
@@ -57,6 +63,8 @@ export class MessagesGateway implements OnGatewayConnection {
         email: payload.email,
         role: payload.role
       };
+
+      await client.join(getUserNotificationRoom(payload.sub));
     } catch (error) {
       this.logger.warn(`Rejected socket connection: ${error instanceof Error ? error.message : "invalid token"}`);
       client.disconnect(true);
@@ -71,6 +79,9 @@ export class MessagesGateway implements OnGatewayConnection {
 
       await this.messagesService.assertMatchParticipant(user.id, matchId);
       await client.join(this.messagesService.getRoomName(matchId));
+      const result = await this.messagesService.markMatchRead(user.id, matchId);
+      await this.emitReadReceipt(matchId, user.id, result.readReceipt);
+      await this.emitNotificationChanged(matchId);
 
       return {
         ok: true,
@@ -93,6 +104,7 @@ export class MessagesGateway implements OnGatewayConnection {
       const message = await this.messagesService.createMessage(user.id, matchId, messageBody);
 
       this.emitMessage(matchId, message);
+      await this.emitNotificationChanged(matchId);
 
       return {
         ok: true,
@@ -105,6 +117,36 @@ export class MessagesGateway implements OnGatewayConnection {
 
   emitMessage(matchId: string, message: unknown) {
     this.server.to(this.messagesService.getRoomName(matchId)).emit("direct-message:new", message);
+  }
+
+  async emitReadReceipt(matchId: string, readerId: string, readReceipt: DirectMessageReadReceipt) {
+    if (readReceipt.messageIds.length === 0) {
+      return;
+    }
+
+    const participantIds = await this.messagesService.getMatchParticipantIds(matchId);
+    const rooms = [
+      this.messagesService.getRoomName(matchId),
+      ...participantIds.map((participantId) => getUserNotificationRoom(participantId))
+    ];
+
+    this.server.to(rooms).emit("direct-message:read", {
+      matchId,
+      readerId,
+      messageIds: readReceipt.messageIds,
+      readAt: readReceipt.readAt
+    });
+  }
+
+  async emitNotificationChanged(matchId: string) {
+    const participantIds = await this.messagesService.getMatchParticipantIds(matchId);
+
+    for (const userId of participantIds) {
+      this.server.to(getUserNotificationRoom(userId)).emit("notifications:changed", {
+        source: "matches",
+        matchId
+      });
+    }
   }
 
   private extractToken(client: Socket) {

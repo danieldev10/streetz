@@ -9,7 +9,6 @@ import type { ChatRoom } from "@/lib/types";
 
 type RoomForm = {
   name: string;
-  city: string;
   category: string;
   description: string;
   isActive: boolean;
@@ -17,7 +16,6 @@ type RoomForm = {
 
 const emptyRoomForm: RoomForm = {
   name: "",
-  city: "",
   category: "",
   description: "",
   isActive: true,
@@ -26,7 +24,6 @@ const emptyRoomForm: RoomForm = {
 function getRoomForm(room: ChatRoom): RoomForm {
   return {
     name: room.name,
-    city: room.city,
     category: room.category,
     description: room.description ?? "",
     isActive: room.isActive,
@@ -96,7 +93,6 @@ export function AdminDashboard({ token }: { token: string }) {
 
     const payload = {
       name: roomForm.name,
-      city: roomForm.city,
       category: roomForm.category,
       description: roomForm.description,
       isActive: roomForm.isActive,
@@ -195,22 +191,13 @@ export function AdminDashboard({ token }: { token: string }) {
               onChange={(event) => setRoomForm((current) => ({ ...current, name: event.target.value }))}
               required
             />
-            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
-              <input
-                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                placeholder="City"
-                value={roomForm.city}
-                onChange={(event) => setRoomForm((current) => ({ ...current, city: event.target.value }))}
-                required
-              />
-              <input
-                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                placeholder="Category"
-                value={roomForm.category}
-                onChange={(event) => setRoomForm((current) => ({ ...current, category: event.target.value }))}
-                required
-              />
-            </div>
+            <input
+              className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              placeholder="Category"
+              value={roomForm.category}
+              onChange={(event) => setRoomForm((current) => ({ ...current, category: event.target.value }))}
+              required
+            />
             <textarea
               className="min-h-24 rounded-[18px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
               placeholder="Description"
@@ -276,10 +263,9 @@ export function AdminDashboard({ token }: { token: string }) {
                       </div>
                       <p className="mt-1 text-sm text-[#666666]">{room.description || "No description yet."}</p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">{room.city}</span>
                         <span className="rounded-full bg-[#fafafa] px-3 py-1">{room.category}</span>
                         <span className="rounded-full bg-[#fafafa] px-3 py-1">{room.memberCount} members</span>
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">{room.messageCount} messages</span>
+                        <span className="rounded-full bg-[#fafafa] px-3 py-1">{room.messageCount ?? 0} messages</span>
                       </div>
                     </div>
                     <div className="grid shrink-0 gap-2">

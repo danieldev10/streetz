@@ -37,6 +37,7 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
   const openFrameRef = useRef<number | null>(null);
   const [isDrawerMounted, setIsDrawerMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
   const clearAnimationTimers = useCallback(() => {
     if (closeTimerRef.current !== null) {
@@ -67,12 +68,16 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
     }, 200);
   }, [clearAnimationTimers]);
 
+  const closeLogoutConfirm = useCallback(() => {
+    setIsLogoutConfirmOpen(false);
+  }, []);
+
   useEffect(() => {
     return clearAnimationTimers;
   }, [clearAnimationTimers]);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen && !isLogoutConfirmOpen) {
       return undefined;
     }
 
@@ -80,6 +85,11 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (isLogoutConfirmOpen) {
+          closeLogoutConfirm();
+          return;
+        }
+
         closeMenu();
       }
     }
@@ -91,12 +101,17 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, closeMenu]);
+  }, [isOpen, isLogoutConfirmOpen, closeMenu, closeLogoutConfirm]);
 
-  function handleLogout() {
+  function requestLogout() {
     clearAnimationTimers();
     setIsOpen(false);
     setIsDrawerMounted(false);
+    setIsLogoutConfirmOpen(true);
+  }
+
+  function confirmLogout() {
+    setIsLogoutConfirmOpen(false);
     onLogout();
   }
 
@@ -164,17 +179,62 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
             <span className="rounded-full bg-[#f4f4f4] px-2 py-1 text-[11px] text-[#888888]">Soon</span>
           </button>
 
-          <button
-            type="button"
-            className="mt-3 inline-flex h-12 items-center gap-3 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
-            onClick={handleLogout}
-            tabIndex={isOpen ? 0 : -1}
-          >
-            <LogOut className="size-4" aria-hidden="true" />
+            <button
+              type="button"
+              className="mt-3 inline-flex h-12 items-center gap-3 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
+              onClick={requestLogout}
+              tabIndex={isOpen ? 0 : -1}
+            >
+              <LogOut className="size-4" aria-hidden="true" />
             Logout
           </button>
         </nav>
       </aside>
+    </div>
+  );
+
+  const logoutConfirmModal = (
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/35 px-5" role="presentation">
+      <section
+        className="w-full max-w-sm rounded-[24px] bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="logout-confirm-title"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="logout-confirm-title" className="text-xl font-semibold">
+              Logout?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[#666666]">You will need to log in again to continue using Streetz.</p>
+          </div>
+          <button
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
+            type="button"
+            onClick={closeLogoutConfirm}
+            aria-label="Close"
+            title="Close"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-5 text-sm font-medium"
+            type="button"
+            onClick={closeLogoutConfirm}
+          >
+            Cancel
+          </button>
+          <button
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white"
+            type="button"
+            onClick={confirmLogout}
+          >
+            Logout
+          </button>
+        </div>
+      </section>
     </div>
   );
 
@@ -190,6 +250,7 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
       </button>
 
       {isDrawerMounted && typeof document !== "undefined" ? createPortal(drawer, document.body) : null}
+      {isLogoutConfirmOpen && typeof document !== "undefined" ? createPortal(logoutConfirmModal, document.body) : null}
     </>
   );
 }

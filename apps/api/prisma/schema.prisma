@@ -99,6 +99,7 @@ model User {
   reportsMade        UserReport[]         @relation("Reporter")
   reportsReceived    UserReport[]         @relation("Reported")
   directMessages     DirectMessage[]
+  matchReadStates    MatchReadState[]
   chatMessages       ChatMessage[]
   createdRooms       ChatRoom[]           @relation("RoomCreator")
   roomMemberships    RoomMembership[]
@@ -163,6 +164,7 @@ model Match {
   status    MatchStatus     @default(ACTIVE)
   createdAt DateTime        @default(now())
   messages  DirectMessage[]
+  readStates MatchReadState[]
 
   @@unique([userAId, userBId])
 }
@@ -179,6 +181,20 @@ model DirectMessage {
 
   @@index([matchId, createdAt])
   @@index([senderId, createdAt])
+}
+
+model MatchReadState {
+  id         String   @id @default(cuid())
+  matchId    String
+  userId     String
+  match      Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([matchId, userId])
+  @@index([userId])
 }
 
 model UserBlock {
@@ -214,7 +230,6 @@ model ChatRoom {
   id          String           @id @default(cuid())
   name        String
   description String?
-  city        String           @default("Nigeria")
   category    String           @default("General")
   isActive    Boolean          @default(true)
   createdById String?
@@ -248,6 +263,7 @@ model RoomMembership {
   room     ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   joinedAt DateTime @default(now())
+  lastReadAt DateTime @default(now())
 
   @@unique([roomId, userId])
   @@index([userId])

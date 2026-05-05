@@ -13,6 +13,7 @@ import {
 import { UserRole } from "@prisma/client";
 import { Server, Socket } from "socket.io";
 import { AuthUser } from "../auth/types/auth-user";
+import { getUserNotificationRoom } from "../notifications/notification-rooms";
 import { RoomsService } from "./rooms.service";
 
 type JwtPayload = {
@@ -57,6 +58,8 @@ export class RoomsGateway implements OnGatewayConnection {
         email: payload.email,
         role: payload.role
       };
+
+      await client.join(getUserNotificationRoom(payload.sub));
     } catch (error) {
       this.logger.warn(`Rejected room socket connection: ${error instanceof Error ? error.message : "invalid token"}`);
       client.disconnect(true);
@@ -70,7 +73,9 @@ export class RoomsGateway implements OnGatewayConnection {
       const roomId = this.requireRoomId(body?.roomId);
 
       await this.roomsService.assertRoomParticipant(user.id, roomId);
+      await this.roomsService.markRoomRead(user.id, roomId);
       await client.join(this.roomsService.getSocketRoomName(roomId));
+      await this.emitNotificationChanged(roomId);
 
       return {
         ok: true,
@@ -110,6 +115,7 @@ export class RoomsGateway implements OnGatewayConnection {
       const message = await this.roomsService.createRoomMessage(user.id, roomId, messageBody);
 
       this.emitRoomMessage(roomId, message);
+      await this.emitNotificationChanged(roomId);
 
       return {
         ok: true,
@@ -122,6 +128,17 @@ export class RoomsGateway implements OnGatewayConnection {
 
   emitRoomMessage(roomId: string, message: unknown) {
     this.server.to(this.roomsService.getSocketRoomName(roomId)).emit("room-message:new", message);
+  }
+
+  async emitNotificationChanged(roomId: string) {
+    const memberUserIds = await this.roomsService.getRoomMemberUserIds(roomId);
+
+    for (const userId of memberUserIds) {
+      this.server.to(getUserNotificationRoom(userId)).emit("notifications:changed", {
+        source: "rooms",
+        roomId
+      });
+    }
   }
 
   private extractToken(client: Socket) {

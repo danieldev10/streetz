@@ -36,7 +36,17 @@ export class MessagesController {
   ) {
     const message = await this.messagesService.createMessage(user.id, matchId, dto.body);
     this.messagesGateway.emitMessage(matchId, message);
+    await this.messagesGateway.emitNotificationChanged(matchId);
 
     return message;
+  }
+
+  @Post(":matchId/read")
+  async markMatchRead(@CurrentUser() user: AuthUser, @Param("matchId") matchId: string) {
+    const result = await this.messagesService.markMatchRead(user.id, matchId);
+    await this.messagesGateway.emitReadReceipt(matchId, user.id, result.readReceipt);
+    await this.messagesGateway.emitNotificationChanged(matchId);
+
+    return result;
   }
 }

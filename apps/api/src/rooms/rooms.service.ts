@@ -10,7 +10,6 @@ type RoomSource = {
   id: string;
   name: string;
   description: string | null;
-  city: string;
   category: string;
   isActive: boolean;
   createdAt: Date;
@@ -21,6 +20,8 @@ type RoomSource = {
   };
   memberships?: Array<{
     id: string;
+    userId?: string;
+    lastReadAt?: Date;
   }>;
 };
 
@@ -43,12 +44,12 @@ export class RoomsService {
 
   async getAdminRooms() {
     const rooms = await this.prisma.chatRoom.findMany({
-      include: this.roomCounts(),
+      include: this.roomCounts({ includeMessages: true }),
       orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }]
     });
 
     return {
-      rooms: rooms.map((room) => this.formatRoom(room))
+      rooms: await Promise.all(rooms.map((room) => this.formatRoom(room, { includeMessageCount: true })))
     };
   }
 
@@ -56,16 +57,15 @@ export class RoomsService {
     const room = await this.prisma.chatRoom.create({
       data: {
         name: this.cleanText(dto.name),
-        city: this.cleanText(dto.city),
         category: this.cleanText(dto.category),
         description: this.cleanOptionalText(dto.description),
         isActive: dto.isActive ?? true,
         createdById: adminId
       },
-      include: this.roomCounts()
+      include: this.roomCounts({ includeMessages: true })
     });
 
-    return this.formatRoom(room);
+    return this.formatRoom(room, { includeMessageCount: true });
   }
 
   async updateRoom(roomId: string, dto: UpdateRoomDto) {
@@ -75,15 +75,14 @@ export class RoomsService {
       where: { id: roomId },
       data: {
         ...(dto.name !== undefined ? { name: this.cleanText(dto.name) } : {}),
-        ...(dto.city !== undefined ? { city: this.cleanText(dto.city) } : {}),
         ...(dto.category !== undefined ? { category: this.cleanText(dto.category) } : {}),
         ...(dto.description !== undefined ? { description: this.cleanOptionalText(dto.description) } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {})
       },
-      include: this.roomCounts()
+      include: this.roomCounts({ includeMessages: true })
     });
 
-    return this.formatRoom(room);
+    return this.formatRoom(room, { includeMessageCount: true });
   }
 
   async getActiveRooms(userId: string) {
@@ -92,13 +91,13 @@ export class RoomsService {
     const rooms = await this.prisma.chatRoom.findMany({
       where: { isActive: true },
       include: {
-        ...this.roomCounts(),
+        ...this.roomCounts({ includeMessages: user.role === UserRole.ADMIN }),
         memberships:
           user.role === UserRole.ADMIN
             ? false
             : {
                 where: { userId },
-                select: { id: true },
+                select: { id: true, userId: true, lastReadAt: true },
                 take: 1
               }
       },
@@ -106,7 +105,7 @@ export class RoomsService {
     });
 
     return {
-      rooms: rooms.map((room) => this.formatRoom(room))
+      rooms: await Promise.all(rooms.map((room) => this.formatRoom(room, { includeMessageCount: user.role === UserRole.ADMIN })))
     };
   }
 
@@ -126,12 +125,15 @@ export class RoomsService {
           }
         }
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       take: ROOM_MESSAGE_HISTORY_LIMIT
     });
+    const orderedMessages = [...messages].reverse();
+
+    await this.markRoomRead(userId, roomId);
 
     return {
-      messages: messages.map((message) => this.formatMessage(message))
+      messages: orderedMessages.map((message) => this.formatMessage(message))
     };
   }
 
@@ -146,7 +148,8 @@ export class RoomsService {
       await this.prisma.roomMembership.create({
         data: {
           roomId,
-          userId
+          userId,
+          lastReadAt: new Date()
         }
       });
     } catch (error) {
@@ -158,6 +161,36 @@ export class RoomsService {
     return {
       ok: true,
       roomId
+    };
+  }
+
+  async markRoomRead(userId: string, roomId: string) {
+    const user = await this.assertRoomParticipant(userId, roomId);
+
+    if (user.role === UserRole.ADMIN) {
+      return {
+        ok: true,
+        roomId,
+        unreadCount: 0
+      };
+    }
+
+    await this.prisma.roomMembership.update({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId
+        }
+      },
+      data: {
+        lastReadAt: new Date()
+      }
+    });
+
+    return {
+      ok: true,
+      roomId,
+      unreadCount: 0
     };
   }
 
@@ -212,8 +245,51 @@ export class RoomsService {
         }
       }
     });
+    await this.prisma.chatRoom.update({
+      where: { id: roomId },
+      data: { updatedAt: message.createdAt }
+    });
+
+    await this.markRoomRead(userId, roomId);
 
     return this.formatMessage(message);
+  }
+
+  async getUnreadRoomMessageCount(userId: string) {
+    const user = await this.ensureMemberOrAdmin(userId);
+
+    if (user.role === UserRole.ADMIN) {
+      return 0;
+    }
+
+    const memberships = await this.prisma.roomMembership.findMany({
+      where: {
+        userId,
+        room: {
+          isActive: true
+        }
+      },
+      select: {
+        roomId: true,
+        userId: true,
+        lastReadAt: true
+      }
+    });
+
+    const counts = await Promise.all(
+      memberships.map((membership) => this.countUnreadRoomMessages(membership.roomId, membership.userId, membership.lastReadAt))
+    );
+
+    return counts.reduce((total, count) => total + count, 0);
+  }
+
+  async getRoomMemberUserIds(roomId: string) {
+    const memberships = await this.prisma.roomMembership.findMany({
+      where: { roomId },
+      select: { userId: true }
+    });
+
+    return memberships.map((membership) => membership.userId);
   }
 
   getSocketRoomName(roomId: string) {
@@ -318,16 +394,22 @@ export class RoomsService {
     return trimmed ? trimmed : null;
   }
 
-  private formatRoom(room: RoomSource) {
+  private async formatRoom(room: RoomSource, options: { includeMessageCount: boolean }) {
+    const membership = room.memberships?.[0];
+    const unreadCount =
+      membership?.userId && membership.lastReadAt
+        ? await this.countUnreadRoomMessages(room.id, membership.userId, membership.lastReadAt)
+        : 0;
+
     return {
       id: room.id,
       name: room.name,
       description: room.description,
-      city: room.city,
       category: room.category,
       isActive: room.isActive,
       memberCount: room._count?.memberships ?? 0,
-      messageCount: room._count?.messages ?? 0,
+      ...(options.includeMessageCount ? { messageCount: room._count?.messages ?? 0 } : {}),
+      ...(membership ? { unreadCount } : {}),
       hasJoined: Boolean(room.memberships?.length),
       createdAt: room.createdAt,
       updatedAt: room.updatedAt
@@ -346,14 +428,25 @@ export class RoomsService {
     };
   }
 
-  private roomCounts() {
+  private roomCounts(options: { includeMessages: boolean }) {
     return {
       _count: {
         select: {
           memberships: true,
-          messages: true
+          ...(options.includeMessages ? { messages: true } : {})
         }
       }
     };
+  }
+
+  private countUnreadRoomMessages(roomId: string, userId: string, lastReadAt: Date) {
+    return this.prisma.chatMessage.count({
+      where: {
+        roomId,
+        authorId: { not: userId },
+        deletedAt: null,
+        createdAt: { gt: lastReadAt }
+      }
+    });
   }
 }

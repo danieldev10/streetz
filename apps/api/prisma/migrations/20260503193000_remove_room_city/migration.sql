@@ -1,0 +1,2 @@
+ALTER TABLE "ChatRoom"
+  DROP COLUMN IF EXISTS "city";
