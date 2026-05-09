@@ -94,6 +94,45 @@ export type ChatRoom = {
   updatedAt: string;
 };
 
+export type EventStatus = "DRAFT" | "PUBLISHED" | "CANCELLED" | "COMPLETED";
+export type TicketStatus = "RESERVED" | "PAID" | "CHECKED_IN" | "CANCELLED" | "REFUNDED";
+
+export type StreetzEventTicketType = {
+  id: string;
+  name: string;
+  priceKobo: number;
+  capacity: number;
+  soldCount: number;
+  reservedCount: number;
+  availableCount: number;
+};
+
+export type StreetzEventTicket = {
+  id: string;
+  code: string;
+  status: TicketStatus;
+  createdAt: string;
+};
+
+export type StreetzEvent = {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  coverImage: string | null;
+  venue: string;
+  city: string;
+  startsAt: string;
+  endsAt: string | null;
+  status: EventStatus;
+  ticketType: StreetzEventTicketType | null;
+  attendeeCount?: number;
+  reservationCount?: number;
+  userTicket?: StreetzEventTicket | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type RoomMessage = {
   id: string;
   roomId: string;

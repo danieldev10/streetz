@@ -368,19 +368,18 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
                 const stackStyle: CSSProperties = isTopCard
                   ? { ...swipeCardStyle, zIndex: DISCOVERY_RENDERED_STACK_SIZE + 1 }
                   : {
-                      opacity: 1 - index * 0.08,
-                      transform: `translate3d(0, ${index * 14}px, 0) scale(${1 - index * 0.035})`,
-                      transition: "transform 220ms ease, opacity 220ms ease",
-                      zIndex: DISCOVERY_RENDERED_STACK_SIZE - index,
-                    };
+                    opacity: 1 - index * 0.08,
+                    transform: `translate3d(0, ${index * 14}px, 0) scale(${1 - index * 0.035})`,
+                    transition: "transform 220ms ease, opacity 220ms ease",
+                    zIndex: DISCOVERY_RENDERED_STACK_SIZE - index,
+                  };
 
                 return (
                   <article
                     key={candidate.id}
                     aria-hidden={!isTopCard}
-                    className={`absolute inset-x-0 top-0 overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.08)] ${
-                      isTopCard ? "touch-pan-y select-none" : "pointer-events-none"
-                    } ${isTopCard && isDraggingCard ? "cursor-grabbing" : isTopCard ? "cursor-grab" : ""}`}
+                    className={`absolute inset-x-0 top-0 overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.08)] ${isTopCard ? "touch-pan-y select-none" : "pointer-events-none"
+                      } ${isTopCard && isDraggingCard ? "cursor-grabbing" : isTopCard ? "cursor-grab" : ""}`}
                     style={stackStyle}
                     onPointerDown={isTopCard ? handleSwipeStart : undefined}
                     onPointerMove={isTopCard ? handleSwipeMove : undefined}
@@ -455,18 +454,16 @@ function DiscoveryCandidateCard({
       <div className="relative aspect-[4/5] min-h-[440px] bg-[#d4fae8]">
         <CandidatePhoto candidate={candidate} priority={priority} />
         <div
-          className={`absolute left-5 top-5 rounded-[14px] border-2 px-4 py-2 text-lg font-semibold uppercase tracking-[0.08em] transition-opacity ${
-            swipeIntent === "PASS" ? "border-white bg-white/90 text-[#0d0d0d] opacity-100" : "border-white/60 text-white opacity-0"
-          }`}
+          className={`absolute left-5 top-5 rounded-[14px] border-2 px-4 py-2 text-lg font-semibold uppercase tracking-[0.08em] transition-opacity ${swipeIntent === "PASS" ? "border-white bg-white/90 text-[#0d0d0d] opacity-100" : "border-white/60 text-white opacity-0"
+            }`}
         >
           Pass
         </div>
         <div
-          className={`absolute right-5 top-5 rounded-[14px] border-2 px-4 py-2 text-lg font-semibold uppercase tracking-[0.08em] transition-opacity ${
-            swipeIntent === "LIKE"
+          className={`absolute right-5 top-5 rounded-[14px] border-2 px-4 py-2 text-lg font-semibold uppercase tracking-[0.08em] transition-opacity ${swipeIntent === "LIKE"
               ? "border-[#18E299] bg-[#18E299]/90 text-[#0d0d0d] opacity-100"
               : "border-[#18E299]/60 text-[#18E299] opacity-0"
-          }`}
+            }`}
         >
           Like
         </div>

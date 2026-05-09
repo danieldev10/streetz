@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { AuthModule } from "./auth/auth.module";
 import { DiscoveryModule } from "./discovery/discovery.module";
+import { EventsModule } from "./events/events.module";
 import { HealthModule } from "./health/health.module";
 import { MessagesModule } from "./messages/messages.module";
 import { NotificationsModule } from "./notifications/notifications.module";
@@ -30,6 +31,7 @@ import { UsersModule } from "./users/users.module";
     PaymentsModule,
     ProfilesModule,
     DiscoveryModule,
+    EventsModule,
     MessagesModule,
     RoomsModule,
     NotificationsModule

@@ -13,7 +13,9 @@ function PaymentCallbackContent() {
 
   useEffect(() => {
     const reference = searchParams.get("reference") ?? searchParams.get("trxref");
+    const purpose = searchParams.get("purpose");
     const token = window.localStorage.getItem(TOKEN_KEY);
+    const isEventTicketPayment = purpose === "event-ticket";
 
     if (!reference) {
       window.setTimeout(() => setMessage("Payment reference was not returned. Please try again."), 0);
@@ -25,7 +27,7 @@ function PaymentCallbackContent() {
       return;
     }
 
-    fetch(`${API_URL}/payments/subscription/verify`, {
+    fetch(`${API_URL}${isEventTicketPayment ? "/payments/events/ticket/verify" : "/payments/subscription/verify"}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -40,7 +42,7 @@ function PaymentCallbackContent() {
           throw new Error(data?.message ?? "Unable to verify payment.");
         }
 
-        setMessage("Payment verified. Taking you into Streetz...");
+        setMessage(isEventTicketPayment ? "Ticket confirmed. Taking you into Streetz..." : "Payment verified. Taking you into Streetz...");
         window.setTimeout(() => router.replace("/"), 900);
       })
       .catch((error) => {

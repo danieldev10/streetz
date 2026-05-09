@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, HttpCode, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Headers, HttpCode, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -28,6 +28,20 @@ export class PaymentsController {
   @Post("subscription/verify")
   verifySubscription(@CurrentUser() user: AuthUser, @Body() dto: VerifySubscriptionPaymentDto) {
     return this.paymentsService.verifySubscriptionPayment(user.id, dto.reference);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("events/:eventId/ticket/initialize")
+  initializeEventTicket(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {
+    return this.paymentsService.initializeEventTicket(user.id, eventId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("events/ticket/verify")
+  verifyEventTicket(@CurrentUser() user: AuthUser, @Body() dto: VerifySubscriptionPaymentDto) {
+    return this.paymentsService.verifyEventTicketPayment(user.id, dto.reference);
   }
 
   @Post("paystack/webhook")

@@ -9,7 +9,11 @@ import {
   LoaderCircle,
   LogOut,
   MessageCircle,
+  Pencil,
+  Plus,
+  Power,
   RefreshCw,
+  Save,
   SendHorizontal,
   Users,
   X,
@@ -20,6 +24,21 @@ import { buildDatedMessageItems } from "@/lib/chat-dates";
 import type { ChatRoom, RoomMessage, StreetzUser } from "@/lib/types";
 
 type RoomViewMode = "explore" | "joined";
+type AdminRoomView = "list" | "form";
+
+type RoomForm = {
+  name: string;
+  category: string;
+  description: string;
+  isActive: boolean;
+};
+
+const emptyRoomForm: RoomForm = {
+  name: "",
+  category: "",
+  description: "",
+  isActive: true,
+};
 
 function getRoomActivityTime(room: ChatRoom) {
   return Date.parse(room.updatedAt) || Date.parse(room.createdAt) || 0;
@@ -27,6 +46,15 @@ function getRoomActivityTime(room: ChatRoom) {
 
 function getRoomMessageTime(message: RoomMessage) {
   return Date.parse(message.createdAt) || 0;
+}
+
+function getRoomForm(room: ChatRoom): RoomForm {
+  return {
+    name: room.name,
+    category: room.category,
+    description: room.description ?? "",
+    isActive: room.isActive,
+  };
 }
 
 export function RoomsTab({
@@ -48,12 +76,16 @@ export function RoomsTab({
   const [pendingJoinRoom, setPendingJoinRoom] = useState<ChatRoom | null>(null);
   const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
   const [viewMode, setViewMode] = useState<RoomViewMode>("joined");
+  const [adminRoomView, setAdminRoomView] = useState<AdminRoomView>("list");
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [roomForm, setRoomForm] = useState<RoomForm>(emptyRoomForm);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [messageBody, setMessageBody] = useState("");
   const [isLoadingRooms, setIsLoadingRooms] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
+  const [isSavingRoom, setIsSavingRoom] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "offline">("connecting");
   const [notice, setNotice] = useState<string | null>(null);
@@ -67,6 +99,10 @@ export function RoomsTab({
   const selectedRoom = useMemo(
     () => rooms.find((room) => room.id === selectedRoomId) ?? null,
     [rooms, selectedRoomId]
+  );
+  const editingRoom = useMemo(
+    () => rooms.find((room) => room.id === editingRoomId) ?? null,
+    [rooms, editingRoomId]
   );
   const displayedMessages = useMemo(
     () => [...messages].sort((first, second) => getRoomMessageTime(first) - getRoomMessageTime(second)),
@@ -94,7 +130,7 @@ export function RoomsTab({
     }
 
     try {
-      const response = await apiRequest<{ rooms: ChatRoom[] }>("/rooms", {
+      const response = await apiRequest<{ rooms: ChatRoom[] }>(isAdmin ? "/admin/rooms" : "/rooms", {
         headers: authHeaders(token),
       });
       setRooms(response.rooms);
@@ -290,6 +326,98 @@ export function RoomsTab({
     }
   }
 
+  function startCreateRoom() {
+    setEditingRoomId(null);
+    setRoomForm(emptyRoomForm);
+    setAdminRoomView("form");
+    setSelectedRoomId(null);
+    setNotice(null);
+  }
+
+  function startEditRoom(room: ChatRoom) {
+    setEditingRoomId(room.id);
+    setRoomForm(getRoomForm(room));
+    setAdminRoomView("form");
+    setSelectedRoomId(null);
+    setNotice(null);
+  }
+
+  function closeAdminRoomForm() {
+    setAdminRoomView("list");
+    setEditingRoomId(null);
+    setRoomForm(emptyRoomForm);
+    setNotice(null);
+  }
+
+  async function saveRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!isAdmin) {
+      return;
+    }
+
+    setIsSavingRoom(true);
+    setNotice(null);
+
+    const payload = {
+      name: roomForm.name,
+      category: roomForm.category,
+      description: roomForm.description,
+      isActive: roomForm.isActive,
+    };
+
+    try {
+      const savedRoom = await apiRequest<ChatRoom>(
+        editingRoomId ? `/admin/rooms/${editingRoomId}` : "/admin/rooms",
+        {
+          method: editingRoomId ? "PUT" : "POST",
+          headers: authHeaders(token),
+          body: JSON.stringify(payload),
+        }
+      );
+
+      setRooms((current) => {
+        if (editingRoomId) {
+          return current.map((room) => (room.id === savedRoom.id ? savedRoom : room));
+        }
+
+        return [savedRoom, ...current];
+      });
+      setAdminRoomView("list");
+      setEditingRoomId(null);
+      setRoomForm(emptyRoomForm);
+      setNotice(editingRoomId ? "Room updated." : "Room created.");
+      void loadRooms({ clearNotice: false, showLoading: false });
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Unable to save room.");
+    } finally {
+      setIsSavingRoom(false);
+    }
+  }
+
+  async function toggleRoom(room: ChatRoom) {
+    if (!isAdmin) {
+      return;
+    }
+
+    setNotice(null);
+
+    try {
+      const updatedRoom = await apiRequest<ChatRoom>(`/admin/rooms/${room.id}`, {
+        method: "PUT",
+        headers: authHeaders(token),
+        body: JSON.stringify({ isActive: !room.isActive }),
+      });
+      setRooms((current) => current.map((item) => (item.id === updatedRoom.id ? updatedRoom : item)));
+
+      if (editingRoomId === room.id) {
+        setRoomForm(getRoomForm(updatedRoom));
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Unable to update room.");
+    }
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadRooms();
@@ -297,7 +425,7 @@ export function RoomsTab({
 
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, isAdmin]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -413,6 +541,92 @@ export function RoomsTab({
         setMessageBody("");
         upsertMessage(response.message);
       }
+    );
+  }
+
+  if (isAdmin && adminRoomView === "form") {
+    return (
+      <section>
+        <ScreenHeader
+          eyebrow="Rooms"
+          title={editingRoom ? "Edit room." : "Create room."}
+          action={
+            <button
+              className="hidden h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium md:inline-flex"
+              type="button"
+              onClick={closeAdminRoomForm}
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              Rooms
+            </button>
+          }
+        />
+
+        <div className="px-5 pb-24 md:px-8 md:pb-8">
+          {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+
+          <form
+            onSubmit={saveRoom}
+            className="mx-auto max-w-2xl rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">{editingRoom ? "Edit room" : "Create room"}</h2>
+                <p className="mt-1 text-sm text-[#666666]">Admin-created spaces for member conversations</p>
+              </div>
+              <button
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
+                type="button"
+                onClick={closeAdminRoomForm}
+                aria-label="Back to rooms"
+                title="Back"
+              >
+                <ArrowLeft className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <input
+                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                placeholder="Room name"
+                value={roomForm.name}
+                onChange={(event) => setRoomForm((current) => ({ ...current, name: event.target.value }))}
+                required
+              />
+              <input
+                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                placeholder="Category"
+                value={roomForm.category}
+                onChange={(event) => setRoomForm((current) => ({ ...current, category: event.target.value }))}
+                required
+              />
+              <textarea
+                className="min-h-28 rounded-[18px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                placeholder="Description"
+                value={roomForm.description}
+                onChange={(event) => setRoomForm((current) => ({ ...current, description: event.target.value }))}
+                maxLength={280}
+              />
+              <label className="flex items-center justify-between gap-3 rounded-[18px] bg-[#fafafa] px-4 py-3 text-sm font-medium">
+                Active room
+                <input
+                  type="checkbox"
+                  checked={roomForm.isActive}
+                  onChange={(event) => setRoomForm((current) => ({ ...current, isActive: event.target.checked }))}
+                />
+              </label>
+            </div>
+
+            <button
+              className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSavingRoom}
+            >
+              {isSavingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
+              {editingRoom ? "Save room" : "Create room"}
+            </button>
+          </form>
+        </div>
+      </section>
     );
   }
 
@@ -602,7 +816,7 @@ export function RoomsTab({
     <section>
       <ScreenHeader
         eyebrow="Rooms"
-        title={isAdmin ? "Moderate active rooms." : "Public rooms, curated by admin."}
+        title={isAdmin ? "Manage rooms." : "Public rooms, curated by admin."}
         action={
           <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] px-4 py-2 text-sm font-medium md:inline-flex">
             <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
@@ -633,6 +847,19 @@ export function RoomsTab({
 
         {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
+        {isAdmin ? (
+          <div className="mb-4 flex items-center justify-end">
+            <button
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white"
+              type="button"
+              onClick={startCreateRoom}
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              Create Room +
+            </button>
+          </div>
+        ) : null}
+
         {isLoadingRooms ? (
           <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05]">
             <div className="text-center">
@@ -654,17 +881,51 @@ export function RoomsTab({
                       <span className="rounded-full bg-[#d4fae8] px-2.5 py-1 text-xs font-medium text-[#0fa76e]">
                         {room.category}
                       </span>
+                      {isAdmin ? (
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                            room.isActive ? "bg-[#d4fae8] text-[#0fa76e]" : "bg-[#fafafa] text-[#777777]"
+                          }`}
+                        >
+                          {room.isActive ? "Active" : "Inactive"}
+                        </span>
+                      ) : null}
                     </div>
                     <p className="mt-1 text-sm text-[#666666]">{room.description || "Open member conversation."}</p>
                   </div>
-                  <button
-                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
-                    onClick={() => (room.hasJoined || isAdmin ? openJoinedRoom(room) : requestJoinRoom(room))}
-                    aria-label={`${room.hasJoined || isAdmin ? "Enter" : "Join"} ${room.name}`}
-                    title={room.hasJoined || isAdmin ? "Enter room" : "Join room"}
-                  >
-                    <ArrowRight className="size-4" aria-hidden="true" />
-                  </button>
+                  <div className="flex shrink-0 gap-2">
+                    {isAdmin ? (
+                      <>
+                        <button
+                          className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
+                          type="button"
+                          onClick={() => startEditRoom(room)}
+                          aria-label={`Edit ${room.name}`}
+                          title="Edit"
+                        >
+                          <Pencil className="size-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
+                          type="button"
+                          onClick={() => toggleRoom(room)}
+                          aria-label={room.isActive ? `Deactivate ${room.name}` : `Activate ${room.name}`}
+                          title={room.isActive ? "Deactivate" : "Activate"}
+                        >
+                          <Power className="size-4" aria-hidden="true" />
+                        </button>
+                      </>
+                    ) : null}
+                    <button
+                      className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
+                      type="button"
+                      onClick={() => (room.hasJoined || isAdmin ? openJoinedRoom(room) : requestJoinRoom(room))}
+                      aria-label={`${room.hasJoined || isAdmin ? "Enter" : "Join"} ${room.name}`}
+                      title={room.hasJoined || isAdmin ? "Enter room" : "Join room"}
+                    >
+                      <ArrowRight className="size-4" aria-hidden="true" />
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
                   <span className="inline-flex items-center gap-1 rounded-full bg-[#fafafa] px-3 py-1">

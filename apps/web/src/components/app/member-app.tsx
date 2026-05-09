@@ -265,8 +265,8 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
                   onNotificationsChanged={refreshNotificationSummary}
                 />
               ) : null}
-              {activeTab === "events" ? <EventsTab /> : null}
-              {activeTab === "admin" && user.role === "ADMIN" ? <AdminDashboard token={token} /> : null}
+              {activeTab === "events" ? <EventsTab token={token} user={user} /> : null}
+              {activeTab === "admin" && user.role === "ADMIN" ? <AdminDashboard /> : null}
             </>
           )}
         </section>
