@@ -56,12 +56,6 @@ export class CreateEventDto {
   @IsEnum(EventStatus)
   status?: EventStatus;
 
-  @ApiPropertyOptional({ example: "General Admission" })
-  @IsOptional()
-  @IsString()
-  @MaxLength(80)
-  ticketName?: string;
-
   @ApiPropertyOptional({ example: 750000, description: "Ticket price in kobo. Use 0 for free events." })
   @IsOptional()
   @IsInt()

@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
 import {
   ArrowLeft,
@@ -25,6 +26,7 @@ import type { ChatRoom, RoomMessage, StreetzUser } from "@/lib/types";
 
 type RoomViewMode = "explore" | "joined";
 type AdminRoomView = "list" | "form";
+type AdminRoomMode = "list" | "create" | "edit";
 
 type RoomForm = {
   name: string;
@@ -60,24 +62,31 @@ function getRoomForm(room: ChatRoom): RoomForm {
 export function RoomsTab({
   token,
   user,
+  initialSelectedRoomId = null,
+  adminMode = "list",
+  adminRoomId = null,
   onRoomsLoaded,
   onRoomOpened,
   onNotificationsChanged,
 }: {
   token: string;
   user: StreetzUser;
+  initialSelectedRoomId?: string | null;
+  adminMode?: AdminRoomMode;
+  adminRoomId?: string | null;
   onRoomsLoaded: (rooms: ChatRoom[]) => void;
   onRoomOpened: (room: ChatRoom) => void;
   onNotificationsChanged: () => void;
 }) {
+  const router = useRouter();
   const isAdmin = user.role === "ADMIN";
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialSelectedRoomId);
   const [pendingJoinRoom, setPendingJoinRoom] = useState<ChatRoom | null>(null);
   const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
   const [viewMode, setViewMode] = useState<RoomViewMode>("joined");
-  const [adminRoomView, setAdminRoomView] = useState<AdminRoomView>("list");
-  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [adminRoomView, setAdminRoomView] = useState<AdminRoomView>(adminMode === "list" ? "list" : "form");
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(adminMode === "edit" ? adminRoomId : null);
   const [roomForm, setRoomForm] = useState<RoomForm>(emptyRoomForm);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [messageBody, setMessageBody] = useState("");
@@ -99,10 +108,6 @@ export function RoomsTab({
   const selectedRoom = useMemo(
     () => rooms.find((room) => room.id === selectedRoomId) ?? null,
     [rooms, selectedRoomId]
-  );
-  const editingRoom = useMemo(
-    () => rooms.find((room) => room.id === editingRoomId) ?? null,
-    [rooms, editingRoomId]
   );
   const displayedMessages = useMemo(
     () => [...messages].sort((first, second) => getRoomMessageTime(first) - getRoomMessageTime(second)),
@@ -175,6 +180,7 @@ export function RoomsTab({
     roomMessageIdsRef.current = new Set();
     setMessageBody("");
     setNotice(null);
+    router.push(`/rooms/${room.id}`);
 
     if (!isAdmin) {
       onRoomOpened(room);
@@ -198,6 +204,7 @@ export function RoomsTab({
       socketRef.current?.emit("room:leave", { roomId: selectedRoomId });
     }
 
+    router.push("/rooms");
     setIsLeaveConfirmOpen(false);
     setSelectedRoomId(null);
     setMessages([]);
@@ -281,7 +288,7 @@ export function RoomsTab({
       );
       setPendingJoinRoom(null);
       setViewMode("joined");
-      openJoinedRoom({ ...pendingJoinRoom, hasJoined: true, memberCount: pendingJoinRoom.memberCount + 1, unreadCount: 0 });
+      router.push(`/rooms/${pendingJoinRoom.id}`);
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to join room.");
@@ -317,6 +324,7 @@ export function RoomsTab({
       roomMessageIdsRef.current = new Set();
       setMessageBody("");
       setViewMode("joined");
+      router.push("/rooms");
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
       setIsLeaveConfirmOpen(false);
@@ -327,6 +335,7 @@ export function RoomsTab({
   }
 
   function startCreateRoom() {
+    router.push("/rooms/create");
     setEditingRoomId(null);
     setRoomForm(emptyRoomForm);
     setAdminRoomView("form");
@@ -335,6 +344,7 @@ export function RoomsTab({
   }
 
   function startEditRoom(room: ChatRoom) {
+    router.push(`/rooms/${room.id}/edit`);
     setEditingRoomId(room.id);
     setRoomForm(getRoomForm(room));
     setAdminRoomView("form");
@@ -343,6 +353,7 @@ export function RoomsTab({
   }
 
   function closeAdminRoomForm() {
+    router.push("/rooms");
     setAdminRoomView("list");
     setEditingRoomId(null);
     setRoomForm(emptyRoomForm);
@@ -387,6 +398,7 @@ export function RoomsTab({
       setEditingRoomId(null);
       setRoomForm(emptyRoomForm);
       setNotice(editingRoomId ? "Room updated." : "Room created.");
+      router.push("/rooms");
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to save room.");
@@ -426,6 +438,62 @@ export function RoomsTab({
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, isAdmin]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSelectedRoomId(initialSelectedRoomId);
+      setMessages([]);
+      roomMessageIdsRef.current = new Set();
+      setMessageBody("");
+      setNotice(null);
+      setIsLeaveConfirmOpen(false);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [initialSelectedRoomId]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (adminMode === "list") {
+        setAdminRoomView("list");
+        setEditingRoomId(null);
+        setRoomForm(emptyRoomForm);
+        return;
+      }
+
+      setSelectedRoomId(null);
+      setMessages([]);
+      roomMessageIdsRef.current = new Set();
+      setMessageBody("");
+      setAdminRoomView("form");
+      setEditingRoomId(adminMode === "edit" ? adminRoomId : null);
+      setRoomForm(emptyRoomForm);
+      setNotice(null);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [adminMode, adminRoomId, isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin || adminMode !== "edit" || !adminRoomId) {
+      return;
+    }
+
+    const room = rooms.find((candidate) => candidate.id === adminRoomId);
+
+    const timer = window.setTimeout(() => {
+      if (room) {
+        setEditingRoomId(room.id);
+        setRoomForm(getRoomForm(room));
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [adminMode, adminRoomId, isAdmin, rooms]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -549,15 +617,16 @@ export function RoomsTab({
       <section>
         <ScreenHeader
           eyebrow="Rooms"
-          title={editingRoom ? "Edit room." : "Create room."}
-          action={
+          title={editingRoomId ? "Edit room." : "Create room."}
+          leading={
             <button
-              className="hidden h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium md:inline-flex"
+              className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
               type="button"
               onClick={closeAdminRoomForm}
+              aria-label="Back to rooms"
+              title="Back"
             >
               <ArrowLeft className="size-4" aria-hidden="true" />
-              Rooms
             </button>
           }
         />
@@ -571,18 +640,9 @@ export function RoomsTab({
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">{editingRoom ? "Edit room" : "Create room"}</h2>
+                <h2 className="text-lg font-semibold">{editingRoomId ? "Edit room" : "Create room"}</h2>
                 <p className="mt-1 text-sm text-[#666666]">Admin-created spaces for member conversations</p>
               </div>
-              <button
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
-                type="button"
-                onClick={closeAdminRoomForm}
-                aria-label="Back to rooms"
-                title="Back"
-              >
-                <ArrowLeft className="size-4" aria-hidden="true" />
-              </button>
             </div>
 
             <div className="mt-4 grid gap-3">
@@ -622,7 +682,7 @@ export function RoomsTab({
               disabled={isSavingRoom}
             >
               {isSavingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
-              {editingRoom ? "Save room" : "Create room"}
+              {editingRoomId ? "Save room" : "Create room"}
             </button>
           </form>
         </div>
@@ -635,126 +695,125 @@ export function RoomsTab({
       <>
         <section className="px-0 md:px-8 md:py-8">
           <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-[720px] md:rounded-[28px] md:border md:border-black/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-          <div className="flex items-center gap-3 border-b border-black/[0.05] px-4 py-3">
-            <button
-              type="button"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
-              onClick={closeRoom}
-              aria-label="Back to rooms"
-              title="Back"
-            >
-              <ArrowLeft className="size-4" aria-hidden="true" />
-            </button>
-
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg font-semibold">{selectedRoom.name}</h1>
-              <p className="truncate text-sm text-[#666666]">
-                {selectedRoom.category}
-              </p>
-            </div>
-
-            {!isAdmin ? (
+            <div className="flex items-center gap-3 border-b border-black/[0.05] px-4 py-3">
               <button
                 type="button"
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-sm font-medium md:h-10 md:w-auto md:gap-2 md:px-4"
-                onClick={() => setIsLeaveConfirmOpen(true)}
-                disabled={isLeavingRoom}
-                aria-label={`Leave ${selectedRoom.name}`}
-                title="Leave"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
+                onClick={closeRoom}
+                aria-label="Back to rooms"
+                title="Back"
               >
-                {isLeavingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <LogOut className="size-4" aria-hidden="true" />}
-                <span className="hidden md:inline">Leave</span>
+                <ArrowLeft className="size-4" aria-hidden="true" />
               </button>
-            ) : null}
 
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
-              <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
-              {isAdmin ? "Moderator" : socketStatus === "connected" ? "Live" : "Connecting"}
-            </div>
-          </div>
-
-          {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
-
-          <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
-            {isLoadingMessages ? (
-              <div className="grid h-full min-h-[360px] place-items-center text-sm font-medium text-[#666666]">
-                Loading room messages
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-lg font-semibold">{selectedRoom.name}</h1>
+                <p className="truncate text-sm text-[#666666]">
+                  {selectedRoom.category}
+                </p>
               </div>
-            ) : messages.length > 0 ? (
-              <div className="grid gap-3">
-                {datedMessages.map((item) => {
-                  if (item.type === "date") {
+
+              {!isAdmin ? (
+                <button
+                  type="button"
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-sm font-medium md:h-10 md:w-auto md:gap-2 md:px-4"
+                  onClick={() => setIsLeaveConfirmOpen(true)}
+                  disabled={isLeavingRoom}
+                  aria-label={`Leave ${selectedRoom.name}`}
+                  title="Leave"
+                >
+                  {isLeavingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <LogOut className="size-4" aria-hidden="true" />}
+                  <span className="hidden md:inline">Leave</span>
+                </button>
+              ) : null}
+
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
+                <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+                {isAdmin ? "Moderator" : socketStatus === "connected" ? "Live" : "Connecting"}
+              </div>
+            </div>
+
+            {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+
+            <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
+              {isLoadingMessages ? (
+                <div className="grid h-full min-h-[360px] place-items-center text-sm font-medium text-[#666666]">
+                  Loading room messages
+                </div>
+              ) : messages.length > 0 ? (
+                <div className="grid gap-3">
+                  {datedMessages.map((item) => {
+                    if (item.type === "date") {
+                      return (
+                        <div key={item.key} className="flex justify-center py-1">
+                          <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#777777] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                            {item.label}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    const message = item.message;
+                    const isMine = message.authorId === user.id;
+
                     return (
-                      <div key={item.key} className="flex justify-center py-1">
-                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#777777] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-                          {item.label}
-                        </span>
+                      <div key={item.key} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#18E299] text-[#0d0d0d]" : "rounded-bl-md bg-white text-[#0d0d0d]"
+                            }`}
+                        >
+                          {!isMine ? <p className="mb-1 text-xs font-semibold text-[#0fa76e]">{message.authorName}</p> : null}
+                          <p>{message.body}</p>
+                          <p className={`mt-1 text-[11px] ${isMine ? "text-[#0d0d0d]/55" : "text-[#888888]"}`}>
+                            {new Date(message.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
                       </div>
                     );
-                  }
+                  })}
+                </div>
+              ) : (
+                <div className="grid h-full min-h-[360px] place-items-center text-center">
+                  <div>
+                    <MessageCircle className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+                    <h2 className="mt-3 text-2xl font-semibold">{isAdmin ? "Room is quiet" : "Start the room"}</h2>
+                    <p className="mt-2 text-sm text-[#666666]">
+                      {isAdmin ? "Member messages will appear here." : `Send the first message in ${selectedRoom.name}.`}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
 
-                  const message = item.message;
-                  const isMine = message.authorId === user.id;
-
-                  return (
-                    <div key={item.key} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                      <div
-                        className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${
-                          isMine ? "rounded-br-md bg-[#18E299] text-[#0d0d0d]" : "rounded-bl-md bg-white text-[#0d0d0d]"
-                        }`}
-                      >
-                        {!isMine ? <p className="mb-1 text-xs font-semibold text-[#0fa76e]">{message.authorName}</p> : null}
-                        <p>{message.body}</p>
-                        <p className={`mt-1 text-[11px] ${isMine ? "text-[#0d0d0d]/55" : "text-[#888888]"}`}>
-                          {new Date(message.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+            {isAdmin ? (
+              <div className="shrink-0 border-t border-black/[0.05] bg-white p-4 text-center text-sm font-medium text-[#666666]">
+                Moderator view only
               </div>
             ) : (
-              <div className="grid h-full min-h-[360px] place-items-center text-center">
-                <div>
-                  <MessageCircle className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
-                  <h2 className="mt-3 text-2xl font-semibold">{isAdmin ? "Room is quiet" : "Start the room"}</h2>
-                  <p className="mt-2 text-sm text-[#666666]">
-                    {isAdmin ? "Member messages will appear here." : `Send the first message in ${selectedRoom.name}.`}
-                  </p>
-                </div>
-              </div>
+              <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
+                <input
+                  className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  placeholder="Write to the room"
+                  value={messageBody}
+                  onChange={(event) => setMessageBody(event.target.value)}
+                />
+                <button
+                  className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isSendingMessage || !messageBody.trim()}
+                  aria-label="Send message"
+                  title="Send"
+                >
+                  {isSendingMessage ? (
+                    <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <SendHorizontal className="size-4" aria-hidden="true" />
+                  )}
+                </button>
+              </form>
             )}
-          </div>
-
-          {isAdmin ? (
-            <div className="shrink-0 border-t border-black/[0.05] bg-white p-4 text-center text-sm font-medium text-[#666666]">
-              Moderator view only
-            </div>
-          ) : (
-            <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
-              <input
-                className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                placeholder="Write to the room"
-                value={messageBody}
-                onChange={(event) => setMessageBody(event.target.value)}
-              />
-              <button
-                className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isSendingMessage || !messageBody.trim()}
-                aria-label="Send message"
-                title="Send"
-              >
-                {isSendingMessage ? (
-                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <SendHorizontal className="size-4" aria-hidden="true" />
-                )}
-              </button>
-            </form>
-          )}
           </article>
         </section>
 
@@ -855,7 +914,7 @@ export function RoomsTab({
               onClick={startCreateRoom}
             >
               <Plus className="size-4" aria-hidden="true" />
-              Create Room +
+              Create Room
             </button>
           </div>
         ) : null}
@@ -883,9 +942,8 @@ export function RoomsTab({
                       </span>
                       {isAdmin ? (
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                            room.isActive ? "bg-[#d4fae8] text-[#0fa76e]" : "bg-[#fafafa] text-[#777777]"
-                          }`}
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${room.isActive ? "bg-[#d4fae8] text-[#0fa76e]" : "bg-[#fafafa] text-[#777777]"
+                            }`}
                         >
                           {room.isActive ? "Active" : "Inactive"}
                         </span>

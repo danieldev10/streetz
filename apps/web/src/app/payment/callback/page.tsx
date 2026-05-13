@@ -43,7 +43,7 @@ function PaymentCallbackContent() {
         }
 
         setMessage(isEventTicketPayment ? "Ticket confirmed. Taking you into Streetz..." : "Payment verified. Taking you into Streetz...");
-        window.setTimeout(() => router.replace("/"), 900);
+        window.setTimeout(() => router.replace(isEventTicketPayment ? "/events" : "/discover"), 900);
       })
       .catch((error) => {
         setMessage(error instanceof Error ? error.message : "Unable to verify payment.");

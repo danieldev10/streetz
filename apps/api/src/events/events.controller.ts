@@ -8,6 +8,7 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/roles.decorator";
 import { AuthUser } from "../auth/types/auth-user";
 import { CreateEventDto } from "./dto/create-event.dto";
+import { PresignEventImageDto } from "./dto/presign-event-image.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { EventsService } from "./events.service";
 
@@ -41,6 +42,13 @@ export class EventsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   createEvent(@Body() dto: CreateEventDto) {
     return this.eventsService.createEvent(dto);
+  }
+
+  @Post("admin/events/images/presign")
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  createEventImageUpload(@CurrentUser() user: AuthUser, @Body() dto: PresignEventImageDto) {
+    return this.eventsService.createEventImageUpload(user.id, dto);
   }
 
   @Put("admin/events/:eventId")

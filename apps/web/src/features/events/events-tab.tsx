@@ -1,17 +1,21 @@
 "use client";
 
 import Image from "next/image";
-import type { FormEvent } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CalendarDays, LoaderCircle, MapPin, Pencil, Plus, Power, RefreshCw, Save, Ticket } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, CalendarDays, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, Power, RefreshCw, Save, Ticket } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { apiRequest, authHeaders } from "@/lib/api";
 import type { EventStatus, StreetzEvent, StreetzUser } from "@/lib/types";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
+const GENERAL_ADMISSION_TICKET_NAME = "General Admission";
+const SUPPORTED_EVENT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 type AdminEventView = "list" | "form";
+type AdminEventMode = "list" | "create" | "edit";
 
 type EventForm = {
   title: string;
@@ -22,9 +26,15 @@ type EventForm = {
   startsAt: string;
   endsAt: string;
   status: EventStatus;
-  ticketName: string;
   priceNaira: string;
   capacity: string;
+};
+
+type EventImageUploadResponse = {
+  uploadUrl: string;
+  publicUrl: string;
+  objectKey: string;
+  expiresInSeconds: number;
 };
 
 const emptyEventForm: EventForm = {
@@ -36,7 +46,6 @@ const emptyEventForm: EventForm = {
   startsAt: "",
   endsAt: "",
   status: "DRAFT",
-  ticketName: "General Admission",
   priceNaira: "0",
   capacity: "100",
 };
@@ -89,27 +98,33 @@ function getEventForm(event: StreetzEvent): EventForm {
     startsAt: toDateTimeLocal(event.startsAt),
     endsAt: toDateTimeLocal(event.endsAt),
     status: event.status,
-    ticketName: event.ticketType?.name ?? "General Admission",
     priceNaira: String((event.ticketType?.priceKobo ?? 0) / 100),
     capacity: String(event.ticketType?.capacity ?? 100),
   };
 }
 
-export function EventsTab({ token, user }: { token: string; user: StreetzUser }) {
+export function EventsTab({
+  token,
+  user,
+  adminMode = "list",
+  adminEventId = null,
+}: {
+  token: string;
+  user: StreetzUser;
+  adminMode?: AdminEventMode;
+  adminEventId?: string | null;
+}) {
+  const router = useRouter();
   const isAdmin = user.role === "ADMIN";
   const [events, setEvents] = useState<StreetzEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-  const [adminEventView, setAdminEventView] = useState<AdminEventView>("list");
-  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [adminEventView, setAdminEventView] = useState<AdminEventView>(adminMode === "list" ? "list" : "form");
+  const [editingEventId, setEditingEventId] = useState<string | null>(adminMode === "edit" ? adminEventId : null);
   const [eventForm, setEventForm] = useState<EventForm>(emptyEventForm);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [isSavingEvent, setIsSavingEvent] = useState(false);
+  const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-
-  const editingEvent = useMemo(
-    () => events.find((event) => event.id === editingEventId) ?? null,
-    [events, editingEventId]
-  );
 
   const orderedEvents = useMemo(
     () => [...events].sort((first, second) => Date.parse(first.startsAt) - Date.parse(second.startsAt)),
@@ -150,7 +165,47 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, isAdmin]);
 
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (adminMode === "list") {
+        setAdminEventView("list");
+        setEditingEventId(null);
+        setEventForm(emptyEventForm);
+        return;
+      }
+
+      setAdminEventView("form");
+      setEditingEventId(adminMode === "edit" ? adminEventId : null);
+      setEventForm(emptyEventForm);
+      setNotice(null);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [adminMode, adminEventId, isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin || adminMode !== "edit" || !adminEventId) {
+      return;
+    }
+
+    const event = events.find((candidate) => candidate.id === adminEventId);
+
+    const timer = window.setTimeout(() => {
+      if (event) {
+        setEditingEventId(event.id);
+        setEventForm(getEventForm(event));
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [adminMode, adminEventId, events, isAdmin]);
+
   function startCreateEvent() {
+    router.push("/events/create");
     setEditingEventId(null);
     setEventForm(emptyEventForm);
     setAdminEventView("form");
@@ -158,6 +213,7 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
   }
 
   function startEditEvent(event: StreetzEvent) {
+    router.push(`/events/${event.id}/edit`);
     setEditingEventId(event.id);
     setEventForm(getEventForm(event));
     setAdminEventView("form");
@@ -165,16 +221,72 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
   }
 
   function closeAdminEventForm() {
+    router.push("/events");
     setAdminEventView("list");
     setEditingEventId(null);
     setEventForm(emptyEventForm);
     setNotice(null);
   }
 
+  async function uploadCoverImage(inputEvent: ChangeEvent<HTMLInputElement>) {
+    const input = inputEvent.currentTarget;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!SUPPORTED_EVENT_IMAGE_TYPES.includes(file.type as (typeof SUPPORTED_EVENT_IMAGE_TYPES)[number])) {
+      setNotice("Only JPG, PNG, and WebP event images are supported.");
+      input.value = "";
+      return;
+    }
+
+    setIsUploadingCoverImage(true);
+    setNotice(null);
+
+    try {
+      const upload = await apiRequest<EventImageUploadResponse>("/admin/events/images/presign", {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          fileName: file.name,
+          contentType: file.type,
+        }),
+      });
+
+      const uploadResponse = await fetch(upload.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("S3 rejected the event image upload. Check the bucket CORS settings.");
+      }
+
+      setEventForm((current) => ({ ...current, coverImage: upload.publicUrl }));
+      setNotice("Event image uploaded.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to upload event image.";
+      setNotice(message === "Failed to fetch" ? "Event image upload failed. Check the bucket CORS settings, then try again." : message);
+    } finally {
+      setIsUploadingCoverImage(false);
+      input.value = "";
+    }
+  }
+
   async function saveEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!isAdmin) {
+      return;
+    }
+
+    if (isUploadingCoverImage) {
+      setNotice("Wait for the event image upload to finish before saving.");
       return;
     }
 
@@ -211,7 +323,6 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
       startsAt: new Date(eventForm.startsAt).toISOString(),
       endsAt: eventForm.endsAt ? new Date(eventForm.endsAt).toISOString() : undefined,
       status: eventForm.status,
-      ticketName: eventForm.ticketName,
       priceKobo: Math.round(priceNaira * 100),
       capacity,
     };
@@ -237,6 +348,7 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
       setEditingEventId(null);
       setEventForm(emptyEventForm);
       setNotice(editingEventId ? "Event updated." : "Event created.");
+      router.push("/events");
       void loadEvents({ clearNotice: false, showLoading: false });
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to save event.");
@@ -319,15 +431,16 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
       <section>
         <ScreenHeader
           eyebrow="Events"
-          title={editingEvent ? "Edit event." : "Create event."}
-          action={
+          title={editingEventId ? "Edit event." : "Create event."}
+          leading={
             <button
-              className="hidden h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium md:inline-flex"
+              className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
               type="button"
               onClick={closeAdminEventForm}
+              aria-label="Back to events"
+              title="Back"
             >
               <ArrowLeft className="size-4" aria-hidden="true" />
-              Events
             </button>
           }
         />
@@ -341,18 +454,9 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold">{editingEvent ? "Edit event" : "Create event"}</h2>
+                <h2 className="text-lg font-semibold">{editingEventId ? "Edit event" : "Create event"}</h2>
                 <p className="mt-1 text-sm text-[#666666]">Publish events and set ticket pricing</p>
               </div>
-              <button
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
-                type="button"
-                onClick={closeAdminEventForm}
-                aria-label="Back to events"
-                title="Back"
-              >
-                <ArrowLeft className="size-4" aria-hidden="true" />
-              </button>
             </div>
 
             <div className="mt-4 grid gap-3">
@@ -370,12 +474,59 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
                 onChange={(inputEvent) => setEventForm((current) => ({ ...current, description: inputEvent.target.value }))}
                 maxLength={600}
               />
-              <input
-                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                placeholder="Cover image URL"
-                value={eventForm.coverImage}
-                onChange={(inputEvent) => setEventForm((current) => ({ ...current, coverImage: inputEvent.target.value }))}
-              />
+              <div className="rounded-[20px] border border-black/[0.08] p-3">
+                <div className="relative grid aspect-[16/9] place-items-center overflow-hidden rounded-[16px] bg-[#fafafa] text-center">
+                  {eventForm.coverImage ? (
+                    <Image
+                      src={eventForm.coverImage}
+                      alt="Event cover preview"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 672px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="px-4 text-sm font-medium text-[#888888]">
+                      <ImagePlus className="mx-auto mb-2 size-7 text-[#18E299]" aria-hidden="true" />
+                      Upload an event cover image
+                    </div>
+                  )}
+                  {isUploadingCoverImage ? (
+                    <div className="absolute inset-0 grid place-items-center bg-white/70">
+                      <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-hidden="true" />
+                    </div>
+                  ) : null}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <label
+                    className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white ${isSavingEvent || isUploadingCoverImage ? "pointer-events-none opacity-60" : ""
+                      }`}
+                  >
+                    {isUploadingCoverImage ? (
+                      <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <ImagePlus className="size-4" aria-hidden="true" />
+                    )}
+                    {eventForm.coverImage ? "Replace image" : "Upload image"}
+                    <input
+                      className="sr-only"
+                      type="file"
+                      accept={SUPPORTED_EVENT_IMAGE_TYPES.join(",")}
+                      onChange={uploadCoverImage}
+                      disabled={isSavingEvent || isUploadingCoverImage}
+                    />
+                  </label>
+                  {eventForm.coverImage ? (
+                    <button
+                      className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
+                      type="button"
+                      onClick={() => setEventForm((current) => ({ ...current, coverImage: "" }))}
+                      disabled={isSavingEvent || isUploadingCoverImage}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
@@ -414,54 +565,66 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
                 </label>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                  placeholder="Ticket name"
-                  value={eventForm.ticketName}
-                  onChange={(inputEvent) => setEventForm((current) => ({ ...current, ticketName: inputEvent.target.value }))}
-                  required
-                />
-                <select
-                  className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                  value={eventForm.status}
-                  onChange={(inputEvent) => setEventForm((current) => ({ ...current, status: inputEvent.target.value as EventStatus }))}
-                >
-                  <option value="DRAFT">Draft</option>
-                  <option value="PUBLISHED">Published</option>
-                  <option value="CANCELLED">Cancelled</option>
-                  <option value="COMPLETED">Completed</option>
-                </select>
+                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                  Ticket name
+                  <div className="flex h-12 items-center rounded-full border border-black/[0.08] bg-[#fafafa] px-4 text-sm font-medium normal-case tracking-normal text-[#666666]">
+                    {GENERAL_ADMISSION_TICKET_NAME}
+                  </div>
+                </label>
+                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                  Status
+                  <select
+                    className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    value={eventForm.status}
+                    onChange={(inputEvent) => setEventForm((current) => ({ ...current, status: inputEvent.target.value as EventStatus }))}
+                  >
+                    <option value="DRAFT">Draft</option>
+                    <option value="PUBLISHED">Published</option>
+                    <option value="CANCELLED">Cancelled</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                </label>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                  min="0"
-                  step="100"
-                  type="number"
-                  placeholder="Price in naira"
-                  value={eventForm.priceNaira}
-                  onChange={(inputEvent) => setEventForm((current) => ({ ...current, priceNaira: inputEvent.target.value }))}
-                  required
-                />
-                <input
-                  className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                  min="1"
-                  step="1"
-                  type="number"
-                  placeholder="Capacity"
-                  value={eventForm.capacity}
-                  onChange={(inputEvent) => setEventForm((current) => ({ ...current, capacity: inputEvent.target.value }))}
-                  required
-                />
+                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                  Price (₦)
+                  <input
+                    className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    min="0"
+                    step="100"
+                    type="number"
+                    placeholder="Price in naira"
+                    value={eventForm.priceNaira}
+                    onChange={(inputEvent) => setEventForm((current) => ({ ...current, priceNaira: inputEvent.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                  Capacity
+                  <input
+                    className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    min="1"
+                    step="1"
+                    type="number"
+                    placeholder="Capacity"
+                    value={eventForm.capacity}
+                    onChange={(inputEvent) => setEventForm((current) => ({ ...current, capacity: inputEvent.target.value }))}
+                    required
+                  />
+                </label>
               </div>
             </div>
 
             <button
               className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isSavingEvent}
+              disabled={isSavingEvent || isUploadingCoverImage}
             >
-              {isSavingEvent ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
-              {editingEvent ? "Save event" : "Create event"}
+              {isSavingEvent || isUploadingCoverImage ? (
+                <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Save className="size-4" aria-hidden="true" />
+              )}
+              {isUploadingCoverImage ? "Uploading image" : editingEventId ? "Save event" : "Create event"}
             </button>
           </form>
         </div>
@@ -497,7 +660,7 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
               onClick={startCreateEvent}
             >
               <Plus className="size-4" aria-hidden="true" />
-              Create Event +
+              Create Event
             </button>
           </div>
 
@@ -520,9 +683,8 @@ export function EventsTab({ token, user }: { token: string; user: StreetzUser })
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-lg font-semibold">{event.title}</h2>
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                            event.status === "PUBLISHED" ? "bg-[#d4fae8] text-[#0fa76e]" : "bg-[#fafafa] text-[#777777]"
-                          }`}
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${event.status === "PUBLISHED" ? "bg-[#d4fae8] text-[#0fa76e]" : "bg-[#fafafa] text-[#777777]"
+                            }`}
                         >
                           {event.status.toLowerCase()}
                         </span>

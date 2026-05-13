@@ -1,35 +1,53 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AuthShell, CenteredShell, PaywallShell } from "@/components/app/auth-shells";
+import { CenteredShell, PaywallShell } from "@/components/app/auth-shells";
+import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
 import { TOKEN_KEY, apiRequest, isActiveMember } from "@/lib/api";
-import type { AuthResponse, StreetzUser } from "@/lib/types";
+import type { StreetzUser, TabKey } from "@/lib/types";
 
 function getDefaultRoute(user: StreetzUser) {
   return user.role === "ADMIN" ? "/admin" : "/discover";
 }
 
-export default function Home() {
+function isRouteAllowed(user: StreetzUser, activeTab: TabKey, adminOnly: boolean) {
+  if (adminOnly && user.role !== "ADMIN") {
+    return false;
+  }
+
+  if (user.role === "ADMIN") {
+    return activeTab === "admin" || activeTab === "rooms" || activeTab === "events";
+  }
+
+  return activeTab !== "admin";
+}
+
+export function AuthenticatedRoute({
+  activeTab,
+  adminOnly = false,
+  children,
+}: {
+  activeTab: TabKey;
+  adminOnly?: boolean;
+  children: (props: MemberAppRenderProps & { token: string; user: StreetzUser }) => ReactNode;
+}) {
   const router = useRouter();
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<StreetzUser | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
-  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const canEnterApp = useMemo(() => isActiveMember(user), [user]);
+  const isAllowed = user ? isRouteAllowed(user, activeTab, adminOnly) : false;
 
   useEffect(() => {
     const savedToken = window.localStorage.getItem(TOKEN_KEY);
 
     if (!savedToken) {
+      router.replace("/");
       window.setTimeout(() => setIsLoadingSession(false), 0);
       return;
     }
@@ -42,45 +60,23 @@ export default function Home() {
       .then((sessionUser) => {
         setToken(savedToken);
         setUser(sessionUser);
-
-        if (isActiveMember(sessionUser)) {
-          router.replace(getDefaultRoute(sessionUser));
-        }
       })
       .catch(() => {
         window.localStorage.removeItem(TOKEN_KEY);
         setToken(null);
         setUser(null);
+        router.replace("/");
       })
       .finally(() => setIsLoadingSession(false));
   }, [router]);
 
-  async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setIsSubmittingAuth(true);
-    setMessage(null);
-
-    try {
-      const payload = authMode === "register" ? { displayName, email, password } : { email, password };
-      const auth = await apiRequest<AuthResponse>(`/auth/${authMode}`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-
-      window.localStorage.setItem(TOKEN_KEY, auth.accessToken);
-      setToken(auth.accessToken);
-      setUser(auth.user);
-      setPassword("");
-
-      if (isActiveMember(auth.user)) {
-        router.replace(getDefaultRoute(auth.user));
-      }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to continue.");
-    } finally {
-      setIsSubmittingAuth(false);
+  useEffect(() => {
+    if (!user || !canEnterApp || isAllowed) {
+      return;
     }
-  }
+
+    router.replace(getDefaultRoute(user));
+  }, [canEnterApp, isAllowed, router, user]);
 
   async function startSubscription() {
     if (!token) {
@@ -132,29 +128,15 @@ export default function Home() {
     window.localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
-    setAuthMode("login");
+    router.replace("/");
   }
 
   if (isLoadingSession) {
     return <CenteredShell title="Streetz" subtitle="Checking your session" />;
   }
 
-  if (!user) {
-    return (
-      <AuthShell
-        authMode={authMode}
-        displayName={displayName}
-        email={email}
-        password={password}
-        message={message}
-        isSubmitting={isSubmittingAuth}
-        onModeChange={setAuthMode}
-        onDisplayNameChange={setDisplayName}
-        onEmailChange={setEmail}
-        onPasswordChange={setPassword}
-        onSubmit={handleAuthSubmit}
-      />
-    );
+  if (!user || !token) {
+    return <CenteredShell title="Streetz" subtitle="Opening login" />;
   }
 
   if (!canEnterApp) {
@@ -169,5 +151,13 @@ export default function Home() {
     );
   }
 
-  return <CenteredShell title="Streetz" subtitle="Opening your account" />;
+  if (!isAllowed) {
+    return <CenteredShell title="Streetz" subtitle="Opening your account" />;
+  }
+
+  return (
+    <MemberApp key={user.id} user={user} token={token} activeTab={activeTab} onLogout={logout}>
+      {(appProps) => children({ ...appProps, token, user })}
+    </MemberApp>
+  );
 }

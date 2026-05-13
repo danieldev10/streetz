@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
 import { ArrowLeft, CheckCheck, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
@@ -29,18 +30,21 @@ type DirectMessageReadReceipt = {
 export function MatchesTab({
   token,
   user,
+  initialSelectedMatchId = null,
   onMatchesLoaded,
   onMatchOpened,
   onNotificationsChanged,
 }: {
   token: string;
   user: StreetzUser;
+  initialSelectedMatchId?: string | null;
   onMatchesLoaded: (matches: MatchThread[]) => void;
   onMatchOpened: (match: MatchThread) => void;
   onNotificationsChanged: () => void;
 }) {
+  const router = useRouter();
   const [matches, setMatches] = useState<MatchThread[]>([]);
-  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(initialSelectedMatchId);
   const [viewedMatchProfile, setViewedMatchProfile] = useState<DiscoveryCandidate | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [messageBody, setMessageBody] = useState("");
@@ -101,6 +105,7 @@ export function MatchesTab({
     setNotice(null);
     setSelectedMatchId(matchId);
     setViewedMatchProfile(null);
+    router.push(`/matches/${matchId}`);
 
     if (match) {
       onMatchOpened(match);
@@ -110,6 +115,7 @@ export function MatchesTab({
   }
 
   function closeMatch() {
+    router.push("/matches");
     setSelectedMatchId(null);
     setViewedMatchProfile(null);
     setMessages([]);
@@ -238,6 +244,22 @@ export function MatchesTab({
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setNotice(null);
+      setSelectedMatchId(initialSelectedMatchId);
+      setViewedMatchProfile(null);
+
+      if (!initialSelectedMatchId) {
+        setMessages([]);
+        directMessageIdsRef.current = new Set();
+        setMessageBody("");
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [initialSelectedMatchId]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {

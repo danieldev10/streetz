@@ -1,23 +1,42 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { LoaderCircle } from "lucide-react";
 import { AppBrand, AppNavButton, MobileHeader, adminTabs, tabs } from "@/components/app/navigation";
-import { AdminDashboard } from "@/features/admin/admin-dashboard";
-import { DiscoveryTab } from "@/features/discovery/discovery-tab";
-import { EventsTab } from "@/features/events/events-tab";
-import { MatchesTab } from "@/features/matches/matches-tab";
 import { ProfileTab } from "@/features/profile/profile-tab";
-import { RoomsTab } from "@/features/rooms/rooms-tab";
 import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
 import { isProfileReadyForDiscovery } from "@/lib/profile";
 import type { ChatRoom, MatchThread, NotificationSummary, ProfileGateState, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
 
-export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token: string; onLogout: () => void }) {
+export type MemberAppRenderProps = {
+  onMatchCreated: () => void;
+  onMatchesLoaded: (matches: MatchThread[]) => void;
+  onMatchOpened: (match: MatchThread) => void;
+  onNotificationsChanged: () => void;
+  onRoomsLoaded: (rooms: ChatRoom[]) => void;
+  onRoomOpened: (room: ChatRoom) => void;
+  refreshNotificationSummary: () => Promise<void>;
+};
+
+export function MemberApp({
+  user,
+  token,
+  activeTab,
+  onLogout,
+  children,
+}: {
+  user: StreetzUser;
+  token: string;
+  activeTab: TabKey;
+  onLogout: () => void;
+  children: (props: MemberAppRenderProps) => ReactNode;
+}) {
+  const router = useRouter();
   const shouldRequireProfileSetup = user.role === "USER";
   const visibleTabs = user.role === "ADMIN" ? adminTabs : tabs;
-  const [activeTab, setActiveTab] = useState<TabKey>(user.role === "ADMIN" ? "admin" : "discovery");
   const [profileGateState, setProfileGateState] = useState<ProfileGateState>(
     shouldRequireProfileSetup ? "checking" : "ready"
   );
@@ -69,7 +88,7 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
   function handleProfileReady() {
     setProfileGateNotice(null);
     setProfileGateState("ready");
-    setActiveTab("discovery");
+    router.replace("/discover");
     void refreshNotificationSummary();
   }
 
@@ -144,7 +163,10 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
           return;
         }
 
-        setActiveTab("profile");
+        if (activeTab !== "profile") {
+          router.replace("/profile");
+        }
+
         setProfileGateNotice(null);
         setProfileGateState("required");
       } catch (error) {
@@ -152,7 +174,10 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
           return;
         }
 
-        setActiveTab("profile");
+        if (activeTab !== "profile") {
+          router.replace("/profile");
+        }
+
         setProfileGateNotice(error instanceof Error ? error.message : "Unable to verify your profile setup.");
         setProfileGateState("required");
       }
@@ -163,7 +188,7 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
     return () => {
       cancelled = true;
     };
-  }, [token, shouldRequireProfileSetup]);
+  }, [activeTab, router, token, shouldRequireProfileSetup]);
 
   useEffect(() => {
     if (profileGateState !== "ready") {
@@ -171,7 +196,6 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
     }
 
     const timer = window.setTimeout(() => void refreshNotificationSummary(), 0);
-
     const interval = window.setInterval(() => void refreshNotificationSummary(), 30000);
 
     return () => {
@@ -199,6 +223,16 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
     };
   }, [profileGateState, refreshNotificationSummary, token]);
 
+  const renderProps: MemberAppRenderProps = {
+    onMatchCreated: handleMatchCreated,
+    onMatchesLoaded: handleMatchesLoaded,
+    onMatchOpened: handleMatchOpened,
+    onNotificationsChanged: refreshNotificationSummary,
+    onRoomsLoaded: handleRoomsLoaded,
+    onRoomOpened: handleRoomOpened,
+    refreshNotificationSummary,
+  };
+
   return (
     <main className="min-h-screen bg-white text-[#0d0d0d]">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl">
@@ -211,7 +245,6 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
                   key={tab.id}
                   tab={tab}
                   active={activeTab === tab.id}
-                  onClick={() => setActiveTab(tab.id)}
                   variant="side"
                   badgeCount={getTabBadgeCount(tab.id)}
                 />
@@ -244,30 +277,7 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
               onProfileReady={handleProfileReady}
             />
           ) : (
-            <>
-              {activeTab === "discovery" ? <DiscoveryTab token={token} onMatchCreated={handleMatchCreated} /> : null}
-              {activeTab === "matches" ? (
-                <MatchesTab
-                  token={token}
-                  user={user}
-                  onMatchesLoaded={handleMatchesLoaded}
-                  onMatchOpened={handleMatchOpened}
-                  onNotificationsChanged={refreshNotificationSummary}
-                />
-              ) : null}
-              {activeTab === "profile" ? <ProfileTab token={token} user={user} /> : null}
-              {activeTab === "rooms" ? (
-                <RoomsTab
-                  token={token}
-                  user={user}
-                  onRoomsLoaded={handleRoomsLoaded}
-                  onRoomOpened={handleRoomOpened}
-                  onNotificationsChanged={refreshNotificationSummary}
-                />
-              ) : null}
-              {activeTab === "events" ? <EventsTab token={token} user={user} /> : null}
-              {activeTab === "admin" && user.role === "ADMIN" ? <AdminDashboard /> : null}
-            </>
+            children(renderProps)
           )}
         </section>
       </div>
@@ -280,7 +290,6 @@ export function MemberApp({ user, token, onLogout }: { user: StreetzUser; token:
                 key={tab.id}
                 tab={tab}
                 active={activeTab === tab.id}
-                onClick={() => setActiveTab(tab.id)}
                 variant="bottom"
                 badgeCount={getTabBadgeCount(tab.id)}
               />

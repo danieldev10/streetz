@@ -2,11 +2,21 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { EventStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
+import { StorageService } from "../storage/storage.service";
 import { CreateEventDto } from "./dto/create-event.dto";
+import { PresignEventImageDto } from "./dto/presign-event-image.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 
 const ACTIVE_TICKET_STATUSES = [TicketStatus.RESERVED, TicketStatus.PAID, TicketStatus.CHECKED_IN];
 const CONFIRMED_TICKET_STATUSES = [TicketStatus.PAID, TicketStatus.CHECKED_IN];
+const EVENT_IMAGE_UPLOAD_EXPIRES_SECONDS = 300;
+const GENERAL_ADMISSION_TICKET_NAME = "General Admission";
+
+const contentTypeExtensions: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp"
+};
 
 type EventSource = Prisma.EventGetPayload<{
   include: {
@@ -17,7 +27,10 @@ type EventSource = Prisma.EventGetPayload<{
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService
+  ) {}
 
   async getAdminEvents() {
     const events = await this.prisma.event.findMany({
@@ -38,7 +51,6 @@ export class EventsService {
     const endsAt = this.parseOptionalDate(dto.endsAt, "Event end date is invalid.");
     this.assertDateOrder(startsAt, endsAt);
 
-    const ticketName = this.cleanOptionalText(dto.ticketName) ?? "General Admission";
     const priceKobo = dto.priceKobo ?? 0;
 
     const event = await this.prisma.event.create({
@@ -54,7 +66,7 @@ export class EventsService {
         status: dto.status ?? EventStatus.DRAFT,
         ticketTypes: {
           create: {
-            name: ticketName,
+            name: GENERAL_ADMISSION_TICKET_NAME,
             priceKobo,
             capacity: dto.capacity
           }
@@ -67,6 +79,23 @@ export class EventsService {
     });
 
     return this.formatEvent(event, { includeAdminCounts: true });
+  }
+
+  async createEventImageUpload(adminUserId: string, dto: PresignEventImageDto) {
+    const extension = contentTypeExtensions[dto.contentType];
+
+    if (!extension) {
+      throw new BadRequestException("Only JPG, PNG, and WebP event images are supported.");
+    }
+
+    const objectKey = `events/${adminUserId}/${Date.now()}-${randomBytes(8).toString("hex")}.${extension}`;
+
+    return {
+      uploadUrl: await this.storage.createUploadUrl(objectKey, dto.contentType, EVENT_IMAGE_UPLOAD_EXPIRES_SECONDS),
+      objectKey,
+      publicUrl: this.storage.buildPublicUrl(objectKey),
+      expiresInSeconds: EVENT_IMAGE_UPLOAD_EXPIRES_SECONDS
+    };
   }
 
   async updateEvent(eventId: string, dto: UpdateEventDto) {
@@ -101,20 +130,14 @@ export class EventsService {
     }
 
     const updatedEvent = await this.prisma.$transaction(async (transaction) => {
-      if (
-        dto.ticketName !== undefined ||
-        dto.priceKobo !== undefined ||
-        dto.capacity !== undefined
-      ) {
-        await transaction.ticketType.update({
-          where: { id: ticketType.id },
-          data: {
-            ...(dto.ticketName !== undefined ? { name: this.cleanText(dto.ticketName) } : {}),
-            ...(dto.priceKobo !== undefined ? { priceKobo: dto.priceKobo } : {}),
-            ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {})
-          }
-        });
-      }
+      await transaction.ticketType.update({
+        where: { id: ticketType.id },
+        data: {
+          name: GENERAL_ADMISSION_TICKET_NAME,
+          ...(dto.priceKobo !== undefined ? { priceKobo: dto.priceKobo } : {}),
+          ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {})
+        }
+      });
 
       return transaction.event.update({
         where: { id: eventId },

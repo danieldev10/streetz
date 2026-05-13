@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
@@ -31,6 +32,15 @@ export const adminTabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> =
   { id: "rooms", label: "Rooms", icon: MessageCircle },
   { id: "events", label: "Events", icon: Ticket },
 ];
+
+export const tabRoutes: Record<TabKey, string> = {
+  discovery: "/discover",
+  matches: "/matches",
+  profile: "/profile",
+  rooms: "/rooms",
+  events: "/events",
+  admin: "/admin",
+};
 
 function AccountMenu({ onLogout }: { onLogout: () => void }) {
   const closeTimerRef = useRef<number | null>(null);
@@ -294,15 +304,17 @@ export function MobileHeader({ user, onLogout }: { user: StreetzUser; onLogout: 
 export function AppNavButton({
   tab,
   active,
-  onClick,
   variant,
   badgeCount = 0,
+  href = tabRoutes[tab.id],
+  onClick,
 }: {
   tab: { id: TabKey; label: string; icon: LucideIcon };
   active: boolean;
-  onClick: () => void;
   variant: "side" | "bottom";
   badgeCount?: number;
+  href?: string;
+  onClick?: () => void;
 }) {
   const Icon = tab.icon;
   const base = "inline-flex items-center justify-center gap-2 text-sm font-medium transition";
@@ -317,18 +329,28 @@ export function AppNavButton({
 
   if (variant === "side") {
     return (
-      <button className={`${base} ${activeClass} h-11 rounded-full px-4`} onClick={onClick}>
+      <Link
+        className={`${base} ${activeClass} h-11 rounded-full px-4`}
+        href={href}
+        onClick={onClick}
+        aria-current={active ? "page" : undefined}
+      >
         <span className="relative inline-flex">
           <Icon className="size-4" aria-hidden="true" />
           {badge}
         </span>
         <span>{tab.label}</span>
-      </button>
+      </Link>
     );
   }
 
   return (
-    <button className={`${base} ${activeClass} min-h-14 rounded-[20px] px-2 py-2`} onClick={onClick}>
+    <Link
+      className={`${base} ${activeClass} min-h-14 rounded-[20px] px-2 py-2`}
+      href={href}
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+    >
       <span className="grid justify-items-center gap-1">
         <span className="relative inline-flex">
           <Icon className="size-5" aria-hidden="true" />
@@ -336,24 +358,29 @@ export function AppNavButton({
         </span>
         <span className="text-xs">{tab.label}</span>
       </span>
-    </button>
+    </Link>
   );
 }
 
 export function ScreenHeader({
   eyebrow,
   title,
+  leading,
   action,
 }: {
   eyebrow: string;
   title: string;
+  leading?: ReactNode;
   action?: ReactNode;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 px-5 pb-4 pt-6 md:px-8 md:pt-8">
-      <div className="min-w-0">
-        <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{eyebrow}</p>
-        <h1 className="mt-1 text-3xl font-semibold leading-tight text-[#0d0d0d] md:text-5xl">{title}</h1>
+      <div className="flex min-w-0 items-start gap-3">
+        {leading ? <div className="shrink-0 pt-1">{leading}</div> : null}
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{eyebrow}</p>
+          <h1 className="mt-1 text-3xl font-semibold leading-tight text-[#0d0d0d] md:text-5xl">{title}</h1>
+        </div>
       </div>
       {action}
     </div>
