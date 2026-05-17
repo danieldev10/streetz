@@ -7,13 +7,15 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, Power, RefreshCw, Save, Ticket } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { apiRequest, authHeaders } from "@/lib/api";
-import type { EventStatus, StreetzEvent, StreetzUser } from "@/lib/types";
+import type { EventStatus, StreetzEvent, StreetzUser, TicketStatus } from "@/lib/types";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
 const GENERAL_ADMISSION_TICKET_NAME = "General Admission";
 const SUPPORTED_EVENT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const ACTIVE_TICKET_STATUSES = new Set<TicketStatus>(["RESERVED", "PAID", "CHECKED_IN"]);
 
+type EventViewMode = "tickets" | "events";
 type AdminEventView = "list" | "form";
 type AdminEventMode = "list" | "create" | "edit";
 
@@ -72,6 +74,10 @@ function formatPrice(priceKobo: number) {
   }).format(priceKobo / 100);
 }
 
+function hasActiveTicket(event: StreetzEvent) {
+  return Boolean(event.userTicket && ACTIVE_TICKET_STATUSES.has(event.userTicket.status));
+}
+
 function toDateTimeLocal(value: string | null) {
   if (!value) {
     return "";
@@ -118,6 +124,7 @@ export function EventsTab({
   const isAdmin = user.role === "ADMIN";
   const [events, setEvents] = useState<StreetzEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [eventViewMode, setEventViewMode] = useState<EventViewMode>("tickets");
   const [adminEventView, setAdminEventView] = useState<AdminEventView>(adminMode === "list" ? "list" : "form");
   const [editingEventId, setEditingEventId] = useState<string | null>(adminMode === "edit" ? adminEventId : null);
   const [eventForm, setEventForm] = useState<EventForm>(emptyEventForm);
@@ -130,6 +137,9 @@ export function EventsTab({
     () => [...events].sort((first, second) => Date.parse(first.startsAt) - Date.parse(second.startsAt)),
     [events]
   );
+  const ticketEvents = orderedEvents.filter(hasActiveTicket);
+  const exploreEvents = orderedEvents.filter((event) => !hasActiveTicket(event));
+  const visibleMemberEvents = eventViewMode === "tickets" ? ticketEvents : exploreEvents;
 
   async function loadEvents(options: { clearNotice?: boolean; showLoading?: boolean } = {}) {
     const { clearNotice = true, showLoading = true } = options;
@@ -434,7 +444,7 @@ export function EventsTab({
           title={editingEventId ? "Edit event." : "Create event."}
           leading={
             <button
-              className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
+              className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
               type="button"
               onClick={closeAdminEventForm}
               aria-label="Back to events"
@@ -446,11 +456,11 @@ export function EventsTab({
         />
 
         <div className="px-5 pb-24 md:px-8 md:pb-8">
-          {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+          {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
           <form
             onSubmit={saveEvent}
-            className="mx-auto max-w-2xl rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+            className="mx-auto max-w-2xl rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -461,21 +471,21 @@ export function EventsTab({
 
             <div className="mt-4 grid gap-3">
               <input
-                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                 placeholder="Event title"
                 value={eventForm.title}
                 onChange={(inputEvent) => setEventForm((current) => ({ ...current, title: inputEvent.target.value }))}
                 required
               />
               <textarea
-                className="min-h-28 rounded-[18px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="min-h-28 rounded-[18px] border border-black/8 p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                 placeholder="Description"
                 value={eventForm.description}
                 onChange={(inputEvent) => setEventForm((current) => ({ ...current, description: inputEvent.target.value }))}
                 maxLength={600}
               />
-              <div className="rounded-[20px] border border-black/[0.08] p-3">
-                <div className="relative grid aspect-[16/9] place-items-center overflow-hidden rounded-[16px] bg-[#fafafa] text-center">
+              <div className="rounded-[20px] border border-black/8 p-3">
+                <div className="relative grid aspect-video place-items-center overflow-hidden rounded-2xl bg-[#fafafa] text-center">
                   {eventForm.coverImage ? (
                     <Image
                       src={eventForm.coverImage}
@@ -517,7 +527,7 @@ export function EventsTab({
                   </label>
                   {eventForm.coverImage ? (
                     <button
-                      className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
                       type="button"
                       onClick={() => setEventForm((current) => ({ ...current, coverImage: "" }))}
                       disabled={isSavingEvent || isUploadingCoverImage}
@@ -529,14 +539,14 @@ export function EventsTab({
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
-                  className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                   placeholder="Venue"
                   value={eventForm.venue}
                   onChange={(inputEvent) => setEventForm((current) => ({ ...current, venue: inputEvent.target.value }))}
                   required
                 />
                 <input
-                  className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                   placeholder="City"
                   value={eventForm.city}
                   onChange={(inputEvent) => setEventForm((current) => ({ ...current, city: inputEvent.target.value }))}
@@ -547,7 +557,7 @@ export function EventsTab({
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Starts
                   <input
-                    className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                     type="datetime-local"
                     value={eventForm.startsAt}
                     onChange={(inputEvent) => setEventForm((current) => ({ ...current, startsAt: inputEvent.target.value }))}
@@ -557,7 +567,7 @@ export function EventsTab({
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Ends
                   <input
-                    className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                     type="datetime-local"
                     value={eventForm.endsAt}
                     onChange={(inputEvent) => setEventForm((current) => ({ ...current, endsAt: inputEvent.target.value }))}
@@ -567,14 +577,14 @@ export function EventsTab({
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Ticket name
-                  <div className="flex h-12 items-center rounded-full border border-black/[0.08] bg-[#fafafa] px-4 text-sm font-medium normal-case tracking-normal text-[#666666]">
+                  <div className="flex h-12 items-center rounded-full border border-black/8 bg-[#fafafa] px-4 text-sm font-medium normal-case tracking-normal text-[#666666]">
                     {GENERAL_ADMISSION_TICKET_NAME}
                   </div>
                 </label>
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Status
                   <select
-                    className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                     value={eventForm.status}
                     onChange={(inputEvent) => setEventForm((current) => ({ ...current, status: inputEvent.target.value as EventStatus }))}
                   >
@@ -589,7 +599,7 @@ export function EventsTab({
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Price (₦)
                   <input
-                    className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                     min="0"
                     step="100"
                     type="number"
@@ -602,7 +612,7 @@ export function EventsTab({
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Capacity
                   <input
-                    className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                     min="1"
                     step="1"
                     type="number"
@@ -640,7 +650,7 @@ export function EventsTab({
           title="Manage events."
           action={
             <button
-              className="hidden h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium md:inline-flex"
+              className="hidden h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium md:inline-flex"
               type="button"
               onClick={() => loadEvents()}
             >
@@ -651,7 +661,7 @@ export function EventsTab({
         />
 
         <div className="px-5 pb-24 md:px-8 md:pb-8">
-          {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+          {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
           <div className="mb-4 flex items-center justify-end">
             <button
@@ -665,7 +675,7 @@ export function EventsTab({
           </div>
 
           {isLoadingEvents ? (
-            <div className="grid min-h-[360px] place-items-center rounded-[24px] border border-black/[0.05]">
+            <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5">
               <div className="text-center">
                 <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
                 <p className="mt-3 text-sm font-medium text-[#666666]">Loading events</p>
@@ -676,7 +686,7 @@ export function EventsTab({
               {orderedEvents.map((event) => (
                 <article
                   key={event.id}
-                  className="rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+                  className="rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
@@ -713,7 +723,7 @@ export function EventsTab({
                     </div>
                     <div className="grid shrink-0 gap-2">
                       <button
-                        className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
+                        className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
                         type="button"
                         onClick={() => startEditEvent(event)}
                         aria-label={`Edit ${event.title}`}
@@ -722,7 +732,7 @@ export function EventsTab({
                         <Pencil className="size-4" aria-hidden="true" />
                       </button>
                       <button
-                        className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
+                        className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
                         type="button"
                         onClick={() => toggleEventStatus(event)}
                         aria-label={event.status === "PUBLISHED" ? `Unpublish ${event.title}` : `Publish ${event.title}`}
@@ -736,7 +746,7 @@ export function EventsTab({
               ))}
             </div>
           ) : (
-            <div className="grid min-h-[360px] place-items-center rounded-[24px] border border-black/[0.05] p-6 text-center">
+            <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
               <div>
                 <Ticket className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
                 <h2 className="mt-3 text-2xl font-semibold">No events yet</h2>
@@ -753,10 +763,10 @@ export function EventsTab({
     <section>
       <ScreenHeader
         eyebrow="Events"
-        title="Tickets for what is next."
+        title="Tickets and events."
         action={
           <button
-            className="hidden h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium md:inline-flex"
+            className="hidden h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium md:inline-flex"
             type="button"
             onClick={() => loadEvents()}
           >
@@ -767,29 +777,46 @@ export function EventsTab({
       />
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
+          <button
+            type="button"
+            className={`rounded-full px-4 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+            onClick={() => setEventViewMode("tickets")}
+          >
+            Tickets
+          </button>
+          <button
+            type="button"
+            className={`rounded-full px-4 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+            onClick={() => setEventViewMode("events")}
+          >
+            Events
+          </button>
+        </div>
+
+        {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isLoadingEvents ? (
-          <div className="grid min-h-[360px] place-items-center rounded-[24px] border border-black/[0.05]">
+          <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5">
             <div className="text-center">
               <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium text-[#666666]">Loading events</p>
             </div>
           </div>
-        ) : orderedEvents.length > 0 ? (
+        ) : visibleMemberEvents.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {orderedEvents.map((event) => {
+            {visibleMemberEvents.map((event) => {
               const ticketType = event.ticketType;
-              const isBooked = Boolean(event.userTicket && ["RESERVED", "PAID", "CHECKED_IN"].includes(event.userTicket.status));
+              const isBooked = hasActiveTicket(event);
               const isSoldOut = Boolean(ticketType && ticketType.availableCount <= 0 && !isBooked);
               const isBusy = activeEventId === event.id;
 
               return (
                 <article
                   key={event.id}
-                  className="overflow-hidden rounded-[24px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+                  className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
                 >
-                  <div className="relative aspect-[16/11] bg-[#d4fae8]">
+                  <div className="relative aspect-16/11 bg-[#d4fae8]">
                     <Image
                       src={event.coverImage || FALLBACK_EVENT_IMAGE}
                       alt={`${event.title} event`}
@@ -851,11 +878,17 @@ export function EventsTab({
             })}
           </div>
         ) : (
-          <div className="grid min-h-[360px] place-items-center rounded-[24px] border border-black/[0.05] p-6 text-center">
+          <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>
               <Ticket className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
-              <h2 className="mt-3 text-2xl font-semibold">No events yet</h2>
-              <p className="mt-2 text-sm text-[#666666]">Admin-published events will appear here.</p>
+              <h2 className="mt-3 text-2xl font-semibold">
+                {eventViewMode === "tickets" ? "No tickets yet" : "No events yet"}
+              </h2>
+              <p className="mt-2 text-sm text-[#666666]">
+                {eventViewMode === "tickets"
+                  ? "Tickets you book or buy will appear here."
+                  : "Events you have not booked yet will appear here."}
+              </p>
             </div>
           </div>
         )}

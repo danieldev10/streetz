@@ -58,6 +58,7 @@ export function ProfileTab({
     activeProfilePhotoIndex < visibleProfilePhotos.length ? activeProfilePhotoIndex : 0;
   const activeProfilePhoto = visibleProfilePhotos[safeActiveProfilePhotoIndex] ?? profilePhoto;
   const isUploadingPhoto = uploadingPhotoSlot !== null;
+  const canDeleteProfilePhoto = visibleProfilePhotos.length > 1;
   const nextAvailablePhotoSlot = Math.min(visibleProfilePhotos.length, PROFILE_PHOTO_LIMIT - 1);
   const profileAge = getAgeFromBirthDate(profileForm.birthDate);
   const profileLocation = [profileForm.city, profileForm.state].filter(Boolean).join(", ") || "Nigeria";
@@ -191,15 +192,20 @@ export function ProfileTab({
     }
   }
 
-  async function uploadProfilePhoto(event: ChangeEvent<HTMLInputElement>, sortOrder = nextAvailablePhotoSlot) {
+  async function uploadProfilePhoto(
+    event: ChangeEvent<HTMLInputElement>,
+    sortOrder = nextAvailablePhotoSlot,
+    options: { replacePhotoId?: string } = {}
+  ) {
     const input = event.currentTarget;
     const file = input.files?.[0];
+    const isReplacingPhoto = Boolean(options.replacePhotoId);
 
     if (!file) {
       return;
     }
 
-    if (visibleProfilePhotos.length >= PROFILE_PHOTO_LIMIT) {
+    if (!isReplacingPhoto && visibleProfilePhotos.length >= PROFILE_PHOTO_LIMIT) {
       setNotice(`You can add up to ${PROFILE_PHOTO_LIMIT} profile photos.`);
       input.value = "";
       return;
@@ -233,6 +239,13 @@ export function ProfileTab({
         throw new Error("S3 rejected the photo upload. Check the bucket CORS settings.");
       }
 
+      if (options.replacePhotoId) {
+        await apiRequest<{ deleted: boolean }>(`/profiles/photos/${encodeURIComponent(options.replacePhotoId)}`, {
+          method: "DELETE",
+          headers: authHeaders(token),
+        });
+      }
+
       await apiRequest<ProfilePhoto>("/profiles/photos", {
         method: "POST",
         headers: authHeaders(token),
@@ -243,7 +256,7 @@ export function ProfileTab({
       });
 
       setActiveProfilePhotoIndex(Math.min(sortOrder, PROFILE_PHOTO_LIMIT - 1));
-      setNotice("Photo added to your profile.");
+      setNotice(isReplacingPhoto ? "Photo updated." : "Photo added to your profile.");
       await loadProfile({ clearNotice: false, showLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to upload photo.";
@@ -255,6 +268,45 @@ export function ProfileTab({
     } finally {
       setUploadingPhotoSlot(null);
       input.value = "";
+    }
+  }
+
+  async function deleteProfilePhoto(photo: ProfilePhoto, index: number) {
+    if (!canDeleteProfilePhoto) {
+      setNotice("Your profile needs at least one photo.");
+      return;
+    }
+
+    if (isUploadingPhoto) {
+      return;
+    }
+
+    setUploadingPhotoSlot(index);
+    setNotice(null);
+
+    try {
+      await apiRequest<{ deleted: boolean }>(`/profiles/photos/${encodeURIComponent(photo.id)}`, {
+        method: "DELETE",
+        headers: authHeaders(token),
+      });
+
+      setActiveProfilePhotoIndex((currentIndex) => {
+        if (currentIndex === index) {
+          return Math.max(index - 1, 0);
+        }
+
+        if (currentIndex > index) {
+          return currentIndex - 1;
+        }
+
+        return currentIndex;
+      });
+      setNotice("Photo removed from your profile.");
+      await loadProfile({ clearNotice: false, showLoading: false });
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Unable to remove photo.");
+    } finally {
+      setUploadingPhotoSlot(null);
     }
   }
 
@@ -272,14 +324,14 @@ export function ProfileTab({
       {profileView === "overview" && !isSetupMode ? (
         <ScreenHeader
           eyebrow="Profile"
-          title="Your Streetz profile."
+          title="Your crushclub profile."
           action={
             <div className="hidden items-center rounded-full bg-[#d4fae8] px-4 py-2 text-sm font-medium text-[#0fa76e] md:inline-flex">
               Discoverable
             </div>
           }
         />
-      ) : (
+      ) : profileView === "preview" && !isSetupMode ? null : (
         <>
           {!isSetupMode ? (
             <div className="px-5 pt-5 md:px-8 md:pt-8">
@@ -298,9 +350,7 @@ export function ProfileTab({
             title={
               isSetupMode
                 ? "Setup your profile first."
-                : profileView === "edit"
-                  ? "Edit your profile."
-                  : "Preview your discovery card."
+                : "Edit your profile."
             }
           />
         </>
@@ -362,6 +412,37 @@ export function ProfileTab({
                           <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[#0d0d0d]">
                             {index === 0 ? "Main" : `Photo ${index + 1}`}
                           </span>
+
+                          {photo ? (
+                            <div className="absolute inset-x-2 bottom-2 flex items-center gap-2">
+                              <label className="inline-flex h-8 flex-1 cursor-pointer items-center justify-center rounded-full bg-white/95 px-3 text-xs font-semibold text-[#0d0d0d] shadow-[0_2px_10px_rgba(0,0,0,0.12)] transition hover:bg-white">
+                                {uploadingPhotoSlot === index ? (
+                                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                                ) : (
+                                  "Replace"
+                                )}
+                                <input
+                                  className="sr-only"
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  onChange={(event) => uploadProfilePhoto(event, index, { replacePhotoId: photo.id })}
+                                  disabled={isUploadingPhoto}
+                                />
+                              </label>
+                              {canDeleteProfilePhoto ? (
+                                <button
+                                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-white/95 text-red-600 shadow-[0_2px_10px_rgba(0,0,0,0.12)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                                  type="button"
+                                  onClick={() => void deleteProfilePhoto(photo, index)}
+                                  disabled={isUploadingPhoto}
+                                  aria-label={`Remove photo ${index + 1}`}
+                                  title="Remove photo"
+                                >
+                                  <Trash2 className="size-4" aria-hidden="true" />
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
 
                           {isOpenSlot ? (
                             <label className="absolute inset-0 grid cursor-pointer place-items-center bg-black/10 text-white">
@@ -489,6 +570,15 @@ export function ProfileTab({
             ) : profileView === "preview" ? (
               <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
                 <div className="relative aspect-[4/5] min-h-[420px] bg-[#d4fae8]">
+                  <button
+                    className="absolute left-4 top-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white/95 text-[#0d0d0d] shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur"
+                    type="button"
+                    onClick={closeProfileEditor}
+                    aria-label="Back to profile"
+                    title="Back"
+                  >
+                    <ArrowLeft className="size-4" aria-hidden="true" />
+                  </button>
                   <ProfilePhotoImage
                     photo={profilePhoto}
                     alt={`${user.displayName} profile preview`}
@@ -496,16 +586,6 @@ export function ProfileTab({
                     sizes="(max-width: 768px) 100vw, 430px"
                     iconSize="lg"
                   />
-                  {visibleProfilePhotos.length > 1 ? (
-                    <div className="absolute inset-x-4 top-4 flex gap-1.5">
-                      {visibleProfilePhotos.map((photo, index) => (
-                        <span
-                          key={photo.id}
-                          className={`h-1 flex-1 rounded-full ${index === 0 ? "bg-white" : "bg-white/45"}`}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-5 text-white">
                     <div className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
                       {profileStatusLabel}

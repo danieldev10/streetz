@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SessionProvider } from "@/components/app/session-provider";
 import "./globals.css";
 
 function getOrigin(value: string | undefined) {
@@ -25,7 +26,7 @@ const resourceHintOrigins = Array.from(
 );
 
 export const metadata: Metadata = {
-  title: "Streetz Prototype",
+  title: "crushclub",
   description: "Social discovery, public chat rooms, and event ticketing for Nigerian communities.",
 };
 
@@ -41,7 +42,9 @@ export default function RootLayout({
           <link key={origin} rel="preconnect" href={origin} crossOrigin="" />
         ))}
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <SessionProvider>{children}</SessionProvider>
+      </body>
     </html>
   );
 }

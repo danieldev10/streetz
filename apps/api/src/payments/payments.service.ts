@@ -82,7 +82,7 @@ export class PaymentsService {
         metadata: {
           userId,
           purpose: PaymentPurpose.SUBSCRIPTION,
-          product: "Streetz monthly membership"
+          product: "crushclub monthly membership"
         }
       })
     });
@@ -328,7 +328,7 @@ export class PaymentsService {
     }
 
     if (paystackData.amount !== payment.amountKobo || paystackData.currency !== "NGN") {
-      throw new BadRequestException("Verified payment amount or currency does not match Streetz membership.");
+      throw new BadRequestException("Verified payment amount or currency does not match crushclub membership.");
     }
 
     const now = new Date();
@@ -539,7 +539,7 @@ export class PaymentsService {
       !user.subscriptionEndsAt ||
       user.subscriptionEndsAt <= new Date()
     ) {
-      throw new ForbiddenException("Active Streetz membership required.");
+      throw new ForbiddenException("Active crushclub membership required.");
     }
 
     return user;

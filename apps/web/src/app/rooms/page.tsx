@@ -6,10 +6,11 @@ import { RoomsTab } from "@/features/rooms/rooms-tab";
 export default function RoomsPage() {
   return (
     <AuthenticatedRoute activeTab="rooms">
-      {({ token, user, onRoomsLoaded, onRoomOpened, onNotificationsChanged }) => (
+      {({ token, user, cachedRooms, onRoomsLoaded, onRoomOpened, onNotificationsChanged }) => (
         <RoomsTab
           token={token}
           user={user}
+          initialRooms={cachedRooms}
           onRoomsLoaded={onRoomsLoaded}
           onRoomOpened={onRoomOpened}
           onNotificationsChanged={onNotificationsChanged}

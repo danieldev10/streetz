@@ -255,7 +255,7 @@ export class MessagesService {
       subscriptionEndsAt === null ||
       subscriptionEndsAt <= new Date()
     ) {
-      throw new ForbiddenException("Active Streetz membership required.");
+      throw new ForbiddenException("Active crushclub membership required.");
     }
   }
 
@@ -357,7 +357,7 @@ export class MessagesService {
       id: message.id,
       matchId: message.matchId,
       senderId: message.senderId,
-      senderName: message.sender?.displayName ?? "Streetz member",
+      senderName: message.sender?.displayName ?? "crushclub member",
       body: message.body,
       readAt: message.readAt,
       createdAt: message.createdAt

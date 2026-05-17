@@ -27,9 +27,60 @@ type DirectMessageReadReceipt = {
   readAt: string;
 };
 
+function OpeningMatchShell({
+  notice,
+  socketStatus,
+  onBack,
+}: {
+  notice: string | null;
+  socketStatus: "connecting" | "connected" | "offline";
+  onBack: () => void;
+}) {
+  return (
+    <section className="px-0 md:px-8 md:py-8">
+      <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-[720px] md:rounded-[28px] md:border md:border-black/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+        <div className="flex items-center gap-3 border-b border-black/[0.05] px-4 py-3">
+          <button
+            type="button"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
+            onClick={onBack}
+            aria-label="Back to matches"
+            title="Back"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <div className="h-5 w-32 rounded-full bg-[#f0f0f0]" />
+            <div className="mt-2 h-3 w-24 rounded-full bg-[#f6f6f6]" />
+          </div>
+
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
+            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+            {socketStatus === "connected" ? "Live" : "Connecting"}
+          </div>
+        </div>
+
+        {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+
+        <div className="grid min-h-0 flex-1 place-items-center bg-[#fafafa] px-4 py-5">
+          <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-hidden="true" />
+          <span className="sr-only">Loading chat</span>
+        </div>
+
+        <div className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
+          <div className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] bg-[#fafafa]" />
+          <div className="size-12 shrink-0 rounded-full bg-[#d4fae8]" />
+        </div>
+      </article>
+    </section>
+  );
+}
+
 export function MatchesTab({
   token,
   user,
+  initialMatches = [],
   initialSelectedMatchId = null,
   onMatchesLoaded,
   onMatchOpened,
@@ -37,19 +88,20 @@ export function MatchesTab({
 }: {
   token: string;
   user: StreetzUser;
+  initialMatches?: MatchThread[];
   initialSelectedMatchId?: string | null;
   onMatchesLoaded: (matches: MatchThread[]) => void;
   onMatchOpened: (match: MatchThread) => void;
   onNotificationsChanged: () => void;
 }) {
   const router = useRouter();
-  const [matches, setMatches] = useState<MatchThread[]>([]);
+  const [matches, setMatches] = useState<MatchThread[]>(initialMatches);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(initialSelectedMatchId);
   const [viewedMatchProfile, setViewedMatchProfile] = useState<DiscoveryCandidate | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [messageBody, setMessageBody] = useState("");
   const [matchSearch, setMatchSearch] = useState("");
-  const [isLoadingMatches, setIsLoadingMatches] = useState(true);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(initialMatches.length === 0);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "offline">("connecting");
@@ -125,7 +177,9 @@ export function MatchesTab({
   }
 
   async function loadMatches() {
-    setIsLoadingMatches(true);
+    if (matches.length === 0) {
+      setIsLoadingMatches(true);
+    }
     setNotice(null);
 
     try {
@@ -244,22 +298,6 @@ export function MatchesTab({
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setNotice(null);
-      setSelectedMatchId(initialSelectedMatchId);
-      setViewedMatchProfile(null);
-
-      if (!initialSelectedMatchId) {
-        setMessages([]);
-        directMessageIdsRef.current = new Set();
-        setMessageBody("");
-      }
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [initialSelectedMatchId]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {
@@ -389,6 +427,10 @@ export function MatchesTab({
         backLabel="Back to chat"
       />
     );
+  }
+
+  if (selectedMatchId && !selectedMatch) {
+    return <OpeningMatchShell notice={notice} socketStatus={socketStatus} onBack={closeMatch} />;
   }
 
   if (selectedMatch) {

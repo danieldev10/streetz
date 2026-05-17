@@ -6,7 +6,7 @@ import { AdminDashboard } from "@/features/admin/admin-dashboard";
 export default function AdminPage() {
   return (
     <AuthenticatedRoute activeTab="admin" adminOnly>
-      {() => <AdminDashboard />}
+      {({ token }) => <AdminDashboard token={token} />}
     </AuthenticatedRoute>
   );
 }

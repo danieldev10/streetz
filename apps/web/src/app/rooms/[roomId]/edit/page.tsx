@@ -9,10 +9,12 @@ export default function EditRoomPage() {
 
   return (
     <AuthenticatedRoute activeTab="rooms" adminOnly>
-      {({ token, user, onRoomsLoaded, onRoomOpened, onNotificationsChanged }) => (
+      {({ token, user, cachedRooms, onRoomsLoaded, onRoomOpened, onNotificationsChanged }) => (
         <RoomsTab
+          key={params.roomId}
           token={token}
           user={user}
+          initialRooms={cachedRooms}
           adminMode="edit"
           adminRoomId={params.roomId}
           onRoomsLoaded={onRoomsLoaded}

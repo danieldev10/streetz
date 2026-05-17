@@ -3,9 +3,11 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LoaderCircle } from "lucide-react";
 import { CenteredShell, PaywallShell } from "@/components/app/auth-shells";
 import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
-import { TOKEN_KEY, apiRequest, isActiveMember } from "@/lib/api";
+import { useSession } from "@/components/app/session-provider";
+import { apiRequest, authHeaders, isActiveMember } from "@/lib/api";
 import type { StreetzUser, TabKey } from "@/lib/types";
 
 function getDefaultRoute(user: StreetzUser) {
@@ -18,10 +20,18 @@ function isRouteAllowed(user: StreetzUser, activeTab: TabKey, adminOnly: boolean
   }
 
   if (user.role === "ADMIN") {
-    return activeTab === "admin" || activeTab === "rooms" || activeTab === "events";
+    return activeTab === "admin" || activeTab === "reports" || activeTab === "rooms" || activeTab === "events";
   }
 
-  return activeTab !== "admin";
+  return activeTab !== "admin" && activeTab !== "reports";
+}
+
+function LoadingShell() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-white px-4 text-[#0d0d0d]">
+      <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-label="Loading" />
+    </main>
+  );
 }
 
 export function AuthenticatedRoute({
@@ -34,9 +44,7 @@ export function AuthenticatedRoute({
   children: (props: MemberAppRenderProps & { token: string; user: StreetzUser }) => ReactNode;
 }) {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<StreetzUser | null>(null);
-  const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const { status, token, user, updateSessionUser, logout } = useSession();
   const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -44,31 +52,10 @@ export function AuthenticatedRoute({
   const isAllowed = user ? isRouteAllowed(user, activeTab, adminOnly) : false;
 
   useEffect(() => {
-    const savedToken = window.localStorage.getItem(TOKEN_KEY);
-
-    if (!savedToken) {
+    if (status === "unauthenticated") {
       router.replace("/");
-      window.setTimeout(() => setIsLoadingSession(false), 0);
-      return;
     }
-
-    apiRequest<StreetzUser>("/auth/me", {
-      headers: {
-        Authorization: `Bearer ${savedToken}`,
-      },
-    })
-      .then((sessionUser) => {
-        setToken(savedToken);
-        setUser(sessionUser);
-      })
-      .catch(() => {
-        window.localStorage.removeItem(TOKEN_KEY);
-        setToken(null);
-        setUser(null);
-        router.replace("/");
-      })
-      .finally(() => setIsLoadingSession(false));
-  }, [router]);
+  }, [router, status]);
 
   useEffect(() => {
     if (!user || !canEnterApp || isAllowed) {
@@ -94,21 +81,15 @@ export function AuthenticatedRoute({
         subscriptionEndsAt?: string;
       }>("/payments/subscription/initialize", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: authHeaders(token),
       });
 
       if (response.alreadyActive) {
-        setUser((current) =>
-          current
-            ? {
-                ...current,
-                subscriptionStatus: "ACTIVE",
-                subscriptionEndsAt: response.subscriptionEndsAt,
-              }
-            : current
-        );
+        updateSessionUser((current) => ({
+          ...current,
+          subscriptionStatus: "ACTIVE" as const,
+          subscriptionEndsAt: response.subscriptionEndsAt,
+        }));
         return;
       }
 
@@ -124,19 +105,12 @@ export function AuthenticatedRoute({
     }
   }
 
-  function logout() {
-    window.localStorage.removeItem(TOKEN_KEY);
-    setToken(null);
-    setUser(null);
-    router.replace("/");
-  }
-
-  if (isLoadingSession) {
-    return <CenteredShell title="Streetz" subtitle="Checking your session" />;
+  if (status === "checking") {
+    return <LoadingShell />;
   }
 
   if (!user || !token) {
-    return <CenteredShell title="Streetz" subtitle="Opening login" />;
+    return <LoadingShell />;
   }
 
   if (!canEnterApp) {
@@ -152,7 +126,7 @@ export function AuthenticatedRoute({
   }
 
   if (!isAllowed) {
-    return <CenteredShell title="Streetz" subtitle="Opening your account" />;
+    return <CenteredShell title="crushclub" subtitle="Opening your account" />;
   }
 
   return (

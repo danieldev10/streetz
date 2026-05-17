@@ -2,7 +2,7 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsIn, IsString, MaxLength } from "class-validator";
 
 export class PresignEventImageDto {
-  @ApiProperty({ example: "streetz-event.jpg" })
+  @ApiProperty({ example: "crushclub-event.jpg" })
   @IsString()
   @MaxLength(160)
   fileName: string;

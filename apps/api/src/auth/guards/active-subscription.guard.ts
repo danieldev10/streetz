@@ -38,7 +38,7 @@ export class ActiveSubscriptionGuard implements CanActivate {
       subscriptionEndsAt > new Date();
 
     if (!hasActiveSubscription) {
-      throw new ForbiddenException("Active Streetz membership required.");
+      throw new ForbiddenException("Active crushclub membership required.");
     }
 
     return true;

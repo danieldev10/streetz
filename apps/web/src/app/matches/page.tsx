@@ -6,10 +6,11 @@ import { MatchesTab } from "@/features/matches/matches-tab";
 export default function MatchesPage() {
   return (
     <AuthenticatedRoute activeTab="matches">
-      {({ token, user, onMatchesLoaded, onMatchOpened, onNotificationsChanged }) => (
+      {({ token, user, cachedMatches, onMatchesLoaded, onMatchOpened, onNotificationsChanged }) => (
         <MatchesTab
           token={token}
           user={user}
+          initialMatches={cachedMatches}
           onMatchesLoaded={onMatchesLoaded}
           onMatchOpened={onMatchOpened}
           onNotificationsChanged={onNotificationsChanged}

@@ -59,9 +59,68 @@ function getRoomForm(room: ChatRoom): RoomForm {
   };
 }
 
+function OpeningRoomShell({
+  isAdmin,
+  notice,
+  socketStatus,
+  onBack,
+}: {
+  isAdmin: boolean;
+  notice: string | null;
+  socketStatus: "connecting" | "connected" | "offline";
+  onBack: () => void;
+}) {
+  return (
+    <section className="px-0 md:px-8 md:py-8">
+      <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-180 md:rounded-[28px] md:border md:border-black/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+        <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
+          <button
+            type="button"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
+            onClick={onBack}
+            aria-label="Back to rooms"
+            title="Back"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <div className="h-5 w-36 rounded-full bg-[#f0f0f0]" />
+            <div className="mt-2 h-3 w-24 rounded-full bg-[#f6f6f6]" />
+          </div>
+
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
+            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+            {isAdmin ? "Moderator" : socketStatus === "connected" ? "Live" : "Connecting"}
+          </div>
+        </div>
+
+        {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+
+        <div className="grid min-h-0 flex-1 place-items-center bg-[#fafafa] px-4 py-5">
+          <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-hidden="true" />
+          <span className="sr-only">Loading room</span>
+        </div>
+
+        {isAdmin ? (
+          <div className="shrink-0 border-t border-black/5 bg-white p-4 text-center text-sm font-medium text-[#666666]">
+            Moderator view only
+          </div>
+        ) : (
+          <div className="flex shrink-0 gap-3 border-t border-black/5 bg-white p-4">
+            <div className="h-12 min-w-0 flex-1 rounded-full border border-black/8 bg-[#fafafa]" />
+            <div className="size-12 shrink-0 rounded-full bg-[#d4fae8]" />
+          </div>
+        )}
+      </article>
+    </section>
+  );
+}
+
 export function RoomsTab({
   token,
   user,
+  initialRooms = [],
   initialSelectedRoomId = null,
   adminMode = "list",
   adminRoomId = null,
@@ -71,6 +130,7 @@ export function RoomsTab({
 }: {
   token: string;
   user: StreetzUser;
+  initialRooms?: ChatRoom[];
   initialSelectedRoomId?: string | null;
   adminMode?: AdminRoomMode;
   adminRoomId?: string | null;
@@ -80,7 +140,7 @@ export function RoomsTab({
 }) {
   const router = useRouter();
   const isAdmin = user.role === "ADMIN";
-  const [rooms, setRooms] = useState<ChatRoom[]>([]);
+  const [rooms, setRooms] = useState<ChatRoom[]>(initialRooms);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialSelectedRoomId);
   const [pendingJoinRoom, setPendingJoinRoom] = useState<ChatRoom | null>(null);
   const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
@@ -90,7 +150,7 @@ export function RoomsTab({
   const [roomForm, setRoomForm] = useState<RoomForm>(emptyRoomForm);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [messageBody, setMessageBody] = useState("");
-  const [isLoadingRooms, setIsLoadingRooms] = useState(true);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(initialRooms.length === 0);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
@@ -126,7 +186,7 @@ export function RoomsTab({
   async function loadRooms(options: { clearNotice?: boolean; showLoading?: boolean } = {}) {
     const { clearNotice = true, showLoading = true } = options;
 
-    if (showLoading) {
+    if (showLoading && rooms.length === 0) {
       setIsLoadingRooms(true);
     }
 
@@ -288,6 +348,10 @@ export function RoomsTab({
       );
       setPendingJoinRoom(null);
       setViewMode("joined");
+      setSelectedRoomId(pendingJoinRoom.id);
+      setMessages([]);
+      roomMessageIdsRef.current = new Set();
+      setMessageBody("");
       router.push(`/rooms/${pendingJoinRoom.id}`);
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
@@ -438,19 +502,6 @@ export function RoomsTab({
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, isAdmin]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setSelectedRoomId(initialSelectedRoomId);
-      setMessages([]);
-      roomMessageIdsRef.current = new Set();
-      setMessageBody("");
-      setNotice(null);
-      setIsLeaveConfirmOpen(false);
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [initialSelectedRoomId]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -620,7 +671,7 @@ export function RoomsTab({
           title={editingRoomId ? "Edit room." : "Create room."}
           leading={
             <button
-              className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
+              className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
               type="button"
               onClick={closeAdminRoomForm}
               aria-label="Back to rooms"
@@ -632,11 +683,11 @@ export function RoomsTab({
         />
 
         <div className="px-5 pb-24 md:px-8 md:pb-8">
-          {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+          {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
           <form
             onSubmit={saveRoom}
-            className="mx-auto max-w-2xl rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+            className="mx-auto max-w-2xl rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -647,21 +698,21 @@ export function RoomsTab({
 
             <div className="mt-4 grid gap-3">
               <input
-                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                 placeholder="Room name"
                 value={roomForm.name}
                 onChange={(event) => setRoomForm((current) => ({ ...current, name: event.target.value }))}
                 required
               />
               <input
-                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                 placeholder="Category"
                 value={roomForm.category}
                 onChange={(event) => setRoomForm((current) => ({ ...current, category: event.target.value }))}
                 required
               />
               <textarea
-                className="min-h-28 rounded-[18px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="min-h-28 rounded-[18px] border border-black/8 p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                 placeholder="Description"
                 value={roomForm.description}
                 onChange={(event) => setRoomForm((current) => ({ ...current, description: event.target.value }))}
@@ -690,15 +741,19 @@ export function RoomsTab({
     );
   }
 
+  if (selectedRoomId && !selectedRoom) {
+    return <OpeningRoomShell isAdmin={isAdmin} notice={notice} socketStatus={socketStatus} onBack={closeRoom} />;
+  }
+
   if (selectedRoom) {
     return (
       <>
         <section className="px-0 md:px-8 md:py-8">
-          <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-[720px] md:rounded-[28px] md:border md:border-black/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-            <div className="flex items-center gap-3 border-b border-black/[0.05] px-4 py-3">
+          <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-180 md:rounded-[28px] md:border md:border-black/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+            <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
               <button
                 type="button"
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
                 onClick={closeRoom}
                 aria-label="Back to rooms"
                 title="Back"
@@ -716,7 +771,7 @@ export function RoomsTab({
               {!isAdmin ? (
                 <button
                   type="button"
-                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-sm font-medium md:h-10 md:w-auto md:gap-2 md:px-4"
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-sm font-medium md:h-10 md:w-auto md:gap-2 md:px-4"
                   onClick={() => setIsLeaveConfirmOpen(true)}
                   disabled={isLeavingRoom}
                   aria-label={`Leave ${selectedRoom.name}`}
@@ -733,11 +788,11 @@ export function RoomsTab({
               </div>
             </div>
 
-            {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+            {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
             <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
               {isLoadingMessages ? (
-                <div className="grid h-full min-h-[360px] place-items-center text-sm font-medium text-[#666666]">
+                <div className="grid h-full min-h-90 place-items-center text-sm font-medium text-[#666666]">
                   Loading room messages
                 </div>
               ) : messages.length > 0 ? (
@@ -776,7 +831,7 @@ export function RoomsTab({
                   })}
                 </div>
               ) : (
-                <div className="grid h-full min-h-[360px] place-items-center text-center">
+                <div className="grid h-full min-h-90 place-items-center text-center">
                   <div>
                     <MessageCircle className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
                     <h2 className="mt-3 text-2xl font-semibold">{isAdmin ? "Room is quiet" : "Start the room"}</h2>
@@ -789,13 +844,13 @@ export function RoomsTab({
             </div>
 
             {isAdmin ? (
-              <div className="shrink-0 border-t border-black/[0.05] bg-white p-4 text-center text-sm font-medium text-[#666666]">
+              <div className="shrink-0 border-t border-black/5 bg-white p-4 text-center text-sm font-medium text-[#666666]">
                 Moderator view only
               </div>
             ) : (
-              <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
+              <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/5 bg-white p-4">
                 <input
-                  className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 min-w-0 flex-1 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                   placeholder="Write to the room"
                   value={messageBody}
                   onChange={(event) => setMessageBody(event.target.value)}
@@ -820,7 +875,7 @@ export function RoomsTab({
         {isLeaveConfirmOpen ? (
           <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5">
             <section
-              className="w-full max-w-sm rounded-[24px] bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
+              className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
               role="dialog"
               aria-modal="true"
               aria-labelledby="leave-room-title"
@@ -835,7 +890,7 @@ export function RoomsTab({
                   </p>
                 </div>
                 <button
-                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
                   type="button"
                   onClick={() => setIsLeaveConfirmOpen(false)}
                   disabled={isLeavingRoom}
@@ -847,7 +902,7 @@ export function RoomsTab({
               </div>
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <button
-                  className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
                   onClick={() => setIsLeaveConfirmOpen(false)}
                   disabled={isLeavingRoom}
@@ -877,7 +932,7 @@ export function RoomsTab({
         eyebrow="Rooms"
         title={isAdmin ? "Manage rooms." : "Public rooms, curated by admin."}
         action={
-          <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] px-4 py-2 text-sm font-medium md:inline-flex">
+          <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
             <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
             {socketStatus === "connected" ? "Live" : "Connecting"}
           </div>
@@ -886,7 +941,7 @@ export function RoomsTab({
 
       <div className="px-5 md:px-8">
         {!isAdmin ? (
-          <div className="mb-4 grid grid-cols-2 rounded-full border border-black/[0.05] bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
+          <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
             <button
               type="button"
               className={`rounded-full px-4 py-2 ${viewMode === "joined" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
@@ -904,7 +959,7 @@ export function RoomsTab({
           </div>
         ) : null}
 
-        {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isAdmin ? (
           <div className="mb-4 flex items-center justify-end">
@@ -920,7 +975,7 @@ export function RoomsTab({
         ) : null}
 
         {isLoadingRooms ? (
-          <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05]">
+          <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5">
             <div className="text-center">
               <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium text-[#666666]">Loading rooms</p>
@@ -931,7 +986,7 @@ export function RoomsTab({
             {visibleRooms.map((room) => (
               <article
                 key={room.id}
-                className="rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+                className="rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -955,7 +1010,7 @@ export function RoomsTab({
                     {isAdmin ? (
                       <>
                         <button
-                          className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
+                          className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
                           type="button"
                           onClick={() => startEditRoom(room)}
                           aria-label={`Edit ${room.name}`}
@@ -964,7 +1019,7 @@ export function RoomsTab({
                           <Pencil className="size-4" aria-hidden="true" />
                         </button>
                         <button
-                          className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
+                          className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
                           type="button"
                           onClick={() => toggleRoom(room)}
                           aria-label={room.isActive ? `Deactivate ${room.name}` : `Activate ${room.name}`}
@@ -975,7 +1030,7 @@ export function RoomsTab({
                       </>
                     ) : null}
                     <button
-                      className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08]"
+                      className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
                       type="button"
                       onClick={() => (room.hasJoined || isAdmin ? openJoinedRoom(room) : requestJoinRoom(room))}
                       aria-label={`${room.hasJoined || isAdmin ? "Enter" : "Join"} ${room.name}`}
@@ -1006,7 +1061,7 @@ export function RoomsTab({
             ))}
           </div>
         ) : (
-          <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
+          <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
               <MessageCircle className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">
@@ -1018,7 +1073,7 @@ export function RoomsTab({
                   : "Admin-created rooms will appear here once they are active."}
               </p>
               <button
-                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/[0.08] px-5 text-sm font-medium"
+                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 px-5 text-sm font-medium"
                 onClick={() => loadRooms()}
               >
                 <RefreshCw className="size-4" aria-hidden="true" />
@@ -1031,14 +1086,14 @@ export function RoomsTab({
 
       {pendingJoinRoom ? (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5">
-          <section className="w-full max-w-sm rounded-[24px] bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]">
+          <section className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold">Join this room?</h2>
                 <p className="mt-2 text-sm leading-6 text-[#666666]">{pendingJoinRoom.name}</p>
               </div>
               <button
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
                 type="button"
                 onClick={() => setPendingJoinRoom(null)}
                 aria-label="Close"
@@ -1049,7 +1104,7 @@ export function RoomsTab({
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-5 text-sm font-medium"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium"
                 type="button"
                 onClick={() => setPendingJoinRoom(null)}
               >

@@ -8,7 +8,7 @@ export class HealthController {
   check() {
     return {
       status: "ok",
-      service: "streetz-api",
+      service: "crushclub-api",
       timestamp: new Date().toISOString()
     };
   }

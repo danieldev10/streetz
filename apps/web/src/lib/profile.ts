@@ -41,7 +41,7 @@ export function getAgeFromBirthDate(value: string | null | undefined) {
 }
 
 export function formatConnectionStatus(status: ConnectionStatus | null | undefined) {
-  return status ? connectionStatusLabels[status] : "Streetz member";
+  return status ? connectionStatusLabels[status] : "crushclub member";
 }
 
 

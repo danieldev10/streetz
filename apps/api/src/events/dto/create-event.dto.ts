@@ -18,7 +18,7 @@ export class CreateEventDto {
   @MaxLength(120)
   title: string;
 
-  @ApiPropertyOptional({ example: "A curated night out for Streetz members." })
+  @ApiPropertyOptional({ example: "A curated night out for crushclub members." })
   @IsOptional()
   @IsString()
   @MaxLength(600)

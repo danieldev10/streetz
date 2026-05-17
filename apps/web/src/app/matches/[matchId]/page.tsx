@@ -9,10 +9,12 @@ export default function MatchThreadPage() {
 
   return (
     <AuthenticatedRoute activeTab="matches">
-      {({ token, user, onMatchesLoaded, onMatchOpened, onNotificationsChanged }) => (
+      {({ token, user, cachedMatches, onMatchesLoaded, onMatchOpened, onNotificationsChanged }) => (
         <MatchesTab
+          key={params.matchId}
           token={token}
           user={user}
+          initialMatches={cachedMatches}
           initialSelectedMatchId={params.matchId}
           onMatchesLoaded={onMatchesLoaded}
           onMatchOpened={onMatchOpened}

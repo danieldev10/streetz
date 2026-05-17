@@ -9,10 +9,12 @@ export default function RoomThreadPage() {
 
   return (
     <AuthenticatedRoute activeTab="rooms">
-      {({ token, user, onRoomsLoaded, onRoomOpened, onNotificationsChanged }) => (
+      {({ token, user, cachedRooms, onRoomsLoaded, onRoomOpened, onNotificationsChanged }) => (
         <RoomsTab
+          key={params.roomId}
           token={token}
           user={user}
+          initialRooms={cachedRooms}
           initialSelectedRoomId={params.roomId}
           onRoomsLoaded={onRoomsLoaded}
           onRoomOpened={onRoomOpened}

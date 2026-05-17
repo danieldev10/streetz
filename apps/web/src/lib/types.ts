@@ -14,6 +14,7 @@ export type AuthResponse = {
 
 export type Gender = "WOMAN" | "MAN" | "NON_BINARY" | "PREFER_NOT_TO_SAY";
 export type ConnectionStatus = "MEET_NOW" | "FWB" | "JUST_FRIENDS" | "DATING";
+export type ReportStatus = "OPEN" | "REVIEWED" | "DISMISSED" | "ACTIONED";
 
 export type ProfilePhoto = {
   id: string;
@@ -133,6 +134,53 @@ export type StreetzEvent = {
   updatedAt: string;
 };
 
+export type AdminMetrics = {
+  members: {
+    total: number;
+    activeSubscribers: number;
+    completedProfiles: number;
+  };
+  discovery: {
+    activeMatches: number;
+  };
+  rooms: {
+    total: number;
+    members: number;
+    messages: number;
+  };
+  events: {
+    published: number;
+    ticketsBooked: number;
+    ticketRevenueKobo: number;
+  };
+  reports: {
+    total: number;
+    open: number;
+  };
+};
+
+export type AdminReportUser = {
+  id: string;
+  displayName: string;
+  email: string;
+  city: string | null;
+  state: string | null;
+  connectionStatus: ConnectionStatus | null;
+};
+
+export type AdminReport = {
+  id: string;
+  reason: string;
+  details: string | null;
+  status: ReportStatus;
+  createdAt: string;
+  updatedAt: string;
+  reporter: AdminReportUser;
+  reported: AdminReportUser & {
+    subscriptionStatus: StreetzUser["subscriptionStatus"];
+  };
+};
+
 export type RoomMessage = {
   id: string;
   roomId: string;
@@ -143,7 +191,7 @@ export type RoomMessage = {
   createdAt: string;
 };
 
-export type TabKey = "discovery" | "matches" | "profile" | "rooms" | "events" | "admin";
+export type TabKey = "discovery" | "matches" | "profile" | "rooms" | "events" | "admin" | "reports";
 export type DiscoveryActionName = "LIKE" | "PASS";
 export type ProfileGateState = "checking" | "required" | "ready";
 export type ProfileTabMode = "normal" | "setup";

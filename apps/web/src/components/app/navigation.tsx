@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   CreditCard,
+  Flag,
   Heart,
   LogOut,
   Menu,
@@ -28,9 +29,10 @@ export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
 ];
 
 export const adminTabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
-  { id: "admin", label: "Admin", icon: ShieldCheck },
   { id: "rooms", label: "Rooms", icon: MessageCircle },
   { id: "events", label: "Events", icon: Ticket },
+  { id: "reports", label: "Reports", icon: Flag },
+  { id: "admin", label: "Metrics", icon: ShieldCheck },
 ];
 
 export const tabRoutes: Record<TabKey, string> = {
@@ -40,6 +42,7 @@ export const tabRoutes: Record<TabKey, string> = {
   rooms: "/rooms",
   events: "/events",
   admin: "/admin",
+  reports: "/reports",
 };
 
 function AccountMenu({ onLogout }: { onLogout: () => void }) {
@@ -148,7 +151,7 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
       >
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-2xl font-semibold">Streetz</p>
+            <p className="text-2xl font-semibold">crushclub</p>
             <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Menu</p>
           </div>
           <button
@@ -216,7 +219,7 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
             <h2 id="logout-confirm-title" className="text-xl font-semibold">
               Logout?
             </h2>
-            <p className="mt-2 text-sm leading-6 text-[#666666]">You will need to log in again to continue using Streetz.</p>
+            <p className="mt-2 text-sm leading-6 text-[#666666]">You will need to log in again to continue using crushclub.</p>
           </div>
           <button
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
@@ -270,7 +273,7 @@ export function AppBrand({ user, onLogout }: { user: StreetzUser; onLogout: () =
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-2xl font-semibold">Streetz</p>
+          <p className="text-2xl font-semibold">crushclub</p>
           <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{user.role}</p>
         </div>
         <AccountMenu onLogout={onLogout} />
@@ -292,7 +295,7 @@ export function MobileHeader({ user, onLogout }: { user: StreetzUser; onLogout: 
     <header className="sticky top-0 z-10 border-b border-black/[0.05] bg-white/90 px-5 py-4 backdrop-blur md:hidden">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-2xl font-semibold">Streetz</p>
+          <p className="text-2xl font-semibold">crushclub</p>
           <p className="text-xs font-medium text-[#666666]">{user.displayName}</p>
         </div>
         <AccountMenu onLogout={onLogout} />

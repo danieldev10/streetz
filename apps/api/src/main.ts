@@ -29,8 +29,8 @@ async function bootstrap() {
   );
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle("Streetz API")
-    .setDescription("API contract for the Streetz prototype.")
+    .setTitle("crushclub API")
+    .setDescription("API contract for the crushclub prototype.")
     .setVersion("0.1.0")
     .addBearerAuth()
     .build();

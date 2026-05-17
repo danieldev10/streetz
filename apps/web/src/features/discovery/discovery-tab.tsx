@@ -29,6 +29,9 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
   const [isRefilling, setIsRefilling] = useState(false);
   const [actionTargetId, setActionTargetId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [blockTarget, setBlockTarget] = useState<DiscoveryCandidate | null>(null);
+  const [reportTarget, setReportTarget] = useState<DiscoveryCandidate | null>(null);
+  const [reportReason, setReportReason] = useState("");
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDraggingCard, setIsDraggingCard] = useState(false);
   const swipeStartRef = useRef<{ x: number; y: number; candidateId: string; startedAt: number } | null>(null);
@@ -283,20 +286,21 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
     finishSwipeGesture(swipeLatestOffsetRef.current, event.timeStamp);
   }
 
-  async function blockCandidate(targetUserId: string) {
-    if (!window.confirm("Block this profile?")) {
+  async function confirmBlockCandidate() {
+    if (!blockTarget) {
       return;
     }
 
-    setActionTargetId(targetUserId);
+    setActionTargetId(blockTarget.id);
 
     try {
       await apiRequest("/discovery/block", {
         method: "POST",
         headers: authHeaders(token),
-        body: JSON.stringify({ targetUserId }),
+        body: JSON.stringify({ targetUserId: blockTarget.id }),
       });
-      setCandidates((current) => current.filter((candidate) => candidate.id !== targetUserId));
+      setCandidates((current) => current.filter((candidate) => candidate.id !== blockTarget.id));
+      setBlockTarget(null);
       setNotice("Profile blocked.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to block profile.");
@@ -305,24 +309,26 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
     }
   }
 
-  async function reportCandidate(targetUserId: string) {
-    const reason = window.prompt("Why are you reporting this profile?");
+  async function submitReportCandidate() {
+    const reason = reportReason.trim();
 
-    if (!reason) {
+    if (!reportTarget || !reason) {
       return;
     }
 
-    setActionTargetId(targetUserId);
+    setActionTargetId(reportTarget.id);
 
     try {
       await apiRequest("/discovery/report", {
         method: "POST",
         headers: authHeaders(token),
         body: JSON.stringify({
-          targetUserId,
+          targetUserId: reportTarget.id,
           reason,
         }),
       });
+      setReportTarget(null);
+      setReportReason("");
       setNotice("Report sent.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to report profile.");
@@ -390,10 +396,17 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
                     <DiscoveryCandidateCard
                       candidate={candidate}
                       isActionDisabled={isTopCard ? actionTargetId === candidate.id : true}
-                      onBlock={() => blockCandidate(candidate.id)}
+                      onBlock={() => {
+                        setNotice(null);
+                        setBlockTarget(candidate);
+                      }}
                       onLike={() => recordDiscoveryAction(candidate, "LIKE")}
                       onPass={() => recordDiscoveryAction(candidate, "PASS")}
-                      onReport={() => reportCandidate(candidate.id)}
+                      onReport={() => {
+                        setNotice(null);
+                        setReportReason("");
+                        setReportTarget(candidate);
+                      }}
                       onViewProfile={() => setViewedCandidate(candidate)}
                       priority={isTopCard}
                       swipeIntent={isTopCard ? swipeIntent : null}
@@ -424,6 +437,95 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
           )}
         </div>
       </div>
+
+      {blockTarget ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+            <div className="flex items-start gap-3">
+              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-red-50 text-red-600">
+                <Ban className="size-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-[#0d0d0d]">Block this profile?</h2>
+                <p className="mt-1 text-sm leading-6 text-[#666666]">
+                  You will stop seeing {blockTarget.displayName} in discovery.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => setBlockTarget(null)}
+                disabled={actionTargetId === blockTarget.id}
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={confirmBlockCandidate}
+                disabled={actionTargetId === blockTarget.id}
+              >
+                {actionTargetId === blockTarget.id ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+                Block
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {reportTarget ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
+          <form
+            className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitReportCandidate();
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#d4fae8] text-[#0fa76e]">
+                <Flag className="size-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-[#0d0d0d]">Report profile</h2>
+                <p className="mt-1 text-sm leading-6 text-[#666666]">
+                  Tell us what is wrong with this profile from {reportTarget.displayName}.
+                </p>
+              </div>
+            </div>
+            <textarea
+              className="mt-4 min-h-28 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              placeholder="Reason for report"
+              value={reportReason}
+              onChange={(event) => setReportReason(event.target.value)}
+              disabled={actionTargetId === reportTarget.id}
+            />
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => {
+                  setReportTarget(null);
+                  setReportReason("");
+                }}
+                disabled={actionTargetId === reportTarget.id}
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                type="submit"
+                disabled={actionTargetId === reportTarget.id || reportReason.trim().length === 0}
+              >
+                {actionTargetId === reportTarget.id ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+                Send report
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </section>
   );
 }

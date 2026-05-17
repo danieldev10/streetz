@@ -11,7 +11,27 @@ import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
 import { isProfileReadyForDiscovery } from "@/lib/profile";
 import type { ChatRoom, MatchThread, NotificationSummary, ProfileGateState, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
 
+const readyProfileGateKeys = new Set<string>();
+
+type MemberAppDataCache = {
+  matches: MatchThread[];
+  rooms: ChatRoom[];
+};
+
+const memberAppDataCache = new Map<string, MemberAppDataCache>();
+
+function getMemberAppDataCache(cacheKey: string): MemberAppDataCache {
+  return memberAppDataCache.get(cacheKey) ?? { matches: [], rooms: [] };
+}
+
+function updateMemberAppDataCache(cacheKey: string, update: Partial<MemberAppDataCache>) {
+  const current = getMemberAppDataCache(cacheKey);
+  memberAppDataCache.set(cacheKey, { ...current, ...update });
+}
+
 export type MemberAppRenderProps = {
+  cachedMatches: MatchThread[];
+  cachedRooms: ChatRoom[];
   onMatchCreated: () => void;
   onMatchesLoaded: (matches: MatchThread[]) => void;
   onMatchOpened: (match: MatchThread) => void;
@@ -37,8 +57,9 @@ export function MemberApp({
   const router = useRouter();
   const shouldRequireProfileSetup = user.role === "USER";
   const visibleTabs = user.role === "ADMIN" ? adminTabs : tabs;
-  const [profileGateState, setProfileGateState] = useState<ProfileGateState>(
-    shouldRequireProfileSetup ? "checking" : "ready"
+  const profileGateKey = `${user.id}:${token}`;
+  const [profileGateState, setProfileGateState] = useState<ProfileGateState>(() =>
+    shouldRequireProfileSetup && !readyProfileGateKeys.has(profileGateKey) ? "checking" : "ready"
   );
   const [profileGateNotice, setProfileGateNotice] = useState<string | null>(null);
   const [notificationSummary, setNotificationSummary] = useState<NotificationSummary>({
@@ -46,6 +67,8 @@ export function MemberApp({
     roomsUnreadCount: 0,
     totalUnreadCount: 0,
   });
+  const [cachedMatches, setCachedMatches] = useState<MatchThread[]>(() => getMemberAppDataCache(profileGateKey).matches);
+  const [cachedRooms, setCachedRooms] = useState<ChatRoom[]>(() => getMemberAppDataCache(profileGateKey).rooms);
 
   const refreshNotificationSummary = useCallback(async () => {
     try {
@@ -86,6 +109,7 @@ export function MemberApp({
   }
 
   function handleProfileReady() {
+    readyProfileGateKeys.add(profileGateKey);
     setProfileGateNotice(null);
     setProfileGateState("ready");
     router.replace("/discover");
@@ -97,6 +121,8 @@ export function MemberApp({
   }
 
   function handleMatchesLoaded(matches: MatchThread[]) {
+    updateMemberAppDataCache(profileGateKey, { matches });
+    setCachedMatches(matches);
     updateNotificationSummary({
       matchesUnreadCount: matches.reduce((total, match) => total + (match.unreadCount ?? 0), 0),
     });
@@ -119,6 +145,8 @@ export function MemberApp({
   }
 
   function handleRoomsLoaded(rooms: ChatRoom[]) {
+    updateMemberAppDataCache(profileGateKey, { rooms });
+    setCachedRooms(rooms);
     updateNotificationSummary({
       roomsUnreadCount: rooms.reduce((total, room) => total + (room.hasJoined ? room.unreadCount ?? 0 : 0), 0),
     });
@@ -145,6 +173,10 @@ export function MemberApp({
       return undefined;
     }
 
+    if (readyProfileGateKeys.has(profileGateKey)) {
+      return undefined;
+    }
+
     let cancelled = false;
 
     async function checkProfileGate() {
@@ -158,6 +190,7 @@ export function MemberApp({
         }
 
         if (isProfileReadyForDiscovery(profileResponse)) {
+          readyProfileGateKeys.add(profileGateKey);
           setProfileGateNotice(null);
           setProfileGateState("ready");
           return;
@@ -188,7 +221,7 @@ export function MemberApp({
     return () => {
       cancelled = true;
     };
-  }, [activeTab, router, token, shouldRequireProfileSetup]);
+  }, [activeTab, router, token, shouldRequireProfileSetup, profileGateKey]);
 
   useEffect(() => {
     if (profileGateState !== "ready") {
@@ -224,6 +257,8 @@ export function MemberApp({
   }, [profileGateState, refreshNotificationSummary, token]);
 
   const renderProps: MemberAppRenderProps = {
+    cachedMatches,
+    cachedRooms,
     onMatchCreated: handleMatchCreated,
     onMatchesLoaded: handleMatchesLoaded,
     onMatchOpened: handleMatchOpened,
@@ -262,10 +297,7 @@ export function MemberApp({
           {profileGateState === "checking" ? (
             <div className="px-5 py-8 md:px-8">
               <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05]">
-                <div className="text-center">
-                  <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-                  <p className="mt-3 text-sm font-medium text-[#666666]">Checking profile setup</p>
-                </div>
+                <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-label="Loading" />
               </div>
             </div>
           ) : profileGateState === "required" ? (
@@ -284,7 +316,7 @@ export function MemberApp({
 
       {profileGateState === "ready" ? (
         <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.05] bg-white/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
-          <div className={`mx-auto grid max-w-xl gap-1 ${visibleTabs.length === 3 ? "grid-cols-3" : "grid-cols-5"}`}>
+          <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
             {visibleTabs.map((tab) => (
               <AppNavButton
                 key={tab.id}

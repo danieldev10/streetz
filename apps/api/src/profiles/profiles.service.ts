@@ -269,7 +269,7 @@ export class ProfilesService {
     eighteenthBirthday.setFullYear(eighteenthBirthday.getFullYear() + 18);
 
     if (eighteenthBirthday > new Date()) {
-      throw new BadRequestException("Streetz discovery is only available to users who are at least 18.");
+      throw new BadRequestException("crushclub discovery is only available to users who are at least 18.");
     }
 
     return birthDate;

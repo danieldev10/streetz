@@ -71,7 +71,7 @@ export function ProfilePhotoImage({
         onError={() => {
           if (primaryUrl && fallbackUrl && primaryUrl !== fallbackUrl && photoUrl === primaryUrl) {
             if (process.env.NODE_ENV === "development") {
-              console.warn("Streetz image failed. Trying signed fallback.", {
+              console.warn("crushclub image failed. Trying signed fallback.", {
                 attempted: formatImageUrlForDebug(photoUrl),
                 fallback: formatImageUrlForDebug(fallbackUrl),
               });
@@ -81,7 +81,7 @@ export function ProfilePhotoImage({
           }
 
           if (process.env.NODE_ENV === "development") {
-            console.warn("Streetz image failed with no remaining fallback.", {
+            console.warn("crushclub image failed with no remaining fallback.", {
               attempted: formatImageUrlForDebug(photoUrl),
               primary: formatImageUrlForDebug(primaryUrl),
             });

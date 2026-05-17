@@ -304,7 +304,7 @@ export class EventsService {
       subscriptionEndsAt === null ||
       subscriptionEndsAt <= new Date()
     ) {
-      throw new ForbiddenException("Active Streetz membership required.");
+      throw new ForbiddenException("Active crushclub membership required.");
     }
 
     return user;

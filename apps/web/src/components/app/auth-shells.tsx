@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { Heart, LoaderCircle, LogOut, MessageCircle, MessagesSquare, Ticket, UserRound } from "lucide-react";
+import { LoaderCircle, LogOut } from "lucide-react";
 import type { StreetzUser } from "@/lib/types";
 
 export function CenteredShell({ title, subtitle }: { title: string; subtitle: string }) {
@@ -44,16 +44,14 @@ export function AuthShell({
 }: AuthShellProps) {
   return (
     <main className="min-h-screen bg-white text-[#0d0d0d]">
-      <section className="mx-auto grid min-h-screen w-full max-w-6xl items-center gap-8 px-5 py-8 md:grid-cols-[1fr_420px] md:px-8">
+      <section className="mx-auto grid min-h-screen w-full max-w-6xl content-center items-center gap-5 px-5 py-8 md:grid-cols-[1fr_420px] md:gap-8 md:px-8">
         <div className="relative overflow-hidden rounded-[32px] border border-black/[0.05] bg-[linear-gradient(180deg,#e8faf1_0%,#f0fdf6_34%,#ffffff_100%)] p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)] md:p-10">
-          <div className="inline-flex rounded-full border border-black/[0.05] bg-white/80 px-3 py-1 text-xs font-medium uppercase tracking-[0.08em] text-[#0fa76e]">
-            Lagos Social Membership
-          </div>
+
           <h1 className="mt-6 max-w-xl text-4xl font-semibold leading-tight text-[#0d0d0d] md:text-6xl">
-            Streetz
+            Crushclub
           </h1>
           <p className="mt-4 max-w-xl text-base leading-7 text-[#666666] md:text-lg">
-            Discover people, join city rooms, and get tickets to curated Nigerian events.
+            Discover & connect with new people.
           </p>
         </div>
 
@@ -148,7 +146,7 @@ export function PaywallShell({
         <div className="bg-[linear-gradient(180deg,#e8faf1_0%,#ffffff_100%)] p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-3xl font-semibold">Streetz</p>
+              <p className="text-3xl font-semibold">Crushclub</p>
               <p className="mt-2 text-sm font-medium text-[#666666]">{user.displayName}</p>
             </div>
             <button
@@ -160,29 +158,14 @@ export function PaywallShell({
               <LogOut className="size-4" aria-hidden="true" />
             </button>
           </div>
-          <h1 className="mt-10 text-3xl font-semibold leading-tight md:text-5xl">Unlock Streetz for ₦1,000/month.</h1>
+          <h1 className="mt-10 text-3xl font-semibold leading-tight md:text-5xl">Subscribe for ₦1,000/month.</h1>
         </div>
 
         <div className="p-6">
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              { label: "Discovery", icon: Heart },
-              { label: "Matches", icon: MessagesSquare },
-              { label: "Profile", icon: UserRound },
-              { label: "Rooms", icon: MessageCircle },
-              { label: "Events", icon: Ticket },
-            ].map((item) => (
-              <div key={item.label} className="rounded-[16px] border border-black/[0.05] p-4">
-                <item.icon className="size-5 text-[#0fa76e]" aria-hidden="true" />
-                <p className="mt-3 text-sm font-medium">{item.label}</p>
-              </div>
-            ))}
-          </div>
-
-          {message ? <p className="mt-4 rounded-[16px] bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
+          {message ? <p className="mb-4 rounded-[16px] bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
 
           <button
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#18E299] px-5 text-sm font-medium text-[#0d0d0d] shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#18E299] px-5 text-sm font-medium text-[#0d0d0d] shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onStartSubscription}
             disabled={isStartingPayment}
           >

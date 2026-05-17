@@ -3,23 +3,31 @@
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LoaderCircle } from "lucide-react";
 import { AuthShell, CenteredShell, PaywallShell } from "@/components/app/auth-shells";
-import { TOKEN_KEY, apiRequest, isActiveMember } from "@/lib/api";
+import { useSession } from "@/components/app/session-provider";
+import { apiRequest, authHeaders, isActiveMember } from "@/lib/api";
 import type { AuthResponse, StreetzUser } from "@/lib/types";
 
 function getDefaultRoute(user: StreetzUser) {
   return user.role === "ADMIN" ? "/admin" : "/discover";
 }
 
+function LoadingShell() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-white px-4 text-[#0d0d0d]">
+      <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-label="Loading" />
+    </main>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
+  const { status, token, user, setSession, updateSessionUser, logout: clearSession } = useSession();
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<StreetzUser | null>(null);
-  const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -27,33 +35,10 @@ export default function Home() {
   const canEnterApp = useMemo(() => isActiveMember(user), [user]);
 
   useEffect(() => {
-    const savedToken = window.localStorage.getItem(TOKEN_KEY);
-
-    if (!savedToken) {
-      window.setTimeout(() => setIsLoadingSession(false), 0);
-      return;
+    if (status === "authenticated" && user && canEnterApp) {
+      router.replace(getDefaultRoute(user));
     }
-
-    apiRequest<StreetzUser>("/auth/me", {
-      headers: {
-        Authorization: `Bearer ${savedToken}`,
-      },
-    })
-      .then((sessionUser) => {
-        setToken(savedToken);
-        setUser(sessionUser);
-
-        if (isActiveMember(sessionUser)) {
-          router.replace(getDefaultRoute(sessionUser));
-        }
-      })
-      .catch(() => {
-        window.localStorage.removeItem(TOKEN_KEY);
-        setToken(null);
-        setUser(null);
-      })
-      .finally(() => setIsLoadingSession(false));
-  }, [router]);
+  }, [canEnterApp, router, status, user]);
 
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,9 +52,7 @@ export default function Home() {
         body: JSON.stringify(payload),
       });
 
-      window.localStorage.setItem(TOKEN_KEY, auth.accessToken);
-      setToken(auth.accessToken);
-      setUser(auth.user);
+      setSession(auth.accessToken, auth.user);
       setPassword("");
 
       if (isActiveMember(auth.user)) {
@@ -98,21 +81,15 @@ export default function Home() {
         subscriptionEndsAt?: string;
       }>("/payments/subscription/initialize", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: authHeaders(token),
       });
 
       if (response.alreadyActive) {
-        setUser((current) =>
-          current
-            ? {
-                ...current,
-                subscriptionStatus: "ACTIVE",
-                subscriptionEndsAt: response.subscriptionEndsAt,
-              }
-            : current
-        );
+        updateSessionUser((current) => ({
+          ...current,
+          subscriptionStatus: "ACTIVE",
+          subscriptionEndsAt: response.subscriptionEndsAt,
+        }));
         return;
       }
 
@@ -129,14 +106,12 @@ export default function Home() {
   }
 
   function logout() {
-    window.localStorage.removeItem(TOKEN_KEY);
-    setToken(null);
-    setUser(null);
+    clearSession({ redirect: false });
     setAuthMode("login");
   }
 
-  if (isLoadingSession) {
-    return <CenteredShell title="Streetz" subtitle="Checking your session" />;
+  if (status === "checking") {
+    return <LoadingShell />;
   }
 
   if (!user) {
@@ -169,5 +144,5 @@ export default function Home() {
     );
   }
 
-  return <CenteredShell title="Streetz" subtitle="Opening your account" />;
+  return <CenteredShell title="crushclub" subtitle="Opening your account" />;
 }
