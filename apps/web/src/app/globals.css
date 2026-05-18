@@ -22,3 +22,12 @@ button,
 a {
   min-height: 40px;
 }
+
+/* Prevent iOS Safari from zooming the page after focusing small form fields. */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
