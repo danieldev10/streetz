@@ -930,7 +930,7 @@ export function RoomsTab({
     <section>
       <ScreenHeader
         eyebrow="Rooms"
-        title={isAdmin ? "Manage rooms." : "Public rooms, curated by admin."}
+        title={isAdmin ? "Manage rooms." : ""}
         action={
           <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
             <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />

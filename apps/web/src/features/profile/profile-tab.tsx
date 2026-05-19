@@ -324,7 +324,7 @@ export function ProfileTab({
       {profileView === "overview" && !isSetupMode ? (
         <ScreenHeader
           eyebrow="Profile"
-          title="Your crushclub profile."
+          title=""
           action={
             <div className="hidden items-center rounded-full bg-[#d4fae8] px-4 py-2 text-sm font-medium text-[#0fa76e] md:inline-flex">
               Discoverable
@@ -513,20 +513,23 @@ export function ProfileTab({
                       ))}
                     </select>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <input
-                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                        type="date"
-                        value={profileForm.birthDate}
-                        onChange={(event) => setProfileForm((current) => ({ ...current, birthDate: event.target.value }))}
-                        required={isSetupMode}
-                      />
+                      <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                        DOB
+                        <input
+                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          type="date"
+                          value={profileForm.birthDate}
+                          onChange={(event) => setProfileForm((current) => ({ ...current, birthDate: event.target.value }))}
+                          required={isSetupMode}
+                        />
+                      </label>
                       <select
                         className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                         value={profileForm.gender}
                         onChange={(event) => setProfileForm((current) => ({ ...current, gender: event.target.value as Gender }))}
                       >
-                        <option value="WOMAN">Woman</option>
-                        <option value="MAN">Man</option>
+                        <option value="WOMAN">Female</option>
+                        <option value="MAN">Male</option>
                         <option value="NON_BINARY">Non-binary</option>
                         <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
                       </select>
@@ -639,9 +642,8 @@ export function ProfileTab({
                       return photo ? (
                         <button
                           key={photo.id}
-                          className={`relative aspect-square overflow-hidden rounded-[16px] border ${
-                            isActive ? "border-[#18E299] ring-2 ring-[#18E299]/30" : "border-black/[0.06]"
-                          }`}
+                          className={`relative aspect-square overflow-hidden rounded-[16px] border ${isActive ? "border-[#18E299] ring-2 ring-[#18E299]/30" : "border-black/[0.06]"
+                            }`}
                           type="button"
                           onClick={() => setActiveProfilePhotoIndex(index)}
                           aria-label={`Show photo ${index + 1}`}

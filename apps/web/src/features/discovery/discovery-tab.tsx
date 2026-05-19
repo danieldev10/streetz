@@ -345,7 +345,7 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
     <section>
       <ScreenHeader
         eyebrow="Discovery"
-        title="Find your next city link."
+        title=""
         action={
           <button className="hidden h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium md:inline-flex">
             <SlidersHorizontal className="size-4" aria-hidden="true" />
@@ -563,8 +563,8 @@ function DiscoveryCandidateCard({
         </div>
         <div
           className={`absolute right-5 top-5 rounded-[14px] border-2 px-4 py-2 text-lg font-semibold uppercase tracking-[0.08em] transition-opacity ${swipeIntent === "LIKE"
-              ? "border-[#18E299] bg-[#18E299]/90 text-[#0d0d0d] opacity-100"
-              : "border-[#18E299]/60 text-[#18E299] opacity-0"
+            ? "border-[#18E299] bg-[#18E299]/90 text-[#0d0d0d] opacity-100"
+            : "border-[#18E299]/60 text-[#18E299] opacity-0"
             }`}
         >
           Like

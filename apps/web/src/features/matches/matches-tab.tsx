@@ -125,19 +125,19 @@ export function MatchesTab({
 
     const visibleMatches = query
       ? matches.filter((match) => {
-          const haystack = [
-            match.user.displayName,
-            match.user.city,
-            match.user.state,
-            match.lastMessage?.body,
-            ...match.user.interests,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
+        const haystack = [
+          match.user.displayName,
+          match.user.city,
+          match.user.state,
+          match.lastMessage?.body,
+          ...match.user.interests,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
-          return haystack.includes(query);
-        })
+        return haystack.includes(query);
+      })
       : matches;
 
     return [...visibleMatches].sort((first, second) => getMatchActivityTime(second) - getMatchActivityTime(first));
@@ -508,15 +508,13 @@ export function MatchesTab({
                         </button>
                       ) : null}
                       <div
-                        className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${
-                          isMine ? "rounded-br-md bg-[#18E299] text-[#0d0d0d]" : "rounded-bl-md bg-white text-[#0d0d0d]"
-                        }`}
+                        className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#18E299] text-[#0d0d0d]" : "rounded-bl-md bg-white text-[#0d0d0d]"
+                          }`}
                       >
                         <p>{message.body}</p>
                         <p
-                          className={`mt-1 flex items-center gap-1 text-[11px] ${
-                            isMine ? "justify-end text-[#0d0d0d]/55" : "text-[#888888]"
-                          }`}
+                          className={`mt-1 flex items-center gap-1 text-[11px] ${isMine ? "justify-end text-[#0d0d0d]/55" : "text-[#888888]"
+                            }`}
                         >
                           <span>
                             {new Date(message.createdAt).toLocaleTimeString([], {
@@ -582,7 +580,7 @@ export function MatchesTab({
     <section>
       <ScreenHeader
         eyebrow="Matches"
-        title="Your conversations."
+        title=""
         action={
           <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] px-4 py-2 text-sm font-medium md:inline-flex">
             <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />

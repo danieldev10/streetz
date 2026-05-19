@@ -763,7 +763,7 @@ export function EventsTab({
     <section>
       <ScreenHeader
         eyebrow="Events"
-        title="Tickets and events."
+        title=""
         action={
           <button
             className="hidden h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium md:inline-flex"
