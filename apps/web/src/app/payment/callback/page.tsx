@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@/components/app/session-provider";
-import { TOKEN_KEY, apiRequest, authHeaders } from "@/lib/api";
+import { TOKEN_KEY, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 
 function PaymentCallbackContent() {
   const router = useRouter();
@@ -57,7 +57,7 @@ function PaymentCallbackContent() {
         window.setTimeout(() => router.replace(isEventTicketPayment ? "/events" : "/discover"), 900);
       })
       .catch((error) => {
-        setMessage(error instanceof Error ? error.message : "Unable to verify payment.");
+        setMessage(getUserErrorMessage(error));
       });
   }, [refreshSession, router, searchParams, token, updateSessionUser]);
 

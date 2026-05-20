@@ -4,7 +4,7 @@ import type { CSSProperties, PointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Ban, Eye, Flag, Heart, LoaderCircle, MapPin, RefreshCw, SlidersHorizontal, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
-import { apiRequest, authHeaders } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import {
   DISCOVERY_DECK_SIZE,
   DISCOVERY_EXIT_TRANSITION_MS,
@@ -29,6 +29,8 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
   const [isRefilling, setIsRefilling] = useState(false);
   const [actionTargetId, setActionTargetId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [matchNotice, setMatchNotice] = useState<{ name: string } | null>(null);
+  const [matchNoticePhase, setMatchNoticePhase] = useState<"entering" | "leaving">("entering");
   const [blockTarget, setBlockTarget] = useState<DiscoveryCandidate | null>(null);
   const [reportTarget, setReportTarget] = useState<DiscoveryCandidate | null>(null);
   const [reportReason, setReportReason] = useState("");
@@ -39,6 +41,8 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
   const dismissedCandidateIdsRef = useRef<Set<string>>(new Set());
   const refillRequestRef = useRef(false);
   const removalTimersRef = useRef<number[]>([]);
+  const matchNoticeTimerRef = useRef<number | null>(null);
+  const matchLeaveTimerRef = useRef<number | null>(null);
 
   const activeCandidate = candidates[0];
   const isActingOnActiveCandidate = activeCandidate ? actionTargetId === activeCandidate.id : false;
@@ -79,7 +83,7 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
           : availableCandidates.slice(0, DISCOVERY_DECK_SIZE)
       );
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to load discovery.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       if (showLoading) {
         setIsLoading(false);
@@ -106,6 +110,12 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
     return () => {
       for (const timer of activeRemovalTimers) {
         window.clearTimeout(timer);
+      }
+      if (matchNoticeTimerRef.current) {
+        window.clearTimeout(matchNoticeTimerRef.current);
+      }
+      if (matchLeaveTimerRef.current) {
+        window.clearTimeout(matchLeaveTimerRef.current);
       }
     };
   }, []);
@@ -144,6 +154,26 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidates.length, isLoading, isRefilling]);
 
+  function showMatchNotice(candidate: DiscoveryCandidate) {
+    if (matchNoticeTimerRef.current) {
+      window.clearTimeout(matchNoticeTimerRef.current);
+    }
+    if (matchLeaveTimerRef.current) {
+      window.clearTimeout(matchLeaveTimerRef.current);
+    }
+
+    setMatchNotice({ name: candidate.displayName });
+    setMatchNoticePhase("entering");
+    matchNoticeTimerRef.current = window.setTimeout(() => {
+      setMatchNoticePhase("leaving");
+      matchNoticeTimerRef.current = null;
+      matchLeaveTimerRef.current = window.setTimeout(() => {
+        setMatchNotice(null);
+        matchLeaveTimerRef.current = null;
+      }, 350);
+    }, 1650);
+  }
+
   async function persistDiscoveryAction(candidate: DiscoveryCandidate, action: DiscoveryActionName) {
     try {
       const result = await apiRequest<{ matched: boolean }>("/discovery/actions", {
@@ -156,11 +186,12 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
       });
 
       if (result.matched) {
+        showMatchNotice(candidate);
         onMatchCreated();
       }
     } catch (error) {
       dismissedCandidateIdsRef.current.delete(candidate.id);
-      setNotice(error instanceof Error ? error.message : "Unable to update discovery.");
+      setNotice(getUserErrorMessage(error));
       void loadDiscovery({ clearNotice: false, mode: "append", showLoading: false });
     }
   }
@@ -303,7 +334,7 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
       setBlockTarget(null);
       setNotice("Profile blocked.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to block profile.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setActionTargetId(null);
     }
@@ -331,7 +362,7 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
       setReportReason("");
       setNotice("Report sent.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to report profile.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setActionTargetId(null);
     }
@@ -353,6 +384,17 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
           </button>
         }
       />
+
+      {matchNotice ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`pointer-events-none fixed inset-x-4 top-[calc(env(safe-area-inset-top)+16px)] z-50 mx-auto max-w-sm rounded-[24px] border border-white/10 bg-[#0d0d0d] px-5 py-4 text-white shadow-[0_18px_60px_rgba(0,0,0,0.24)] ${matchNoticePhase === "leaving" ? "match-notice-leaving" : "match-notice-entering"}`}
+        >
+          <p className="text-sm font-semibold">Match with {matchNotice.name}.</p>
+          <p className="mt-1 text-xs leading-5 text-white/70">Go to the Matches tab to get in touch.</p>
+        </div>
+      ) : null}
 
       <div className="px-5 md:px-8">
         {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}

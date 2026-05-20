@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, Power, RefreshCw, Save, Ticket } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
-import { apiRequest, authHeaders } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { EventStatus, StreetzEvent, StreetzUser, TicketStatus } from "@/lib/types";
 
 const FALLBACK_EVENT_IMAGE =
@@ -158,7 +158,7 @@ export function EventsTab({
       });
       setEvents(response.events);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to load events.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       if (showLoading) {
         setIsLoadingEvents(false);
@@ -280,7 +280,7 @@ export function EventsTab({
       setEventForm((current) => ({ ...current, coverImage: upload.publicUrl }));
       setNotice("Event image uploaded.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to upload event image.";
+      const message = getUserErrorMessage(error);
       setNotice(message === "Failed to fetch" ? "Event image upload failed. Check the bucket CORS settings, then try again." : message);
     } finally {
       setIsUploadingCoverImage(false);
@@ -361,7 +361,7 @@ export function EventsTab({
       router.push("/events");
       void loadEvents({ clearNotice: false, showLoading: false });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to save event.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setIsSavingEvent(false);
     }
@@ -387,7 +387,7 @@ export function EventsTab({
         setEventForm(getEventForm(updatedEvent));
       }
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to update event.");
+      setNotice(getUserErrorMessage(error));
     }
   }
 
@@ -430,7 +430,7 @@ export function EventsTab({
 
       window.location.assign(response.authorizationUrl);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to book event.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setActiveEventId(null);
     }

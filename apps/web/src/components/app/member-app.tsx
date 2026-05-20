@@ -7,7 +7,7 @@ import { io } from "socket.io-client";
 import { LoaderCircle } from "lucide-react";
 import { AppBrand, AppNavButton, MobileHeader, adminTabs, tabs } from "@/components/app/navigation";
 import { ProfileTab } from "@/features/profile/profile-tab";
-import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
+import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { isProfileReadyForDiscovery } from "@/lib/profile";
 import type { ChatRoom, MatchThread, NotificationSummary, ProfileGateState, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
 
@@ -211,7 +211,7 @@ export function MemberApp({
           router.replace("/profile");
         }
 
-        setProfileGateNotice(error instanceof Error ? error.message : "Unable to verify your profile setup.");
+        setProfileGateNotice(getUserErrorMessage(error));
         setProfileGateState("required");
       }
     }

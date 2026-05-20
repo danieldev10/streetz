@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Camera, Heart, LoaderCircle, MapPin, Power, Trash2, UserRound } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
-import { apiRequest, authHeaders } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import {
   PROFILE_PHOTO_LIMIT,
   connectionStatusOptions,
@@ -106,7 +106,7 @@ export function ProfileTab({
         }
       }
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to load profile.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       if (showLoading) {
         setIsLoadingProfile(false);
@@ -186,7 +186,7 @@ export function ProfileTab({
       setNotice("Profile saved.");
       void loadProfile({ clearNotice: false, showLoading: false });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to save profile.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setIsSavingProfile(false);
     }
@@ -259,7 +259,7 @@ export function ProfileTab({
       setNotice(isReplacingPhoto ? "Photo updated." : "Photo added to your profile.");
       await loadProfile({ clearNotice: false, showLoading: false });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to upload photo.";
+      const message = getUserErrorMessage(error);
       setNotice(
         message === "Failed to fetch"
           ? "S3 upload failed. Add localhost to the bucket CORS settings, then try again."
@@ -304,7 +304,7 @@ export function ProfileTab({
       setNotice("Photo removed from your profile.");
       await loadProfile({ clearNotice: false, showLoading: false });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to remove photo.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setUploadingPhotoSlot(null);
     }
@@ -350,7 +350,7 @@ export function ProfileTab({
             title={
               isSetupMode
                 ? "Setup your profile first."
-                : "Edit your profile."
+                : ""
             }
           />
         </>
@@ -484,79 +484,97 @@ export function ProfileTab({
                   </div>
 
                   <div className="mt-4 grid gap-3">
-                    <textarea
-                      className="min-h-24 rounded-[18px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                      placeholder="Bio"
-                      value={profileForm.bio}
-                      onChange={(event) => setProfileForm((current) => ({ ...current, bio: event.target.value }))}
-                      maxLength={500}
-                      required={isSetupMode}
-                    />
-                    <select
-                      className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                      value={profileForm.connectionStatus}
-                      onChange={(event) =>
-                        setProfileForm((current) => ({
-                          ...current,
-                          connectionStatus: event.target.value as ConnectionStatus | "",
-                        }))
-                      }
-                      required={isSetupMode}
-                    >
-                      <option value="" disabled>
-                        Choose status
-                      </option>
-                      {connectionStatusOptions.map((status) => (
-                        <option key={status.value} value={status.value}>
-                          {status.label}
+                    <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                      Bio
+                      <textarea
+                        className="min-h-24 rounded-[18px] border border-black/[0.08] p-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                        placeholder="Tell people a bit about yourself"
+                        value={profileForm.bio}
+                        onChange={(event) => setProfileForm((current) => ({ ...current, bio: event.target.value }))}
+                        maxLength={500}
+                        required={isSetupMode}
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                      Connection status
+                      <select
+                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                        value={profileForm.connectionStatus}
+                        onChange={(event) =>
+                          setProfileForm((current) => ({
+                            ...current,
+                            connectionStatus: event.target.value as ConnectionStatus | "",
+                          }))
+                        }
+                        required={isSetupMode}
+                      >
+                        <option value="" disabled>
+                          Choose status
                         </option>
-                      ))}
-                    </select>
+                        {connectionStatusOptions.map((status) => (
+                          <option key={status.value} value={status.value}>
+                            {status.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                        DOB
+                        Date of birth
                         <input
-                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                           type="date"
                           value={profileForm.birthDate}
                           onChange={(event) => setProfileForm((current) => ({ ...current, birthDate: event.target.value }))}
                           required={isSetupMode}
                         />
                       </label>
-                      <select
-                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                        value={profileForm.gender}
-                        onChange={(event) => setProfileForm((current) => ({ ...current, gender: event.target.value as Gender }))}
-                      >
-                        <option value="WOMAN">Female</option>
-                        <option value="MAN">Male</option>
-                        <option value="NON_BINARY">Non-binary</option>
-                        <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
-                      </select>
+                      <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                        Gender
+                        <select
+                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          value={profileForm.gender}
+                          onChange={(event) => setProfileForm((current) => ({ ...current, gender: event.target.value as Gender }))}
+                        >
+                          <option value="WOMAN">Female</option>
+                          <option value="MAN">Male</option>
+                          <option value="NON_BINARY">Non-binary</option>
+                          <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
+                        </select>
+                      </label>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <input
-                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                        placeholder="City"
-                        value={profileForm.city}
-                        onChange={(event) => setProfileForm((current) => ({ ...current, city: event.target.value }))}
-                        required={isSetupMode}
-                      />
-                      <input
-                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                        placeholder="State"
-                        value={profileForm.state}
-                        onChange={(event) => setProfileForm((current) => ({ ...current, state: event.target.value }))}
-                        required={isSetupMode}
-                      />
+                      <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                        City
+                        <input
+                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          placeholder="e.g. Lagos"
+                          value={profileForm.city}
+                          onChange={(event) => setProfileForm((current) => ({ ...current, city: event.target.value }))}
+                          required={isSetupMode}
+                        />
+                      </label>
+                      <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                        State
+                        <input
+                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          placeholder="e.g. Lagos"
+                          value={profileForm.state}
+                          onChange={(event) => setProfileForm((current) => ({ ...current, state: event.target.value }))}
+                          required={isSetupMode}
+                        />
+                      </label>
                     </div>
-                    <input
-                      className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                      placeholder="Interests, comma separated"
-                      value={profileForm.interests}
-                      onChange={(event) => setProfileForm((current) => ({ ...current, interests: event.target.value }))}
-                      required={isSetupMode}
-                    />
+                    <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                      Interests
+                      <input
+                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                        placeholder="e.g. Fashion, Music, Travel"
+                        value={profileForm.interests}
+                        onChange={(event) => setProfileForm((current) => ({ ...current, interests: event.target.value }))}
+                        required={isSetupMode}
+                      />
+                    </label>
                   </div>
 
                   <div className="mt-4 flex justify-end">

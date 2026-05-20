@@ -23,6 +23,37 @@ a {
   min-height: 40px;
 }
 
+/* Match notification banner animations */
+@keyframes match-notice-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-100%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes match-notice-leave {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-40%) scale(0.95);
+  }
+}
+
+.match-notice-entering {
+  animation: match-notice-enter 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.match-notice-leaving {
+  animation: match-notice-leave 350ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
 /* Prevent iOS Safari from zooming the page after focusing small form fields. */
 @media (max-width: 767px) {
   input,

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import { AuthShell, CenteredShell, PaywallShell } from "@/components/app/auth-shells";
 import { useSession } from "@/components/app/session-provider";
-import { apiRequest, authHeaders, isActiveMember } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/lib/api";
 import type { AuthResponse, StreetzUser } from "@/lib/types";
 
 function getDefaultRoute(user: StreetzUser) {
@@ -59,7 +59,7 @@ export default function Home() {
         router.replace(getDefaultRoute(auth.user));
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to continue.");
+      setMessage(getUserErrorMessage(error));
     } finally {
       setIsSubmittingAuth(false);
     }
@@ -99,7 +99,7 @@ export default function Home() {
 
       window.location.assign(response.authorizationUrl);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to start payment.");
+      setMessage(getUserErrorMessage(error));
     } finally {
       setIsStartingPayment(false);
     }

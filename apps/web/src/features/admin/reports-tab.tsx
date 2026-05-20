@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, LoaderCircle, RefreshCw } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
-import { apiRequest, authHeaders } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { AdminReport, ReportStatus } from "@/lib/types";
 
 const reportStatusOptions: Array<ReportStatus | "ALL"> = ["ALL", "OPEN", "REVIEWED", "DISMISSED", "ACTIONED"];
@@ -65,7 +65,7 @@ export function ReportsTab({ token }: { token: string }) {
         });
         setReports(response.reports);
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Unable to load reports.");
+        setNotice(getUserErrorMessage(error));
       } finally {
         if (showLoading) {
           setIsLoadingReports(false);
@@ -92,7 +92,7 @@ export function ReportsTab({ token }: { token: string }) {
 
       setReports((current) => current.map((item) => (item.id === report.id ? response.report : item)));
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to update report.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setUpdatingReportId(null);
     }

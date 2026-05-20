@@ -16,7 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
-import { apiRequest, authHeaders } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { AdminMetrics } from "@/lib/types";
 
 function formatNumber(value: number) {
@@ -138,7 +138,7 @@ export function AdminDashboard({ token }: { token: string }) {
         });
         setMetrics(response);
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Unable to load admin metrics.");
+        setNotice(getUserErrorMessage(error));
       } finally {
         if (showLoading) {
           setIsLoadingMetrics(false);

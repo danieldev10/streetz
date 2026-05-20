@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
 import { ArrowLeft, CheckCheck, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
-import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
+import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import type { DirectMessage, DiscoveryCandidate, MatchThread, StreetzUser } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
@@ -195,7 +195,7 @@ export function MatchesTab({
         return null;
       });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to load matches.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setIsLoadingMatches(false);
     }
@@ -213,7 +213,7 @@ export function MatchesTab({
       clearMatchUnread(matchId);
       onNotificationsChangedRef.current();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to load messages.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setIsLoadingMessages(false);
     }
@@ -601,9 +601,7 @@ export function MatchesTab({
           </div>
         ) : matches.length > 0 ? (
           <div className="mx-auto max-w-3xl">
-            <label className="mb-2 block text-xs font-medium uppercase tracking-[0.08em] text-[#888888]" htmlFor="match-search">
-              Search
-            </label>
+
             <div className="relative">
               <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#888888]" aria-hidden="true" />
               <input

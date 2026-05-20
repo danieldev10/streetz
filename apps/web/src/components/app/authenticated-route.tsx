@@ -7,7 +7,7 @@ import { LoaderCircle } from "lucide-react";
 import { CenteredShell, PaywallShell } from "@/components/app/auth-shells";
 import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
 import { useSession } from "@/components/app/session-provider";
-import { apiRequest, authHeaders, isActiveMember } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/lib/api";
 import type { StreetzUser, TabKey } from "@/lib/types";
 
 function getDefaultRoute(user: StreetzUser) {
@@ -99,7 +99,7 @@ export function AuthenticatedRoute({
 
       window.location.assign(response.authorizationUrl);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to start payment.");
+      setMessage(getUserErrorMessage(error));
     } finally {
       setIsStartingPayment(false);
     }

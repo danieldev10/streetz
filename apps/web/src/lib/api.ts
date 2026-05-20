@@ -75,3 +75,13 @@ function hasAuthorizationHeader(headers: HeadersInit | undefined) {
 
   return Object.keys(headers).some((key) => key.toLowerCase() === "authorization");
 }
+
+const USER_FRIENDLY_ERROR = "We ran into a problem. Please try again.";
+
+export function getUserErrorMessage(error: unknown): string {
+  if (process.env.NODE_ENV === "development") {
+    console.error("[streetz]", error);
+  }
+
+  return USER_FRIENDLY_ERROR;
+}

@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowLeft, MapPin } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { formatConnectionStatus } from "@/lib/profile";
 import type { DiscoveryCandidate } from "@/lib/types";
@@ -14,32 +15,93 @@ export function MemberProfileView({
   onBack: () => void;
   backLabel: string;
 }) {
-  const activePhoto = candidate.photos[0];
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const photos = candidate.photos;
+  const hasMultiplePhotos = photos.length > 1;
+  const activePhoto = photos[activePhotoIndex];
   const location = [candidate.city, candidate.state].filter(Boolean).join(", ") || "Nigeria";
+
+  function goToPrevious() {
+    setActivePhotoIndex((current) => (current > 0 ? current - 1 : photos.length - 1));
+  }
+
+  function goToNext() {
+    setActivePhotoIndex((current) => (current < photos.length - 1 ? current + 1 : 0));
+  }
 
   return (
     <section className="pt-5 md:pt-8">
       <div className="px-5 pb-24 md:px-8 md:pb-8">
         <div className="mx-auto max-w-[560px]">
+          <button
+            className="mb-4 inline-flex h-10 items-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 text-sm font-medium text-[#0d0d0d] shadow-[0_2px_4px_rgba(0,0,0,0.04)]"
+            type="button"
+            onClick={onBack}
+            aria-label={backLabel}
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            {backLabel}
+          </button>
           <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
             <div className="relative aspect-[1.05] min-h-[320px] bg-[#d4fae8]">
-              <button
-                className="absolute left-4 top-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white/95 text-[#0d0d0d] shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur"
-                type="button"
-                onClick={onBack}
-                aria-label={backLabel}
-                title="Back"
-              >
-                <ArrowLeft className="size-4" aria-hidden="true" />
-              </button>
+
+              {/* Segmented progress bar */}
+              {hasMultiplePhotos ? (
+                <div className="absolute inset-x-4 top-3 z-10 flex gap-1">
+                  {photos.map((photo, index) => (
+                    <div
+                      key={photo.id}
+                      className="h-[2px] flex-1 rounded-full"
+                      style={{
+                        backgroundColor: index === activePhotoIndex ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.35)",
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
               <ProfilePhotoImage
+                key={activePhoto?.id}
                 photo={activePhoto}
-                alt={`${candidate.displayName} profile photo`}
+                alt={`${candidate.displayName} profile photo ${activePhotoIndex + 1} of ${photos.length}`}
                 variant="full"
                 sizes="(max-width: 768px) 100vw, 560px"
                 iconSize="lg"
               />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5 text-white">
+
+              {/* Tap zones for navigating photos */}
+              {hasMultiplePhotos ? (
+                <>
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 left-0 z-[5] w-[30%] cursor-pointer"
+                    onClick={goToPrevious}
+                    aria-label="Previous photo"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 z-[5] w-[30%] cursor-pointer"
+                    onClick={goToNext}
+                    aria-label="Next photo"
+                  />
+
+                  {/* Chevron arrows */}
+                  <div
+                    className="pointer-events-none absolute left-3 top-1/2 z-[6] grid size-8 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-white backdrop-blur-sm"
+                    aria-hidden="true"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </div>
+                  <div
+                    className="pointer-events-none absolute right-3 top-1/2 z-[6] grid size-8 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-white backdrop-blur-sm"
+                    aria-hidden="true"
+                  >
+                    <ChevronRight className="size-4" />
+                  </div>
+                </>
+              ) : null}
+
+              <div className="absolute inset-x-0 bottom-0 z-[7] bg-gradient-to-t from-black/70 to-transparent p-5 text-white">
                 <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
                   {formatConnectionStatus(candidate.connectionStatus)}
                 </span>
@@ -96,3 +158,4 @@ export function MemberProfileView({
     </section>
   );
 }
+

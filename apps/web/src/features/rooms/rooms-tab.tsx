@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
-import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
+import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import type { ChatRoom, RoomMessage, StreetzUser } from "@/lib/types";
 
@@ -207,7 +207,7 @@ export function RoomsTab({
         return null;
       });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to load rooms.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       if (showLoading) {
         setIsLoadingRooms(false);
@@ -228,7 +228,7 @@ export function RoomsTab({
       clearRoomUnread(roomId);
       onNotificationsChangedRef.current();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to load room messages.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setIsLoadingMessages(false);
     }
@@ -355,7 +355,7 @@ export function RoomsTab({
       router.push(`/rooms/${pendingJoinRoom.id}`);
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to join room.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setIsJoiningRoom(false);
     }
@@ -392,7 +392,7 @@ export function RoomsTab({
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
       setIsLeaveConfirmOpen(false);
-      setNotice(error instanceof Error ? error.message : "Unable to leave room.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setIsLeavingRoom(false);
     }
@@ -465,7 +465,7 @@ export function RoomsTab({
       router.push("/rooms");
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to save room.");
+      setNotice(getUserErrorMessage(error));
     } finally {
       setIsSavingRoom(false);
     }
@@ -490,7 +490,7 @@ export function RoomsTab({
         setRoomForm(getRoomForm(updatedRoom));
       }
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to update room.");
+      setNotice(getUserErrorMessage(error));
     }
   }
 
