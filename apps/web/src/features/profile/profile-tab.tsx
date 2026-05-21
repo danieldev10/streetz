@@ -80,8 +80,10 @@ export function ProfileTab({
     });
   }
 
-  async function loadProfile(options: { clearNotice?: boolean; showLoading?: boolean } = {}) {
-    const { clearNotice = true, showLoading = true } = options;
+  async function loadProfile(
+    options: { clearNotice?: boolean; showLoading?: boolean; syncForm?: boolean } = {},
+  ) {
+    const { clearNotice = true, showLoading = true, syncForm = true } = options;
 
     if (showLoading) {
       setIsLoadingProfile(true);
@@ -99,14 +101,18 @@ export function ProfileTab({
       setProfile(profileResponse);
 
       if (profileResponse) {
-        syncProfileForm(profileResponse);
+        if (syncForm) {
+          syncProfileForm(profileResponse);
+        }
 
         if (isSetupMode) {
           setProfileView("edit");
         }
       }
     } catch (error) {
-      setNotice(getUserErrorMessage(error));
+      if (clearNotice) {
+        setNotice(getUserErrorMessage(error));
+      }
     } finally {
       if (showLoading) {
         setIsLoadingProfile(false);
@@ -257,7 +263,7 @@ export function ProfileTab({
 
       setActiveProfilePhotoIndex(Math.min(sortOrder, PROFILE_PHOTO_LIMIT - 1));
       setNotice(isReplacingPhoto ? "Photo updated." : "Photo added to your profile.");
-      await loadProfile({ clearNotice: false, showLoading: false });
+      await loadProfile({ clearNotice: false, showLoading: false, syncForm: false });
     } catch (error) {
       const message = getUserErrorMessage(error);
       setNotice(
@@ -302,7 +308,7 @@ export function ProfileTab({
         return currentIndex;
       });
       setNotice("Photo removed from your profile.");
-      await loadProfile({ clearNotice: false, showLoading: false });
+      await loadProfile({ clearNotice: false, showLoading: false, syncForm: false });
     } catch (error) {
       setNotice(getUserErrorMessage(error));
     } finally {

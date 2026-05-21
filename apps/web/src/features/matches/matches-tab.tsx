@@ -302,7 +302,7 @@ export function MatchesTab({
   useEffect(() => {
     const socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
     });
     const statusTimer = window.setTimeout(() => setSocketStatus("connecting"), 0);
 
@@ -310,9 +310,8 @@ export function MatchesTab({
 
     socket.on("connect", () => setSocketStatus("connected"));
     socket.on("disconnect", () => setSocketStatus("offline"));
-    socket.on("connect_error", (error) => {
+    socket.on("connect_error", () => {
       setSocketStatus("offline");
-      setNotice(error.message || "Unable to connect to live messaging.");
     });
     socket.on("direct-message:new", (message: DirectMessage) => {
       if (message.matchId === selectedMatchIdRef.current) {
@@ -392,7 +391,7 @@ export function MatchesTab({
     const socket = socketRef.current;
 
     if (!socket?.connected) {
-      setNotice("Live messaging is offline. Please wait for the socket to reconnect.");
+      setNotice("Live messaging is temporarily unavailable. Please try again shortly.");
       return;
     }
 
@@ -409,7 +408,7 @@ export function MatchesTab({
         setIsSendingMessage(false);
 
         if (!response?.ok || !response.message) {
-          setNotice(response?.error ?? "Unable to send message.");
+          setNotice("We ran into a problem. Please try again.");
           return;
         }
 

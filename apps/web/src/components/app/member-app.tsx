@@ -244,7 +244,7 @@ export function MemberApp({
 
     const socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
     });
 
     socket.on("notifications:changed", () => {
