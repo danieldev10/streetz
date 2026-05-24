@@ -78,6 +78,20 @@ enum PaymentStatus {
   REVERSED
 }
 
+enum NotificationKind {
+  ROOM_CREATED
+  EVENT_PUBLISHED
+  MATCH_CREATED
+  TICKET_CONFIRMED
+  SUBSCRIPTION_EXPIRING
+  REPORT_STATUS_UPDATED
+  EVENT_REMINDER
+  EVENT_UPDATED
+  EVENT_CANCELLED
+  PAYMENT_FAILED
+  SUBSCRIPTION_PAYMENT_SUCCESS
+}
+
 model User {
   id                 String               @id @default(cuid())
   email              String               @unique
@@ -105,6 +119,7 @@ model User {
   roomMemberships    RoomMembership[]
   tickets            Ticket[]
   payments           Payment[]
+  notificationSeens  NotificationSeen[]
 }
 
 model Profile {
@@ -326,4 +341,17 @@ model Payment {
   providerMetadata  Json?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
+}
+
+model NotificationSeen {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      NotificationKind
+  entityId  String
+  seenAt    DateTime         @default(now())
+  createdAt DateTime         @default(now())
+
+  @@unique([userId, kind, entityId])
+  @@index([userId, kind])
 }

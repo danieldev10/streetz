@@ -4,6 +4,7 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { ActiveSubscriptionGuard } from "../auth/guards/active-subscription.guard";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthUser } from "../auth/types/auth-user";
+import { NotificationsGateway } from "../notifications/notifications.gateway";
 import { DiscoveryService } from "./discovery.service";
 import { BlockUserDto } from "./dto/block-user.dto";
 import { DiscoveryActionDto } from "./dto/discovery-action.dto";
@@ -14,7 +15,10 @@ import { ReportUserDto } from "./dto/report-user.dto";
 @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
 @Controller("discovery")
 export class DiscoveryController {
-  constructor(private readonly discoveryService: DiscoveryService) {}
+  constructor(
+    private readonly discoveryService: DiscoveryService,
+    private readonly notificationsGateway: NotificationsGateway
+  ) {}
 
   @Get("candidates")
   getCandidates(@CurrentUser() user: AuthUser) {
@@ -22,8 +26,25 @@ export class DiscoveryController {
   }
 
   @Post("actions")
-  recordAction(@CurrentUser() user: AuthUser, @Body() dto: DiscoveryActionDto) {
-    return this.discoveryService.recordAction(user.id, dto);
+  async recordAction(@CurrentUser() user: AuthUser, @Body() dto: DiscoveryActionDto) {
+    const result = await this.discoveryService.recordAction(user.id, dto);
+
+    this.notificationsGateway.emitUserChanged(user.id, {
+      source: "discovery",
+      targetUserId: dto.targetUserId,
+      action: dto.action
+    });
+
+    if (dto.action === "LIKE") {
+      this.notificationsGateway.emitUserChanged(dto.targetUserId, {
+        source: "discovery",
+        actorUserId: user.id,
+        action: dto.action,
+        matched: result.matched
+      });
+    }
+
+    return result;
   }
 
   @Get("matches")

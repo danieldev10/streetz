@@ -97,6 +97,8 @@ export type ChatRoom = {
 
 export type EventStatus = "DRAFT" | "PUBLISHED" | "CANCELLED" | "COMPLETED";
 export type TicketStatus = "RESERVED" | "PAID" | "CHECKED_IN" | "CANCELLED" | "REFUNDED";
+export type PaymentPurpose = "SUBSCRIPTION" | "EVENT_TICKET";
+export type PaymentStatus = "PENDING" | "SUCCESS" | "FAILED" | "ABANDONED" | "REVERSED";
 
 export type StreetzEventTicketType = {
   id: string;
@@ -191,7 +193,7 @@ export type RoomMessage = {
   createdAt: string;
 };
 
-export type TabKey = "discovery" | "matches" | "profile" | "rooms" | "events" | "admin" | "reports";
+export type TabKey = "discovery" | "matches" | "profile" | "notifications" | "rooms" | "events" | "admin" | "reports";
 export type DiscoveryActionName = "LIKE" | "PASS";
 export type ProfileGateState = "checking" | "required" | "ready";
 export type ProfileTabMode = "normal" | "setup";
@@ -199,5 +201,136 @@ export type ProfileTabMode = "normal" | "setup";
 export type NotificationSummary = {
   matchesUnreadCount: number;
   roomsUnreadCount: number;
+  notificationsUnreadCount: number;
   totalUnreadCount: number;
+};
+
+export type NotificationFeedLike = DiscoveryCandidate & {
+  likedAt: string | null;
+};
+
+export type NotificationKind =
+  | "ROOM_CREATED"
+  | "EVENT_PUBLISHED"
+  | "MATCH_CREATED"
+  | "TICKET_CONFIRMED"
+  | "SUBSCRIPTION_EXPIRING"
+  | "REPORT_STATUS_UPDATED"
+  | "EVENT_REMINDER"
+  | "EVENT_UPDATED"
+  | "EVENT_CANCELLED"
+  | "PAYMENT_FAILED"
+  | "SUBSCRIPTION_PAYMENT_SUCCESS";
+
+export type NotificationFeedMatch = {
+  id: string;
+  createdAt: string;
+  user: DiscoveryCandidate;
+};
+
+export type NotificationFeedDirectMessage = {
+  id: string;
+  matchId: string;
+  user: DiscoveryCandidate;
+  lastMessage: DirectMessage;
+  unreadCount: number;
+  updatedAt: string;
+};
+
+export type NotificationFeedRoomMessage = {
+  id: string;
+  roomId: string;
+  name: string;
+  category: string;
+  lastMessage: RoomMessage;
+  unreadCount: number;
+  updatedAt: string;
+};
+
+export type NotificationFeedRoom = {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  memberCount: number;
+  createdAt: string;
+};
+
+export type NotificationFeedEvent = {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  coverImage: string | null;
+  venue: string;
+  city: string;
+  startsAt: string;
+  endsAt: string | null;
+  createdAt: string;
+};
+
+export type NotificationFeedTicket = {
+  id: string;
+  code: string;
+  status: TicketStatus;
+  createdAt: string;
+  event: {
+    id: string;
+    title: string;
+    venue: string;
+    city: string;
+    startsAt: string;
+  };
+  ticketType: {
+    id: string;
+    name: string;
+    priceKobo: number;
+  };
+};
+
+export type NotificationFeedEventAlert = {
+  id: string;
+  kind: Extract<NotificationKind, "EVENT_REMINDER" | "EVENT_UPDATED" | "EVENT_CANCELLED">;
+  eventId: string;
+  title: string;
+  venue: string;
+  city: string;
+  startsAt: string;
+  updatedAt: string;
+};
+
+export type NotificationFeedSubscriptionAlert = {
+  id: string;
+  subscriptionEndsAt: string;
+};
+
+export type NotificationFeedReportUpdate = {
+  id: string;
+  reportId: string;
+  reason: string;
+  status: ReportStatus;
+  updatedAt: string;
+};
+
+export type NotificationFeedPaymentAlert = {
+  id: string;
+  kind: Extract<NotificationKind, "PAYMENT_FAILED" | "SUBSCRIPTION_PAYMENT_SUCCESS">;
+  purpose: PaymentPurpose;
+  status: PaymentStatus;
+  amountKobo: number;
+  updatedAt: string;
+};
+
+export type NotificationFeed = {
+  likes: NotificationFeedLike[];
+  matches: NotificationFeedMatch[];
+  directMessages: NotificationFeedDirectMessage[];
+  roomMessages: NotificationFeedRoomMessage[];
+  rooms: NotificationFeedRoom[];
+  events: NotificationFeedEvent[];
+  tickets: NotificationFeedTicket[];
+  eventAlerts: NotificationFeedEventAlert[];
+  subscriptionAlerts: NotificationFeedSubscriptionAlert[];
+  reportUpdates: NotificationFeedReportUpdate[];
+  paymentAlerts: NotificationFeedPaymentAlert[];
 };

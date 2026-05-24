@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
 import {
+  Bell,
   CreditCard,
   Flag,
   Heart,
@@ -23,7 +24,7 @@ import type { StreetzUser, TabKey } from "@/lib/types";
 export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "discovery", label: "Discover", icon: Heart },
   { id: "matches", label: "Matches", icon: MessagesSquare },
-  { id: "profile", label: "Profile", icon: UserRound },
+  { id: "notifications", label: "Notifications", icon: Bell },
   { id: "rooms", label: "Rooms", icon: MessageCircle },
   { id: "events", label: "Events", icon: Ticket },
 ];
@@ -38,6 +39,7 @@ export const adminTabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> =
 export const tabRoutes: Record<TabKey, string> = {
   discovery: "/discover",
   matches: "/matches",
+  notifications: "/notifications",
   profile: "/profile",
   rooms: "/rooms",
   events: "/events",
@@ -191,6 +193,16 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
             </span>
             <span className="rounded-full bg-[#f4f4f4] px-2 py-1 text-[11px] text-[#888888]">Soon</span>
           </button>
+
+          <Link
+            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+            href="/profile"
+            onClick={closeMenu}
+            tabIndex={isOpen ? 0 : -1}
+          >
+            <UserRound className="size-4" aria-hidden="true" />
+            Profile
+          </Link>
 
             <button
               type="button"

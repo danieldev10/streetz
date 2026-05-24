@@ -65,6 +65,7 @@ export function MemberApp({
   const [notificationSummary, setNotificationSummary] = useState<NotificationSummary>({
     matchesUnreadCount: 0,
     roomsUnreadCount: 0,
+    notificationsUnreadCount: 0,
     totalUnreadCount: 0,
   });
   const [cachedMatches, setCachedMatches] = useState<MatchThread[]>(() => getMemberAppDataCache(profileGateKey).matches);
@@ -91,7 +92,7 @@ export function MemberApp({
 
       return {
         ...next,
-        totalUnreadCount: next.matchesUnreadCount + next.roomsUnreadCount,
+        totalUnreadCount: next.matchesUnreadCount + next.roomsUnreadCount + next.notificationsUnreadCount,
       };
     });
   }
@@ -103,6 +104,10 @@ export function MemberApp({
 
     if (tabId === "rooms") {
       return notificationSummary.roomsUnreadCount;
+    }
+
+    if (tabId === "notifications") {
+      return notificationSummary.notificationsUnreadCount;
     }
 
     return 0;
@@ -138,7 +143,7 @@ export function MemberApp({
         return {
           ...current,
           matchesUnreadCount,
-          totalUnreadCount: matchesUnreadCount + current.roomsUnreadCount,
+          totalUnreadCount: matchesUnreadCount + current.roomsUnreadCount + current.notificationsUnreadCount,
         };
       });
     }
@@ -162,7 +167,7 @@ export function MemberApp({
         return {
           ...current,
           roomsUnreadCount,
-          totalUnreadCount: current.matchesUnreadCount + roomsUnreadCount,
+          totalUnreadCount: current.matchesUnreadCount + roomsUnreadCount + current.notificationsUnreadCount,
         };
       });
     }

@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { OnGatewayConnection, WebSocketGateway, WsException } from "@nestjs/websockets";
 import { UserRole } from "@prisma/client";
-import { Socket } from "socket.io";
+import { Server, Socket } from "socket.io";
 import { AuthUser } from "../auth/types/auth-user";
 import { getUserNotificationRoom } from "./notification-rooms";
 
@@ -26,6 +26,8 @@ type AuthenticatedSocket = Socket & {
   }
 })
 export class NotificationsGateway implements OnGatewayConnection {
+  private server: Server;
+
   private readonly logger = new Logger(NotificationsGateway.name);
 
   constructor(
@@ -51,6 +53,17 @@ export class NotificationsGateway implements OnGatewayConnection {
       this.logger.warn(`Rejected notification socket connection: ${error instanceof Error ? error.message : "invalid token"}`);
       client.disconnect(true);
     }
+  }
+
+  afterInit(server: Server) {
+    this.server = server;
+  }
+
+  emitUserChanged(userId: string, payload: Record<string, unknown> = {}) {
+    this.server?.to(getUserNotificationRoom(userId)).emit("notifications:changed", {
+      source: "notifications",
+      ...payload
+    });
   }
 
   private extractToken(client: Socket) {

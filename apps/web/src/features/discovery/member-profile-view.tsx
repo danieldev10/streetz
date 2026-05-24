@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
@@ -10,10 +11,12 @@ export function MemberProfileView({
   candidate,
   onBack,
   backLabel,
+  footer,
 }: {
   candidate: DiscoveryCandidate;
   onBack: () => void;
   backLabel: string;
+  footer?: ReactNode;
 }) {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const photos = candidate.photos;
@@ -153,6 +156,7 @@ export function MemberProfileView({
               </div>
             </div>
           </article>
+          {footer ? <div className="mt-4">{footer}</div> : null}
         </div>
       </div>
     </section>

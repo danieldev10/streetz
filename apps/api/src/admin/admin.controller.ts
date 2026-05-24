@@ -4,6 +4,7 @@ import { UserRole } from "@prisma/client";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/roles.decorator";
+import { NotificationsGateway } from "../notifications/notifications.gateway";
 import { AdminService } from "./admin.service";
 import { UpdateReportStatusDto } from "./dto/update-report-status.dto";
 
@@ -13,7 +14,10 @@ import { UpdateReportStatusDto } from "./dto/update-report-status.dto";
 @Roles(UserRole.ADMIN)
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly notificationsGateway: NotificationsGateway
+  ) {}
 
   @Get("metrics")
   getMetrics() {
@@ -26,7 +30,15 @@ export class AdminController {
   }
 
   @Put("reports/:reportId/status")
-  updateReportStatus(@Param("reportId") reportId: string, @Body() dto: UpdateReportStatusDto) {
-    return this.adminService.updateReportStatus(reportId, dto.status);
+  async updateReportStatus(@Param("reportId") reportId: string, @Body() dto: UpdateReportStatusDto) {
+    const response = await this.adminService.updateReportStatus(reportId, dto.status);
+
+    this.notificationsGateway.emitUserChanged(response.report.reporter.id, {
+      source: "reports",
+      reportId: response.report.id,
+      status: response.report.status
+    });
+
+    return response;
   }
 }

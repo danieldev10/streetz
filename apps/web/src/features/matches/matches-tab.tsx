@@ -112,6 +112,7 @@ export function MatchesTab({
   const messageScrollerRef = useRef<HTMLDivElement | null>(null);
   const onMatchesLoadedRef = useRef(onMatchesLoaded);
   const onNotificationsChangedRef = useRef(onNotificationsChanged);
+  const seenMatchNotificationIdsRef = useRef<Set<string>>(new Set());
 
   const selectedMatch = matches.find((match) => match.id === selectedMatchId) ?? null;
   const displayedMessages = useMemo(
@@ -290,6 +291,31 @@ export function MatchesTab({
     }
   }
 
+  async function markMatchNotificationSeen(matchId: string) {
+    if (seenMatchNotificationIdsRef.current.has(matchId)) {
+      return;
+    }
+
+    try {
+      await apiRequest("/notifications/feed/seen", {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          items: [
+            {
+              kind: "MATCH_CREATED",
+              entityId: matchId,
+            },
+          ],
+        }),
+      });
+      seenMatchNotificationIdsRef.current.add(matchId);
+      onNotificationsChangedRef.current();
+    } catch {
+      // Opening the thread is still useful; notification seen state can retry later.
+    }
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadMatches();
@@ -357,6 +383,7 @@ export function MatchesTab({
     }
 
     const timer = window.setTimeout(() => {
+      void markMatchNotificationSeen(selectedMatchId);
       void loadMessages(selectedMatchId);
       socketRef.current?.emit("match:join", { matchId: selectedMatchId });
     }, 0);
