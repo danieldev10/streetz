@@ -54,7 +54,7 @@ function PaymentCallbackContent() {
         }
 
         setMessage(isEventTicketPayment ? "Ticket confirmed. Taking you into crushclub..." : "Payment verified. Taking you into crushclub...");
-        window.setTimeout(() => router.replace(isEventTicketPayment ? "/events" : "/discover"), 900);
+        window.setTimeout(() => router.replace("/events"), 900);
       })
       .catch((error) => {
         setMessage(getUserErrorMessage(error));

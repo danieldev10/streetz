@@ -10,7 +10,7 @@ import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/
 import type { AuthResponse, StreetzUser } from "@/lib/types";
 
 function getDefaultRoute(user: StreetzUser) {
-  return user.role === "ADMIN" ? "/admin" : "/discover";
+  return user.role === "ADMIN" ? "/admin" : "/events";
 }
 
 function LoadingShell() {

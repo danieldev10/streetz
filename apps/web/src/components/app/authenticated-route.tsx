@@ -11,7 +11,7 @@ import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/
 import type { StreetzUser, TabKey } from "@/lib/types";
 
 function getDefaultRoute(user: StreetzUser) {
-  return user.role === "ADMIN" ? "/admin" : "/discover";
+  return user.role === "ADMIN" ? "/admin" : "/events";
 }
 
 function isRouteAllowed(user: StreetzUser, activeTab: TabKey, adminOnly: boolean) {

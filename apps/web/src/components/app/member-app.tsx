@@ -117,7 +117,7 @@ export function MemberApp({
     readyProfileGateKeys.add(profileGateKey);
     setProfileGateNotice(null);
     setProfileGateState("ready");
-    router.replace("/discover");
+    router.replace("/events");
     void refreshNotificationSummary();
   }
 

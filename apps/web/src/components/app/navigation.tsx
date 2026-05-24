@@ -22,11 +22,11 @@ import {
 import type { StreetzUser, TabKey } from "@/lib/types";
 
 export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
-  { id: "discovery", label: "Discover", icon: Heart },
-  { id: "matches", label: "Matches", icon: MessagesSquare },
-  { id: "notifications", label: "Alerts", icon: Bell },
-  { id: "rooms", label: "Rooms", icon: MessageCircle },
   { id: "events", label: "Events", icon: Ticket },
+  { id: "rooms", label: "Rooms", icon: MessageCircle },
+  { id: "discovery", label: "Discover", icon: Heart },
+  { id: "notifications", label: "Alerts", icon: Bell },
+  { id: "matches", label: "Matches", icon: MessagesSquare },
 ];
 
 export const adminTabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
