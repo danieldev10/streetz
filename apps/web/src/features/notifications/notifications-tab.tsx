@@ -365,7 +365,7 @@ export function NotificationsTab({
   return (
     <section>
       <ScreenHeader
-        eyebrow="Notifications"
+        eyebrow="Alerts"
         title=""
         action={
           <button
@@ -405,7 +405,7 @@ export function NotificationsTab({
         ) : feed ? (
           <div className="mx-auto max-w-3xl">
             <div className="mb-5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="inline-flex min-w-full snap-x gap-1 rounded-full bg-black/[0.04] p-1">
+              <div className="flex w-max min-w-full snap-x gap-1 rounded-full bg-black/[0.04] p-1">
                 {notificationTabs.map((tab) => {
                   const isActive = activeNotificationTab === tab.id;
 
@@ -413,7 +413,7 @@ export function NotificationsTab({
                     <button
                       key={tab.id}
                       type="button"
-                      className={`snap-start whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      className={`shrink-0 snap-start whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-medium transition ${
                         isActive
                           ? "bg-[#0d0d0d] text-white shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
                           : "text-[#666666] hover:text-[#0d0d0d]"
@@ -422,7 +422,7 @@ export function NotificationsTab({
                     >
                       {tab.label}
                       {tab.count > 0 ? (
-                        <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] ${isActive ? "bg-white/15 text-white" : "bg-white text-[#666666]"}`}>
+                        <span className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-[#18E299] px-1.5 text-[11px] font-semibold leading-5 text-[#0d0d0d] shadow-[0_0_0_1px_rgba(13,13,13,0.05)]">
                           {tab.count}
                         </span>
                       ) : null}

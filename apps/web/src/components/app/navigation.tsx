@@ -24,7 +24,7 @@ import type { StreetzUser, TabKey } from "@/lib/types";
 export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "discovery", label: "Discover", icon: Heart },
   { id: "matches", label: "Matches", icon: MessagesSquare },
-  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "notifications", label: "Alerts", icon: Bell },
   { id: "rooms", label: "Rooms", icon: MessageCircle },
   { id: "events", label: "Events", icon: Ticket },
 ];
