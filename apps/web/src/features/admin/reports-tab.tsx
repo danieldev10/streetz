@@ -46,21 +46,21 @@ type ReportModerationAction = Extract<ModerationActionType, "SUSPEND" | "BAN" | 
 
 type PendingReportDecision =
   | {
-      kind: "dismiss";
-      title: string;
-      body: string;
-      confirmLabel: string;
-      tone: "default" | "danger";
-    }
+    kind: "dismiss";
+    title: string;
+    body: string;
+    confirmLabel: string;
+    tone: "default" | "danger";
+  }
   | {
-      kind: "moderation";
-      action: ReportModerationAction;
-      durationDays?: number;
-      title: string;
-      body: string;
-      confirmLabel: string;
-      tone: "default" | "danger";
-    };
+    kind: "moderation";
+    action: ReportModerationAction;
+    durationDays?: number;
+    title: string;
+    body: string;
+    confirmLabel: string;
+    tone: "default" | "danger";
+  };
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("en-NG", {
@@ -247,9 +247,8 @@ export function ReportsTab({ token }: { token: string }) {
         title=""
         action={
           <button
-            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${
-              hasActiveReportFilter ? "border-[#18E299] bg-[#d4fae8]" : "border-black/8 bg-white"
-            }`}
+            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasActiveReportFilter ? "border-[#18E299] bg-[#d4fae8]" : "border-black/8 bg-white"
+              }`}
             type="button"
             onClick={() => setIsReportFilterOpen(true)}
             aria-label="Filter reports"
@@ -359,7 +358,7 @@ export function ReportsTab({ token }: { token: string }) {
             </div>
           </div>
         ) : visibleReports.length > 0 ? (
-          <div className={`${notice ? "mt-4" : ""} overflow-hidden rounded-[24px] border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
+          <div className={`${notice ? "mt-4" : ""} overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
             {visibleReports.map((report) => (
               <ReportListItem key={report.id} report={report} />
             ))}
@@ -448,19 +447,19 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
       const response =
         pendingAction.kind === "dismiss"
           ? await apiRequest<{ report: AdminReport }>(`/admin/reports/${report.id}/status`, {
-              method: "PUT",
-              headers: authHeaders(token),
-              body: JSON.stringify({ status: "DISMISSED" }),
-            })
+            method: "PUT",
+            headers: authHeaders(token),
+            body: JSON.stringify({ status: "DISMISSED" }),
+          })
           : await apiRequest<{ report: AdminReport }>(`/admin/reports/${report.id}/moderation`, {
-              method: "POST",
-              headers: authHeaders(token),
-              body: JSON.stringify({
-                action: pendingAction.action,
-                ...(pendingAction.durationDays ? { durationDays: pendingAction.durationDays } : {}),
-                reason: moderationReason.trim() || undefined,
-              }),
-            });
+            method: "POST",
+            headers: authHeaders(token),
+            body: JSON.stringify({
+              action: pendingAction.action,
+              ...(pendingAction.durationDays ? { durationDays: pendingAction.durationDays } : {}),
+              reason: moderationReason.trim() || undefined,
+            }),
+          });
 
       setReport(response.report);
       setPendingAction(null);
@@ -549,7 +548,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
                 <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Reason
                   <input
-                    className="h-11 rounded-full border border-black/[0.08] bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                     value={moderationReason}
                     onChange={(event) => setModerationReason(event.target.value)}
                     maxLength={500}
@@ -559,7 +558,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
                 <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Days
                   <input
-                    className="h-11 rounded-full border border-black/[0.08] bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                     type="number"
                     min={1}
                     max={365}
@@ -753,7 +752,7 @@ function AdminProfileModal({ user, onClose }: { user: AdminReportUser; onClose: 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
       <section className="max-h-[86dvh] w-full max-w-sm overflow-hidden rounded-[28px] bg-white shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
-        <div className="relative aspect-[1.08] min-h-[260px] bg-[#d4fae8]">
+        <div className="relative aspect-[1.08] min-h-65 bg-[#d4fae8]">
           <ProfilePhotoImage
             photo={primaryPhoto}
             alt={`${user.displayName} profile`}
@@ -771,7 +770,7 @@ function AdminProfileModal({ user, onClose }: { user: AdminReportUser; onClose: 
           >
             <X className="size-4" aria-hidden="true" />
           </button>
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5 text-white">
+          <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent p-5 text-white">
             <h2 className="text-3xl font-semibold">
               {user.displayName}
               {user.age ? `, ${user.age}` : ""}
@@ -882,7 +881,7 @@ function ConfirmationModal({
             <p className="mt-2 text-sm leading-6 text-[#666666]">{action.body}</p>
           </div>
           <button
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
@@ -895,7 +894,7 @@ function ConfirmationModal({
 
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
@@ -903,9 +902,8 @@ function ConfirmationModal({
             Cancel
           </button>
           <button
-            className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
-              isDanger ? "bg-red-600 text-white" : "bg-[#0d0d0d] text-white"
-            }`}
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${isDanger ? "bg-red-600 text-white" : "bg-[#0d0d0d] text-white"
+              }`}
             type="button"
             onClick={onConfirm}
             disabled={isSubmitting}

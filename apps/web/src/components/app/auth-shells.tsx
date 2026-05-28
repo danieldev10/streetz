@@ -9,7 +9,7 @@ import type { StreetzUser } from "@/lib/types";
 export function CenteredShell({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <main className="grid min-h-screen place-items-center bg-white px-4 text-[#0d0d0d]">
-      <section className="w-full max-w-sm rounded-[24px] border border-black/[0.05] bg-white p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+      <section className="w-full max-w-sm rounded-3xl border border-black/5 bg-white p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
         <p className="text-3xl font-semibold text-[#0d0d0d]">{title}</p>
         <p className="mt-2 text-sm font-medium text-[#666666]">{subtitle}</p>
       </section>
@@ -47,7 +47,7 @@ export function AuthShell({
   return (
     <main className="min-h-screen bg-white text-[#0d0d0d]">
       <section className="mx-auto grid min-h-screen w-full max-w-6xl content-center items-center gap-5 px-5 py-8 md:grid-cols-[1fr_420px] md:gap-8 md:px-8">
-        <div className="relative overflow-hidden rounded-[32px] border border-black/[0.05] bg-[linear-gradient(180deg,#e8faf1_0%,#f0fdf6_34%,#ffffff_100%)] p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)] md:p-10">
+        <div className="relative overflow-hidden rounded-4xl border border-black/5 bg-[linear-gradient(180deg,#e8faf1_0%,#f0fdf6_34%,#ffffff_100%)] p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)] md:p-10">
 
           <h1 className="mt-6 max-w-xl text-4xl font-semibold leading-tight text-[#0d0d0d] md:text-6xl">
             Crushclub
@@ -57,8 +57,8 @@ export function AuthShell({
           </p>
         </div>
 
-        <form onSubmit={onSubmit} className="rounded-[24px] border border-black/[0.05] bg-white p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-          <div className="grid grid-cols-2 rounded-full border border-black/[0.05] bg-[#fafafa] p-1 text-sm font-medium">
+        <form onSubmit={onSubmit} className="rounded-3xl border border-black/5 bg-white p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+          <div className="grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium">
             <button
               type="button"
               className={`rounded-full px-4 py-2 ${authMode === "login" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
@@ -80,7 +80,7 @@ export function AuthShell({
               <label className="grid gap-2 text-sm font-medium">
                 Display name
                 <input
-                  className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                   value={displayName}
                   onChange={(event) => onDisplayNameChange(event.target.value)}
                   minLength={2}
@@ -93,7 +93,7 @@ export function AuthShell({
             <label className="grid gap-2 text-sm font-medium">
               Email
               <input
-                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                 type="email"
                 value={email}
                 onChange={(event) => onEmailChange(event.target.value)}
@@ -104,7 +104,7 @@ export function AuthShell({
             <label className="grid gap-2 text-sm font-medium">
               Password
               <input
-                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                 type="password"
                 value={password}
                 onChange={(event) => onPasswordChange(event.target.value)}
@@ -115,7 +115,7 @@ export function AuthShell({
             </label>
           </div>
 
-          {message ? <p className="mt-4 rounded-[16px] bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
+          {message ? <p className="mt-4 rounded-2xl bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
 
           <button
             type="submit"
@@ -146,7 +146,7 @@ export function PaywallShell({
 }) {
   return (
     <main className="grid min-h-screen place-items-center bg-white px-5 py-8 text-[#0d0d0d]">
-      <section className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+      <section className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
         <div className="bg-[linear-gradient(180deg,#e8faf1_0%,#ffffff_100%)] p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -154,7 +154,7 @@ export function PaywallShell({
               <p className="mt-2 text-sm font-medium text-[#666666]">{user.displayName}</p>
             </div>
             <button
-              className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#0d0d0d]"
+              className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-white text-[#0d0d0d]"
               onClick={onLogout}
               aria-label="Logout"
               title="Logout"
@@ -166,7 +166,7 @@ export function PaywallShell({
         </div>
 
         <div className="p-6">
-          {message ? <p className="mb-4 rounded-[16px] bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
+          {message ? <p className="mb-4 rounded-2xl bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
 
           <button
             className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#18E299] px-5 text-sm font-medium text-[#0d0d0d] shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
@@ -243,14 +243,14 @@ export function AccountStatusShell({
 
   return (
     <main className="grid min-h-screen place-items-center bg-white px-5 py-8 text-[#0d0d0d]">
-      <section className="w-full max-w-xl rounded-[28px] border border-black/[0.05] bg-white p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+      <section className="w-full max-w-xl rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-3xl font-semibold">Crushclub</p>
             <p className="mt-2 text-sm font-medium text-[#666666]">{user.displayName}</p>
           </div>
           <button
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#0d0d0d]"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-white text-[#0d0d0d]"
             onClick={onLogout}
             aria-label="Logout"
             title="Logout"
@@ -267,7 +267,7 @@ export function AccountStatusShell({
           <p className="mt-3 text-sm leading-6 text-[#666666]">{copy.body}</p>
         </div>
 
-        {message ? <p className="mt-5 rounded-[16px] bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
+        {message ? <p className="mt-5 rounded-2xl bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
 
         {canReactivate ? (
           <div className="mt-6">
