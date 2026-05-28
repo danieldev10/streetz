@@ -262,6 +262,12 @@ export function MemberApp({
     };
   }, [profileGateState, refreshNotificationSummary, token]);
 
+  useEffect(() => {
+    if (profileGateState === "ready") {
+      window.scrollTo(0, 0);
+    }
+  }, [profileGateState, activeTab]);
+
   const renderProps: MemberAppRenderProps = {
     cachedMatches,
     cachedRooms,
