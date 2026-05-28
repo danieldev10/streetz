@@ -22,13 +22,14 @@ type PhotoWithObjectKey = {
 export class StorageService {
   constructor(private readonly config: ConfigService) {}
 
-  createUploadUrl(objectKey: string, contentType: string, expiresInSeconds: number) {
+  createUploadUrl(objectKey: string, contentType: string, expiresInSeconds: number, contentLength?: number) {
     return getSignedUrl(
       this.createS3Client(),
       new PutObjectCommand({
         Bucket: this.getBucket(),
         Key: objectKey,
-        ContentType: contentType
+        ContentType: contentType,
+        ...(contentLength !== undefined ? { ContentLength: contentLength } : {})
       }),
       { expiresIn: expiresInSeconds }
     );
@@ -90,19 +91,24 @@ export class StorageService {
   }
 
   buildPublicUrl(objectKey: string) {
-    const publicBaseUrl = this.getOptionalConfig(
-      "MEDIA_CDN_BASE_URL",
-      "CLOUDFRONT_BASE_URL",
-      "AWS_CLOUDFRONT_URL",
-      "S3_PUBLIC_BASE_URL",
-      "AWS_S3_PUBLIC_BASE_URL"
-    );
+    return `${this.getPublicBaseUrl()}/${this.encodeObjectKey(objectKey)}`;
+  }
 
-    if (publicBaseUrl) {
-      return `${this.normalizeBaseUrl(publicBaseUrl)}/${this.encodeObjectKey(objectKey)}`;
+  isManagedPublicUrl(value: string, objectKeyPrefix?: string) {
+    let parsedUrl: URL;
+
+    try {
+      parsedUrl = new URL(value);
+    } catch {
+      return false;
     }
 
-    return `https://${this.getBucket()}.s3.${this.getRegion()}.amazonaws.com/${this.encodeObjectKey(objectKey)}`;
+    const publicBaseUrl = new URL(this.getPublicBaseUrl());
+    const basePath = publicBaseUrl.pathname.replace(/\/+$/, "");
+    const encodedPrefix = objectKeyPrefix ? `/${this.encodeObjectKey(objectKeyPrefix)}` : "";
+    const expectedPathPrefix = `${basePath}${encodedPrefix}`;
+
+    return parsedUrl.origin === publicBaseUrl.origin && parsedUrl.pathname.startsWith(expectedPathPrefix);
   }
 
   async signPhotoUrl<T extends PhotoWithObjectKey>(photo: T): Promise<T> {
@@ -171,6 +177,22 @@ export class StorageService {
 
   private getRegion() {
     return this.getOptionalConfig("AWS_REGION", "AWS_DEFAULT_REGION", "S3_REGION") ?? "eu-north-1";
+  }
+
+  private getPublicBaseUrl() {
+    const publicBaseUrl = this.getOptionalConfig(
+      "MEDIA_CDN_BASE_URL",
+      "CLOUDFRONT_BASE_URL",
+      "AWS_CLOUDFRONT_URL",
+      "S3_PUBLIC_BASE_URL",
+      "AWS_S3_PUBLIC_BASE_URL"
+    );
+
+    if (publicBaseUrl) {
+      return this.normalizeBaseUrl(publicBaseUrl);
+    }
+
+    return `https://${this.getBucket()}.s3.${this.getRegion()}.amazonaws.com`;
   }
 
   private async createDeliveryUrl(objectKey: string | null | undefined, fallbackUrl?: string | null) {

@@ -18,6 +18,23 @@ enum SubscriptionStatus {
   CANCELLED
 }
 
+enum AccountStatus {
+  ACTIVE
+  DEACTIVATED
+  SUSPENDED
+  BANNED
+  DELETED
+}
+
+enum ModerationActionType {
+  SUSPEND
+  BAN
+  RESTORE
+  DELETE
+  DEACTIVATE
+  REACTIVATE
+}
+
 enum Gender {
   WOMAN
   MAN
@@ -100,6 +117,11 @@ model User {
   role               UserRole             @default(USER)
   subscriptionStatus SubscriptionStatus   @default(INACTIVE)
   subscriptionEndsAt DateTime?
+  accountStatus      AccountStatus        @default(ACTIVE)
+  suspendedUntil     DateTime?
+  deactivatedAt      DateTime?
+  deletedAt          DateTime?
+  moderationReason   String?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   profile            Profile?
@@ -120,6 +142,24 @@ model User {
   tickets            Ticket[]
   payments           Payment[]
   notificationSeens  NotificationSeen[]
+  refreshTokens      RefreshToken[]
+  moderationActionsTaken    ModerationAction[] @relation("ModerationAdmin")
+  moderationActionsReceived ModerationAction[] @relation("ModerationTarget")
+}
+
+model RefreshToken {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash         String    @unique
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
 }
 
 model Profile {
@@ -236,9 +276,27 @@ model UserReport {
   status     ReportStatus @default(OPEN)
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
+  moderationActions ModerationAction[]
 
   @@index([reportedId, status])
   @@index([reporterId, createdAt])
+}
+
+model ModerationAction {
+  id           String               @id @default(cuid())
+  adminId      String?
+  targetUserId String?
+  reportId     String?
+  action       ModerationActionType
+  reason       String?
+  expiresAt    DateTime?
+  createdAt    DateTime             @default(now())
+  admin        User?                @relation("ModerationAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  targetUser   User?                @relation("ModerationTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  report       UserReport?          @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([targetUserId, createdAt])
+  @@index([reportId])
 }
 
 model ChatRoom {
@@ -291,6 +349,7 @@ model Event {
   description String?
   coverImage  String?
   venue       String
+  state       String?
   city        String
   startsAt    DateTime
   endsAt      DateTime?
@@ -323,10 +382,13 @@ model Ticket {
   ticketType   TicketType   @relation(fields: [ticketTypeId], references: [id])
   code         String       @unique
   status       TicketStatus @default(RESERVED)
-  checkedInAt  DateTime?
-  createdAt    DateTime     @default(now())
+  checkedInAt   DateTime?
+  reservedUntil DateTime?
+  createdAt     DateTime     @default(now())
 
   @@index([eventId, status])
+  @@index([status, reservedUntil])
+  @@index([ticketTypeId, status, reservedUntil])
 }
 
 model Payment {

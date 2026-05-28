@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { LoaderCircle } from "lucide-react";
-import { AppBrand, AppNavButton, MobileHeader, adminTabs, tabs } from "@/components/app/navigation";
+import { AppBrand, AppNavButton, MobileHeader, adminTabs, bottomTabs, tabs } from "@/components/app/navigation";
 import { ProfileTab } from "@/features/profile/profile-tab";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { isProfileReadyForDiscovery } from "@/lib/profile";
@@ -57,6 +57,7 @@ export function MemberApp({
   const router = useRouter();
   const shouldRequireProfileSetup = user.role === "USER";
   const visibleTabs = user.role === "ADMIN" ? adminTabs : tabs;
+  const visibleBottomTabs = user.role === "ADMIN" ? adminTabs : bottomTabs;
   const profileGateKey = `${user.id}:${token}`;
   const [profileGateState, setProfileGateState] = useState<ProfileGateState>(() =>
     shouldRequireProfileSetup && !readyProfileGateKeys.has(profileGateKey) ? "checking" : "ready"
@@ -321,8 +322,8 @@ export function MemberApp({
 
       {profileGateState === "ready" ? (
         <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.05] bg-white/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
-          <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
-            {visibleTabs.map((tab) => (
+          <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${visibleBottomTabs.length}, minmax(0, 1fr))` }}>
+            {visibleBottomTabs.map((tab) => (
               <AppNavButton
                 key={tab.id}
                 tab={tab}

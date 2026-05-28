@@ -33,12 +33,7 @@ type DirectMessageReadReceipt = {
   readAt: Date;
 };
 
-@WebSocketGateway({
-  cors: {
-    origin: true,
-    credentials: true
-  }
-})
+@WebSocketGateway()
 export class MessagesGateway implements OnGatewayConnection {
   @WebSocketServer()
   private readonly server: Server;
@@ -136,6 +131,21 @@ export class MessagesGateway implements OnGatewayConnection {
       messageIds: readReceipt.messageIds,
       readAt: readReceipt.readAt
     });
+  }
+
+  async emitMatchUnmatched(matchId: string, actorId: string) {
+    const participantIds = await this.messagesService.getMatchParticipantIds(matchId);
+    const rooms = [
+      this.messagesService.getRoomName(matchId),
+      ...participantIds.map((participantId) => getUserNotificationRoom(participantId))
+    ];
+
+    this.server.to(rooms).emit("match:unmatched", {
+      matchId,
+      actorId
+    });
+
+    await this.emitNotificationChanged(matchId);
   }
 
   async emitNotificationChanged(matchId: string) {

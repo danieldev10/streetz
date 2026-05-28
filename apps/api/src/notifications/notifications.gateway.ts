@@ -19,12 +19,7 @@ type AuthenticatedSocket = Socket & {
   };
 };
 
-@WebSocketGateway({
-  cors: {
-    origin: true,
-    credentials: true
-  }
-})
+@WebSocketGateway()
 export class NotificationsGateway implements OnGatewayConnection {
   private server: Server;
 

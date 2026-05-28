@@ -1,7 +1,9 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { LoaderCircle, LogOut } from "lucide-react";
+import { useState } from "react";
+import { LoaderCircle, LogOut, RotateCcw } from "lucide-react";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import type { StreetzUser } from "@/lib/types";
 
 export function CenteredShell({ title, subtitle }: { title: string; subtitle: string }) {
@@ -82,6 +84,7 @@ export function AuthShell({
                   value={displayName}
                   onChange={(event) => onDisplayNameChange(event.target.value)}
                   minLength={2}
+                  maxLength={80}
                   required
                 />
               </label>
@@ -105,7 +108,8 @@ export function AuthShell({
                 type="password"
                 value={password}
                 onChange={(event) => onPasswordChange(event.target.value)}
-                minLength={8}
+                minLength={PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
                 required
               />
             </label>
@@ -173,6 +177,111 @@ export function PaywallShell({
             {isStartingPayment ? "Opening Paystack" : "Pay with Paystack"}
           </button>
         </div>
+      </section>
+    </main>
+  );
+}
+
+function formatStatusDate(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("en-NG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function getAccountStatusCopy(user: StreetzUser) {
+  if (user.accountStatus === "DEACTIVATED") {
+    return {
+      title: "Account deactivated",
+      body: "Reactivate your account to return to Crushclub."
+    };
+  }
+
+  if (user.accountStatus === "SUSPENDED") {
+    const suspendedUntil = formatStatusDate(user.suspendedUntil);
+
+    return {
+      title: "Account suspended",
+      body: suspendedUntil
+        ? `This account is temporarily unavailable until ${suspendedUntil}.`
+        : "This account is temporarily unavailable."
+    };
+  }
+
+  if (user.accountStatus === "BANNED") {
+    return {
+      title: "Account locked",
+      body: "This account is unavailable."
+    };
+  }
+
+  return {
+    title: "Account deleted",
+    body: "This account is no longer available."
+  };
+}
+
+export function AccountStatusShell({
+  user,
+  message,
+  isSubmitting,
+  onReactivate,
+  onLogout,
+}: {
+  user: StreetzUser;
+  message: string | null;
+  isSubmitting: boolean;
+  onReactivate: () => void;
+  onLogout: () => void;
+}) {
+  const copy = getAccountStatusCopy(user);
+  const canReactivate = user.accountStatus === "DEACTIVATED";
+
+  return (
+    <main className="grid min-h-screen place-items-center bg-white px-5 py-8 text-[#0d0d0d]">
+      <section className="w-full max-w-xl rounded-[28px] border border-black/[0.05] bg-white p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-3xl font-semibold">Crushclub</p>
+            <p className="mt-2 text-sm font-medium text-[#666666]">{user.displayName}</p>
+          </div>
+          <button
+            className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#0d0d0d]"
+            onClick={onLogout}
+            aria-label="Logout"
+            title="Logout"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="mt-10">
+          <span className="rounded-full bg-[#fff2d9] px-3 py-1 text-xs font-medium text-[#9a5b00]">
+            {user.accountStatus.replaceAll("_", " ")}
+          </span>
+          <h1 className="mt-4 text-3xl font-semibold leading-tight">{copy.title}</h1>
+          <p className="mt-3 text-sm leading-6 text-[#666666]">{copy.body}</p>
+        </div>
+
+        {message ? <p className="mt-5 rounded-[16px] bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
+
+        {canReactivate ? (
+          <div className="mt-6">
+            <button
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#18E299] px-5 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+              onClick={onReactivate}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <RotateCcw className="size-4" aria-hidden="true" />}
+              Reactivate account
+            </button>
+          </div>
+        ) : null}
       </section>
     </main>
   );

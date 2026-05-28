@@ -3,12 +3,13 @@ import { EventStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from 
 import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
+import { EVENT_IMAGE_UPLOAD_MAX_BYTES, formatUploadLimit } from "../storage/upload-limits";
+import { getAccountAccessBlock } from "../users/account-status";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { PresignEventImageDto } from "./dto/presign-event-image.dto";
+import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "./ticket-reservations";
 import { UpdateEventDto } from "./dto/update-event.dto";
 
-const ACTIVE_TICKET_STATUSES = [TicketStatus.RESERVED, TicketStatus.PAID, TicketStatus.CHECKED_IN];
-const CONFIRMED_TICKET_STATUSES = [TicketStatus.PAID, TicketStatus.CHECKED_IN];
 const EVENT_IMAGE_UPLOAD_EXPIRES_SECONDS = 300;
 const GENERAL_ADMISSION_TICKET_NAME = "General Admission";
 
@@ -50,6 +51,7 @@ export class EventsService {
     const startsAt = this.parseDate(dto.startsAt, "Event start date is invalid.");
     const endsAt = this.parseOptionalDate(dto.endsAt, "Event end date is invalid.");
     this.assertDateOrder(startsAt, endsAt);
+    this.assertCreatableEventStatus(dto.status ?? EventStatus.DRAFT);
 
     const priceKobo = dto.priceKobo ?? 0;
 
@@ -58,8 +60,9 @@ export class EventsService {
         title: this.cleanText(dto.title),
         slug: await this.createUniqueSlug(dto.title),
         description: this.cleanOptionalText(dto.description),
-        coverImage: this.cleanOptionalText(dto.coverImage),
+        coverImage: this.cleanCoverImage(dto.coverImage),
         venue: this.cleanText(dto.venue),
+        state: this.cleanText(dto.state),
         city: this.cleanText(dto.city),
         startsAt,
         endsAt,
@@ -88,10 +91,14 @@ export class EventsService {
       throw new BadRequestException("Only JPG, PNG, and WebP event images are supported.");
     }
 
+    if (dto.fileSizeBytes > EVENT_IMAGE_UPLOAD_MAX_BYTES) {
+      throw new BadRequestException(`Event images must be ${formatUploadLimit(EVENT_IMAGE_UPLOAD_MAX_BYTES)} or smaller after compression.`);
+    }
+
     const objectKey = `events/${adminUserId}/${Date.now()}-${randomBytes(8).toString("hex")}.${extension}`;
 
     return {
-      uploadUrl: await this.storage.createUploadUrl(objectKey, dto.contentType, EVENT_IMAGE_UPLOAD_EXPIRES_SECONDS),
+      uploadUrl: await this.storage.createUploadUrl(objectKey, dto.contentType, EVENT_IMAGE_UPLOAD_EXPIRES_SECONDS, dto.fileSizeBytes),
       objectKey,
       publicUrl: this.storage.buildPublicUrl(objectKey),
       expiresInSeconds: EVENT_IMAGE_UPLOAD_EXPIRES_SECONDS
@@ -129,6 +136,10 @@ export class EventsService {
       }
     }
 
+    if (dto.status !== undefined) {
+      await this.assertEventStatusTransition(event, dto.status, ticketType.id);
+    }
+
     const updatedEvent = await this.prisma.$transaction(async (transaction) => {
       await transaction.ticketType.update({
         where: { id: ticketType.id },
@@ -144,8 +155,9 @@ export class EventsService {
         data: {
           ...(dto.title !== undefined ? { title: this.cleanText(dto.title) } : {}),
           ...(dto.description !== undefined ? { description: this.cleanOptionalText(dto.description) } : {}),
-          ...(dto.coverImage !== undefined ? { coverImage: this.cleanOptionalText(dto.coverImage) } : {}),
+          ...(dto.coverImage !== undefined ? { coverImage: this.cleanCoverImage(dto.coverImage) } : {}),
           ...(dto.venue !== undefined ? { venue: this.cleanText(dto.venue) } : {}),
+          ...(dto.state !== undefined ? { state: this.cleanText(dto.state) } : {}),
           ...(dto.city !== undefined ? { city: this.cleanText(dto.city) } : {}),
           ...(startsAt !== undefined ? { startsAt } : {}),
           ...(dto.endsAt !== undefined ? { endsAt } : {}),
@@ -163,6 +175,7 @@ export class EventsService {
 
   async getPublishedEvents(userId: string) {
     await this.ensureMemberOrAdmin(userId);
+    const now = new Date();
 
     const events = await this.prisma.event.findMany({
       where: { status: EventStatus.PUBLISHED },
@@ -171,7 +184,7 @@ export class EventsService {
         tickets: {
           where: {
             userId,
-            status: { in: ACTIVE_TICKET_STATUSES }
+            ...getActiveTicketWhere(now)
           },
           orderBy: { createdAt: "desc" },
           take: 1
@@ -235,6 +248,7 @@ export class EventsService {
   }
 
   private async getPublishedEventForUser(userId: string, eventId: string) {
+    const now = new Date();
     const event = await this.prisma.event.findFirst({
       where: {
         id: eventId,
@@ -245,7 +259,7 @@ export class EventsService {
         tickets: {
           where: {
             userId,
-            status: { in: ACTIVE_TICKET_STATUSES }
+            ...getActiveTicketWhere(now)
           },
           orderBy: { createdAt: "desc" },
           take: 1
@@ -285,12 +299,20 @@ export class EventsService {
       select: {
         role: true,
         subscriptionStatus: true,
-        subscriptionEndsAt: true
+        subscriptionEndsAt: true,
+        accountStatus: true,
+        suspendedUntil: true
       }
     });
 
     if (!user) {
       throw new NotFoundException("User not found.");
+    }
+
+    const accountBlock = getAccountAccessBlock(user);
+
+    if (accountBlock) {
+      throw new ForbiddenException(accountBlock);
     }
 
     if (user.role === UserRole.ADMIN) {
@@ -311,20 +333,24 @@ export class EventsService {
   }
 
   private async findUserActiveTicket(userId: string, eventId: string) {
+    const now = new Date();
+
     return this.prisma.ticket.findFirst({
       where: {
         userId,
         eventId,
-        status: { in: ACTIVE_TICKET_STATUSES }
+        ...getActiveTicketWhere(now)
       }
     });
   }
 
   private async countActiveTickets(ticketTypeId: string) {
+    const now = new Date();
+
     return this.prisma.ticket.count({
       where: {
         ticketTypeId,
-        status: { in: ACTIVE_TICKET_STATUSES }
+        ...getActiveTicketWhere(now)
       }
     });
   }
@@ -351,6 +377,7 @@ export class EventsService {
       description: event.description,
       coverImage: event.coverImage,
       venue: event.venue,
+      state: event.state,
       city: event.city,
       startsAt: event.startsAt,
       endsAt: event.endsAt,
@@ -413,6 +440,56 @@ export class EventsService {
     }
   }
 
+  private assertCreatableEventStatus(status: EventStatus) {
+    if (status !== EventStatus.DRAFT && status !== EventStatus.PUBLISHED) {
+      throw new BadRequestException("New events can only start as draft or published.");
+    }
+  }
+
+  private async assertEventStatusTransition(event: EventSource, nextStatus: EventStatus, ticketTypeId: string) {
+    if (event.status === nextStatus) {
+      return;
+    }
+
+    if (event.status === EventStatus.DRAFT) {
+      if (nextStatus === EventStatus.PUBLISHED || nextStatus === EventStatus.CANCELLED) {
+        return;
+      }
+
+      throw new BadRequestException("Draft events can only be published or cancelled.");
+    }
+
+    if (event.status === EventStatus.PUBLISHED) {
+      if (nextStatus === EventStatus.CANCELLED) {
+        return;
+      }
+
+      if (nextStatus === EventStatus.COMPLETED) {
+        if (event.startsAt > new Date()) {
+          throw new BadRequestException("Events cannot be completed before they start.");
+        }
+
+        return;
+      }
+
+      if (nextStatus === EventStatus.DRAFT) {
+        const activeTickets = await this.countActiveTickets(ticketTypeId);
+
+        if (activeTickets > 0) {
+          throw new BadRequestException("Published events with active tickets cannot be moved back to draft.");
+        }
+
+        if (event.startsAt <= new Date()) {
+          throw new BadRequestException("Events that have already started cannot be moved back to draft.");
+        }
+
+        return;
+      }
+    }
+
+    throw new BadRequestException("Cancelled or completed events cannot move to another status.");
+  }
+
   private cleanText(value: string) {
     return value.trim();
   }
@@ -421,6 +498,20 @@ export class EventsService {
     const trimmed = value?.trim();
 
     return trimmed ? trimmed : null;
+  }
+
+  private cleanCoverImage(value: string | undefined) {
+    const coverImage = this.cleanOptionalText(value);
+
+    if (!coverImage) {
+      return null;
+    }
+
+    if (!this.storage.isManagedPublicUrl(coverImage, "events/")) {
+      throw new BadRequestException("Event cover image must be uploaded through crushclub.");
+    }
+
+    return coverImage;
   }
 
   private async createUniqueSlug(title: string) {

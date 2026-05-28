@@ -1,9 +1,12 @@
-import type { StreetzUser } from "@/lib/types";
+import type { AuthResponse, StreetzUser } from "@/lib/types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 export const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? API_URL.replace(/\/api\/?$/, "");
 export const TOKEN_KEY = "streetz_access_token";
 export const UNAUTHORIZED_EVENT = "streetz:auth:unauthorized";
+export const AUTH_REFRESHED_EVENT = "streetz:auth:refreshed";
+
+let pendingAccessTokenRefresh: Promise<AuthResponse> | null = null;
 
 export class ApiError extends Error {
   status: number;
@@ -21,7 +24,11 @@ export function isActiveMember(user: StreetzUser | null) {
   }
 
   if (user.role === "ADMIN") {
-    return true;
+    return user.accountStatus === "ACTIVE";
+  }
+
+  if (user.accountStatus !== "ACTIVE") {
+    return false;
   }
 
   return (
@@ -33,15 +40,17 @@ export function isActiveMember(user: StreetzUser | null) {
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}) {
   const hasAuthHeader = hasAuthorizationHeader(options.headers);
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers ?? {}),
-    },
-  });
+  let response = await fetchApi(path, options);
 
-  const data = await response.json().catch(() => null);
+  if (!response.ok && response.status === 401 && hasAuthHeader && typeof window !== "undefined" && path !== "/auth/refresh") {
+    const refreshedAuth = await refreshAccessToken().catch(() => null);
+
+    if (refreshedAuth) {
+      response = await fetchApi(path, withAccessToken(options, refreshedAuth.accessToken));
+    }
+  }
+
+  const data = await readJson(response);
 
   if (!response.ok) {
     if (response.status === 401 && hasAuthHeader && typeof window !== "undefined") {
@@ -52,6 +61,38 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}) {
   }
 
   return data as T;
+}
+
+export async function refreshAccessToken() {
+  if (typeof window === "undefined") {
+    throw new ApiError("Cannot refresh session outside the browser.", 401);
+  }
+
+  if (!pendingAccessTokenRefresh) {
+    pendingAccessTokenRefresh = fetchApi("/auth/refresh", { method: "POST" })
+      .then(async (response) => {
+        const data = await readJson(response);
+
+        if (!response.ok) {
+          throw new ApiError(data?.message ?? "Session expired. Please log in again.", response.status);
+        }
+
+        const auth = data as AuthResponse;
+        window.localStorage.setItem(TOKEN_KEY, auth.accessToken);
+        window.dispatchEvent(new CustomEvent<AuthResponse>(AUTH_REFRESHED_EVENT, { detail: auth }));
+
+        return auth;
+      })
+      .finally(() => {
+        pendingAccessTokenRefresh = null;
+      });
+  }
+
+  return pendingAccessTokenRefresh;
+}
+
+export async function revokeRefreshSession() {
+  await fetchApi("/auth/logout", { method: "POST" }).catch(() => null);
 }
 
 export function authHeaders(token: string) {
@@ -76,11 +117,65 @@ function hasAuthorizationHeader(headers: HeadersInit | undefined) {
   return Object.keys(headers).some((key) => key.toLowerCase() === "authorization");
 }
 
+function fetchApi(path: string, options: RequestInit = {}) {
+  return fetch(`${API_URL}${path}`, {
+    ...options,
+    credentials: options.credentials ?? "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...toPlainHeaders(options.headers),
+    },
+  });
+}
+
+function withAccessToken(options: RequestInit, accessToken: string): RequestInit {
+  return {
+    ...options,
+    headers: {
+      ...toPlainHeaders(options.headers),
+      Authorization: `Bearer ${accessToken}`,
+    },
+  };
+}
+
+function readJson(response: Response) {
+  return response.json().catch(() => null);
+}
+
+function toPlainHeaders(headers: HeadersInit | undefined) {
+  if (!headers) {
+    return {};
+  }
+
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+
+  return headers;
+}
+
 const USER_FRIENDLY_ERROR = "We ran into a problem. Please try again.";
 
 export function getUserErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.message || USER_FRIENDLY_ERROR;
+  }
+
   if (process.env.NODE_ENV === "development") {
-    console.error("[streetz]", error);
+    const diagnostic =
+      error instanceof Error
+        ? {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          }
+        : error;
+
+    console.warn("crushclub unexpected client error", diagnostic);
   }
 
   return USER_FRIENDLY_ERROR;

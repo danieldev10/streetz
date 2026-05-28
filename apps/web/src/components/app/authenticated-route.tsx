@@ -4,10 +4,11 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
-import { CenteredShell, PaywallShell } from "@/components/app/auth-shells";
+import { AccountStatusShell, CenteredShell, PaywallShell } from "@/components/app/auth-shells";
 import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
 import { useSession } from "@/components/app/session-provider";
 import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/lib/api";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import type { StreetzUser, TabKey } from "@/lib/types";
 
 function getDefaultRoute(user: StreetzUser) {
@@ -46,6 +47,7 @@ export function AuthenticatedRoute({
   const router = useRouter();
   const { status, token, user, updateSessionUser, logout } = useSession();
   const [isStartingPayment, setIsStartingPayment] = useState(false);
+  const [isSubmittingAccount, setIsSubmittingAccount] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const canEnterApp = useMemo(() => isActiveMember(user), [user]);
@@ -105,12 +107,80 @@ export function AuthenticatedRoute({
     }
   }
 
+  async function reactivateAccount() {
+    if (!token) {
+      setMessage("Please log in again.");
+      return;
+    }
+
+    setIsSubmittingAccount(true);
+    setMessage(null);
+
+    try {
+      const nextUser = await apiRequest<StreetzUser>("/auth/account/reactivate", {
+        method: "POST",
+        headers: authHeaders(token),
+      });
+
+      updateSessionUser(() => nextUser);
+    } catch (error) {
+      setMessage(getUserErrorMessage(error));
+    } finally {
+      setIsSubmittingAccount(false);
+    }
+  }
+
+  async function deleteAccount(password: string) {
+    if (!token) {
+      setMessage("Please log in again.");
+      return;
+    }
+
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setMessage("Enter your password to delete your account.");
+      return;
+    }
+
+    if (password.length > PASSWORD_MAX_LENGTH) {
+      setMessage(`Password must be ${PASSWORD_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+
+    setIsSubmittingAccount(true);
+    setMessage(null);
+
+    try {
+      await apiRequest<{ deleted: boolean }>("/auth/account/delete", {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ password }),
+      });
+      logout();
+    } catch (error) {
+      setMessage(getUserErrorMessage(error));
+    } finally {
+      setIsSubmittingAccount(false);
+    }
+  }
+
   if (status === "checking") {
     return <LoadingShell />;
   }
 
   if (!user || !token) {
     return <LoadingShell />;
+  }
+
+  if (user.accountStatus !== "ACTIVE") {
+    return (
+      <AccountStatusShell
+        user={user}
+        message={message}
+        isSubmitting={isSubmittingAccount}
+        onReactivate={() => void reactivateAccount()}
+        onLogout={logout}
+      />
+    );
   }
 
   if (!canEnterApp) {

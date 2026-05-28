@@ -9,6 +9,7 @@ import { DiscoveryService } from "./discovery.service";
 import { BlockUserDto } from "./dto/block-user.dto";
 import { DiscoveryActionDto } from "./dto/discovery-action.dto";
 import { ReportUserDto } from "./dto/report-user.dto";
+import { UnblockUserDto } from "./dto/unblock-user.dto";
 
 @ApiTags("discovery")
 @ApiBearerAuth()
@@ -52,9 +53,43 @@ export class DiscoveryController {
     return this.discoveryService.getMatches(user.id);
   }
 
+  @Get("blocks")
+  getBlockedUsers(@CurrentUser() user: AuthUser) {
+    return this.discoveryService.getBlockedUsers(user.id);
+  }
+
   @Post("block")
-  blockUser(@CurrentUser() user: AuthUser, @Body() dto: BlockUserDto) {
-    return this.discoveryService.blockUser(user.id, dto);
+  async blockUser(@CurrentUser() user: AuthUser, @Body() dto: BlockUserDto) {
+    const result = await this.discoveryService.blockUser(user.id, dto);
+
+    this.notificationsGateway.emitUserChanged(user.id, {
+      source: "blocks",
+      targetUserId: dto.targetUserId,
+      blocked: true
+    });
+
+    return result;
+  }
+
+  @Post("unblock")
+  async unblockUser(@CurrentUser() user: AuthUser, @Body() dto: UnblockUserDto) {
+    const result = await this.discoveryService.unblockUser(user.id, dto);
+
+    this.notificationsGateway.emitUserChanged(user.id, {
+      source: "blocks",
+      targetUserId: dto.targetUserId,
+      unblocked: true,
+      matchRestored: result.matchRestored
+    });
+
+    if (result.matchRestored) {
+      this.notificationsGateway.emitUserChanged(dto.targetUserId, {
+        source: "matches",
+        matchRestored: true
+      });
+    }
+
+    return result;
   }
 
   @Post("report")

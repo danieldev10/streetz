@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, SubscriptionStatus, UserRole } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { getAccountAccessBlock } from "../users/account-status";
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { UpdateRoomDto } from "./dto/update-room.dto";
 
@@ -30,7 +31,6 @@ type RoomMessageSource = {
   roomId: string;
   authorId: string;
   body: string;
-  deletedAt: Date | null;
   createdAt: Date;
   author: {
     id: string;
@@ -359,12 +359,20 @@ export class RoomsService {
       select: {
         role: true,
         subscriptionStatus: true,
-        subscriptionEndsAt: true
+        subscriptionEndsAt: true,
+        accountStatus: true,
+        suspendedUntil: true
       }
     });
 
     if (!user) {
       throw new NotFoundException("User not found.");
+    }
+
+    const accountBlock = getAccountAccessBlock(user);
+
+    if (accountBlock) {
+      throw new ForbiddenException(accountBlock);
     }
 
     if (user.role === UserRole.ADMIN) {
@@ -423,7 +431,6 @@ export class RoomsService {
       authorId: message.authorId,
       authorName: message.author.displayName,
       body: message.body,
-      deletedAt: message.deletedAt,
       createdAt: message.createdAt
     };
   }

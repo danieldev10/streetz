@@ -4,9 +4,11 @@ import Image from "next/image";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, Power, RefreshCw, Save, Ticket } from "lucide-react";
+import { ArrowLeft, CalendarDays, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, Power, RefreshCw, Save, SlidersHorizontal, Ticket, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { EVENT_IMAGE_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
+import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
 import type { EventStatus, StreetzEvent, StreetzUser, TicketStatus } from "@/lib/types";
 
 const FALLBACK_EVENT_IMAGE =
@@ -14,6 +16,20 @@ const FALLBACK_EVENT_IMAGE =
 const GENERAL_ADMISSION_TICKET_NAME = "General Admission";
 const SUPPORTED_EVENT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const ACTIVE_TICKET_STATUSES = new Set<TicketStatus>(["RESERVED", "PAID", "CHECKED_IN"]);
+const EVENT_TITLE_MAX_LENGTH = 120;
+const EVENT_DESCRIPTION_MAX_LENGTH = 600;
+const EVENT_COVER_IMAGE_MAX_LENGTH = 500;
+const EVENT_LOCATION_MAX_LENGTH = 80;
+const EVENT_VENUE_MAX_LENGTH = 120;
+const EVENT_IMAGE_FILE_NAME_MAX_LENGTH = 160;
+const creatableEventStatuses: EventStatus[] = ["DRAFT", "PUBLISHED"];
+const editableEventStatuses: EventStatus[] = ["DRAFT", "PUBLISHED", "CANCELLED", "COMPLETED"];
+const eventStatusLabels: Record<EventStatus, string> = {
+  DRAFT: "Draft",
+  PUBLISHED: "Published",
+  CANCELLED: "Cancelled",
+  COMPLETED: "Completed",
+};
 
 type EventViewMode = "tickets" | "events";
 type AdminEventView = "list" | "form";
@@ -24,6 +40,7 @@ type EventForm = {
   description: string;
   coverImage: string;
   venue: string;
+  state: string;
   city: string;
   startsAt: string;
   endsAt: string;
@@ -44,6 +61,7 @@ const emptyEventForm: EventForm = {
   description: "",
   coverImage: "",
   venue: "",
+  state: "",
   city: "",
   startsAt: "",
   endsAt: "",
@@ -78,6 +96,26 @@ function hasActiveTicket(event: StreetzEvent) {
   return Boolean(event.userTicket && ACTIVE_TICKET_STATUSES.has(event.userTicket.status));
 }
 
+function formatEventLocation(event: Pick<StreetzEvent, "venue" | "city" | "state">) {
+  return [event.venue, event.city, event.state].filter(Boolean).join(", ");
+}
+
+function findEventStateForCity(city: string) {
+  const normalizedCity = city.trim().toLowerCase();
+
+  if (!normalizedCity) {
+    return null;
+  }
+
+  return nigeriaStateNames.find((state) =>
+    getCitiesForState(state).some((candidate) => candidate.toLowerCase() === normalizedCity)
+  ) ?? null;
+}
+
+function getEventState(event: Pick<StreetzEvent, "city" | "state">) {
+  return event.state ?? findEventStateForCity(event.city) ?? "";
+}
+
 function toDateTimeLocal(value: string | null) {
   if (!value) {
     return "";
@@ -100,6 +138,7 @@ function getEventForm(event: StreetzEvent): EventForm {
     description: event.description ?? "",
     coverImage: event.coverImage ?? "",
     venue: event.venue,
+    state: event.state ?? findEventStateForCity(event.city) ?? "",
     city: event.city,
     startsAt: toDateTimeLocal(event.startsAt),
     endsAt: toDateTimeLocal(event.endsAt),
@@ -128,6 +167,9 @@ export function EventsTab({
   const [adminEventView, setAdminEventView] = useState<AdminEventView>(adminMode === "list" ? "list" : "form");
   const [editingEventId, setEditingEventId] = useState<string | null>(adminMode === "edit" ? adminEventId : null);
   const [eventForm, setEventForm] = useState<EventForm>(emptyEventForm);
+  const [eventFilterState, setEventFilterState] = useState("");
+  const [eventFilterCity, setEventFilterCity] = useState("");
+  const [isEventFilterOpen, setIsEventFilterOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
@@ -137,9 +179,60 @@ export function EventsTab({
     () => [...events].sort((first, second) => Date.parse(first.startsAt) - Date.parse(second.startsAt)),
     [events]
   );
-  const ticketEvents = orderedEvents.filter(hasActiveTicket);
-  const exploreEvents = orderedEvents.filter((event) => !hasActiveTicket(event));
-  const visibleMemberEvents = eventViewMode === "tickets" ? ticketEvents : exploreEvents;
+  const ticketEvents = useMemo(() => orderedEvents.filter(hasActiveTicket), [orderedEvents]);
+  const exploreEvents = useMemo(() => orderedEvents.filter((event) => !hasActiveTicket(event)), [orderedEvents]);
+  const memberEventsForMode = useMemo(
+    () => eventViewMode === "tickets" ? ticketEvents : exploreEvents,
+    [eventViewMode, exploreEvents, ticketEvents]
+  );
+  const eventFilterCityOptions = useMemo(() => {
+    if (!eventFilterState) {
+      return [];
+    }
+
+    const cityOptions = new Set(getCitiesForState(eventFilterState));
+
+    memberEventsForMode.forEach((event) => {
+      if (getEventState(event) === eventFilterState) {
+        cityOptions.add(event.city);
+      }
+    });
+
+    return [...cityOptions];
+  }, [eventFilterState, memberEventsForMode]);
+  const visibleMemberEvents = useMemo(() => {
+    return memberEventsForMode.filter((event) => {
+      if (eventFilterState && getEventState(event) !== eventFilterState) {
+        return false;
+      }
+
+      if (eventFilterCity && event.city !== eventFilterCity) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [eventFilterCity, eventFilterState, memberEventsForMode]);
+  const hasEventLocationFilter = Boolean(eventFilterState || eventFilterCity);
+  const emptyMemberTitle = hasEventLocationFilter
+    ? eventViewMode === "tickets"
+      ? "No tickets found"
+      : "No events found"
+    : eventViewMode === "tickets"
+      ? "No tickets yet"
+      : "No events yet";
+  const emptyMemberDescription = hasEventLocationFilter
+    ? "Try another state or city."
+    : eventViewMode === "tickets"
+      ? "Tickets you book or buy will appear here."
+      : "Events you have not booked yet will appear here.";
+  const eventStateOptions = eventForm.state && !nigeriaStateNames.includes(eventForm.state)
+    ? [...nigeriaStateNames, eventForm.state]
+    : nigeriaStateNames;
+  const knownEventCityOptions = getCitiesForState(eventForm.state);
+  const eventCityOptions = eventForm.city && !knownEventCityOptions.includes(eventForm.city)
+    ? [...knownEventCityOptions, eventForm.city]
+    : knownEventCityOptions;
 
   async function loadEvents(options: { clearNotice?: boolean; showLoading?: boolean } = {}) {
     const { clearNotice = true, showLoading = true } = options;
@@ -214,6 +307,28 @@ export function EventsTab({
     return () => window.clearTimeout(timer);
   }, [adminMode, adminEventId, events, isAdmin]);
 
+  useEffect(() => {
+    if (!isEventFilterOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsEventFilterOpen(false);
+      }
+    }
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isEventFilterOpen]);
+
   function startCreateEvent() {
     router.push("/events/create");
     setEditingEventId(null);
@@ -252,25 +367,42 @@ export function EventsTab({
       return;
     }
 
+    if (file.name.length > EVENT_IMAGE_FILE_NAME_MAX_LENGTH) {
+      setNotice(`Event image file name must be ${EVENT_IMAGE_FILE_NAME_MAX_LENGTH} characters or fewer.`);
+      input.value = "";
+      return;
+    }
+
     setIsUploadingCoverImage(true);
     setNotice(null);
 
     try {
+      const uploadFile = await prepareImageForUpload(file, {
+        maxBytes: EVENT_IMAGE_UPLOAD_MAX_BYTES,
+        maxDimension: 2000,
+        quality: 0.84,
+      });
+
+      if (uploadFile.name.length > EVENT_IMAGE_FILE_NAME_MAX_LENGTH) {
+        throw new Error(`Event image file name must be ${EVENT_IMAGE_FILE_NAME_MAX_LENGTH} characters or fewer.`);
+      }
+
       const upload = await apiRequest<EventImageUploadResponse>("/admin/events/images/presign", {
         method: "POST",
         headers: authHeaders(token),
         body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
+          fileName: uploadFile.name,
+          contentType: uploadFile.type,
+          fileSizeBytes: uploadFile.size,
         }),
       });
 
       const uploadResponse = await fetch(upload.uploadUrl, {
         method: "PUT",
         headers: {
-          "Content-Type": file.type,
+          "Content-Type": uploadFile.type,
         },
-        body: file,
+        body: uploadFile,
       });
 
       if (!uploadResponse.ok) {
@@ -305,9 +437,83 @@ export function EventsTab({
 
     const priceNaira = Number(eventForm.priceNaira || 0);
     const capacity = Number(eventForm.capacity || 0);
+    const title = eventForm.title.trim();
+    const description = eventForm.description.trim();
+    const venue = eventForm.venue.trim();
+    const state = eventForm.state.trim();
+    const city = eventForm.city.trim();
+
+    if (title.length < 2) {
+      setNotice("Event title must be at least 2 characters.");
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (title.length > EVENT_TITLE_MAX_LENGTH) {
+      setNotice(`Event title must be ${EVENT_TITLE_MAX_LENGTH} characters or fewer.`);
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (description.length > EVENT_DESCRIPTION_MAX_LENGTH) {
+      setNotice(`Event description must be ${EVENT_DESCRIPTION_MAX_LENGTH} characters or fewer.`);
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (eventForm.coverImage.length > EVENT_COVER_IMAGE_MAX_LENGTH) {
+      setNotice(`Cover image URL must be ${EVENT_COVER_IMAGE_MAX_LENGTH} characters or fewer.`);
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (venue.length < 2) {
+      setNotice("Event venue must be at least 2 characters.");
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (venue.length > EVENT_VENUE_MAX_LENGTH) {
+      setNotice(`Event venue must be ${EVENT_VENUE_MAX_LENGTH} characters or fewer.`);
+      setIsSavingEvent(false);
+      return;
+    }
 
     if (!eventForm.startsAt) {
       setNotice("Event start date is required.");
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (!state || !city) {
+      setNotice("Event state and city are required.");
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (state.length > EVENT_LOCATION_MAX_LENGTH || city.length > EVENT_LOCATION_MAX_LENGTH) {
+      setNotice(`Event state and city must be ${EVENT_LOCATION_MAX_LENGTH} characters or fewer.`);
+      setIsSavingEvent(false);
+      return;
+    }
+
+    const startsAtTime = Date.parse(eventForm.startsAt);
+    const endsAtTime = eventForm.endsAt ? Date.parse(eventForm.endsAt) : null;
+
+    if (!Number.isFinite(startsAtTime)) {
+      setNotice("Event start date is invalid.");
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (endsAtTime !== null && !Number.isFinite(endsAtTime)) {
+      setNotice("Event end date is invalid.");
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (endsAtTime !== null && endsAtTime <= startsAtTime) {
+      setNotice("Event end date must be after the start date.");
       setIsSavingEvent(false);
       return;
     }
@@ -325,13 +531,14 @@ export function EventsTab({
     }
 
     const payload = {
-      title: eventForm.title,
-      description: eventForm.description,
+      title,
+      description,
       coverImage: eventForm.coverImage,
-      venue: eventForm.venue,
-      city: eventForm.city,
-      startsAt: new Date(eventForm.startsAt).toISOString(),
-      endsAt: eventForm.endsAt ? new Date(eventForm.endsAt).toISOString() : undefined,
+      venue,
+      state,
+      city,
+      startsAt: new Date(startsAtTime).toISOString(),
+      endsAt: endsAtTime !== null ? new Date(endsAtTime).toISOString() : undefined,
       status: eventForm.status,
       priceKobo: Math.round(priceNaira * 100),
       capacity,
@@ -475,6 +682,8 @@ export function EventsTab({
                 placeholder="Event title"
                 value={eventForm.title}
                 onChange={(inputEvent) => setEventForm((current) => ({ ...current, title: inputEvent.target.value }))}
+                minLength={2}
+                maxLength={EVENT_TITLE_MAX_LENGTH}
                 required
               />
               <textarea
@@ -482,7 +691,7 @@ export function EventsTab({
                 placeholder="Description"
                 value={eventForm.description}
                 onChange={(inputEvent) => setEventForm((current) => ({ ...current, description: inputEvent.target.value }))}
-                maxLength={600}
+                maxLength={EVENT_DESCRIPTION_MAX_LENGTH}
               />
               <div className="rounded-[20px] border border-black/8 p-3">
                 <div className="relative grid aspect-video place-items-center overflow-hidden rounded-2xl bg-[#fafafa] text-center">
@@ -543,16 +752,48 @@ export function EventsTab({
                   placeholder="Venue"
                   value={eventForm.venue}
                   onChange={(inputEvent) => setEventForm((current) => ({ ...current, venue: inputEvent.target.value }))}
+                  minLength={2}
+                  maxLength={EVENT_VENUE_MAX_LENGTH}
                   required
                 />
-                <input
+                <select
                   className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                  placeholder="City"
-                  value={eventForm.city}
-                  onChange={(inputEvent) => setEventForm((current) => ({ ...current, city: inputEvent.target.value }))}
+                  value={eventForm.state}
+                  onChange={(inputEvent) =>
+                    setEventForm((current) => ({
+                      ...current,
+                      state: inputEvent.target.value,
+                      city: "",
+                    }))
+                  }
                   required
-                />
+                >
+                  <option value="" disabled>
+                    Choose state
+                  </option>
+                  {eventStateOptions.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </select>
               </div>
+              <select
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                value={eventForm.city}
+                onChange={(inputEvent) => setEventForm((current) => ({ ...current, city: inputEvent.target.value }))}
+                disabled={!eventForm.state}
+                required
+              >
+                <option value="" disabled>
+                  {eventForm.state ? "Choose city" : "Choose state first"}
+                </option>
+                {eventCityOptions.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Starts
@@ -588,10 +829,11 @@ export function EventsTab({
                     value={eventForm.status}
                     onChange={(inputEvent) => setEventForm((current) => ({ ...current, status: inputEvent.target.value as EventStatus }))}
                   >
-                    <option value="DRAFT">Draft</option>
-                    <option value="PUBLISHED">Published</option>
-                    <option value="CANCELLED">Cancelled</option>
-                    <option value="COMPLETED">Completed</option>
+                    {(editingEventId ? editableEventStatuses : creatableEventStatuses).map((status) => (
+                      <option key={status} value={status}>
+                        {eventStatusLabels[status]}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
@@ -647,32 +889,31 @@ export function EventsTab({
       <section>
         <ScreenHeader
           eyebrow="Events"
-          title="Manage events."
+          title=""
           action={
-            <button
-              className="hidden h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium md:inline-flex"
-              type="button"
-              onClick={() => loadEvents()}
-            >
-              <RefreshCw className="size-4" aria-hidden="true" />
-              Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className="hidden h-9 items-center gap-2 rounded-full border border-black/8 px-3 text-sm font-medium md:inline-flex"
+                type="button"
+                onClick={() => loadEvents()}
+              >
+                <RefreshCw className="size-3.5" aria-hidden="true" />
+                Refresh
+              </button>
+              <button
+                className="inline-flex h-9 items-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
+                type="button"
+                onClick={startCreateEvent}
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+                Create Event
+              </button>
+            </div>
           }
         />
 
         <div className="px-5 pb-24 md:px-8 md:pb-8">
           {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
-
-          <div className="mb-4 flex items-center justify-end">
-            <button
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white"
-              type="button"
-              onClick={startCreateEvent}
-            >
-              <Plus className="size-4" aria-hidden="true" />
-              Create Event
-            </button>
-          </div>
 
           {isLoadingEvents ? (
             <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5">
@@ -704,7 +945,7 @@ export function EventsTab({
                         {formatEventDate(event.startsAt)}
                       </p>
                       <p className="mt-1 text-sm text-[#666666]">
-                        {event.venue}, {event.city}
+                        {formatEventLocation(event)}
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
                         <span className="rounded-full bg-[#fafafa] px-3 py-1">
@@ -766,15 +1007,111 @@ export function EventsTab({
         title=""
         action={
           <button
-            className="hidden h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium md:inline-flex"
+            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasEventLocationFilter ? "border-[#18E299] bg-[#d4fae8]" : "border-black/8 bg-white"
+              }`}
             type="button"
-            onClick={() => loadEvents()}
+            onClick={() => setIsEventFilterOpen(true)}
+            aria-label="Filter events"
           >
-            <RefreshCw className="size-4" aria-hidden="true" />
-            Refresh
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+            {hasEventLocationFilter ? (
+              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#18E299] text-[9px] font-semibold text-[#0d0d0d]">
+                {[eventFilterState, eventFilterCity].filter(Boolean).length}
+              </span>
+            ) : null}
           </button>
         }
       />
+
+      {isEventFilterOpen ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-4 backdrop-blur-sm sm:p-5">
+          <button
+            className="absolute inset-0"
+            type="button"
+            onClick={() => setIsEventFilterOpen(false)}
+            aria-label="Close filters"
+          />
+          <div
+            className="relative w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Event filters"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Filters</p>
+                <h2 className="mt-1 text-xl font-semibold text-[#0d0d0d]">Location</h2>
+              </div>
+              <button
+                className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
+                type="button"
+                onClick={() => setIsEventFilterOpen(false)}
+                aria-label="Close filters"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                State
+                <select
+                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  value={eventFilterState}
+                  onChange={(inputEvent) => {
+                    setEventFilterState(inputEvent.target.value);
+                    setEventFilterCity("");
+                  }}
+                >
+                  <option value="">All states</option>
+                  {nigeriaStateNames.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                City
+                <select
+                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299] disabled:bg-[#fafafa] disabled:text-[#999999]"
+                  value={eventFilterCity}
+                  onChange={(inputEvent) => setEventFilterCity(inputEvent.target.value)}
+                  disabled={!eventFilterState}
+                >
+                  <option value="">{eventFilterState ? "All cities" : "Choose state first"}</option>
+                  {eventFilterCityOptions.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-50"
+                type="button"
+                onClick={() => {
+                  setEventFilterState("");
+                  setEventFilterCity("");
+                }}
+                disabled={!hasEventLocationFilter}
+              >
+                Clear
+              </button>
+              <button
+                className="inline-flex h-12 items-center justify-center rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
+                type="button"
+                onClick={() => setIsEventFilterOpen(false)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
         <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
@@ -841,7 +1178,7 @@ export function EventsTab({
                     <h2 className="mt-2 text-lg font-semibold">{event.title}</h2>
                     <p className="mt-1 flex items-center gap-1 text-sm text-[#666666]">
                       <MapPin className="size-4" aria-hidden="true" />
-                      {event.venue}, {event.city}
+                      {formatEventLocation(event)}
                     </p>
                     {event.description ? <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#555555]">{event.description}</p> : null}
                     <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
@@ -881,14 +1218,8 @@ export function EventsTab({
           <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>
               <Ticket className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
-              <h2 className="mt-3 text-2xl font-semibold">
-                {eventViewMode === "tickets" ? "No tickets yet" : "No events yet"}
-              </h2>
-              <p className="mt-2 text-sm text-[#666666]">
-                {eventViewMode === "tickets"
-                  ? "Tickets you book or buy will appear here."
-                  : "Events you have not booked yet will appear here."}
-              </p>
+              <h2 className="mt-3 text-2xl font-semibold">{emptyMemberTitle}</h2>
+              <p className="mt-2 text-sm text-[#666666]">{emptyMemberDescription}</p>
             </div>
           </div>
         )}

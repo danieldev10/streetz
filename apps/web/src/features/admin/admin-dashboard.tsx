@@ -160,7 +160,7 @@ export function AdminDashboard({ token }: { token: string }) {
     <section>
       <ScreenHeader
         eyebrow="Metrics"
-        title="crushclub overview."
+        title=""
         action={
           <button
             className="hidden h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium md:inline-flex"

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
 import {
+  Ban,
   Bell,
   CreditCard,
   Flag,
@@ -27,7 +28,10 @@ export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "discovery", label: "Discover", icon: Heart },
   { id: "notifications", label: "Alerts", icon: Bell },
   { id: "matches", label: "Matches", icon: MessagesSquare },
+  { id: "blockedAccounts", label: "Blocked Accounts", icon: Ban },
 ];
+
+export const bottomTabs = tabs.filter((tab) => tab.id !== "blockedAccounts");
 
 export const adminTabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "rooms", label: "Rooms", icon: MessageCircle },
@@ -41,6 +45,7 @@ export const tabRoutes: Record<TabKey, string> = {
   matches: "/matches",
   notifications: "/notifications",
   profile: "/profile",
+  blockedAccounts: "/blocked-accounts",
   rooms: "/rooms",
   events: "/events",
   admin: "/admin",
@@ -202,6 +207,16 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
           >
             <UserRound className="size-4" aria-hidden="true" />
             Profile
+          </Link>
+
+          <Link
+            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+            href="/blocked-accounts"
+            onClick={closeMenu}
+            tabIndex={isOpen ? 0 : -1}
+          >
+            <Ban className="size-4" aria-hidden="true" />
+            Blocked Accounts
           </Link>
 
             <button
@@ -389,9 +404,9 @@ export function ScreenHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-5 pb-4 pt-6 md:px-8 md:pt-8">
-      <div className="flex min-w-0 items-start gap-3">
-        {leading ? <div className="shrink-0 pt-1">{leading}</div> : null}
+    <div className="flex items-center justify-between gap-4 px-5 pb-4 pt-6 md:px-8 md:pt-8">
+      <div className="flex min-w-0 items-center gap-3">
+        {leading ? <div className="shrink-0">{leading}</div> : null}
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{eyebrow}</p>
           <h1 className="mt-1 text-3xl font-semibold leading-tight text-[#0d0d0d] md:text-5xl">{title}</h1>

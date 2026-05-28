@@ -1,6 +1,7 @@
 import type { ConnectionStatus, StreetzProfile } from "@/lib/types";
 
 export const PROFILE_PHOTO_LIMIT = 4;
+export const MINIMUM_PROFILE_AGE = 18;
 
 export const connectionStatusOptions: Array<{ value: ConnectionStatus; label: string }> = [
   { value: "MEET_NOW", label: "Meet Now" },
@@ -21,9 +22,9 @@ export function getAgeFromBirthDate(value: string | null | undefined) {
     return null;
   }
 
-  const birthDate = new Date(value);
+  const birthDate = parseDateInputValue(value);
 
-  if (Number.isNaN(birthDate.getTime())) {
+  if (!birthDate) {
     return null;
   }
 
@@ -38,6 +39,57 @@ export function getAgeFromBirthDate(value: string | null | undefined) {
   }
 
   return age >= 0 ? age : null;
+}
+
+function parseDateInputValue(value: string) {
+  const [yearValue, monthValue, dayValue] = value.split("-").map(Number);
+
+  if (!yearValue || !monthValue || !dayValue) {
+    return null;
+  }
+
+  const date = new Date(yearValue, monthValue - 1, dayValue);
+
+  if (date.getFullYear() !== yearValue || date.getMonth() !== monthValue - 1 || date.getDate() !== dayValue) {
+    return null;
+  }
+
+  return date;
+}
+
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+export function getAdultBirthDateMaxValue(referenceDate = new Date()) {
+  const cutoff = new Date(referenceDate);
+  cutoff.setFullYear(cutoff.getFullYear() - MINIMUM_PROFILE_AGE);
+
+  return formatDateInputValue(cutoff);
+}
+
+export function getBirthDateValidationMessage(value: string, options: { required?: boolean } = {}) {
+  if (!value) {
+    return options.required ? "Add your birth date." : null;
+  }
+
+  const birthDate = parseDateInputValue(value);
+
+  if (!birthDate || birthDate > new Date()) {
+    return "Enter a valid birth date.";
+  }
+
+  const age = getAgeFromBirthDate(value);
+
+  if (age === null || age < MINIMUM_PROFILE_AGE) {
+    return `crushclub discovery is only available to users who are at least ${MINIMUM_PROFILE_AGE}.`;
+  }
+
+  return null;
 }
 
 export function formatConnectionStatus(status: ConnectionStatus | null | undefined) {
@@ -71,8 +123,10 @@ export function getProfileSetupIssuesFromForm(
     issues.push("write a bio");
   }
 
-  if (!form.birthDate) {
-    issues.push("add your birth date");
+  const birthDateMessage = getBirthDateValidationMessage(form.birthDate, { required: true });
+
+  if (birthDateMessage) {
+    issues.push(birthDateMessage.replace(/\.$/, "").toLowerCase());
   }
 
   if (!form.connectionStatus) {

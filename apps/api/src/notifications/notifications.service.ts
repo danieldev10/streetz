@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import {
+  AccountStatus,
   ConnectionStatus,
   DiscoveryAction,
   EventStatus,
@@ -9,9 +10,10 @@ import {
   PaymentStatus,
   ReportStatus,
   SubscriptionStatus,
-  TicketStatus,
   UserRole
 } from "@prisma/client";
+import { calculateAge } from "../common/age";
+import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "../events/ticket-reservations";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { MarkNotificationsSeenDto } from "./dto/mark-notifications-seen.dto";
@@ -29,8 +31,6 @@ const FEED_PAYMENT_ALERTS_LIMIT = 10;
 const FEED_ROOMS_RECENCY_DAYS = 30;
 const SUBSCRIPTION_EXPIRING_DAYS = 7;
 const EVENT_REMINDER_HOURS = 48;
-const ACTIVE_TICKET_STATUSES = [TicketStatus.RESERVED, TicketStatus.PAID, TicketStatus.CHECKED_IN];
-const CONFIRMED_TICKET_STATUSES = [TicketStatus.PAID, TicketStatus.CHECKED_IN];
 const FAILED_PAYMENT_STATUSES = [PaymentStatus.FAILED, PaymentStatus.ABANDONED, PaymentStatus.REVERSED];
 
 type PendingLikeQueryContext = {
@@ -42,6 +42,7 @@ type PendingLikeQueryContext = {
 type CandidateUser = {
   id: string;
   displayName: string;
+  accountStatus: AccountStatus;
   profile: {
     bio: string | null;
     birthDate: Date | null;
@@ -83,7 +84,6 @@ type RoomMessageSource = {
   roomId: string;
   authorId: string;
   body: string;
-  deletedAt: Date | null;
   createdAt: Date;
   author: {
     id: string;
@@ -95,6 +95,7 @@ type EventAlertSource = {
   id: string;
   title: string;
   venue: string;
+  state: string | null;
   city: string;
   startsAt: Date;
   updatedAt: Date;
@@ -448,7 +449,7 @@ export class NotificationsService {
         tickets: {
           none: {
             userId,
-            status: { in: ACTIVE_TICKET_STATUSES }
+            ...getActiveTicketWhere(now)
           }
         }
       },
@@ -459,6 +460,7 @@ export class NotificationsService {
         description: true,
         coverImage: true,
         venue: true,
+        state: true,
         city: true,
         startsAt: true,
         endsAt: true,
@@ -475,6 +477,7 @@ export class NotificationsService {
       description: event.description,
       coverImage: event.coverImage,
       venue: event.venue,
+      state: event.state,
       city: event.city,
       startsAt: event.startsAt.toISOString(),
       endsAt: event.endsAt?.toISOString() ?? null,
@@ -496,6 +499,7 @@ export class NotificationsService {
             id: true,
             title: true,
             venue: true,
+            state: true,
             city: true,
             startsAt: true
           }
@@ -521,6 +525,7 @@ export class NotificationsService {
         id: ticket.event.id,
         title: ticket.event.title,
         venue: ticket.event.venue,
+        state: ticket.event.state,
         city: ticket.event.city,
         startsAt: ticket.event.startsAt.toISOString()
       },
@@ -544,7 +549,7 @@ export class NotificationsService {
       this.prisma.ticket.findMany({
         where: {
           userId,
-          status: { in: ACTIVE_TICKET_STATUSES },
+          ...getActiveTicketWhere(now),
           event: {
             is: {
               status: EventStatus.PUBLISHED,
@@ -562,7 +567,7 @@ export class NotificationsService {
       this.prisma.ticket.findMany({
         where: {
           userId,
-          status: { in: ACTIVE_TICKET_STATUSES },
+          ...getActiveTicketWhere(now),
           event: {
             is: {
               status: EventStatus.PUBLISHED,
@@ -577,7 +582,7 @@ export class NotificationsService {
       this.prisma.ticket.findMany({
         where: {
           userId,
-          status: { in: ACTIVE_TICKET_STATUSES },
+          ...getActiveTicketWhere(now),
           event: {
             is: {
               status: EventStatus.CANCELLED
@@ -693,53 +698,27 @@ export class NotificationsService {
   }
 
   private async getPaymentAlerts(userId: string) {
-    const [seenFailedPaymentIds, seenSubscriptionSuccessIds] = await Promise.all([
-      this.getSeenEntityIds(userId, NotificationKind.PAYMENT_FAILED),
-      this.getSeenEntityIds(userId, NotificationKind.SUBSCRIPTION_PAYMENT_SUCCESS)
-    ]);
-    const [failedPayments, successfulSubscriptionPayments] = await Promise.all([
-      this.prisma.payment.findMany({
-        where: {
-          id: { notIn: seenFailedPaymentIds },
-          userId,
-          status: { in: FAILED_PAYMENT_STATUSES }
-        },
-        select: {
-          id: true,
-          purpose: true,
-          status: true,
-          amountKobo: true,
-          updatedAt: true
-        },
-        orderBy: { updatedAt: "desc" },
-        take: FEED_PAYMENT_ALERTS_LIMIT
-      }),
-      this.prisma.payment.findMany({
-        where: {
-          id: { notIn: seenSubscriptionSuccessIds },
-          userId,
-          purpose: PaymentPurpose.SUBSCRIPTION,
-          status: PaymentStatus.SUCCESS
-        },
-        select: {
-          id: true,
-          purpose: true,
-          status: true,
-          amountKobo: true,
-          updatedAt: true
-        },
-        orderBy: { updatedAt: "desc" },
-        take: FEED_PAYMENT_ALERTS_LIMIT
-      })
-    ]);
+    const seenFailedPaymentIds = await this.getSeenEntityIds(userId, NotificationKind.PAYMENT_FAILED);
 
-    return [
-      ...failedPayments.map((payment) => this.formatPaymentAlert(NotificationKind.PAYMENT_FAILED, payment)),
-      ...successfulSubscriptionPayments.map((payment) =>
-        this.formatPaymentAlert(NotificationKind.SUBSCRIPTION_PAYMENT_SUCCESS, payment)
-      )
-    ]
-      .sort((first, second) => Date.parse(second.updatedAt) - Date.parse(first.updatedAt))
+    const failedPayments = await this.prisma.payment.findMany({
+      where: {
+        id: { notIn: seenFailedPaymentIds },
+        userId,
+        status: { in: FAILED_PAYMENT_STATUSES }
+      },
+      select: {
+        id: true,
+        purpose: true,
+        status: true,
+        amountKobo: true,
+        updatedAt: true
+      },
+      orderBy: { updatedAt: "desc" },
+      take: FEED_PAYMENT_ALERTS_LIMIT
+    });
+
+    return failedPayments
+      .map((payment) => this.formatPaymentAlert(NotificationKind.PAYMENT_FAILED, payment))
       .slice(0, FEED_PAYMENT_ALERTS_LIMIT);
   }
 
@@ -850,6 +829,7 @@ export class NotificationsService {
       actorId: { notIn: Array.from(context.excludedIds) },
       actor: {
         role: UserRole.USER,
+        accountStatus: AccountStatus.ACTIVE,
         subscriptionStatus: SubscriptionStatus.ACTIVE,
         subscriptionEndsAt: { gt: context.now },
         profile: {
@@ -859,6 +839,7 @@ export class NotificationsService {
             city: { not: null },
             state: { not: null },
             connectionStatus: context.connectionStatus,
+            discoveryLive: true,
             interests: { isEmpty: false }
           }
         },
@@ -917,7 +898,7 @@ export class NotificationsService {
         tickets: {
           none: {
             userId,
-            status: { in: ACTIVE_TICKET_STATUSES }
+            ...getActiveTicketWhere(now)
           }
         }
       }
@@ -961,29 +942,15 @@ export class NotificationsService {
   }
 
   private async getUnseenPaymentAlertCount(userId: string) {
-    const [seenFailedPaymentIds, seenSubscriptionSuccessIds] = await Promise.all([
-      this.getSeenEntityIds(userId, NotificationKind.PAYMENT_FAILED),
-      this.getSeenEntityIds(userId, NotificationKind.SUBSCRIPTION_PAYMENT_SUCCESS)
-    ]);
-    const [failedPaymentCount, subscriptionSuccessCount] = await Promise.all([
-      this.prisma.payment.count({
-        where: {
-          id: { notIn: seenFailedPaymentIds },
-          userId,
-          status: { in: FAILED_PAYMENT_STATUSES }
-        }
-      }),
-      this.prisma.payment.count({
-        where: {
-          id: { notIn: seenSubscriptionSuccessIds },
-          userId,
-          purpose: PaymentPurpose.SUBSCRIPTION,
-          status: PaymentStatus.SUCCESS
-        }
-      })
-    ]);
+    const seenFailedPaymentIds = await this.getSeenEntityIds(userId, NotificationKind.PAYMENT_FAILED);
 
-    return failedPaymentCount + subscriptionSuccessCount;
+    return this.prisma.payment.count({
+      where: {
+        id: { notIn: seenFailedPaymentIds },
+        userId,
+        status: { in: FAILED_PAYMENT_STATUSES }
+      }
+    });
   }
 
   private async getUnreadDirectMessageCount(userId: string) {
@@ -1067,7 +1034,8 @@ export class NotificationsService {
     return {
       id: candidate.id,
       displayName: candidate.displayName,
-      age: candidate.profile?.birthDate ? this.calculateAge(candidate.profile.birthDate) : null,
+      accountStatus: candidate.accountStatus,
+      age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,
       connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
@@ -1096,7 +1064,6 @@ export class NotificationsService {
       authorId: message.authorId,
       authorName: message.author.displayName,
       body: message.body,
-      deletedAt: message.deletedAt?.toISOString() ?? null,
       createdAt: message.createdAt.toISOString()
     };
   }
@@ -1108,6 +1075,7 @@ export class NotificationsService {
       eventId: event.id,
       title: event.title,
       venue: event.venue,
+      state: event.state,
       city: event.city,
       startsAt: event.startsAt.toISOString(),
       updatedAt: event.updatedAt.toISOString()
@@ -1154,15 +1122,4 @@ export class NotificationsService {
     return `${reportId}:${status}`;
   }
 
-  private calculateAge(birthDate: Date) {
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDelta = today.getMonth() - birthDate.getMonth();
-
-    if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
-      age -= 1;
-    }
-
-    return age;
-  }
 }

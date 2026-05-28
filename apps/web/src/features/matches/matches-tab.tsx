@@ -20,12 +20,55 @@ function getDirectMessageTime(message: DirectMessage) {
   return Date.parse(message.createdAt) || 0;
 }
 
+function getUnavailableAccountLabel(candidate: DiscoveryCandidate | null | undefined) {
+  if (!candidate?.accountStatus || candidate.accountStatus === "ACTIVE") {
+    return null;
+  }
+
+  if (candidate.accountStatus === "DEACTIVATED") {
+    return "This account is currently deactivated.";
+  }
+
+  if (candidate.accountStatus === "SUSPENDED") {
+    return "This account is temporarily unavailable.";
+  }
+
+  return "This account is unavailable.";
+}
+
+function getBlockedMatchLabel(match: MatchThread | null | undefined) {
+  if (!match || !match.blockStatus || match.blockStatus === "NONE") {
+    return null;
+  }
+
+  if (match.blockStatus === "BLOCKED_ME") {
+    return "You have been blocked by this member, so you cannot send messages.";
+  }
+
+  if (match.blockStatus === "BLOCKED_BY_ME") {
+    return "You blocked this account. Unblock them from Blocked Accounts to message again.";
+  }
+
+  return "You and this member have blocked each other, so messages are unavailable.";
+}
+
+function getMatchUnavailableLabel(match: MatchThread | null | undefined) {
+  return getBlockedMatchLabel(match) ?? getUnavailableAccountLabel(match?.user);
+}
+
 type DirectMessageReadReceipt = {
   matchId: string;
   readerId: string;
   messageIds: string[];
   readAt: string;
 };
+
+type MatchUnmatchedEvent = {
+  matchId: string;
+  actorId: string;
+};
+
+const DIRECT_MESSAGE_MAX_LENGTH = 1000;
 
 function OpeningMatchShell({
   notice,
@@ -115,6 +158,7 @@ export function MatchesTab({
   const seenMatchNotificationIdsRef = useRef<Set<string>>(new Set());
 
   const selectedMatch = matches.find((match) => match.id === selectedMatchId) ?? null;
+  const selectedMatchUnavailableLabel = getMatchUnavailableLabel(selectedMatch);
   const displayedMessages = useMemo(
     () => [...messages].sort((first, second) => getDirectMessageTime(first) - getDirectMessageTime(second)),
     [messages]
@@ -144,6 +188,12 @@ export function MatchesTab({
     return [...visibleMatches].sort((first, second) => getMatchActivityTime(second) - getMatchActivityTime(first));
   }, [matches, matchSearch]);
   function getMatchPreview(match: MatchThread) {
+    const unavailableLabel = getMatchUnavailableLabel(match);
+
+    if (unavailableLabel) {
+      return unavailableLabel;
+    }
+
     if (match.lastMessage) {
       const prefix = match.lastMessage.senderId === user.id ? "You: " : "";
       return `${prefix}${match.lastMessage.body}`;
@@ -316,6 +366,23 @@ export function MatchesTab({
     }
   }
 
+  async function unmatchMatch(match: MatchThread) {
+    await apiRequest<{ unmatched: boolean; matchId: string; otherUserId: string }>(`/matches/${match.id}/unmatch`, {
+      method: "POST",
+      headers: authHeaders(token),
+    });
+
+    setMatches((current) => current.filter((item) => item.id !== match.id));
+    router.push("/matches");
+    setSelectedMatchId(null);
+    setViewedMatchProfile(null);
+    setMessages([]);
+    directMessageIdsRef.current = new Set();
+    setMessageBody("");
+    setNotice("Match removed.");
+    onNotificationsChangedRef.current();
+  }
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadMatches();
@@ -349,6 +416,21 @@ export function MatchesTab({
     });
     socket.on("direct-message:read", (receipt: DirectMessageReadReceipt) => {
       applyReadReceipt(receipt);
+    });
+    socket.on("match:unmatched", (event: MatchUnmatchedEvent) => {
+      setMatches((current) => current.filter((match) => match.id !== event.matchId));
+
+      if (event.matchId === selectedMatchIdRef.current) {
+        router.push("/matches");
+        setSelectedMatchId(null);
+        setViewedMatchProfile(null);
+        setMessages([]);
+        directMessageIdsRef.current = new Set();
+        setMessageBody("");
+        setNotice(event.actorId === user.id ? "Match removed." : "This match is no longer available.");
+      }
+
+      onNotificationsChangedRef.current();
     });
 
     return () => {
@@ -411,7 +493,19 @@ export function MatchesTab({
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!selectedMatchId || !messageBody.trim()) {
+    const body = messageBody.trim();
+
+    if (!selectedMatchId || !body) {
+      return;
+    }
+
+    if (selectedMatchUnavailableLabel) {
+      setNotice(selectedMatchUnavailableLabel);
+      return;
+    }
+
+    if (body.length > DIRECT_MESSAGE_MAX_LENGTH) {
+      setNotice(`Messages must be ${DIRECT_MESSAGE_MAX_LENGTH} characters or fewer.`);
       return;
     }
 
@@ -429,7 +523,7 @@ export function MatchesTab({
       "direct-message:send",
       {
         matchId: selectedMatchId,
-        body: messageBody,
+        body,
       },
       (response: { ok?: boolean; message?: DirectMessage; error?: string }) => {
         setIsSendingMessage(false);
@@ -451,6 +545,15 @@ export function MatchesTab({
         candidate={viewedMatchProfile}
         onBack={() => setViewedMatchProfile(null)}
         backLabel="Back to chat"
+        token={token}
+        showSafetyActions
+        showUnmatchAction={selectedMatch.blockStatus === "NONE"}
+        onUnmatched={() => unmatchMatch(selectedMatch)}
+        onBlocked={(candidate) => {
+          setMatches((current) => current.filter((match) => match.user.id !== candidate.id));
+          closeMatch();
+          setNotice("Profile blocked.");
+        }}
       />
     );
   }
@@ -577,26 +680,35 @@ export function MatchesTab({
             )}
           </div>
 
-          <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
-            <input
-              className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-              placeholder="Write a message"
-              value={messageBody}
-              onChange={(event) => setMessageBody(event.target.value)}
-            />
-            <button
-              className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isSendingMessage || !messageBody.trim()}
-              aria-label="Send message"
-              title="Send"
-            >
-              {isSendingMessage ? (
-                <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <SendHorizontal className="size-4" aria-hidden="true" />
-              )}
-            </button>
-          </form>
+          {selectedMatchUnavailableLabel ? (
+            <div className="shrink-0 border-t border-black/[0.05] bg-white p-4">
+              <p className="rounded-[18px] bg-[#fff2d9] px-4 py-3 text-center text-sm font-medium leading-6 text-[#9a5b00]">
+                {selectedMatchUnavailableLabel}
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
+              <input
+                className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                placeholder="Write a message"
+                value={messageBody}
+                onChange={(event) => setMessageBody(event.target.value)}
+                maxLength={DIRECT_MESSAGE_MAX_LENGTH}
+              />
+              <button
+                className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isSendingMessage || !messageBody.trim()}
+                aria-label="Send message"
+                title="Send"
+              >
+                {isSendingMessage ? (
+                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <SendHorizontal className="size-4" aria-hidden="true" />
+                )}
+              </button>
+            </form>
+          )}
         </article>
       </section>
     );

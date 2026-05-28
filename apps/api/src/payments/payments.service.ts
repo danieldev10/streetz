@@ -2,16 +2,27 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
   UnauthorizedException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EventStatus, PaymentPurpose, PaymentStatus, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
+import { EventStatus, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import {
+  CONFIRMED_TICKET_STATUSES,
+  DEFAULT_TICKET_RESERVATION_MINUTES,
+  getActiveTicketWhere,
+  getExpiredReservationWhere,
+  getReservationExpiry
+} from "../events/ticket-reservations";
 import { PrismaService } from "../prisma/prisma.service";
+import { getAccountAccessBlock } from "../users/account-status";
 
 const SUBSCRIPTION_AMOUNT_KOBO = 100_000;
 const SUBSCRIPTION_DAYS = 30;
-const ACTIVE_TICKET_STATUSES = [TicketStatus.RESERVED, TicketStatus.PAID, TicketStatus.CHECKED_IN];
+const RESERVATION_CLEANUP_INTERVAL_MS = 5 * 60_000;
 
 type PaystackInitializeResponse = {
   status: boolean;
@@ -48,17 +59,44 @@ type PaystackWebhookBody = {
 };
 
 @Injectable()
-export class PaymentsService {
+export class PaymentsService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PaymentsService.name);
+  private reservationCleanupTimer: ReturnType<typeof setInterval> | null = null;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService
   ) {}
+
+  onModuleInit() {
+    this.runReservationCleanup();
+    const timer = setInterval(() => this.runReservationCleanup(), RESERVATION_CLEANUP_INTERVAL_MS);
+
+    if (typeof timer === "object" && typeof timer.unref === "function") {
+      timer.unref();
+    }
+
+    this.reservationCleanupTimer = timer;
+  }
+
+  onModuleDestroy() {
+    if (this.reservationCleanupTimer) {
+      clearInterval(this.reservationCleanupTimer);
+      this.reservationCleanupTimer = null;
+    }
+  }
 
   async initializeSubscription(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
       throw new UnauthorizedException("User not found.");
+    }
+
+    const accountBlock = getAccountAccessBlock(user);
+
+    if (accountBlock) {
+      throw new ForbiddenException(accountBlock);
     }
 
     if (user.subscriptionStatus === SubscriptionStatus.ACTIVE && user.subscriptionEndsAt && user.subscriptionEndsAt > new Date()) {
@@ -171,7 +209,10 @@ export class PaymentsService {
       };
     }
 
+    const now = new Date();
+    const reservedUntil = getReservationExpiry(now, this.getTicketReservationMinutes());
     const ticket = await this.prisma.$transaction(async (transaction) => {
+      await this.cleanupExpiredTicketReservations(transaction, now);
       await transaction.ticket.updateMany({
         where: {
           userId,
@@ -179,14 +220,15 @@ export class PaymentsService {
           status: TicketStatus.RESERVED
         },
         data: {
-          status: TicketStatus.CANCELLED
+          status: TicketStatus.CANCELLED,
+          reservedUntil: null
         }
       });
 
       const activeTickets = await transaction.ticket.count({
         where: {
           ticketTypeId: ticketType.id,
-          status: { in: ACTIVE_TICKET_STATUSES }
+          ...getActiveTicketWhere(now)
         }
       });
 
@@ -200,7 +242,8 @@ export class PaymentsService {
           userId,
           ticketTypeId: ticketType.id,
           code: this.createTicketCode(),
-          status: TicketStatus.RESERVED
+          status: TicketStatus.RESERVED,
+          reservedUntil
         }
       });
     });
@@ -256,7 +299,10 @@ export class PaymentsService {
     } catch (error) {
       await this.prisma.ticket.update({
         where: { id: ticket.id },
-        data: { status: TicketStatus.CANCELLED }
+        data: {
+          status: TicketStatus.CANCELLED,
+          reservedUntil: null
+        }
       });
 
       throw error;
@@ -431,7 +477,8 @@ export class PaymentsService {
         this.prisma.ticket.update({
           where: { id: ticket.id },
           data: {
-            status: TicketStatus.CANCELLED
+            status: TicketStatus.CANCELLED,
+            reservedUntil: null
           }
         })
       ]);
@@ -446,9 +493,12 @@ export class PaymentsService {
       throw new BadRequestException("Verified payment amount or currency does not match this event ticket.");
     }
 
-    const shouldIncrementSoldCount = ticket.status !== TicketStatus.PAID && ticket.status !== TicketStatus.CHECKED_IN;
+    const now = new Date();
+    const reservationWasActive =
+      ticket.status === TicketStatus.RESERVED && ticket.reservedUntil !== null && ticket.reservedUntil > now;
+    const shouldIncrementSoldCount = !CONFIRMED_TICKET_STATUSES.includes(ticket.status);
 
-    const updatedTicket = await this.prisma.$transaction(async (transaction) => {
+    const activation = await this.prisma.$transaction(async (transaction) => {
       await transaction.payment.update({
         where: { providerReference: reference },
         data: {
@@ -460,10 +510,63 @@ export class PaymentsService {
         }
       });
 
+      const existingConfirmedTicket = await transaction.ticket.findFirst({
+        where: {
+          id: { not: ticket.id },
+          userId: ticket.userId,
+          eventId: ticket.eventId,
+          status: { in: CONFIRMED_TICKET_STATUSES }
+        },
+        include: {
+          ticketType: true,
+          event: true
+        }
+      });
+
+      if (existingConfirmedTicket) {
+        await transaction.ticket.update({
+          where: { id: ticket.id },
+          data: {
+            status: TicketStatus.CANCELLED,
+            reservedUntil: null
+          }
+        });
+
+        return {
+          ticket: existingConfirmedTicket,
+          expiredSoldOut: false
+        };
+      }
+
+      if (!reservationWasActive) {
+        const activeTickets = await transaction.ticket.count({
+          where: {
+            ticketTypeId: ticket.ticketTypeId,
+            ...getActiveTicketWhere(now)
+          }
+        });
+
+        if (activeTickets >= ticket.ticketType.capacity) {
+          await transaction.ticket.update({
+            where: { id: ticket.id },
+            data: {
+              status: TicketStatus.CANCELLED,
+              reservedUntil: null
+            }
+          });
+
+          return {
+            ticket: null,
+            expiredSoldOut: true
+          };
+        }
+      }
+
       const paidTicket = await transaction.ticket.update({
         where: { id: ticket.id },
         data: {
-          status: TicketStatus.PAID
+          status: TicketStatus.PAID,
+          reservedUntil: null
         },
         include: {
           ticketType: true,
@@ -478,12 +581,21 @@ export class PaymentsService {
         });
       }
 
-      return paidTicket;
+      return {
+        ticket: paidTicket,
+        expiredSoldOut: false
+      };
     });
+
+    if (activation.expiredSoldOut || !activation.ticket) {
+      throw new BadRequestException(
+        "Payment succeeded, but the reservation expired and this event is now sold out. Please contact support for a refund."
+      );
+    }
 
     return {
       status: PaymentStatus.SUCCESS,
-      ticket: this.formatTicket(updatedTicket)
+      ticket: this.formatTicket(activation.ticket)
     };
   }
 
@@ -502,6 +614,36 @@ export class PaymentsService {
     }
 
     return this.verifyAndActivateSubscription(reference);
+  }
+
+  private runReservationCleanup() {
+    void this.cleanupExpiredTicketReservations().catch((error) => {
+      this.logger.warn(`Unable to clean up expired ticket reservations: ${error instanceof Error ? error.message : "unknown error"}`);
+    });
+  }
+
+  private cleanupExpiredTicketReservations(
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+    now = new Date()
+  ) {
+    return client.ticket.updateMany({
+      where: getExpiredReservationWhere(now, this.getTicketReservationMinutes()),
+      data: {
+        status: TicketStatus.CANCELLED,
+        reservedUntil: null
+      }
+    });
+  }
+
+  private getTicketReservationMinutes() {
+    const configuredMinutes = this.config.get<string>("EVENT_TICKET_RESERVATION_MINUTES");
+    const minutes = Number.parseInt(configuredMinutes ?? "", 10);
+
+    if (!Number.isFinite(minutes) || minutes < 1) {
+      return DEFAULT_TICKET_RESERVATION_MINUTES;
+    }
+
+    return Math.min(120, minutes);
   }
 
   private async callPaystack<T>(path: string, init: RequestInit): Promise<T> {
@@ -532,6 +674,12 @@ export class PaymentsService {
 
     if (user.role === UserRole.ADMIN) {
       throw new ForbiddenException("Admins manage events but cannot buy tickets.");
+    }
+
+    const accountBlock = getAccountAccessBlock(user);
+
+    if (accountBlock) {
+      throw new ForbiddenException(accountBlock);
     }
 
     if (

@@ -11,6 +11,7 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const webAppUrl = config.getOrThrow<string>("WEB_APP_URL");
 
+  app.getHttpAdapter().getInstance().set("trust proxy", 1);
   app.setGlobalPrefix("api");
   app.enableCors({
     origin: [webAppUrl],
@@ -28,14 +29,18 @@ async function bootstrap() {
     })
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle("crushclub API")
-    .setDescription("API contract for the crushclub prototype.")
-    .setVersion("0.1.0")
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup("api/docs", app, document);
+  const enableSwagger = config.get<string>("NODE_ENV") === "development" || config.get<string>("ENABLE_SWAGGER") === "true";
+
+  if (enableSwagger) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle("crushclub API")
+      .setDescription("API contract for the crushclub prototype.")
+      .setVersion("0.1.0")
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup("api/docs", app, document);
+  }
 
   const port = config.get<number>("PORT", 4000);
   await app.listen(port, "0.0.0.0");

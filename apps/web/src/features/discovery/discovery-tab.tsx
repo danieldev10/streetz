@@ -18,6 +18,7 @@ import {
 } from "@/lib/discovery";
 import { getCandidatePhotoUrl } from "@/lib/media";
 import { formatConnectionStatus } from "@/lib/profile";
+import { REPORT_DETAILS_MAX_LENGTH, REPORT_REASON_OPTIONS } from "@/lib/report-reasons";
 import type { DiscoveryActionName, DiscoveryCandidate } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
@@ -34,6 +35,8 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
   const [blockTarget, setBlockTarget] = useState<DiscoveryCandidate | null>(null);
   const [reportTarget, setReportTarget] = useState<DiscoveryCandidate | null>(null);
   const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportError, setReportError] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDraggingCard, setIsDraggingCard] = useState(false);
   const swipeStartRef = useRef<{ x: number; y: number; candidateId: string; startedAt: number } | null>(null);
@@ -342,11 +345,23 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
 
   async function submitReportCandidate() {
     const reason = reportReason.trim();
+    const details = reportDetails.trim();
 
-    if (!reportTarget || !reason) {
+    if (!reportTarget) {
       return;
     }
 
+    if (!REPORT_REASON_OPTIONS.includes(reason as (typeof REPORT_REASON_OPTIONS)[number])) {
+      setReportError("Choose a report reason.");
+      return;
+    }
+
+    if (details.length > REPORT_DETAILS_MAX_LENGTH) {
+      setReportError(`Details must be ${REPORT_DETAILS_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+
+    setReportError(null);
     setActionTargetId(reportTarget.id);
 
     try {
@@ -356,10 +371,13 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
         body: JSON.stringify({
           targetUserId: reportTarget.id,
           reason,
+          ...(details ? { details } : {}),
         }),
       });
       setReportTarget(null);
       setReportReason("");
+      setReportDetails("");
+      setReportError(null);
       setNotice("Report sent.");
     } catch (error) {
       setNotice(getUserErrorMessage(error));
@@ -369,7 +387,21 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
   }
 
   if (viewedCandidate) {
-    return <MemberProfileView candidate={viewedCandidate} onBack={() => setViewedCandidate(null)} backLabel="Back to discovery" />;
+    return (
+      <MemberProfileView
+        candidate={viewedCandidate}
+        onBack={() => setViewedCandidate(null)}
+        backLabel="Back to discovery"
+        token={token}
+        showSafetyActions
+        onBlocked={(candidate) => {
+          setCandidates((current) => current.filter((currentCandidate) => currentCandidate.id !== candidate.id));
+          dismissedCandidateIdsRef.current.add(candidate.id);
+          setViewedCandidate(null);
+          setNotice("Profile blocked.");
+        }}
+      />
+    );
   }
 
   return (
@@ -447,6 +479,8 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
                       onReport={() => {
                         setNotice(null);
                         setReportReason("");
+                        setReportDetails("");
+                        setReportError(null);
                         setReportTarget(candidate);
                       }}
                       onViewProfile={() => setViewedCandidate(candidate)}
@@ -537,13 +571,35 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
                 </p>
               </div>
             </div>
-            <textarea
-              className="mt-4 min-h-28 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-              placeholder="Reason for report"
+            <select
+              className="mt-4 h-11 w-full rounded-full border border-black/[0.08] bg-white px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
               value={reportReason}
-              onChange={(event) => setReportReason(event.target.value)}
+              onChange={(event) => {
+                setReportReason(event.target.value);
+                setReportError(null);
+              }}
+              required
+              disabled={actionTargetId === reportTarget.id}
+            >
+              <option value="">Choose a violation</option>
+              {REPORT_REASON_OPTIONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {reason}
+                </option>
+              ))}
+            </select>
+            <textarea
+              className="mt-3 min-h-24 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              placeholder="Optional details"
+              value={reportDetails}
+              onChange={(event) => {
+                setReportDetails(event.target.value);
+                setReportError(null);
+              }}
+              maxLength={REPORT_DETAILS_MAX_LENGTH}
               disabled={actionTargetId === reportTarget.id}
             />
+            {reportError ? <p className="mt-2 text-xs font-medium text-red-600">{reportError}</p> : null}
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
                 className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
@@ -551,6 +607,8 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
                 onClick={() => {
                   setReportTarget(null);
                   setReportReason("");
+                  setReportDetails("");
+                  setReportError(null);
                 }}
                 disabled={actionTargetId === reportTarget.id}
               >
@@ -559,7 +617,7 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
               <button
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                 type="submit"
-                disabled={actionTargetId === reportTarget.id || reportReason.trim().length === 0}
+                disabled={actionTargetId === reportTarget.id || !reportReason}
               >
                 {actionTargetId === reportTarget.id ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
                 Send report

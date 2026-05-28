@@ -5,6 +5,11 @@ export type StreetzUser = {
   role: "ADMIN" | "USER";
   subscriptionStatus: "INACTIVE" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
   subscriptionEndsAt?: string | null;
+  accountStatus: AccountStatus;
+  suspendedUntil?: string | null;
+  deactivatedAt?: string | null;
+  deletedAt?: string | null;
+  moderationReason?: string | null;
 };
 
 export type AuthResponse = {
@@ -15,6 +20,8 @@ export type AuthResponse = {
 export type Gender = "WOMAN" | "MAN" | "NON_BINARY" | "PREFER_NOT_TO_SAY";
 export type ConnectionStatus = "MEET_NOW" | "FWB" | "JUST_FRIENDS" | "DATING";
 export type ReportStatus = "OPEN" | "REVIEWED" | "DISMISSED" | "ACTIONED";
+export type AccountStatus = "ACTIVE" | "DEACTIVATED" | "SUSPENDED" | "BANNED" | "DELETED";
+export type ModerationActionType = "SUSPEND" | "BAN" | "RESTORE" | "DELETE" | "DEACTIVATE" | "REACTIVATE";
 
 export type ProfilePhoto = {
   id: string;
@@ -51,6 +58,7 @@ export type StreetzProfile = {
 export type DiscoveryCandidate = {
   id: string;
   displayName: string;
+  accountStatus?: AccountStatus;
   age: number | null;
   bio: string | null;
   connectionStatus: ConnectionStatus | null;
@@ -60,11 +68,18 @@ export type DiscoveryCandidate = {
   photos: ProfilePhoto[];
 };
 
+export type BlockedAccount = DiscoveryCandidate & {
+  blockedAt: string;
+  blockReason: string | null;
+};
+
 export type DiscoveryMatch = {
   id: string;
   createdAt: string;
   user: DiscoveryCandidate;
 };
+
+export type MatchBlockStatus = "NONE" | "BLOCKED_BY_ME" | "BLOCKED_ME" | "MUTUAL";
 
 export type DirectMessage = {
   id: string;
@@ -79,6 +94,7 @@ export type DirectMessage = {
 export type MatchThread = DiscoveryMatch & {
   lastMessage: DirectMessage | null;
   unreadCount: number;
+  blockStatus: MatchBlockStatus;
 };
 
 export type ChatRoom = {
@@ -124,6 +140,7 @@ export type StreetzEvent = {
   description: string | null;
   coverImage: string | null;
   venue: string;
+  state: string | null;
   city: string;
   startsAt: string;
   endsAt: string | null;
@@ -165,9 +182,19 @@ export type AdminReportUser = {
   id: string;
   displayName: string;
   email: string;
+  subscriptionStatus: StreetzUser["subscriptionStatus"];
+  accountStatus: AccountStatus;
+  suspendedUntil: string | null;
+  deactivatedAt: string | null;
+  deletedAt: string | null;
+  moderationReason: string | null;
+  age: number | null;
+  bio: string | null;
   city: string | null;
   state: string | null;
   connectionStatus: ConnectionStatus | null;
+  interests: string[];
+  photos: ProfilePhoto[];
 };
 
 export type AdminReport = {
@@ -178,9 +205,7 @@ export type AdminReport = {
   createdAt: string;
   updatedAt: string;
   reporter: AdminReportUser;
-  reported: AdminReportUser & {
-    subscriptionStatus: StreetzUser["subscriptionStatus"];
-  };
+  reported: AdminReportUser;
 };
 
 export type RoomMessage = {
@@ -189,11 +214,19 @@ export type RoomMessage = {
   authorId: string;
   authorName: string;
   body: string;
-  deletedAt: string | null;
   createdAt: string;
 };
 
-export type TabKey = "discovery" | "matches" | "profile" | "notifications" | "rooms" | "events" | "admin" | "reports";
+export type TabKey =
+  | "discovery"
+  | "matches"
+  | "profile"
+  | "blockedAccounts"
+  | "notifications"
+  | "rooms"
+  | "events"
+  | "admin"
+  | "reports";
 export type DiscoveryActionName = "LIKE" | "PASS";
 export type ProfileGateState = "checking" | "required" | "ready";
 export type ProfileTabMode = "normal" | "setup";
@@ -263,6 +296,7 @@ export type NotificationFeedEvent = {
   description: string | null;
   coverImage: string | null;
   venue: string;
+  state: string | null;
   city: string;
   startsAt: string;
   endsAt: string | null;
@@ -278,6 +312,7 @@ export type NotificationFeedTicket = {
     id: string;
     title: string;
     venue: string;
+    state: string | null;
     city: string;
     startsAt: string;
   };
@@ -294,6 +329,7 @@ export type NotificationFeedEventAlert = {
   eventId: string;
   title: string;
   venue: string;
+  state: string | null;
   city: string;
   startsAt: string;
   updatedAt: string;

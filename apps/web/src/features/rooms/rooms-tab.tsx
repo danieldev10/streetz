@@ -42,6 +42,11 @@ const emptyRoomForm: RoomForm = {
   isActive: true,
 };
 
+const ROOM_NAME_MAX_LENGTH = 80;
+const ROOM_CATEGORY_MAX_LENGTH = 80;
+const ROOM_DESCRIPTION_MAX_LENGTH = 280;
+const ROOM_MESSAGE_MAX_LENGTH = 1000;
+
 function getRoomActivityTime(room: ChatRoom) {
   return Date.parse(room.updatedAt) || Date.parse(room.createdAt) || 0;
 }
@@ -431,13 +436,43 @@ export function RoomsTab({
       return;
     }
 
-    setIsSavingRoom(true);
     setNotice(null);
 
+    const name = roomForm.name.trim();
+    const category = roomForm.category.trim();
+    const description = roomForm.description.trim();
+
+    if (name.length < 2) {
+      setNotice("Room name must be at least 2 characters.");
+      return;
+    }
+
+    if (name.length > ROOM_NAME_MAX_LENGTH) {
+      setNotice(`Room name must be ${ROOM_NAME_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+
+    if (category.length < 2) {
+      setNotice("Room category must be at least 2 characters.");
+      return;
+    }
+
+    if (category.length > ROOM_CATEGORY_MAX_LENGTH) {
+      setNotice(`Room category must be ${ROOM_CATEGORY_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+
+    if (description.length > ROOM_DESCRIPTION_MAX_LENGTH) {
+      setNotice(`Room description must be ${ROOM_DESCRIPTION_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+
+    setIsSavingRoom(true);
+
     const payload = {
-      name: roomForm.name,
-      category: roomForm.category,
-      description: roomForm.description,
+      name,
+      category,
+      description,
       isActive: roomForm.isActive,
     };
 
@@ -628,7 +663,14 @@ export function RoomsTab({
       return;
     }
 
-    if (!selectedRoomId || !messageBody.trim()) {
+    const body = messageBody.trim();
+
+    if (!selectedRoomId || !body) {
+      return;
+    }
+
+    if (body.length > ROOM_MESSAGE_MAX_LENGTH) {
+      setNotice(`Messages must be ${ROOM_MESSAGE_MAX_LENGTH} characters or fewer.`);
       return;
     }
 
@@ -646,7 +688,7 @@ export function RoomsTab({
       "room-message:send",
       {
         roomId: selectedRoomId,
-        body: messageBody,
+        body,
       },
       (response: { ok?: boolean; message?: RoomMessage; error?: string }) => {
         setIsSendingMessage(false);
@@ -701,6 +743,8 @@ export function RoomsTab({
                 placeholder="Room name"
                 value={roomForm.name}
                 onChange={(event) => setRoomForm((current) => ({ ...current, name: event.target.value }))}
+                minLength={2}
+                maxLength={ROOM_NAME_MAX_LENGTH}
                 required
               />
               <input
@@ -708,6 +752,8 @@ export function RoomsTab({
                 placeholder="Category"
                 value={roomForm.category}
                 onChange={(event) => setRoomForm((current) => ({ ...current, category: event.target.value }))}
+                minLength={2}
+                maxLength={ROOM_CATEGORY_MAX_LENGTH}
                 required
               />
               <textarea
@@ -715,7 +761,7 @@ export function RoomsTab({
                 placeholder="Description"
                 value={roomForm.description}
                 onChange={(event) => setRoomForm((current) => ({ ...current, description: event.target.value }))}
-                maxLength={280}
+                maxLength={ROOM_DESCRIPTION_MAX_LENGTH}
               />
               <label className="flex items-center justify-between gap-3 rounded-[18px] bg-[#fafafa] px-4 py-3 text-sm font-medium">
                 Active room
@@ -853,6 +899,7 @@ export function RoomsTab({
                   placeholder="Write to the room"
                   value={messageBody}
                   onChange={(event) => setMessageBody(event.target.value)}
+                  maxLength={ROOM_MESSAGE_MAX_LENGTH}
                 />
                 <button
                   className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
@@ -929,11 +976,23 @@ export function RoomsTab({
     <section>
       <ScreenHeader
         eyebrow="Rooms"
-        title={isAdmin ? "Manage rooms." : ""}
+        title={isAdmin ? "" : ""}
         action={
-          <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
-            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
-            {socketStatus === "connected" ? "Live" : "Connecting"}
+          <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
+              <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+              {socketStatus === "connected" ? "Live" : "Connecting"}
+            </div>
+            {isAdmin ? (
+              <button
+                className="inline-flex h-9 items-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
+                type="button"
+                onClick={startCreateRoom}
+              >
+                <Plus className="size-3.5" aria-hidden="true" />
+                Create Room
+              </button>
+            ) : null}
           </div>
         }
       />
@@ -959,19 +1018,6 @@ export function RoomsTab({
         ) : null}
 
         {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
-
-        {isAdmin ? (
-          <div className="mb-4 flex items-center justify-end">
-            <button
-              className="inline-flex h-11 items-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white"
-              type="button"
-              onClick={startCreateRoom}
-            >
-              <Plus className="size-4" aria-hidden="true" />
-              Create Room
-            </button>
-          </div>
-        ) : null}
 
         {isLoadingRooms ? (
           <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5">

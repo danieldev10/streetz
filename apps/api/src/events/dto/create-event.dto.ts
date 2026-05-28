@@ -36,6 +36,12 @@ export class CreateEventDto {
   @MaxLength(120)
   venue: string;
 
+  @ApiProperty({ example: "Lagos" })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  state: string;
+
   @ApiProperty({ example: "Victoria Island" })
   @IsString()
   @MinLength(2)

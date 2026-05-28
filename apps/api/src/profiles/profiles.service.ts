@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import sharp = require("sharp");
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
+import { PROFILE_PHOTO_UPLOAD_MAX_BYTES, formatUploadLimit } from "../storage/upload-limits";
 import { CreateProfilePhotoDto } from "./dto/create-profile-photo.dto";
 import { PresignProfilePhotoDto } from "./dto/presign-profile-photo.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -134,9 +135,13 @@ export class ProfilesService {
       throw new BadRequestException("Only JPG, PNG, and WebP profile photos are supported.");
     }
 
+    if (dto.fileSizeBytes > PROFILE_PHOTO_UPLOAD_MAX_BYTES) {
+      throw new BadRequestException(`Profile photos must be ${formatUploadLimit(PROFILE_PHOTO_UPLOAD_MAX_BYTES)} or smaller after compression.`);
+    }
+
     const objectKey = `profiles/${userId}/${Date.now()}-${randomBytes(8).toString("hex")}.${extension}`;
     return {
-      uploadUrl: await this.storage.createUploadUrl(objectKey, dto.contentType, PHOTO_UPLOAD_EXPIRES_SECONDS),
+      uploadUrl: await this.storage.createUploadUrl(objectKey, dto.contentType, PHOTO_UPLOAD_EXPIRES_SECONDS, dto.fileSizeBytes),
       objectKey,
       publicUrl: this.storage.buildPublicUrl(objectKey),
       expiresInSeconds: PHOTO_UPLOAD_EXPIRES_SECONDS

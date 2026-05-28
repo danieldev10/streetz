@@ -1,15 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsIn, IsOptional, IsString, MaxLength } from "class-validator";
+import { REPORT_REASON_VALUES } from "../report-reasons";
 
 export class ReportUserDto {
   @ApiProperty({ example: "clxprofileuser123" })
   @IsString()
   targetUserId: string;
 
-  @ApiProperty({ example: "Suspicious profile" })
+  @ApiProperty({ enum: REPORT_REASON_VALUES, example: "Fake profile or impersonation" })
   @IsString()
-  @MinLength(3)
-  @MaxLength(120)
+  @IsIn([...REPORT_REASON_VALUES])
   reason: string;
 
   @ApiPropertyOptional({ example: "They asked to move payment outside the platform." })

@@ -2,21 +2,29 @@
 
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Camera, Heart, LoaderCircle, MapPin, Power, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, Camera, Heart, LoaderCircle, MapPin, Power, Trash2, UserRound, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { useSession } from "@/components/app/session-provider";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
+import { PROFILE_PHOTO_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
+import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
 import {
   PROFILE_PHOTO_LIMIT,
   connectionStatusOptions,
   formatConnectionStatus,
   formatProfileSetupIssues,
+  getAdultBirthDateMaxValue,
   getAgeFromBirthDate,
+  getBirthDateValidationMessage,
   getProfileSetupIssues,
   getProfileSetupIssuesFromForm,
   isProfileReadyForDiscovery,
 } from "@/lib/profile";
 import type { ConnectionStatus, Gender, ProfilePhoto, ProfileTabMode, StreetzProfile, StreetzUser } from "@/lib/types";
+
+const SUPPORTED_PROFILE_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 export function ProfileTab({
   token,
@@ -31,6 +39,7 @@ export function ProfileTab({
   setupNotice?: string | null;
   onProfileReady?: (profile: StreetzProfile) => void;
 }) {
+  const { updateSessionUser, logout } = useSession();
   const isSetupMode = mode === "setup";
   const [profile, setProfile] = useState<StreetzProfile | null>(null);
   const [profileView, setProfileView] = useState<"overview" | "edit" | "preview">(
@@ -41,6 +50,10 @@ export function ProfileTab({
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [uploadingPhotoSlot, setUploadingPhotoSlot] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isSubmittingAccountAction, setIsSubmittingAccountAction] = useState(false);
+  const [isDeactivateConfirmOpen, setIsDeactivateConfirmOpen] = useState(false);
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
   const [profileForm, setProfileForm] = useState({
     bio: "",
     birthDate: "",
@@ -61,8 +74,16 @@ export function ProfileTab({
   const canDeleteProfilePhoto = visibleProfilePhotos.length > 1;
   const nextAvailablePhotoSlot = Math.min(visibleProfilePhotos.length, PROFILE_PHOTO_LIMIT - 1);
   const profileAge = getAgeFromBirthDate(profileForm.birthDate);
+  const adultBirthDateMax = getAdultBirthDateMaxValue();
   const profileLocation = [profileForm.city, profileForm.state].filter(Boolean).join(", ") || "Nigeria";
   const profileStatusLabel = profileForm.connectionStatus ? formatConnectionStatus(profileForm.connectionStatus) : "Set status";
+  const stateOptions = profileForm.state && !nigeriaStateNames.includes(profileForm.state)
+    ? [...nigeriaStateNames, profileForm.state]
+    : nigeriaStateNames;
+  const knownCityOptions = getCitiesForState(profileForm.state);
+  const cityOptions = profileForm.city && !knownCityOptions.includes(profileForm.city)
+    ? [...knownCityOptions, profileForm.city]
+    : knownCityOptions;
   const previewInterests = profileForm.interests
     .split(",")
     .map((interest) => interest.trim())
@@ -145,6 +166,38 @@ export function ProfileTab({
     event.preventDefault();
     setNotice(null);
 
+    const birthDateMessage = getBirthDateValidationMessage(profileForm.birthDate, { required: isSetupMode });
+
+    if (birthDateMessage) {
+      setNotice(birthDateMessage);
+      return;
+    }
+
+    const interests = profileForm.interests
+      .split(",")
+      .map((interest) => interest.trim())
+      .filter(Boolean);
+
+    if (profileForm.bio.length > 500) {
+      setNotice("Bio must be 500 characters or fewer.");
+      return;
+    }
+
+    if (profileForm.city.length > 80 || profileForm.state.length > 80) {
+      setNotice("City and state must be 80 characters or fewer.");
+      return;
+    }
+
+    if (interests.length > 12) {
+      setNotice("You can add up to 12 interests.");
+      return;
+    }
+
+    if (interests.some((interest) => interest.length > 32)) {
+      setNotice("Each interest must be 32 characters or fewer.");
+      return;
+    }
+
     if (isSetupMode) {
       const setupIssues = getProfileSetupIssuesFromForm(profileForm, visibleProfilePhotos.length);
 
@@ -167,10 +220,7 @@ export function ProfileTab({
           connectionStatus: profileForm.connectionStatus || undefined,
           city: profileForm.city,
           state: profileForm.state,
-          interests: profileForm.interests
-            .split(",")
-            .map((interest) => interest.trim())
-            .filter(Boolean),
+          interests,
         }),
       });
 
@@ -217,10 +267,32 @@ export function ProfileTab({
       return;
     }
 
+    if (!SUPPORTED_PROFILE_PHOTO_TYPES.includes(file.type as (typeof SUPPORTED_PROFILE_PHOTO_TYPES)[number])) {
+      setNotice("Only JPG, PNG, and WebP profile photos are supported.");
+      input.value = "";
+      return;
+    }
+
+    if (file.name.length > 160) {
+      setNotice("Photo file name must be 160 characters or fewer.");
+      input.value = "";
+      return;
+    }
+
     setUploadingPhotoSlot(sortOrder);
     setNotice(null);
 
     try {
+      const uploadFile = await prepareImageForUpload(file, {
+        maxBytes: PROFILE_PHOTO_UPLOAD_MAX_BYTES,
+        maxDimension: 1600,
+        quality: 0.84,
+      });
+
+      if (uploadFile.name.length > 160) {
+        throw new Error("Photo file name must be 160 characters or fewer.");
+      }
+
       const upload = await apiRequest<{
         uploadUrl: string;
         objectKey: string;
@@ -228,17 +300,18 @@ export function ProfileTab({
         method: "POST",
         headers: authHeaders(token),
         body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
+          fileName: uploadFile.name,
+          contentType: uploadFile.type,
+          fileSizeBytes: uploadFile.size,
         }),
       });
 
       const uploadResponse = await fetch(upload.uploadUrl, {
         method: "PUT",
         headers: {
-          "Content-Type": file.type,
+          "Content-Type": uploadFile.type,
         },
-        body: file,
+        body: uploadFile,
       });
 
       if (!uploadResponse.ok) {
@@ -323,6 +396,54 @@ export function ProfileTab({
 
     setProfileView("overview");
     setNotice(null);
+  }
+
+  async function deactivateAccount() {
+    setIsSubmittingAccountAction(true);
+    setNotice(null);
+
+    try {
+      const nextUser = await apiRequest<StreetzUser>("/auth/account/deactivate", {
+        method: "POST",
+        headers: authHeaders(token),
+      });
+
+      updateSessionUser(() => nextUser);
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    } finally {
+      setIsSubmittingAccountAction(false);
+    }
+  }
+
+  async function deleteAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (deleteAccountPassword.length < PASSWORD_MIN_LENGTH) {
+      setNotice("Enter your password to delete your account.");
+      return;
+    }
+
+    if (deleteAccountPassword.length > PASSWORD_MAX_LENGTH) {
+      setNotice(`Password must be ${PASSWORD_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+
+    setIsSubmittingAccountAction(true);
+    setNotice(null);
+
+    try {
+      await apiRequest<{ deleted: boolean }>("/auth/account/delete", {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ password: deleteAccountPassword }),
+      });
+      logout();
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    } finally {
+      setIsSubmittingAccountAction(false);
+    }
   }
 
   return (
@@ -430,7 +551,7 @@ export function ProfileTab({
                                 <input
                                   className="sr-only"
                                   type="file"
-                                  accept="image/jpeg,image/png,image/webp"
+                                  accept={SUPPORTED_PROFILE_PHOTO_TYPES.join(",")}
                                   onChange={(event) => uploadProfilePhoto(event, index, { replacePhotoId: photo.id })}
                                   disabled={isUploadingPhoto}
                                 />
@@ -460,7 +581,7 @@ export function ProfileTab({
                               <input
                                 className="sr-only"
                                 type="file"
-                                accept="image/jpeg,image/png,image/webp"
+                                accept={SUPPORTED_PROFILE_PHOTO_TYPES.join(",")}
                                 onChange={(event) => uploadProfilePhoto(event, index)}
                                 disabled={isUploadingPhoto}
                               />
@@ -530,6 +651,7 @@ export function ProfileTab({
                         <input
                           className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                           type="date"
+                          max={adultBirthDateMax}
                           value={profileForm.birthDate}
                           onChange={(event) => setProfileForm((current) => ({ ...current, birthDate: event.target.value }))}
                           required={isSetupMode}
@@ -551,24 +673,47 @@ export function ProfileTab({
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                        City
-                        <input
+                        State
+                        <select
                           className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                          placeholder="e.g. Lagos"
-                          value={profileForm.city}
-                          onChange={(event) => setProfileForm((current) => ({ ...current, city: event.target.value }))}
+                          value={profileForm.state}
+                          onChange={(event) =>
+                            setProfileForm((current) => ({
+                              ...current,
+                              state: event.target.value,
+                              city: "",
+                            }))
+                          }
                           required={isSetupMode}
-                        />
+                        >
+                          <option value="" disabled>
+                            Choose state
+                          </option>
+                          {stateOptions.map((state) => (
+                            <option key={state} value={state}>
+                              {state}
+                            </option>
+                          ))}
+                        </select>
                       </label>
                       <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                        State
-                        <input
+                        City
+                        <select
                           className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                          placeholder="e.g. Lagos"
-                          value={profileForm.state}
-                          onChange={(event) => setProfileForm((current) => ({ ...current, state: event.target.value }))}
+                          value={profileForm.city}
+                          onChange={(event) => setProfileForm((current) => ({ ...current, city: event.target.value }))}
+                          disabled={!profileForm.state}
                           required={isSetupMode}
-                        />
+                        >
+                          <option value="" disabled>
+                            {profileForm.state ? "Choose city" : "Choose state first"}
+                          </option>
+                          {cityOptions.map((city) => (
+                            <option key={city} value={city}>
+                              {city}
+                            </option>
+                          ))}
+                        </select>
                       </label>
                     </div>
                     <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
@@ -578,6 +723,7 @@ export function ProfileTab({
                         placeholder="e.g. Fashion, Music, Travel"
                         value={profileForm.interests}
                         onChange={(event) => setProfileForm((current) => ({ ...current, interests: event.target.value }))}
+                        maxLength={430}
                         required={isSetupMode}
                       />
                     </label>
@@ -755,22 +901,100 @@ export function ProfileTab({
                     Edit Profile
                   </button>
                   <button
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-5 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-55"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-5 text-sm font-medium text-[#0d0d0d]"
                     type="button"
-                    disabled
+                    onClick={() => setIsDeactivateConfirmOpen(true)}
                   >
                     <Power className="size-4" aria-hidden="true" />
                     Deactivate Profile
                   </button>
-                  <button
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-red-200 bg-white px-5 text-sm font-medium text-red-600 disabled:cursor-not-allowed disabled:opacity-55"
-                    type="button"
-                    disabled
-                  >
-                    <Trash2 className="size-4" aria-hidden="true" />
-                    Delete Profile
-                  </button>
+                  {isDeleteAccountOpen ? (
+                    <form onSubmit={deleteAccount} className="grid gap-3 rounded-[20px] border border-red-200 p-4">
+                      <label className="grid gap-2 text-sm font-medium">
+                        Password
+                        <input
+                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
+                          type="password"
+                          value={deleteAccountPassword}
+                          onChange={(event) => setDeleteAccountPassword(event.target.value)}
+                          minLength={PASSWORD_MIN_LENGTH}
+                          maxLength={PASSWORD_MAX_LENGTH}
+                          required
+                        />
+                      </label>
+                      <button
+                        className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-red-600 px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-55"
+                        type="submit"
+                        disabled={isSubmittingAccountAction}
+                      >
+                        {isSubmittingAccountAction ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Trash2 className="size-4" aria-hidden="true" />}
+                        Delete Profile
+                      </button>
+                    </form>
+                  ) : (
+                    <button
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-red-200 bg-white px-5 text-sm font-medium text-red-600"
+                      type="button"
+                      onClick={() => setIsDeleteAccountOpen(true)}
+                    >
+                      <Trash2 className="size-4" aria-hidden="true" />
+                      Delete Profile
+                    </button>
+                  )}
                 </div>
+
+                {isDeactivateConfirmOpen ? (
+                  <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5" role="presentation">
+                    <section
+                      className="w-full max-w-sm rounded-[24px] bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="deactivate-confirm-title"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h2 id="deactivate-confirm-title" className="text-xl font-semibold">
+                            Deactivate profile?
+                          </h2>
+                          <p className="mt-2 text-sm leading-6 text-[#666666]">
+                            Your profile will be hidden from discovery and you will be logged out. You can reactivate anytime by logging back in.
+                          </p>
+                        </div>
+                        <button
+                          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
+                          type="button"
+                          onClick={() => setIsDeactivateConfirmOpen(false)}
+                          disabled={isSubmittingAccountAction}
+                          aria-label="Close"
+                          title="Close"
+                        >
+                          <X className="size-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                      <div className="mt-5 grid grid-cols-2 gap-3">
+                        <button
+                          className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                          type="button"
+                          onClick={() => setIsDeactivateConfirmOpen(false)}
+                          disabled={isSubmittingAccountAction}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          type="button"
+                          onClick={() => {
+                            void deactivateAccount().then(() => setIsDeactivateConfirmOpen(false));
+                          }}
+                          disabled={isSubmittingAccountAction}
+                        >
+                          {isSubmittingAccountAction ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+                          Deactivate
+                        </button>
+                      </div>
+                    </section>
+                  </div>
+                ) : null}
               </>
             )}
           </div>

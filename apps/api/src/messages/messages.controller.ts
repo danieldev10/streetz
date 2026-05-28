@@ -28,6 +28,14 @@ export class MessagesController {
     return this.messagesService.getMessages(user.id, matchId);
   }
 
+  @Post(":matchId/unmatch")
+  async unmatch(@CurrentUser() user: AuthUser, @Param("matchId") matchId: string) {
+    const result = await this.messagesService.unmatch(user.id, matchId);
+    await this.messagesGateway.emitMatchUnmatched(matchId, user.id);
+
+    return result;
+  }
+
   @Post(":matchId/messages")
   async sendMessage(
     @CurrentUser() user: AuthUser,

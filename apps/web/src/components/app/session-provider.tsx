@@ -3,8 +3,16 @@
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TOKEN_KEY, UNAUTHORIZED_EVENT, apiRequest, authHeaders } from "@/lib/api";
-import type { StreetzUser } from "@/lib/types";
+import {
+  AUTH_REFRESHED_EVENT,
+  TOKEN_KEY,
+  UNAUTHORIZED_EVENT,
+  apiRequest,
+  authHeaders,
+  refreshAccessToken,
+  revokeRefreshSession,
+} from "@/lib/api";
+import type { AuthResponse, StreetzUser } from "@/lib/types";
 
 type VerifiedSession = {
   token: string;
@@ -46,8 +54,9 @@ async function verifyToken(token: string, options: { force?: boolean } = {}) {
     headers: authHeaders(token),
   })
     .then((user) => {
+      const currentToken = typeof window !== "undefined" ? window.localStorage.getItem(TOKEN_KEY) ?? token : token;
       cachedSession = {
-        token,
+        token: currentToken,
         user,
         verifiedAt: Date.now(),
       };
@@ -74,27 +83,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<VerifiedSession | null>(() => cachedSession);
   const sessionRef = useRef<VerifiedSession | null>(cachedSession);
 
-  const clearSession = useCallback(
-    (options: { redirect?: boolean } = {}) => {
-      cachedSession = null;
-      pendingVerification = null;
-      sessionRef.current = null;
-
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem(TOKEN_KEY);
-      }
-
-      setSessionState(null);
-      setStatus("unauthenticated");
-
-      if (options.redirect !== false) {
-        router.replace("/");
-      }
-    },
-    [router]
-  );
-
-  const setSession = useCallback((token: string, user: StreetzUser) => {
+  const applySession = useCallback((token: string, user: StreetzUser) => {
     const nextSession = {
       token,
       user,
@@ -110,7 +99,37 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     setSessionState(nextSession);
     setStatus("authenticated");
+
+    return nextSession;
   }, []);
+
+  const clearSession = useCallback(
+    (options: { redirect?: boolean; revoke?: boolean } = {}) => {
+      cachedSession = null;
+      pendingVerification = null;
+      sessionRef.current = null;
+
+      if (typeof window !== "undefined") {
+        if (options.revoke !== false) {
+          void revokeRefreshSession();
+        }
+
+        window.localStorage.removeItem(TOKEN_KEY);
+      }
+
+      setSessionState(null);
+      setStatus("unauthenticated");
+
+      if (options.redirect !== false) {
+        router.replace("/");
+      }
+    },
+    [router]
+  );
+
+  const setSession = useCallback((token: string, user: StreetzUser) => {
+    applySession(token, user);
+  }, [applySession]);
 
   const refreshSession = useCallback(async (options: { force?: boolean } = {}) => {
     if (typeof window === "undefined") {
@@ -120,8 +139,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const savedToken = window.localStorage.getItem(TOKEN_KEY);
 
     if (!savedToken) {
-      clearSession({ redirect: false });
-      return null;
+      try {
+        const refreshedAuth = await refreshAccessToken();
+        return applySession(refreshedAuth.accessToken, refreshedAuth.user);
+      } catch {
+        clearSession({ redirect: false, revoke: false });
+        return null;
+      }
     }
 
     try {
@@ -131,10 +155,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setStatus("authenticated");
       return nextSession;
     } catch {
-      clearSession();
+      clearSession({ revoke: false });
       return null;
     }
-  }, [clearSession]);
+  }, [applySession, clearSession]);
 
   const updateSessionUser = useCallback((updater: (user: StreetzUser) => StreetzUser) => {
     setSessionState((current) => {
@@ -162,11 +186,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const savedToken = window.localStorage.getItem(TOKEN_KEY);
 
       if (!savedToken) {
-        if (!cancelled) {
-          cachedSession = null;
-          sessionRef.current = null;
-          setSessionState(null);
-          setStatus("unauthenticated");
+        try {
+          const refreshedAuth = await refreshAccessToken();
+
+          if (!cancelled) {
+            applySession(refreshedAuth.accessToken, refreshedAuth.user);
+          }
+        } catch {
+          if (!cancelled) {
+            cachedSession = null;
+            sessionRef.current = null;
+            setSessionState(null);
+            setStatus("unauthenticated");
+          }
         }
         return;
       }
@@ -190,7 +222,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         if (!cancelled) {
-          clearSession();
+          clearSession({ revoke: false });
         }
       }
     }
@@ -200,11 +232,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [clearSession]);
+  }, [applySession, clearSession]);
 
   useEffect(() => {
     function handleUnauthorized() {
       clearSession();
+    }
+
+    function handleAuthRefreshed(event: Event) {
+      const auth = (event as CustomEvent<AuthResponse>).detail;
+
+      if (auth?.accessToken && auth.user) {
+        applySession(auth.accessToken, auth.user);
+      }
     }
 
     function handleStorage(event: StorageEvent) {
@@ -224,13 +264,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    window.addEventListener(AUTH_REFRESHED_EVENT, handleAuthRefreshed);
     window.addEventListener("storage", handleStorage);
 
     return () => {
       window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+      window.removeEventListener(AUTH_REFRESHED_EVENT, handleAuthRefreshed);
       window.removeEventListener("storage", handleStorage);
     };
-  }, [clearSession, refreshSession]);
+  }, [applySession, clearSession, refreshSession]);
 
   const value = useMemo<SessionContextValue>(
     () => ({

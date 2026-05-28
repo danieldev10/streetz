@@ -1,5 +1,6 @@
 import { Body, Controller, Headers, HttpCode, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthUser } from "../auth/types/auth-user";
@@ -17,6 +18,7 @@ export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(JwtAuthGuard)
   @Post("subscription/initialize")
   initializeSubscription(@CurrentUser() user: AuthUser) {
@@ -31,6 +33,7 @@ export class PaymentsController {
   }
 
   @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(JwtAuthGuard)
   @Post("events/:eventId/ticket/initialize")
   initializeEventTicket(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {

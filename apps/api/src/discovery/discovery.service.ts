@@ -1,10 +1,13 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { ConnectionStatus, DiscoveryAction, MatchStatus, SubscriptionStatus, UserRole } from "@prisma/client";
+import { AccountStatus, ConnectionStatus, DiscoveryAction, MatchStatus, ReportStatus, SubscriptionStatus, UserRole } from "@prisma/client";
+import { calculateAge } from "../common/age";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
+import { getAccountAccessBlock } from "../users/account-status";
 import { BlockUserDto } from "./dto/block-user.dto";
 import { DiscoveryActionDto } from "./dto/discovery-action.dto";
 import { ReportUserDto } from "./dto/report-user.dto";
+import { UnblockUserDto } from "./dto/unblock-user.dto";
 
 const DEFAULT_CANDIDATE_LIMIT = 12;
 
@@ -62,6 +65,7 @@ export class DiscoveryService {
     const candidates = await this.prisma.user.findMany({
       where: {
         id: { notIn: Array.from(excludedIds) },
+        accountStatus: AccountStatus.ACTIVE,
         role: UserRole.USER,
         subscriptionStatus: SubscriptionStatus.ACTIVE,
         subscriptionEndsAt: { gt: now },
@@ -72,6 +76,7 @@ export class DiscoveryService {
             city: { not: null },
             state: { not: null },
             connectionStatus: currentProfile.connectionStatus,
+            discoveryLive: true,
             interests: { isEmpty: false }
           }
         },
@@ -189,7 +194,11 @@ export class DiscoveryService {
     const matches = await this.prisma.match.findMany({
       where: {
         status: MatchStatus.ACTIVE,
-        OR: [{ userAId: userId }, { userBId: userId }]
+        OR: [{ userAId: userId }, { userBId: userId }],
+        AND: [
+          { userA: { accountStatus: { not: AccountStatus.DELETED } } },
+          { userB: { accountStatus: { not: AccountStatus.DELETED } } }
+        ]
       },
       include: {
         userA: {
@@ -219,6 +228,34 @@ export class DiscoveryService {
     };
   }
 
+  async getBlockedUsers(userId: string) {
+    const blocks = await this.prisma.userBlock.findMany({
+      where: { blockerId: userId },
+      include: {
+        blocked: {
+          include: {
+            profile: true,
+            photos: {
+              orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+              take: 1
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return {
+      blockedUsers: await Promise.all(
+        blocks.map(async (block) => ({
+          ...(await this.formatCandidate(block.blocked)),
+          blockedAt: block.createdAt,
+          blockReason: block.reason
+        }))
+      )
+    };
+  }
+
   async blockUser(userId: string, dto: BlockUserDto) {
     this.ensureDifferentUsers(userId, dto.targetUserId);
     await this.ensureUserExists(dto.targetUserId);
@@ -241,7 +278,10 @@ export class DiscoveryService {
     });
 
     await this.prisma.match.updateMany({
-      where: this.getMatchPair(userId, dto.targetUserId),
+      where: {
+        ...this.getMatchPair(userId, dto.targetUserId),
+        status: MatchStatus.ACTIVE
+      },
       data: { status: MatchStatus.BLOCKED }
     });
 
@@ -251,9 +291,73 @@ export class DiscoveryService {
     };
   }
 
+  async unblockUser(userId: string, dto: UnblockUserDto) {
+    this.ensureDifferentUsers(userId, dto.targetUserId);
+    const pair = this.getMatchPair(userId, dto.targetUserId);
+
+    const result = await this.prisma.$transaction(async (transaction) => {
+      const deleted = await transaction.userBlock.deleteMany({
+        where: {
+          blockerId: userId,
+          blockedId: dto.targetUserId
+        }
+      });
+
+      if (deleted.count === 0) {
+        throw new NotFoundException("Blocked account not found.");
+      }
+
+      const reciprocalBlock = await transaction.userBlock.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: dto.targetUserId,
+            blockedId: userId
+          }
+        },
+        select: { id: true }
+      });
+
+      if (reciprocalBlock) {
+        return { matchRestored: false };
+      }
+
+      const restored = await transaction.match.updateMany({
+        where: {
+          ...pair,
+          status: MatchStatus.BLOCKED
+        },
+        data: { status: MatchStatus.ACTIVE }
+      });
+
+      return {
+        matchRestored: restored.count > 0
+      };
+    });
+
+    return {
+      unblocked: true,
+      ...result
+    };
+  }
+
   async reportUser(userId: string, dto: ReportUserDto) {
     this.ensureDifferentUsers(userId, dto.targetUserId);
     await this.ensureUserExists(dto.targetUserId);
+
+    const existingOpenReport = await this.prisma.userReport.findFirst({
+      where: {
+        reporterId: userId,
+        reportedId: dto.targetUserId,
+        status: ReportStatus.OPEN
+      }
+    });
+
+    if (existingOpenReport) {
+      return {
+        reported: true,
+        report: existingOpenReport
+      };
+    }
 
     const report = await this.prisma.userReport.create({
       data: {
@@ -276,6 +380,7 @@ export class DiscoveryService {
     const target = await this.prisma.user.findFirst({
       where: {
         id: targetUserId,
+        accountStatus: AccountStatus.ACTIVE,
         role: UserRole.USER,
         subscriptionStatus: SubscriptionStatus.ACTIVE,
         subscriptionEndsAt: { gt: new Date() },
@@ -286,6 +391,7 @@ export class DiscoveryService {
             city: { not: null },
             state: { not: null },
             connectionStatus,
+            discoveryLive: true,
             interests: { isEmpty: false }
           }
         },
@@ -317,6 +423,8 @@ export class DiscoveryService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
+        accountStatus: true,
+        suspendedUntil: true,
         profile: {
           select: {
             bio: true,
@@ -333,6 +441,14 @@ export class DiscoveryService {
         }
       }
     });
+
+    if (user) {
+      const accountBlock = getAccountAccessBlock(user);
+
+      if (accountBlock) {
+        throw new ForbiddenException(accountBlock);
+      }
+    }
 
     const profile = user?.profile;
     const connectionStatus = profile?.connectionStatus;
@@ -363,10 +479,10 @@ export class DiscoveryService {
   private async ensureUserExists(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true }
+      select: { id: true, accountStatus: true }
     });
 
-    if (!user) {
+    if (!user || user.accountStatus === AccountStatus.DELETED) {
       throw new NotFoundException("User not found.");
     }
   }
@@ -383,6 +499,7 @@ export class DiscoveryService {
   private async formatCandidate(candidate: {
     id: string;
     displayName: string;
+    accountStatus?: AccountStatus;
     profile: {
       bio: string | null;
       birthDate: Date | null;
@@ -407,7 +524,8 @@ export class DiscoveryService {
     return {
       id: candidate.id,
       displayName: candidate.displayName,
-      age: candidate.profile?.birthDate ? this.calculateAge(candidate.profile.birthDate) : null,
+      accountStatus: candidate.accountStatus ?? AccountStatus.ACTIVE,
+      age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,
       connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
@@ -436,15 +554,4 @@ export class DiscoveryService {
     };
   }
 
-  private calculateAge(birthDate: Date) {
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDelta = today.getMonth() - birthDate.getMonth();
-
-    if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
-      age -= 1;
-    }
-
-    return age;
-  }
 }

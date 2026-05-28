@@ -1,13 +1,16 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { ConnectionStatus, MatchStatus, SubscriptionStatus } from "@prisma/client";
+import { AccountStatus, ConnectionStatus, MatchStatus, SubscriptionStatus } from "@prisma/client";
+import { calculateAge } from "../common/age";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
+import { getAccountAccessBlock } from "../users/account-status";
 
 const MESSAGE_HISTORY_LIMIT = 100;
 
 type CandidateUser = {
   id: string;
   displayName: string;
+  accountStatus: AccountStatus;
   profile: {
     bio: string | null;
     birthDate: Date | null;
@@ -33,6 +36,7 @@ type CandidateUser = {
 type MatchWithUsers = {
   id: string;
   createdAt: Date;
+  status: MatchStatus;
   userAId: string;
   userBId: string;
   userA: CandidateUser;
@@ -61,6 +65,8 @@ type DirectMessageReadReceipt = {
   readAt: Date;
 };
 
+type MatchBlockStatus = "NONE" | "BLOCKED_BY_ME" | "BLOCKED_ME" | "MUTUAL";
+
 @Injectable()
 export class MessagesService {
   constructor(
@@ -73,7 +79,7 @@ export class MessagesService {
 
     const matches = await this.prisma.match.findMany({
       where: {
-        status: MatchStatus.ACTIVE,
+        status: { in: [MatchStatus.ACTIVE, MatchStatus.BLOCKED] },
         OR: [{ userAId: userId }, { userBId: userId }]
       },
       include: {
@@ -100,9 +106,27 @@ export class MessagesService {
       orderBy: { createdAt: "desc" }
     });
     const sortedMatches = [...matches].sort((first, second) => this.getMatchActivityTime(second) - this.getMatchActivityTime(first));
+    const formattedMatches = await Promise.all(
+      sortedMatches.map(async (match) => {
+        const otherUser = match.userAId === userId ? match.userB : match.userA;
+
+        if (otherUser.accountStatus === AccountStatus.DELETED) {
+          return null;
+        }
+
+        const otherUserId = this.getOtherUserId(match, userId);
+        const blockStatus = await this.getMatchBlockStatus(userId, otherUserId);
+
+        if (match.status === MatchStatus.BLOCKED && blockStatus !== "BLOCKED_ME") {
+          return null;
+        }
+
+        return this.formatMatch(match, userId, blockStatus);
+      })
+    );
 
     return {
-      matches: await Promise.all(sortedMatches.map((match) => this.formatMatch(match, userId)))
+      matches: formattedMatches.filter((match): match is NonNullable<typeof match> => Boolean(match))
     };
   }
 
@@ -140,6 +164,8 @@ export class MessagesService {
       throw new BadRequestException("Message cannot be empty.");
     }
 
+    await this.assertMessageRecipientAvailable(userId, matchId);
+
     const message = await this.prisma.directMessage.create({
       data: {
         matchId,
@@ -173,13 +199,61 @@ export class MessagesService {
     };
   }
 
+  async unmatch(userId: string, matchId: string) {
+    await this.ensureActiveSubscriber(userId);
+
+    const match = await this.prisma.match.findFirst({
+      where: {
+        id: matchId,
+        status: MatchStatus.ACTIVE,
+        OR: [{ userAId: userId }, { userBId: userId }]
+      },
+      select: {
+        id: true,
+        userAId: true,
+        userBId: true
+      }
+    });
+
+    if (!match) {
+      throw new ForbiddenException("This match is not available to unmatch.");
+    }
+
+    const otherUserId = this.getOtherUserId(match, userId);
+
+    await this.prisma.$transaction([
+      this.prisma.match.update({
+        where: { id: matchId },
+        data: { status: MatchStatus.UNMATCHED }
+      }),
+      this.prisma.discoveryActionLog.deleteMany({
+        where: {
+          OR: [
+            { actorId: userId, targetId: otherUserId },
+            { actorId: otherUserId, targetId: userId }
+          ]
+        }
+      })
+    ]);
+
+    return {
+      unmatched: true,
+      matchId,
+      otherUserId
+    };
+  }
+
   async getUnreadDirectMessageCount(userId: string) {
     await this.ensureActiveSubscriber(userId);
 
     const matches = await this.prisma.match.findMany({
       where: {
         status: MatchStatus.ACTIVE,
-        OR: [{ userAId: userId }, { userBId: userId }]
+        OR: [{ userAId: userId }, { userBId: userId }],
+        AND: [
+          { userA: { accountStatus: { not: AccountStatus.DELETED } } },
+          { userB: { accountStatus: { not: AccountStatus.DELETED } } }
+        ]
       },
       select: {
         id: true,
@@ -216,7 +290,7 @@ export class MessagesService {
     const match = await this.prisma.match.findFirst({
       where: {
         id: matchId,
-        status: MatchStatus.ACTIVE,
+        status: { in: [MatchStatus.ACTIVE, MatchStatus.BLOCKED] },
         OR: [{ userAId: userId }, { userBId: userId }]
       },
       select: {
@@ -240,12 +314,20 @@ export class MessagesService {
       where: { id: userId },
       select: {
         subscriptionStatus: true,
-        subscriptionEndsAt: true
+        subscriptionEndsAt: true,
+        accountStatus: true,
+        suspendedUntil: true
       }
     });
 
     if (!user) {
       throw new NotFoundException("User not found.");
+    }
+
+    const accountBlock = getAccountAccessBlock(user);
+
+    if (accountBlock) {
+      throw new ForbiddenException(accountBlock);
     }
 
     const subscriptionEndsAt = user.subscriptionEndsAt;
@@ -259,18 +341,21 @@ export class MessagesService {
     }
   }
 
-  private async formatMatch(match: MatchWithUsers, currentUserId: string) {
+  private async formatMatch(match: MatchWithUsers, currentUserId: string, blockStatus: MatchBlockStatus = "NONE") {
     const otherUser = match.userAId === currentUserId ? match.userB : match.userA;
     const lastMessage = match.messages?.[0];
     const lastReadAt = match.readStates?.[0]?.lastReadAt ?? null;
-    const unreadCount = await this.countUnreadMessages(match.id, currentUserId, lastReadAt);
+    const unreadCount = match.status === MatchStatus.ACTIVE
+      ? await this.countUnreadMessages(match.id, currentUserId, lastReadAt)
+      : 0;
 
     return {
       id: match.id,
       createdAt: match.createdAt,
       user: await this.formatCandidate(otherUser),
       lastMessage: lastMessage ? this.formatMessage(lastMessage) : null,
-      unreadCount
+      unreadCount,
+      blockStatus
     };
   }
 
@@ -342,7 +427,8 @@ export class MessagesService {
     return {
       id: candidate.id,
       displayName: candidate.displayName,
-      age: candidate.profile?.birthDate ? this.calculateAge(candidate.profile.birthDate) : null,
+      accountStatus: candidate.accountStatus,
+      age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,
       connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
@@ -364,18 +450,6 @@ export class MessagesService {
     };
   }
 
-  private calculateAge(birthDate: Date) {
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDelta = today.getMonth() - birthDate.getMonth();
-
-    if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
-      age -= 1;
-    }
-
-    return age;
-  }
-
   private userInclude() {
     return {
       include: {
@@ -386,5 +460,90 @@ export class MessagesService {
         }
       }
     };
+  }
+
+  private async assertMessageRecipientAvailable(userId: string, matchId: string) {
+    const match = await this.prisma.match.findFirst({
+      where: {
+        id: matchId,
+        status: MatchStatus.ACTIVE,
+        OR: [{ userAId: userId }, { userBId: userId }]
+      },
+      include: {
+        userA: {
+          select: {
+            accountStatus: true,
+            suspendedUntil: true
+          }
+        },
+        userB: {
+          select: {
+            accountStatus: true,
+            suspendedUntil: true
+          }
+        }
+      }
+    });
+
+    if (!match) {
+      throw new ForbiddenException("This match is not available to you.");
+    }
+
+    const otherUserId = this.getOtherUserId(match, userId);
+    const blockStatus = await this.getMatchBlockStatus(userId, otherUserId);
+
+    if (blockStatus === "BLOCKED_ME") {
+      throw new ForbiddenException("This member has blocked you, so you cannot send messages.");
+    }
+
+    if (blockStatus === "BLOCKED_BY_ME") {
+      throw new ForbiddenException("Unblock this account before sending messages.");
+    }
+
+    if (blockStatus === "MUTUAL") {
+      throw new ForbiddenException("You cannot message this account while either account is blocked.");
+    }
+
+    const otherUser = match.userAId === userId ? match.userB : match.userA;
+    const accountBlock = getAccountAccessBlock(otherUser);
+
+    if (accountBlock) {
+      throw new ForbiddenException("This account is currently unavailable.");
+    }
+  }
+
+  private getOtherUserId(match: { userAId: string; userBId: string }, userId: string) {
+    return match.userAId === userId ? match.userBId : match.userAId;
+  }
+
+  private async getMatchBlockStatus(userId: string, otherUserId: string): Promise<MatchBlockStatus> {
+    const blocks = await this.prisma.userBlock.findMany({
+      where: {
+        OR: [
+          { blockerId: userId, blockedId: otherUserId },
+          { blockerId: otherUserId, blockedId: userId }
+        ]
+      },
+      select: {
+        blockerId: true,
+        blockedId: true
+      }
+    });
+    const blockedByMe = blocks.some((block) => block.blockerId === userId && block.blockedId === otherUserId);
+    const blockedMe = blocks.some((block) => block.blockerId === otherUserId && block.blockedId === userId);
+
+    if (blockedByMe && blockedMe) {
+      return "MUTUAL";
+    }
+
+    if (blockedByMe) {
+      return "BLOCKED_BY_ME";
+    }
+
+    if (blockedMe) {
+      return "BLOCKED_ME";
+    }
+
+    return "NONE";
   }
 }

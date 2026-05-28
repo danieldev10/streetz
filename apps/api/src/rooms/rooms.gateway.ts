@@ -28,12 +28,7 @@ type AuthenticatedSocket = Socket & {
   };
 };
 
-@WebSocketGateway({
-  cors: {
-    origin: true,
-    credentials: true
-  }
-})
+@WebSocketGateway()
 export class RoomsGateway implements OnGatewayConnection {
   @WebSocketServer()
   private readonly server: Server;
