@@ -9,6 +9,7 @@ import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import { PROFILE_PHOTO_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
+import { DEFAULT_DISCOVERY_DISTANCE_KM, getCurrentBrowserCoordinates, getLocationPermissionMessage } from "@/lib/location";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
 import {
   PROFILE_PHOTO_LIMIT,
@@ -49,6 +50,7 @@ export function ProfileTab({
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [uploadingPhotoSlot, setUploadingPhotoSlot] = useState<number | null>(null);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [isSubmittingAccountAction, setIsSubmittingAccountAction] = useState(false);
   const [isDeactivateConfirmOpen, setIsDeactivateConfirmOpen] = useState(false);
@@ -61,6 +63,11 @@ export function ProfileTab({
     connectionStatus: "" as ConnectionStatus | "",
     city: "",
     state: "",
+    latitude: null as number | null,
+    longitude: null as number | null,
+    locationAccuracyMeters: null as number | null,
+    locationUpdatedAt: null as string | null,
+    maxDistanceKm: DEFAULT_DISCOVERY_DISTANCE_KM,
     interests: "",
   });
 
@@ -76,6 +83,7 @@ export function ProfileTab({
   const profileAge = getAgeFromBirthDate(profileForm.birthDate);
   const adultBirthDateMax = getAdultBirthDateMaxValue();
   const profileLocation = [profileForm.city, profileForm.state].filter(Boolean).join(", ") || "Nigeria";
+  const hasGpsLocation = profileForm.latitude !== null && profileForm.longitude !== null;
   const profileStatusLabel = profileForm.connectionStatus ? formatConnectionStatus(profileForm.connectionStatus) : "Set status";
   const stateOptions = profileForm.state && !nigeriaStateNames.includes(profileForm.state)
     ? [...nigeriaStateNames, profileForm.state]
@@ -97,6 +105,11 @@ export function ProfileTab({
       connectionStatus: profileResponse.connectionStatus ?? "",
       city: profileResponse.city ?? "",
       state: profileResponse.state ?? "",
+      latitude: profileResponse.latitude ?? null,
+      longitude: profileResponse.longitude ?? null,
+      locationAccuracyMeters: profileResponse.locationAccuracyMeters ?? null,
+      locationUpdatedAt: profileResponse.locationUpdatedAt ?? null,
+      maxDistanceKm: profileResponse.maxDistanceKm ?? DEFAULT_DISCOVERY_DISTANCE_KM,
       interests: profileResponse.interests.join(", "),
     });
   }
@@ -210,6 +223,14 @@ export function ProfileTab({
     setIsSavingProfile(true);
 
     try {
+      const locationPayload =
+        profileForm.latitude !== null && profileForm.longitude !== null
+          ? {
+              latitude: profileForm.latitude,
+              longitude: profileForm.longitude,
+              locationAccuracyMeters: profileForm.locationAccuracyMeters ?? undefined,
+            }
+          : {};
       const savedProfile = await apiRequest<StreetzProfile>("/profiles/me", {
         method: "PUT",
         headers: authHeaders(token),
@@ -220,6 +241,8 @@ export function ProfileTab({
           connectionStatus: profileForm.connectionStatus || undefined,
           city: profileForm.city,
           state: profileForm.state,
+          ...locationPayload,
+          maxDistanceKm: profileForm.maxDistanceKm,
           interests,
         }),
       });
@@ -245,6 +268,28 @@ export function ProfileTab({
       setNotice(getUserErrorMessage(error));
     } finally {
       setIsSavingProfile(false);
+    }
+  }
+
+  async function detectProfileLocation() {
+    setIsDetectingLocation(true);
+    setNotice(null);
+
+    try {
+      const coordinates = await getCurrentBrowserCoordinates();
+
+      setProfileForm((current) => ({
+        ...current,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        locationAccuracyMeters: coordinates.accuracy,
+        locationUpdatedAt: new Date().toISOString(),
+      }));
+      setNotice("GPS location captured. Save your profile to use exact distance in Discovery.");
+    } catch (error) {
+      setNotice(getLocationPermissionMessage(error));
+    } finally {
+      setIsDetectingLocation(false);
     }
   }
 
@@ -715,6 +760,25 @@ export function ProfileTab({
                           ))}
                         </select>
                       </label>
+                    </div>
+                    <div className="rounded-[18px] border border-black/[0.06] bg-[#fafafa] p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-[#0d0d0d]">GPS distance</p>
+                          <p className="mt-1 text-xs font-medium text-[#666666]">
+                            {hasGpsLocation ? "Ready for exact distance" : "Optional for distance"}
+                          </p>
+                        </div>
+                        <button
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                          type="button"
+                          onClick={() => void detectProfileLocation()}
+                          disabled={isDetectingLocation || isSavingProfile}
+                        >
+                          {isDetectingLocation ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <MapPin className="size-4" aria-hidden="true" />}
+                          {hasGpsLocation ? "Update GPS" : "Use GPS"}
+                        </button>
+                      </div>
                     </div>
                     <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                       Interests

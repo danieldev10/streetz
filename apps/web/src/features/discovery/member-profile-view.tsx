@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ArrowLeft, Ban, ChevronLeft, ChevronRight, Flag, HeartOff, LoaderCircle, MapPin, X } from "lucide-react";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { formatDistanceKm } from "@/lib/location";
 import { formatConnectionStatus } from "@/lib/profile";
 import { REPORT_DETAILS_MAX_LENGTH, REPORT_REASON_OPTIONS } from "@/lib/report-reasons";
 import type { DiscoveryCandidate } from "@/lib/types";
@@ -45,6 +46,8 @@ export function MemberProfileView({
   const hasMultiplePhotos = photos.length > 1;
   const activePhoto = photos[activePhotoIndex];
   const location = [candidate.city, candidate.state].filter(Boolean).join(", ") || "Nigeria";
+  const distance = formatDistanceKm(candidate.distanceKm);
+  const locationLabel = distance ? `${location} · ${distance}` : location;
   const canUseSafetyActions = showSafetyActions && Boolean(token);
   const canUseUnmatchAction = canUseSafetyActions && showUnmatchAction && Boolean(onUnmatched);
 
@@ -225,10 +228,10 @@ export function MemberProfileView({
                   {candidate.displayName}
                   {candidate.age ? `, ${candidate.age}` : ""}
                 </h2>
-                <p className="mt-1 flex items-center gap-1 text-sm font-medium">
-                  <MapPin className="size-4" aria-hidden="true" />
-                  {location}
-                </p>
+	                <p className="mt-1 flex items-center gap-1 text-sm font-medium">
+	                  <MapPin className="size-4" aria-hidden="true" />
+	                  {locationLabel}
+	                </p>
               </div>
             </div>
 
@@ -247,10 +250,10 @@ export function MemberProfileView({
 
               <div className="mt-5">
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Location</p>
-                <p className="mt-2 flex items-center gap-1 text-sm font-medium text-[#444444]">
-                  <MapPin className="size-4 text-[#18E299]" aria-hidden="true" />
-                  {location}
-                </p>
+	                <p className="mt-2 flex items-center gap-1 text-sm font-medium text-[#444444]">
+	                  <MapPin className="size-4 text-[#18E299]" aria-hidden="true" />
+	                  {locationLabel}
+	                </p>
               </div>
 
               <div className="mt-5">

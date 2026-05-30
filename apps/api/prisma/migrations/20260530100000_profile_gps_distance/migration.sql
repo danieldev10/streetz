@@ -1,0 +1,8 @@
+ALTER TABLE "Profile"
+  ADD COLUMN IF NOT EXISTS "latitude" DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS "longitude" DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS "locationAccuracyMeters" DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS "locationUpdatedAt" TIMESTAMP(3),
+  ADD COLUMN IF NOT EXISTS "maxDistanceKm" INTEGER NOT NULL DEFAULT 50;
+
+CREATE INDEX IF NOT EXISTS "Profile_latitude_longitude_idx" ON "Profile"("latitude", "longitude");

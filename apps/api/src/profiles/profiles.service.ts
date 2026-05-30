@@ -10,6 +10,7 @@ import { UpdateProfileDto } from "./dto/update-profile.dto";
 
 const MAX_PROFILE_PHOTOS = 4;
 const PHOTO_UPLOAD_EXPIRES_SECONDS = 300;
+const DEFAULT_MAX_DISTANCE_KM = 50;
 
 const contentTypeExtensions: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -76,6 +77,11 @@ export class ProfilesService {
       connectionStatus: null,
       city: null,
       state: null,
+      latitude: null,
+      longitude: null,
+      locationAccuracyMeters: null,
+      locationUpdatedAt: null,
+      maxDistanceKm: DEFAULT_MAX_DISTANCE_KM,
       interests: [],
       discoveryLive: true,
       createdAt: null,
@@ -87,6 +93,8 @@ export class ProfilesService {
   async updateMyProfile(userId: string, dto: UpdateProfileDto) {
     const birthDate = dto.birthDate ? this.parseAdultBirthDate(dto.birthDate) : undefined;
     const interests = dto.interests ? this.cleanInterests(dto.interests) : undefined;
+    const locationUpdate = this.getLocationUpdate(dto);
+    const maxDistanceKm = this.cleanMaxDistance(dto.maxDistanceKm);
 
     const profile = await this.prisma.profile.upsert({
       where: { userId },
@@ -98,6 +106,8 @@ export class ProfilesService {
         connectionStatus: dto.connectionStatus,
         city: this.cleanNullableText(dto.city),
         state: this.cleanNullableText(dto.state),
+        ...locationUpdate,
+        ...(maxDistanceKm === undefined ? {} : { maxDistanceKm }),
         interests: interests ?? [],
         discoveryLive: true
       },
@@ -108,6 +118,8 @@ export class ProfilesService {
         connectionStatus: dto.connectionStatus,
         city: dto.city === undefined ? undefined : this.cleanNullableText(dto.city),
         state: dto.state === undefined ? undefined : this.cleanNullableText(dto.state),
+        ...locationUpdate,
+        ...(maxDistanceKm === undefined ? {} : { maxDistanceKm }),
         interests,
         discoveryLive: true
       },
@@ -257,6 +269,37 @@ export class ProfilesService {
     const trimmed = value.trim();
 
     return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private getLocationUpdate(dto: UpdateProfileDto) {
+    const { latitude, longitude } = dto;
+
+    if (latitude === undefined && longitude === undefined) {
+      return {};
+    }
+
+    if (latitude === undefined || longitude === undefined) {
+      throw new BadRequestException("Latitude and longitude must be saved together.");
+    }
+
+    return {
+      latitude,
+      longitude,
+      locationAccuracyMeters: dto.locationAccuracyMeters ?? null,
+      locationUpdatedAt: new Date()
+    };
+  }
+
+  private cleanMaxDistance(value: number | undefined) {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (!Number.isInteger(value) || value < 1 || value > 500) {
+      throw new BadRequestException("Max distance must be between 1km and 500km.");
+    }
+
+    return value;
   }
 
   private cleanInterests(interests: string[]) {

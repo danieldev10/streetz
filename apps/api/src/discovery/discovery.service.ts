@@ -10,6 +10,8 @@ import { ReportUserDto } from "./dto/report-user.dto";
 import { UnblockUserDto } from "./dto/unblock-user.dto";
 
 const DEFAULT_CANDIDATE_LIMIT = 12;
+const CANDIDATE_POOL_LIMIT = DEFAULT_CANDIDATE_LIMIT * 5;
+const EARTH_RADIUS_KM = 6371;
 
 @Injectable()
 export class DiscoveryService {
@@ -90,11 +92,41 @@ export class DiscoveryService {
         }
       },
       orderBy: { updatedAt: "desc" },
-      take: DEFAULT_CANDIDATE_LIMIT
+      take: currentProfile.latitude !== null && currentProfile.longitude !== null ? CANDIDATE_POOL_LIMIT : DEFAULT_CANDIDATE_LIMIT
     });
 
+    const rankedCandidates = candidates
+      .map((candidate) => ({
+        candidate,
+        distanceKm: this.calculateDistanceKm(currentProfile, candidate.profile)
+      }))
+      .filter(({ distanceKm }) => distanceKm === null || distanceKm <= currentProfile.maxDistanceKm)
+      .sort((left, right) => {
+        if (left.distanceKm !== null && right.distanceKm !== null) {
+          return left.distanceKm - right.distanceKm;
+        }
+
+        if (left.distanceKm !== null) {
+          return -1;
+        }
+
+        if (right.distanceKm !== null) {
+          return 1;
+        }
+
+        return right.candidate.updatedAt.getTime() - left.candidate.updatedAt.getTime();
+      })
+      .slice(0, DEFAULT_CANDIDATE_LIMIT);
+
     return {
-      candidates: await Promise.all(candidates.map((candidate) => this.formatCandidate(candidate)))
+      candidates: await Promise.all(
+        rankedCandidates.map(({ candidate, distanceKm }) => this.formatCandidate(candidate, { distanceKm }))
+      ),
+      location: {
+        hasCoordinates: currentProfile.latitude !== null && currentProfile.longitude !== null,
+        maxDistanceKm: currentProfile.maxDistanceKm,
+        locationUpdatedAt: currentProfile.locationUpdatedAt
+      }
     };
   }
 
@@ -432,6 +464,10 @@ export class DiscoveryService {
             connectionStatus: true,
             city: true,
             state: true,
+            latitude: true,
+            longitude: true,
+            locationUpdatedAt: true,
+            maxDistanceKm: true,
             interests: true
           }
         },
@@ -461,12 +497,16 @@ export class DiscoveryService {
       Boolean(profile?.interests.length) &&
       Boolean(user?.photos.length);
 
-    if (!isReady || !connectionStatus) {
+    if (!profile || !isReady || !connectionStatus) {
       throw new ForbiddenException("Complete your profile setup before using discovery.");
     }
 
     return {
-      connectionStatus
+      connectionStatus,
+      latitude: profile.latitude,
+      longitude: profile.longitude,
+      locationUpdatedAt: profile.locationUpdatedAt,
+      maxDistanceKm: profile.maxDistanceKm
     };
   }
 
@@ -496,6 +536,37 @@ export class DiscoveryService {
     };
   }
 
+  private calculateDistanceKm(
+    origin: { latitude: number | null; longitude: number | null },
+    target: { latitude?: number | null; longitude?: number | null } | null
+  ) {
+    if (
+      origin.latitude === null ||
+      origin.longitude === null ||
+      target?.latitude === null ||
+      target?.latitude === undefined ||
+      target.longitude === null ||
+      target.longitude === undefined
+    ) {
+      return null;
+    }
+
+    const latDistance = this.degreesToRadians(target.latitude - origin.latitude);
+    const lonDistance = this.degreesToRadians(target.longitude - origin.longitude);
+    const originLat = this.degreesToRadians(origin.latitude);
+    const targetLat = this.degreesToRadians(target.latitude);
+
+    const haversine =
+      Math.sin(latDistance / 2) * Math.sin(latDistance / 2) +
+      Math.cos(originLat) * Math.cos(targetLat) * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+
+    return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+  }
+
+  private degreesToRadians(value: number) {
+    return (value * Math.PI) / 180;
+  }
+
   private async formatCandidate(candidate: {
     id: string;
     displayName: string;
@@ -506,6 +577,8 @@ export class DiscoveryService {
       connectionStatus: ConnectionStatus | null;
       city: string | null;
       state: string | null;
+      latitude?: number | null;
+      longitude?: number | null;
       interests: string[];
     } | null;
     photos: Array<{
@@ -520,7 +593,7 @@ export class DiscoveryService {
       fullObjectKey?: string | null;
       sortOrder: number;
     }>;
-  }) {
+  }, options: { distanceKm?: number | null } = {}) {
     return {
       id: candidate.id,
       displayName: candidate.displayName,
@@ -530,6 +603,7 @@ export class DiscoveryService {
       connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
       state: candidate.profile?.state ?? null,
+      distanceKm: options.distanceKm === null || options.distanceKm === undefined ? null : Math.round(options.distanceKm * 10) / 10,
       interests: candidate.profile?.interests ?? [],
       photos: await this.storage.signPhotoUrls(candidate.photos)
     };

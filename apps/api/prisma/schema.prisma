@@ -163,21 +163,27 @@ model RefreshToken {
 }
 
 model Profile {
-  id               String            @id @default(cuid())
-  userId           String            @unique
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bio              String?
-  birthDate        DateTime?
-  gender           Gender?
-  connectionStatus ConnectionStatus?
-  city             String?
-  state            String?
-  interests        String[]          @default([])
-  discoveryLive    Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id                     String            @id @default(cuid())
+  userId                 String            @unique
+  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio                    String?
+  birthDate              DateTime?
+  gender                 Gender?
+  connectionStatus       ConnectionStatus?
+  city                   String?
+  state                  String?
+  latitude               Float?
+  longitude              Float?
+  locationAccuracyMeters Float?
+  locationUpdatedAt      DateTime?
+  maxDistanceKm          Int               @default(50)
+  interests              String[]          @default([])
+  discoveryLive          Boolean           @default(true)
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
 
   @@index([connectionStatus])
+  @@index([latitude, longitude])
 }
 
 model ProfilePhoto {

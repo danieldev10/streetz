@@ -45,6 +45,11 @@ export type StreetzProfile = {
   connectionStatus: ConnectionStatus | null;
   city: string | null;
   state: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationAccuracyMeters: number | null;
+  locationUpdatedAt: string | null;
+  maxDistanceKm: number;
   interests: string[];
   discoveryLive: boolean;
   user: {
@@ -64,6 +69,7 @@ export type DiscoveryCandidate = {
   connectionStatus: ConnectionStatus | null;
   city: string | null;
   state: string | null;
+  distanceKm?: number | null;
   interests: string[];
   photos: ProfilePhoto[];
 };

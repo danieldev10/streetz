@@ -1,13 +1,21 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
 import { ConnectionStatus, Gender } from "@prisma/client";
 import {
   ArrayMaxSize,
   IsArray,
   IsEnum,
   IsISO8601,
+  IsInt,
+  IsLatitude,
+  IsLongitude,
+  IsNumber,
   IsOptional,
   IsString,
-  MaxLength
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf
 } from "class-validator";
 
 export class UpdateProfileDto {
@@ -43,6 +51,34 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(80)
   state?: string;
+
+  @ApiPropertyOptional({ example: 6.5244 })
+  @ValidateIf((dto: UpdateProfileDto) => dto.latitude !== undefined || dto.longitude !== undefined)
+  @Type(() => Number)
+  @IsLatitude()
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 3.3792 })
+  @ValidateIf((dto: UpdateProfileDto) => dto.latitude !== undefined || dto.longitude !== undefined)
+  @Type(() => Number)
+  @IsLongitude()
+  longitude?: number;
+
+  @ApiPropertyOptional({ example: 35 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(10000)
+  locationAccuracyMeters?: number;
+
+  @ApiPropertyOptional({ example: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  maxDistanceKm?: number;
 
   @ApiPropertyOptional({ example: ["Live music", "Art", "Food"] })
   @IsOptional()

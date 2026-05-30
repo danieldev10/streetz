@@ -16,12 +16,38 @@ import {
   mergeCandidateDeck,
   preconnectCandidatePhotoOrigins,
 } from "@/lib/discovery";
+import {
+  DEFAULT_DISCOVERY_DISTANCE_KM,
+  DISCOVERY_DISTANCE_STEP_KM,
+  MAX_DISCOVERY_DISTANCE_KM,
+  MIN_DISCOVERY_DISTANCE_KM,
+  formatDistanceKm,
+  getCurrentBrowserCoordinates,
+  getLocationPermissionMessage,
+} from "@/lib/location";
 import { getCandidatePhotoUrl } from "@/lib/media";
 import { formatConnectionStatus } from "@/lib/profile";
 import { REPORT_DETAILS_MAX_LENGTH, REPORT_REASON_OPTIONS } from "@/lib/report-reasons";
-import type { DiscoveryActionName, DiscoveryCandidate } from "@/lib/types";
+import type { DiscoveryActionName, DiscoveryCandidate, StreetzProfile } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
+
+type DiscoveryLocationMeta = {
+  hasCoordinates: boolean;
+  maxDistanceKm: number;
+  locationUpdatedAt: string | null;
+};
+
+type DiscoveryResponse = {
+  candidates: DiscoveryCandidate[];
+  location?: DiscoveryLocationMeta;
+};
+
+const defaultDiscoveryLocation: DiscoveryLocationMeta = {
+  hasCoordinates: false,
+  maxDistanceKm: DEFAULT_DISCOVERY_DISTANCE_KM,
+  locationUpdatedAt: null,
+};
 
 export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatchCreated: () => void }) {
   const [candidates, setCandidates] = useState<DiscoveryCandidate[]>([]);
@@ -37,6 +63,11 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
   const [reportError, setReportError] = useState<string | null>(null);
+  const [locationMeta, setLocationMeta] = useState<DiscoveryLocationMeta>(defaultDiscoveryLocation);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [draftMaxDistanceKm, setDraftMaxDistanceKm] = useState(DEFAULT_DISCOVERY_DISTANCE_KM);
+  const [isSavingFilters, setIsSavingFilters] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDraggingCard, setIsDraggingCard] = useState(false);
   const swipeStartRef = useRef<{ x: number; y: number; candidateId: string; startedAt: number } | null>(null);
@@ -71,13 +102,16 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
     }
 
     try {
-      const candidatesResponse = await apiRequest<{ candidates: DiscoveryCandidate[] }>("/discovery/candidates", {
+      const candidatesResponse = await apiRequest<DiscoveryResponse>("/discovery/candidates", {
         headers: authHeaders(token),
       });
+      const nextLocationMeta = candidatesResponse.location ?? defaultDiscoveryLocation;
       const availableCandidates = candidatesResponse.candidates.filter(
         (candidate) => !dismissedCandidateIdsRef.current.has(candidate.id)
       );
 
+      setLocationMeta(nextLocationMeta);
+      setDraftMaxDistanceKm(nextLocationMeta.maxDistanceKm);
       preconnectCandidatePhotoOrigins(availableCandidates.slice(0, DISCOVERY_RENDERED_STACK_SIZE));
 
       setCandidates((current) =>
@@ -94,6 +128,65 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
         refillRequestRef.current = false;
         setIsRefilling(false);
       }
+    }
+  }
+
+  function syncLocationMetaFromProfile(profile: StreetzProfile) {
+    const nextLocationMeta = {
+      hasCoordinates: profile.latitude !== null && profile.longitude !== null,
+      maxDistanceKm: profile.maxDistanceKm ?? DEFAULT_DISCOVERY_DISTANCE_KM,
+      locationUpdatedAt: profile.locationUpdatedAt,
+    };
+
+    setLocationMeta(nextLocationMeta);
+    setDraftMaxDistanceKm(nextLocationMeta.maxDistanceKm);
+  }
+
+  async function saveDistanceFilter() {
+    setIsSavingFilters(true);
+    setNotice(null);
+
+    try {
+      const savedProfile = await apiRequest<StreetzProfile>("/profiles/me", {
+        method: "PUT",
+        headers: authHeaders(token),
+        body: JSON.stringify({ maxDistanceKm: draftMaxDistanceKm }),
+      });
+
+      syncLocationMetaFromProfile(savedProfile);
+      setIsFilterOpen(false);
+      void loadDiscovery({ clearNotice: false });
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    } finally {
+      setIsSavingFilters(false);
+    }
+  }
+
+  async function saveCurrentLocation() {
+    setIsDetectingLocation(true);
+    setNotice(null);
+
+    try {
+      const coordinates = await getCurrentBrowserCoordinates();
+      const savedProfile = await apiRequest<StreetzProfile>("/profiles/me", {
+        method: "PUT",
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+          locationAccuracyMeters: coordinates.accuracy ?? undefined,
+          maxDistanceKm: draftMaxDistanceKm,
+        }),
+      });
+
+      syncLocationMetaFromProfile(savedProfile);
+      setNotice("Location updated for distance.");
+      void loadDiscovery({ clearNotice: false });
+    } catch (error) {
+      setNotice(getLocationPermissionMessage(error));
+    } finally {
+      setIsDetectingLocation(false);
     }
   }
 
@@ -410,7 +503,14 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
         eyebrow="Discovery"
         title=""
         action={
-          <button className="hidden h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium md:inline-flex">
+          <button
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium"
+            type="button"
+            onClick={() => {
+              setDraftMaxDistanceKm(locationMeta.maxDistanceKm);
+              setIsFilterOpen(true);
+            }}
+          >
             <SlidersHorizontal className="size-4" aria-hidden="true" />
             Filters
           </button>
@@ -626,6 +726,77 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
           </form>
         </div>
       ) : null}
+
+      {isFilterOpen ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-[#0d0d0d]">Discovery filters</h2>
+                <p className="mt-1 text-sm leading-6 text-[#666666]">
+                  {locationMeta.hasCoordinates ? "Using GPS for nearby profiles." : "GPS is off, so distances stay hidden."}
+                </p>
+              </div>
+              <button
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
+                type="button"
+                onClick={() => setIsFilterOpen(false)}
+                aria-label="Close filters"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-[20px] border border-black/[0.06] bg-[#fafafa] p-4">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm font-semibold text-[#0d0d0d]">Maximum distance</span>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0d0d0d]">
+                  {draftMaxDistanceKm} km
+                </span>
+              </div>
+              <input
+                className="mt-4 w-full accent-[#18E299]"
+                type="range"
+                min={MIN_DISCOVERY_DISTANCE_KM}
+                max={MAX_DISCOVERY_DISTANCE_KM}
+                step={DISCOVERY_DISTANCE_STEP_KM}
+                value={draftMaxDistanceKm}
+                onChange={(event) => setDraftMaxDistanceKm(Number(event.target.value))}
+              />
+            </div>
+
+            <button
+              className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+              onClick={() => void saveCurrentLocation()}
+              disabled={isDetectingLocation || isSavingFilters}
+            >
+              {isDetectingLocation ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <MapPin className="size-4" aria-hidden="true" />}
+              {locationMeta.hasCoordinates ? "Update GPS location" : "Use GPS location"}
+            </button>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => setIsFilterOpen(false)}
+                disabled={isSavingFilters || isDetectingLocation}
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => void saveDistanceFilter()}
+                disabled={isSavingFilters || isDetectingLocation}
+              >
+                {isSavingFilters ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -651,6 +822,10 @@ function DiscoveryCandidateCard({
   priority: boolean;
   swipeIntent: DiscoveryActionName | null;
 }) {
+  const location = [candidate.city, candidate.state].filter(Boolean).join(", ") || "Nigeria";
+  const distance = formatDistanceKm(candidate.distanceKm);
+  const locationLabel = distance ? `${location} · ${distance}` : location;
+
   return (
     <>
       <div className="relative aspect-[4/5] min-h-[440px] bg-[#d4fae8]">
@@ -679,7 +854,7 @@ function DiscoveryCandidateCard({
           </h2>
           <p className="mt-1 flex items-center gap-1 text-sm font-medium">
             <MapPin className="size-4" aria-hidden="true" />
-            {[candidate.city, candidate.state].filter(Boolean).join(", ") || "Nigeria"}
+            {locationLabel}
           </p>
         </div>
       </div>

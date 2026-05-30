@@ -197,6 +197,10 @@ export class UsersService {
           connectionStatus: null,
           city: null,
           state: null,
+          latitude: null,
+          longitude: null,
+          locationAccuracyMeters: null,
+          locationUpdatedAt: null,
           interests: [],
           discoveryLive: false
         }
