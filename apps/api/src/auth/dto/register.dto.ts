@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
+import { Equals, IsBoolean, IsEmail, IsString, MaxLength, MinLength } from "class-validator";
 
 export class RegisterDto {
   @ApiProperty({ example: "ada@crushclub.ng" })
@@ -17,4 +17,9 @@ export class RegisterDto {
   @MinLength(8)
   @MaxLength(72)
   password: string;
+
+  @ApiProperty({ example: true, description: "Confirms the user is 18 years or older." })
+  @IsBoolean()
+  @Equals(true, { message: "You must confirm you are 18 or older to create an account." })
+  ageConfirmed: boolean;
 }

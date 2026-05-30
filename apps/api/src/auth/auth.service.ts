@@ -226,7 +226,8 @@ export class AuthService {
       suspendedUntil: user.suspendedUntil,
       deactivatedAt: user.deactivatedAt,
       deletedAt: user.deletedAt,
-      moderationReason: user.moderationReason
+      moderationReason: user.moderationReason,
+      ageConfirmedAt: user.ageConfirmedAt
     };
   }
 }

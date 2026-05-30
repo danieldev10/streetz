@@ -10,6 +10,7 @@ export type StreetzUser = {
   deactivatedAt?: string | null;
   deletedAt?: string | null;
   moderationReason?: string | null;
+  ageConfirmedAt?: string | null;
 };
 
 export type AuthResponse = {

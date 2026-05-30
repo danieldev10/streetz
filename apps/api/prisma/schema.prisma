@@ -122,6 +122,7 @@ model User {
   deactivatedAt      DateTime?
   deletedAt          DateTime?
   moderationReason   String?
+  ageConfirmedAt     DateTime?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   profile            Profile?

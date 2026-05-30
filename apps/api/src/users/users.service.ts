@@ -9,6 +9,7 @@ type CreateUserInput = {
   email: string;
   password: string;
   displayName: string;
+  ageConfirmed: boolean;
   role?: UserRole;
 };
 
@@ -52,6 +53,7 @@ export class UsersService {
         email,
         displayName: input.displayName,
         passwordHash: await hash(input.password, 12),
+        ageConfirmedAt: input.ageConfirmed ? new Date() : null,
         role: input.role ?? UserRole.USER
       }
     });

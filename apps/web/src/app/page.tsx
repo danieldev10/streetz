@@ -19,6 +19,7 @@ function getAuthValidationMessage(options: {
   displayName: string;
   email: string;
   password: string;
+  ageConfirmed: boolean;
 }) {
   const email = options.email.trim();
 
@@ -31,6 +32,10 @@ function getAuthValidationMessage(options: {
 
     if (displayName.length > 80) {
       return "Display name must be 80 characters or fewer.";
+    }
+
+    if (!options.ageConfirmed) {
+      return "Confirm that you are 18 or older to create an account.";
     }
   }
 
@@ -64,6 +69,7 @@ export default function Home() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [isSubmittingAccount, setIsSubmittingAccount] = useState(false);
@@ -81,7 +87,7 @@ export default function Home() {
     event.preventDefault();
     setMessage(null);
 
-    const validationMessage = getAuthValidationMessage({ authMode, displayName, email, password });
+    const validationMessage = getAuthValidationMessage({ authMode, displayName, email, password, ageConfirmed });
 
     if (validationMessage) {
       setMessage(validationMessage);
@@ -92,7 +98,7 @@ export default function Home() {
 
     try {
       const payload = authMode === "register"
-        ? { displayName: displayName.trim(), email: email.trim(), password }
+        ? { displayName: displayName.trim(), email: email.trim(), password, ageConfirmed }
         : { email: email.trim(), password };
       const auth = await apiRequest<AuthResponse>(`/auth/${authMode}`, {
         method: "POST",
@@ -191,12 +197,14 @@ export default function Home() {
         displayName={displayName}
         email={email}
         password={password}
+        ageConfirmed={ageConfirmed}
         message={message}
         isSubmitting={isSubmittingAuth}
         onModeChange={setAuthMode}
         onDisplayNameChange={setDisplayName}
         onEmailChange={setEmail}
         onPasswordChange={setPassword}
+        onAgeConfirmedChange={setAgeConfirmed}
         onSubmit={handleAuthSubmit}
       />
     );

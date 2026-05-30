@@ -21,12 +21,14 @@ type AuthShellProps = {
   displayName: string;
   email: string;
   password: string;
+  ageConfirmed: boolean;
   message: string | null;
   isSubmitting: boolean;
   onModeChange: (mode: "login" | "register") => void;
   onDisplayNameChange: (value: string) => void;
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
+  onAgeConfirmedChange: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
@@ -35,12 +37,14 @@ export function AuthShell({
   displayName,
   email,
   password,
+  ageConfirmed,
   message,
   isSubmitting,
   onModeChange,
   onDisplayNameChange,
   onEmailChange,
   onPasswordChange,
+  onAgeConfirmedChange,
   onSubmit,
 }: AuthShellProps) {
   return (
@@ -112,6 +116,19 @@ export function AuthShell({
                 required
               />
             </label>
+
+            {authMode === "register" ? (
+              <label className="flex items-start gap-3 rounded-2xl border border-black/8 bg-[#fafafa] p-3 text-sm font-medium text-[#333333]">
+                <input
+                  className="mt-0.5 size-4 rounded border-black/20 accent-[#18E299]"
+                  type="checkbox"
+                  checked={ageConfirmed}
+                  onChange={(event) => onAgeConfirmedChange(event.target.checked)}
+                  required
+                />
+                <span>I confirm that I am 18 years or older.</span>
+              </label>
+            ) : null}
           </div>
 
           {message ? <p className="mt-4 rounded-2xl bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
