@@ -98,6 +98,7 @@ type EventAlertSource = {
   state: string | null;
   city: string;
   startsAt: Date;
+  cancellationReason?: string | null;
   updatedAt: Date;
 };
 
@@ -1078,6 +1079,7 @@ export class NotificationsService {
       state: event.state,
       city: event.city,
       startsAt: event.startsAt.toISOString(),
+      cancellationReason: event.cancellationReason ?? null,
       updatedAt: event.updatedAt.toISOString()
     };
   }

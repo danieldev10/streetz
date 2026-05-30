@@ -7,6 +7,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/roles.decorator";
 import { AuthUser } from "../auth/types/auth-user";
+import { BookEventDto } from "./dto/book-event.dto";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { PresignEventImageDto } from "./dto/presign-event-image.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
@@ -24,10 +25,16 @@ export class EventsController {
     return this.eventsService.getPublishedEvents(user.id);
   }
 
+  @Get("events/:eventId/tickets")
+  @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
+  getEventTickets(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {
+    return this.eventsService.getEventTickets(user.id, eventId);
+  }
+
   @Post("events/:eventId/book")
   @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
-  bookFreeEvent(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {
-    return this.eventsService.bookFreeEvent(user.id, eventId);
+  bookFreeEvent(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string, @Body() dto: BookEventDto) {
+    return this.eventsService.bookFreeEvent(user.id, eventId, dto);
   }
 
   @Get("admin/events")

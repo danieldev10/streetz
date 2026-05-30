@@ -1,7 +1,6 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useState } from "react";
 import { LoaderCircle, LogOut, RotateCcw } from "lucide-react";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import type { StreetzUser } from "@/lib/types";

@@ -1,12 +1,21 @@
 import type { AuthResponse, StreetzUser } from "@/lib/types";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
-export const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? API_URL.replace(/\/api\/?$/, "");
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+export const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? getDefaultSocketUrl(API_URL);
 export const TOKEN_KEY = "streetz_access_token";
+export const LEGACY_TOKEN_KEYS = ["access_token"];
 export const UNAUTHORIZED_EVENT = "streetz:auth:unauthorized";
 export const AUTH_REFRESHED_EVENT = "streetz:auth:refreshed";
 
 let pendingAccessTokenRefresh: Promise<AuthResponse> | null = null;
+
+function getDefaultSocketUrl(apiUrl: string) {
+  if (/^https?:\/\//.test(apiUrl)) {
+    return apiUrl.replace(/\/api\/?$/, "");
+  }
+
+  return process.env.NODE_ENV === "development" ? "http://localhost:4000" : "";
+}
 
 export class ApiError extends Error {
   status: number;
@@ -79,6 +88,7 @@ export async function refreshAccessToken() {
 
         const auth = data as AuthResponse;
         window.localStorage.setItem(TOKEN_KEY, auth.accessToken);
+        clearLegacyAccessTokens();
         window.dispatchEvent(new CustomEvent<AuthResponse>(AUTH_REFRESHED_EVENT, { detail: auth }));
 
         return auth;
@@ -99,6 +109,16 @@ export function authHeaders(token: string) {
   return {
     Authorization: `Bearer ${token}`,
   };
+}
+
+export function clearLegacyAccessTokens() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  for (const key of LEGACY_TOKEN_KEYS) {
+    window.localStorage.removeItem(key);
+  }
 }
 
 function hasAuthorizationHeader(headers: HeadersInit | undefined) {

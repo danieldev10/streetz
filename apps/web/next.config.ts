@@ -71,6 +71,22 @@ function uniqueRemotePatterns(patterns: ImageRemotePattern[]) {
   });
 }
 
+function getApiProxyTarget() {
+  const target = getEnv("API_PROXY_TARGET", "API_SERVER_URL");
+
+  if (target) {
+    return target.replace(/\/+$/, "").replace(/\/api$/, "");
+  }
+
+  const publicApiUrl = getEnv("NEXT_PUBLIC_API_URL");
+
+  if (publicApiUrl && publicApiUrl !== "/api") {
+    return publicApiUrl.replace(/\/+$/, "").replace(/\/api$/, "");
+  }
+
+  return "http://localhost:4000";
+}
+
 const imageRemotePatterns = uniqueRemotePatterns(
   [
     {
@@ -93,6 +109,14 @@ const imageRemotePatterns = uniqueRemotePatterns(
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${getApiProxyTarget()}/api/:path*`
+      }
+    ];
+  },
   async headers() {
     return [
       {

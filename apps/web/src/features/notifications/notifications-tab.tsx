@@ -103,6 +103,7 @@ function getEventAlertCopy(kind: NotificationFeedEventAlert["kind"]) {
       icon: AlertTriangle,
       label: "Cancelled",
       title: "Event cancelled",
+      description: "If you paid for a ticket, your refund is being processed and we will contact you by email.",
       tone: "bg-[#ff6b6b]/10 text-[#d63f3f]",
     };
   }
@@ -112,6 +113,7 @@ function getEventAlertCopy(kind: NotificationFeedEventAlert["kind"]) {
       icon: Calendar,
       label: "Updated",
       title: "Event updated",
+      description: "Event details changed. Check the event page for the latest information.",
       tone: "bg-[#7c5cfc]/10 text-[#7c5cfc]",
     };
   }
@@ -120,6 +122,7 @@ function getEventAlertCopy(kind: NotificationFeedEventAlert["kind"]) {
     icon: Clock,
     label: "Reminder",
     title: "Event reminder",
+    description: "This event is coming up soon.",
     tone: "bg-[#f5a623]/10 text-[#c98205]",
   };
 }
@@ -239,7 +242,7 @@ export function NotificationsTab({
 
         onNotificationsChanged();
       } catch {
-        // Seen state is secondary; the feed remains useful if this write fails.
+
       }
     },
     [onNotificationsChanged, token]
@@ -262,7 +265,7 @@ export function NotificationsTab({
         submittedSeenKeysRef.current.add(key);
         onNotificationsChanged();
       } catch {
-        // The next feed refresh will reconcile seen state.
+        // the next feed refresh will reconcile the seen state & update badges??
       }
     },
     [onNotificationsChanged, token]
@@ -614,6 +617,10 @@ export function NotificationsTab({
                                 </span>
                               </div>
                               <p className="mt-0.5 truncate text-xs text-[#666666]">{alert.title}</p>
+                              <p className="mt-1 text-xs leading-5 text-[#666666]">{copy.description}</p>
+                              {alert.kind === "EVENT_CANCELLED" && alert.cancellationReason ? (
+                                <p className="mt-1 text-xs leading-5 text-[#999999]">{alert.cancellationReason}</p>
+                              ) : null}
                               <div className="mt-1.5 flex items-center gap-1 text-[11px] text-[#999999]">
                                 <Calendar className="size-3" aria-hidden="true" />
                                 {formatEventDate(alert.startsAt)}

@@ -19,8 +19,10 @@ function PaymentCallbackContent() {
 
     const reference = searchParams.get("reference") ?? searchParams.get("trxref");
     const purpose = searchParams.get("purpose");
+    const eventId = searchParams.get("eventId");
     const savedToken = token ?? window.localStorage.getItem(TOKEN_KEY);
     const isEventTicketPayment = purpose === "event-ticket";
+    const eventRedirectPath = eventId ? `/events/${eventId}` : "/events";
 
     if (!reference) {
       window.setTimeout(() => setMessage("Payment reference was not returned. Please try again."), 0);
@@ -36,6 +38,8 @@ function PaymentCallbackContent() {
 
     apiRequest<{
       status: string;
+      refundRequired?: boolean;
+      message?: string;
       subscriptionStatus?: "INACTIVE" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
       subscriptionEndsAt?: string | null;
     }>(isEventTicketPayment ? "/payments/events/ticket/verify" : "/payments/subscription/verify", {
@@ -53,8 +57,14 @@ function PaymentCallbackContent() {
           await refreshSession({ force: true });
         }
 
+        if (isEventTicketPayment && response.refundRequired) {
+          setMessage(response.message ?? "Payment received, but this event is no longer available. Refunds are being processed and we will contact you by email.");
+          window.setTimeout(() => router.replace(eventRedirectPath), 2400);
+          return;
+        }
+
         setMessage(isEventTicketPayment ? "Ticket confirmed. Taking you into crushclub..." : "Payment verified. Taking you into crushclub...");
-        window.setTimeout(() => router.replace("/events"), 900);
+        window.setTimeout(() => router.replace(isEventTicketPayment ? eventRedirectPath : "/events"), 900);
       })
       .catch((error) => {
         setMessage(getUserErrorMessage(error));

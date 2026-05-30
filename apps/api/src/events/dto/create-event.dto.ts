@@ -72,4 +72,10 @@ export class CreateEventDto {
   @IsInt()
   @Min(1)
   capacity: number;
+
+  @ApiPropertyOptional({ example: 4, description: "Maximum tickets one member can own for this event." })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxTicketsPerUser?: number;
 }

@@ -9,6 +9,7 @@ import {
   UNAUTHORIZED_EVENT,
   apiRequest,
   authHeaders,
+  clearLegacyAccessTokens,
   refreshAccessToken,
   revokeRefreshSession,
 } from "@/lib/api";
@@ -95,6 +96,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     if (typeof window !== "undefined") {
       window.localStorage.setItem(TOKEN_KEY, token);
+      clearLegacyAccessTokens();
     }
 
     setSessionState(nextSession);
@@ -115,6 +117,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
 
         window.localStorage.removeItem(TOKEN_KEY);
+        clearLegacyAccessTokens();
       }
 
       setSessionState(null);
@@ -183,6 +186,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function bootstrapSession() {
+      clearLegacyAccessTokens();
       const savedToken = window.localStorage.getItem(TOKEN_KEY);
 
       if (!savedToken) {

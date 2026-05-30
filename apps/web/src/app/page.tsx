@@ -175,39 +175,6 @@ export default function Home() {
     }
   }
 
-  async function deleteAccount(password: string) {
-    if (!token) {
-      setMessage("Please log in again.");
-      return;
-    }
-
-    if (password.length < PASSWORD_MIN_LENGTH) {
-      setMessage("Enter your password to delete your account.");
-      return;
-    }
-
-    if (password.length > PASSWORD_MAX_LENGTH) {
-      setMessage(`Password must be ${PASSWORD_MAX_LENGTH} characters or fewer.`);
-      return;
-    }
-
-    setIsSubmittingAccount(true);
-    setMessage(null);
-
-    try {
-      await apiRequest<{ deleted: boolean }>("/auth/account/delete", {
-        method: "POST",
-        headers: authHeaders(token),
-        body: JSON.stringify({ password }),
-      });
-      logout();
-    } catch (error) {
-      setMessage(getUserErrorMessage(error));
-    } finally {
-      setIsSubmittingAccount(false);
-    }
-  }
-
   function logout() {
     clearSession({ redirect: false });
     setAuthMode("login");

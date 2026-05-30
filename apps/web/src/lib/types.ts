@@ -121,6 +121,7 @@ export type StreetzEventTicketType = {
   name: string;
   priceKobo: number;
   capacity: number;
+  maxTicketsPerUser: number;
   soldCount: number;
   reservedCount: number;
   availableCount: number;
@@ -130,6 +131,7 @@ export type StreetzEventTicket = {
   id: string;
   code: string;
   status: TicketStatus;
+  checkedInAt: string | null;
   createdAt: string;
 };
 
@@ -145,10 +147,14 @@ export type StreetzEvent = {
   startsAt: string;
   endsAt: string | null;
   status: EventStatus;
+  cancellationReason: string | null;
+  cancelledAt: string | null;
   ticketType: StreetzEventTicketType | null;
   attendeeCount?: number;
   reservationCount?: number;
+  totalPaidAmountKobo?: number;
   userTicket?: StreetzEventTicket | null;
+  userTickets?: StreetzEventTicket[];
   createdAt: string;
   updatedAt: string;
 };
@@ -332,6 +338,7 @@ export type NotificationFeedEventAlert = {
   state: string | null;
   city: string;
   startsAt: string;
+  cancellationReason: string | null;
   updatedAt: string;
 };
 

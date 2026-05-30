@@ -476,7 +476,7 @@ export function ProfileTab({
             eyebrow={isSetupMode ? "Profile setup" : "Profile"}
             title={
               isSetupMode
-                ? "Setup your profile first."
+                ? ""
                 : ""
             }
           />

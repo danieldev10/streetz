@@ -2,16 +2,11 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { io } from "socket.io-client";
-import { LoaderCircle } from "lucide-react";
 import { AppBrand, AppNavButton, MobileHeader, adminTabs, bottomTabs, tabs } from "@/components/app/navigation";
-import { ProfileTab } from "@/features/profile/profile-tab";
-import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
-import { isProfileReadyForDiscovery } from "@/lib/profile";
-import type { ChatRoom, MatchThread, NotificationSummary, ProfileGateState, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
-
-const readyProfileGateKeys = new Set<string>();
+import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
+import type { ChatRoom, MatchThread, NotificationSummary, StreetzUser, TabKey } from "@/lib/types";
 
 type MemberAppDataCache = {
   matches: MatchThread[];
@@ -54,23 +49,18 @@ export function MemberApp({
   onLogout: () => void;
   children: (props: MemberAppRenderProps) => ReactNode;
 }) {
-  const router = useRouter();
-  const shouldRequireProfileSetup = user.role === "USER";
+  const pathname = usePathname();
   const visibleTabs = user.role === "ADMIN" ? adminTabs : tabs;
   const visibleBottomTabs = user.role === "ADMIN" ? adminTabs : bottomTabs;
-  const profileGateKey = `${user.id}:${token}`;
-  const [profileGateState, setProfileGateState] = useState<ProfileGateState>(() =>
-    shouldRequireProfileSetup && !readyProfileGateKeys.has(profileGateKey) ? "checking" : "ready"
-  );
-  const [profileGateNotice, setProfileGateNotice] = useState<string | null>(null);
+  const cacheKey = `${user.id}:${token}`;
   const [notificationSummary, setNotificationSummary] = useState<NotificationSummary>({
     matchesUnreadCount: 0,
     roomsUnreadCount: 0,
     notificationsUnreadCount: 0,
     totalUnreadCount: 0,
   });
-  const [cachedMatches, setCachedMatches] = useState<MatchThread[]>(() => getMemberAppDataCache(profileGateKey).matches);
-  const [cachedRooms, setCachedRooms] = useState<ChatRoom[]>(() => getMemberAppDataCache(profileGateKey).rooms);
+  const [cachedMatches, setCachedMatches] = useState<MatchThread[]>(() => getMemberAppDataCache(cacheKey).matches);
+  const [cachedRooms, setCachedRooms] = useState<ChatRoom[]>(() => getMemberAppDataCache(cacheKey).rooms);
 
   const refreshNotificationSummary = useCallback(async () => {
     try {
@@ -114,20 +104,12 @@ export function MemberApp({
     return 0;
   }
 
-  function handleProfileReady() {
-    readyProfileGateKeys.add(profileGateKey);
-    setProfileGateNotice(null);
-    setProfileGateState("ready");
-    router.replace("/events");
-    void refreshNotificationSummary();
-  }
-
   function handleMatchCreated() {
     void refreshNotificationSummary();
   }
 
   function handleMatchesLoaded(matches: MatchThread[]) {
-    updateMemberAppDataCache(profileGateKey, { matches });
+    updateMemberAppDataCache(cacheKey, { matches });
     setCachedMatches(matches);
     updateNotificationSummary({
       matchesUnreadCount: matches.reduce((total, match) => total + (match.unreadCount ?? 0), 0),
@@ -151,7 +133,7 @@ export function MemberApp({
   }
 
   function handleRoomsLoaded(rooms: ChatRoom[]) {
-    updateMemberAppDataCache(profileGateKey, { rooms });
+    updateMemberAppDataCache(cacheKey, { rooms });
     setCachedRooms(rooms);
     updateNotificationSummary({
       roomsUnreadCount: rooms.reduce((total, room) => total + (room.hasJoined ? room.unreadCount ?? 0 : 0), 0),
@@ -175,65 +157,6 @@ export function MemberApp({
   }
 
   useEffect(() => {
-    if (!shouldRequireProfileSetup) {
-      return undefined;
-    }
-
-    if (readyProfileGateKeys.has(profileGateKey)) {
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    async function checkProfileGate() {
-      try {
-        const profileResponse = await apiRequest<StreetzProfile | null>("/profiles/me", {
-          headers: authHeaders(token),
-        });
-
-        if (cancelled) {
-          return;
-        }
-
-        if (isProfileReadyForDiscovery(profileResponse)) {
-          readyProfileGateKeys.add(profileGateKey);
-          setProfileGateNotice(null);
-          setProfileGateState("ready");
-          return;
-        }
-
-        if (activeTab !== "profile") {
-          router.replace("/profile");
-        }
-
-        setProfileGateNotice(null);
-        setProfileGateState("required");
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        if (activeTab !== "profile") {
-          router.replace("/profile");
-        }
-
-        setProfileGateNotice(getUserErrorMessage(error));
-        setProfileGateState("required");
-      }
-    }
-
-    void checkProfileGate();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, router, token, shouldRequireProfileSetup, profileGateKey]);
-
-  useEffect(() => {
-    if (profileGateState !== "ready") {
-      return undefined;
-    }
-
     const timer = window.setTimeout(() => void refreshNotificationSummary(), 0);
     const interval = window.setInterval(() => void refreshNotificationSummary(), 30000);
 
@@ -241,13 +164,9 @@ export function MemberApp({
       window.clearTimeout(timer);
       window.clearInterval(interval);
     };
-  }, [profileGateState, refreshNotificationSummary]);
+  }, [refreshNotificationSummary]);
 
   useEffect(() => {
-    if (profileGateState !== "ready") {
-      return undefined;
-    }
-
     const socket = io(SOCKET_URL, {
       auth: { token },
       transports: ["websocket", "polling"],
@@ -260,13 +179,11 @@ export function MemberApp({
     return () => {
       socket.disconnect();
     };
-  }, [profileGateState, refreshNotificationSummary, token]);
+  }, [refreshNotificationSummary, token]);
 
   useEffect(() => {
-    if (profileGateState === "ready") {
-      window.scrollTo(0, 0);
-    }
-  }, [profileGateState, activeTab]);
+    window.scrollTo(0, 0);
+  }, [activeTab, pathname]);
 
   const renderProps: MemberAppRenderProps = {
     cachedMatches,
@@ -285,62 +202,38 @@ export function MemberApp({
       <div className="mx-auto flex min-h-screen w-full max-w-6xl">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-white px-4 py-5 md:block">
           <AppBrand user={user} onLogout={onLogout} />
-          {profileGateState === "ready" ? (
-            <nav className="mt-8 grid gap-2">
-              {visibleTabs.map((tab) => (
-                <AppNavButton
-                  key={tab.id}
-                  tab={tab}
-                  active={activeTab === tab.id}
-                  variant="side"
-                  badgeCount={getTabBadgeCount(tab.id)}
-                />
-              ))}
-            </nav>
-          ) : (
-            <div className="mt-8 rounded-[18px] bg-[#d4fae8] p-4 text-sm font-medium leading-6 text-[#0b7a50]">
-              Complete your profile setup to unlock discovery, matches, rooms, and events.
-            </div>
-          )}
-        </aside>
-
-        <section className={`min-w-0 flex-1 ${profileGateState === "ready" ? "pb-24 md:pb-0" : "pb-8"}`}>
-          <MobileHeader user={user} onLogout={onLogout} />
-          {profileGateState === "checking" ? (
-            <div className="px-5 py-8 md:px-8">
-              <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05]">
-                <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-label="Loading" />
-              </div>
-            </div>
-          ) : profileGateState === "required" ? (
-            <ProfileTab
-              token={token}
-              user={user}
-              mode="setup"
-              setupNotice={profileGateNotice}
-              onProfileReady={handleProfileReady}
-            />
-          ) : (
-            children(renderProps)
-          )}
-        </section>
-      </div>
-
-      {profileGateState === "ready" ? (
-        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.05] bg-white/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
-          <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${visibleBottomTabs.length}, minmax(0, 1fr))` }}>
-            {visibleBottomTabs.map((tab) => (
+          <nav className="mt-8 grid gap-2">
+            {visibleTabs.map((tab) => (
               <AppNavButton
                 key={tab.id}
                 tab={tab}
                 active={activeTab === tab.id}
-                variant="bottom"
+                variant="side"
                 badgeCount={getTabBadgeCount(tab.id)}
               />
             ))}
-          </div>
-        </nav>
-      ) : null}
+          </nav>
+        </aside>
+
+        <section className="min-w-0 flex-1 pb-24 md:pb-0">
+          <MobileHeader user={user} onLogout={onLogout} />
+          {children(renderProps)}
+        </section>
+      </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.05] bg-white/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
+        <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${visibleBottomTabs.length}, minmax(0, 1fr))` }}>
+          {visibleBottomTabs.map((tab) => (
+            <AppNavButton
+              key={tab.id}
+              tab={tab}
+              active={activeTab === tab.id}
+              variant="bottom"
+              badgeCount={getTabBadgeCount(tab.id)}
+            />
+          ))}
+        </div>
+      </nav>
     </main>
   );
 }

@@ -17,6 +17,7 @@ import {
   getExpiredReservationWhere,
   getReservationExpiry
 } from "../events/ticket-reservations";
+import { BookEventDto } from "../events/dto/book-event.dto";
 import { PrismaService } from "../prisma/prisma.service";
 import { getAccountAccessBlock } from "../users/account-status";
 
@@ -160,12 +161,13 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     return this.verifyAndActivateSubscription(reference);
   }
 
-  async initializeEventTicket(userId: string, eventId: string) {
+  async initializeEventTicket(userId: string, eventId: string, dto: BookEventDto = {}) {
     const user = await this.ensureActiveTicketBuyer(userId);
+    const now = new Date();
     const event = await this.prisma.event.findFirst({
       where: {
         id: eventId,
-        status: EventStatus.PUBLISHED
+        ...this.getBookableEventWhere(now)
       },
       include: {
         ticketTypes: {
@@ -189,73 +191,69 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException("This event is free. Book it from the event page.");
     }
 
-    const confirmedTicket = await this.prisma.ticket.findFirst({
-      where: {
-        userId,
-        eventId,
-        status: { in: [TicketStatus.PAID, TicketStatus.CHECKED_IN] }
-      },
-      select: {
-        id: true,
-        code: true,
-        status: true
-      }
-    });
-
-    if (confirmedTicket) {
-      return {
-        alreadyBooked: true,
-        ticket: confirmedTicket
-      };
-    }
-
-    const now = new Date();
+    const quantity = this.getTicketQuantity(dto.quantity);
     const reservedUntil = getReservationExpiry(now, this.getTicketReservationMinutes());
-    const ticket = await this.prisma.$transaction(async (transaction) => {
+    const tickets = await this.prisma.$transaction(async (transaction) => {
       await this.cleanupExpiredTicketReservations(transaction, now);
-      await transaction.ticket.updateMany({
+      await this.lockTicketType(transaction, ticketType.id);
+      await transaction.ticket.deleteMany({
         where: {
           userId,
           eventId,
           status: TicketStatus.RESERVED
-        },
-        data: {
-          status: TicketStatus.CANCELLED,
-          reservedUntil: null
         }
       });
 
-      const activeTickets = await transaction.ticket.count({
-        where: {
-          ticketTypeId: ticketType.id,
-          ...getActiveTicketWhere(now)
-        }
+      const [activeTickets, userOwnedTickets] = await Promise.all([
+        transaction.ticket.count({
+          where: {
+            ticketTypeId: ticketType.id,
+            ...getActiveTicketWhere(now)
+          }
+        }),
+        transaction.ticket.count({
+          where: {
+            userId,
+            eventId,
+            status: { in: CONFIRMED_TICKET_STATUSES }
+          }
+        })
+      ]);
+
+      this.assertTicketPurchaseAvailability({
+        quantity,
+        activeTickets,
+        capacity: ticketType.capacity,
+        userOwnedTickets,
+        maxTicketsPerUser: ticketType.maxTicketsPerUser
       });
 
-      if (activeTickets >= ticketType.capacity) {
-        throw new BadRequestException("This event is sold out.");
-      }
-
-      return transaction.ticket.create({
-        data: {
-          eventId,
-          userId,
-          ticketTypeId: ticketType.id,
-          code: this.createTicketCode(),
-          status: TicketStatus.RESERVED,
-          reservedUntil
-        }
-      });
+      return Promise.all(
+        Array.from({ length: quantity }, () =>
+          transaction.ticket.create({
+            data: {
+              eventId,
+              userId,
+              ticketTypeId: ticketType.id,
+              code: this.createTicketCode(),
+              status: TicketStatus.RESERVED,
+              reservedUntil
+            }
+          })
+        )
+      );
     });
+    const ticketIds = tickets.map((ticket) => ticket.id);
+    const primaryTicket = tickets[0];
 
     const reference = this.createReference("STZTIX");
-    const callbackUrl = `${this.config.getOrThrow<string>("WEB_APP_URL")}/payment/callback?purpose=event-ticket`;
+    const callbackUrl = `${this.config.getOrThrow<string>("WEB_APP_URL")}/payment/callback?purpose=event-ticket&eventId=${encodeURIComponent(eventId)}`;
 
     try {
       const response = await this.callPaystack<PaystackInitializeResponse>("/transaction/initialize", {
         method: "POST",
         body: JSON.stringify({
-          amount: ticketType.priceKobo,
+          amount: ticketType.priceKobo * quantity,
           email: user.email,
           currency: "NGN",
           reference,
@@ -263,8 +261,10 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           metadata: {
             userId,
             eventId,
-            ticketId: ticket.id,
+            ticketId: primaryTicket.id,
+            ticketIds,
             ticketTypeId: ticketType.id,
+            quantity,
             purpose: PaymentPurpose.EVENT_TICKET,
             product: event.title
           }
@@ -279,13 +279,15 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         data: {
           userId,
           purpose: PaymentPurpose.EVENT_TICKET,
-          amountKobo: ticketType.priceKobo,
+          amountKobo: ticketType.priceKobo * quantity,
           providerReference: reference,
           providerMetadata: {
             accessCode: response.data.access_code,
             eventId,
-            ticketId: ticket.id,
-            ticketTypeId: ticketType.id
+            ticketId: primaryTicket.id,
+            ticketIds,
+            ticketTypeId: ticketType.id,
+            quantity
           }
         }
       });
@@ -294,16 +296,12 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         authorizationUrl: response.data.authorization_url,
         accessCode: response.data.access_code,
         reference,
-        ticketId: ticket.id
+        ticketId: primaryTicket.id,
+        ticketIds,
+        quantity
       };
     } catch (error) {
-      await this.prisma.ticket.update({
-        where: { id: ticket.id },
-        data: {
-          status: TicketStatus.CANCELLED,
-          reservedUntil: null
-        }
-      });
+      await this.prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } }).catch(() => null);
 
       throw error;
     }
@@ -425,28 +423,96 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const metadata = this.getProviderMetadata(payment.providerMetadata);
-    const ticketId = typeof metadata.ticketId === "string" ? metadata.ticketId : null;
+    const legacyTicketId = typeof metadata.ticketId === "string" ? metadata.ticketId : null;
+    const ticketIds = Array.isArray(metadata.ticketIds)
+      ? metadata.ticketIds.filter((value): value is string => typeof value === "string")
+      : legacyTicketId
+        ? [legacyTicketId]
+        : [];
 
-    if (!ticketId) {
+    if (ticketIds.length === 0) {
       throw new BadRequestException("Ticket reference is missing from this payment.");
     }
 
-    const ticket = await this.prisma.ticket.findUnique({
-      where: { id: ticketId },
+    const tickets = await this.prisma.ticket.findMany({
+      where: { id: { in: ticketIds } },
       include: {
         ticketType: true,
         event: true
       }
     });
+    const orderedTickets = ticketIds
+      .map((ticketId) => tickets.find((ticket) => ticket.id === ticketId))
+      .filter((ticket): ticket is (typeof tickets)[number] => Boolean(ticket));
+    const ticket = orderedTickets[0] ?? null;
 
-    if (!ticket || ticket.userId !== payment.userId) {
-      throw new BadRequestException("Ticket record not found.");
-    }
+    if (orderedTickets.length !== ticketIds.length || orderedTickets.some((item) => item.userId !== payment.userId) || !ticket) {
+      const refundMessage = "Payment received, but this ticket reservation is no longer available. Refunds are being processed and we will contact you by email.";
 
-    if (payment.status === PaymentStatus.SUCCESS && ([TicketStatus.PAID, TicketStatus.CHECKED_IN] as TicketStatus[]).includes(ticket.status)) {
+      if (payment.status !== PaymentStatus.PENDING) {
+        return {
+          status: payment.status,
+          refundRequired: metadata.refundRequired === true,
+          message: metadata.refundRequired === true ? refundMessage : undefined
+        };
+      }
+
+      const response = await this.callPaystack<PaystackVerifyResponse>(`/transaction/verify/${reference}`, {
+        method: "GET"
+      });
+
+      if (!response.status || !response.data) {
+        throw new BadRequestException(response.message || "Unable to verify Paystack transaction.");
+      }
+
+      const paystackData = response.data;
+
+      if (paystackData.status !== "success") {
+        const mappedStatus = this.mapPaystackStatus(paystackData.status);
+
+        await this.prisma.payment.update({
+          where: { providerReference: reference },
+          data: {
+            status: mappedStatus,
+            providerMetadata: {
+              ...metadata,
+              paystack: paystackData
+            }
+          }
+        });
+
+        return { status: mappedStatus };
+      }
+
+      if (paystackData.amount !== payment.amountKobo || paystackData.currency !== "NGN") {
+        throw new BadRequestException("Verified payment amount or currency does not match this event ticket.");
+      }
+
+      await this.prisma.payment.update({
+        where: { providerReference: reference },
+        data: {
+          status: PaymentStatus.SUCCESS,
+          providerMetadata: {
+            ...metadata,
+            paystack: paystackData,
+            refundRequired: true,
+            refundReason: "Ticket reservation is no longer available."
+          }
+        }
+      });
+
       return {
         status: PaymentStatus.SUCCESS,
-        ticket: this.formatTicket(ticket)
+        refundRequired: true,
+        message: refundMessage
+      };
+    }
+
+    if (payment.status === PaymentStatus.SUCCESS && orderedTickets.every((item) => CONFIRMED_TICKET_STATUSES.includes(item.status))) {
+      return {
+        status: PaymentStatus.SUCCESS,
+        ticket: this.formatTicket(ticket),
+        tickets: orderedTickets.map((item) => this.formatTicket(item))
       };
     }
 
@@ -474,13 +540,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
             }
           }
         }),
-        this.prisma.ticket.update({
-          where: { id: ticket.id },
-          data: {
-            status: TicketStatus.CANCELLED,
-            reservedUntil: null
-          }
-        })
+        this.prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } })
       ]);
 
       return {
@@ -494,11 +554,41 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const now = new Date();
+    const eventIsBookable = this.isBookableEvent(ticket.event, now);
+
+    if (!eventIsBookable && !CONFIRMED_TICKET_STATUSES.includes(ticket.status)) {
+      await this.prisma.$transaction(async (transaction) => {
+        await transaction.payment.update({
+          where: { providerReference: reference },
+          data: {
+            status: PaymentStatus.SUCCESS,
+            providerMetadata: {
+              ...metadata,
+              paystack: paystackData,
+              refundRequired: true,
+              refundReason: "Event is no longer available."
+            }
+          }
+        });
+
+        await transaction.ticket.deleteMany({ where: { id: { in: ticketIds } } });
+      });
+
+      return {
+        status: PaymentStatus.SUCCESS,
+        refundRequired: true,
+        message: "Payment received, but this event is no longer available. Refunds are being processed and we will contact you by email.",
+        ticket: this.formatTicket({ ...ticket, status: TicketStatus.CANCELLED })
+      };
+    }
+
     const reservationWasActive =
-      ticket.status === TicketStatus.RESERVED && ticket.reservedUntil !== null && ticket.reservedUntil > now;
-    const shouldIncrementSoldCount = !CONFIRMED_TICKET_STATUSES.includes(ticket.status);
+      orderedTickets.every((item) => item.status === TicketStatus.RESERVED && item.reservedUntil !== null && item.reservedUntil > now);
+    const ticketQuantity = orderedTickets.filter((item) => !CONFIRMED_TICKET_STATUSES.includes(item.status)).length;
 
     const activation = await this.prisma.$transaction(async (transaction) => {
+      await this.lockTicketType(transaction, ticket.ticketTypeId);
+
       await transaction.payment.update({
         where: { providerReference: reference },
         data: {
@@ -510,31 +600,34 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         }
       });
 
-      const existingConfirmedTicket = await transaction.ticket.findFirst({
+      const userOwnedTickets = await transaction.ticket.count({
         where: {
-          id: { not: ticket.id },
+          id: { notIn: ticketIds },
           userId: ticket.userId,
           eventId: ticket.eventId,
           status: { in: CONFIRMED_TICKET_STATUSES }
-        },
-        include: {
-          ticketType: true,
-          event: true
         }
       });
 
-      if (existingConfirmedTicket) {
-        await transaction.ticket.update({
-          where: { id: ticket.id },
+      if (userOwnedTickets + ticketQuantity > ticket.ticketType.maxTicketsPerUser) {
+        await transaction.payment.update({
+          where: { providerReference: reference },
           data: {
-            status: TicketStatus.CANCELLED,
-            reservedUntil: null
+            providerMetadata: {
+              ...metadata,
+              paystack: paystackData,
+              refundRequired: true,
+              refundReason: "Ticket purchase limit exceeded."
+            }
           }
         });
+        await transaction.ticket.deleteMany({ where: { id: { in: ticketIds } } });
 
         return {
-          ticket: existingConfirmedTicket,
-          expiredSoldOut: false
+          tickets: [],
+          expiredSoldOut: true,
+          refundRequired: true,
+          message: "Payment received, but this purchase would exceed the ticket limit for this event. Refunds are being processed and we will contact you by email."
         };
       }
 
@@ -546,48 +639,69 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           }
         });
 
-        if (activeTickets >= ticket.ticketType.capacity) {
-          await transaction.ticket.update({
-            where: { id: ticket.id },
+        if (activeTickets + ticketQuantity > ticket.ticketType.capacity) {
+          await transaction.payment.update({
+            where: { providerReference: reference },
             data: {
-              status: TicketStatus.CANCELLED,
-              reservedUntil: null
+              providerMetadata: {
+                ...metadata,
+                paystack: paystackData,
+                refundRequired: true,
+                refundReason: "Ticket reservation expired or event sold out."
+              }
             }
           });
+          await transaction.ticket.deleteMany({ where: { id: { in: ticketIds } } });
 
           return {
-            ticket: null,
-            expiredSoldOut: true
+            tickets: [],
+            expiredSoldOut: true,
+            refundRequired: true,
+            message: "Payment received, but the reservation expired and this event is now sold out. Refunds are being processed and we will contact you by email."
           };
         }
       }
 
-      const paidTicket = await transaction.ticket.update({
-        where: { id: ticket.id },
+      await transaction.ticket.updateMany({
+        where: { id: { in: ticketIds } },
         data: {
           status: TicketStatus.PAID,
           reservedUntil: null
-        },
+        }
+      });
+      const paidTickets = await transaction.ticket.findMany({
+        where: { id: { in: ticketIds } },
         include: {
           ticketType: true,
           event: true
         }
       });
 
-      if (shouldIncrementSoldCount) {
+      if (ticketQuantity > 0) {
         await transaction.ticketType.update({
           where: { id: ticket.ticketTypeId },
-          data: { soldCount: { increment: 1 } }
+          data: { soldCount: { increment: ticketQuantity } }
         });
       }
 
       return {
-        ticket: paidTicket,
-        expiredSoldOut: false
+        tickets: ticketIds
+          .map((ticketId) => paidTickets.find((item) => item.id === ticketId))
+          .filter((item): item is (typeof paidTickets)[number] => Boolean(item)),
+        expiredSoldOut: false,
+        refundRequired: false
       };
     });
 
-    if (activation.expiredSoldOut || !activation.ticket) {
+    if (activation.refundRequired) {
+      return {
+        status: PaymentStatus.SUCCESS,
+        refundRequired: true,
+        message: activation.message
+      };
+    }
+
+    if (activation.expiredSoldOut || activation.tickets.length === 0) {
       throw new BadRequestException(
         "Payment succeeded, but the reservation expired and this event is now sold out. Please contact support for a refund."
       );
@@ -595,7 +709,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
     return {
       status: PaymentStatus.SUCCESS,
-      ticket: this.formatTicket(activation.ticket)
+      ticket: this.formatTicket(activation.tickets[0]),
+      tickets: activation.tickets.map((item) => this.formatTicket(item))
     };
   }
 
@@ -626,12 +741,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     client: Prisma.TransactionClient | PrismaService = this.prisma,
     now = new Date()
   ) {
-    return client.ticket.updateMany({
-      where: getExpiredReservationWhere(now, this.getTicketReservationMinutes()),
-      data: {
-        status: TicketStatus.CANCELLED,
-        reservedUntil: null
-      }
+    return client.ticket.deleteMany({
+      where: getExpiredReservationWhere(now, this.getTicketReservationMinutes())
     });
   }
 
@@ -733,6 +844,75 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
   private createTicketCode() {
     return `STZTIX-${randomBytes(5).toString("hex").toUpperCase()}`;
+  }
+
+  private getTicketQuantity(quantity: number | undefined) {
+    if (quantity === undefined) {
+      return 1;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
+      throw new BadRequestException("Ticket quantity must be between 1 and 20.");
+    }
+
+    return quantity;
+  }
+
+  private assertTicketPurchaseAvailability({
+    quantity,
+    activeTickets,
+    capacity,
+    userOwnedTickets,
+    maxTicketsPerUser
+  }: {
+    quantity: number;
+    activeTickets: number;
+    capacity: number;
+    userOwnedTickets: number;
+    maxTicketsPerUser: number;
+  }) {
+    if (activeTickets + quantity > capacity) {
+      throw new BadRequestException(quantity === 1 ? "This event is sold out." : "Not enough tickets are available.");
+    }
+
+    if (userOwnedTickets + quantity > maxTicketsPerUser) {
+      const remaining = Math.max(0, maxTicketsPerUser - userOwnedTickets);
+
+      throw new BadRequestException(
+        remaining === 0
+          ? `You already own the maximum of ${maxTicketsPerUser} ticket${maxTicketsPerUser === 1 ? "" : "s"} for this event.`
+          : `You can only buy ${remaining} more ticket${remaining === 1 ? "" : "s"} for this event.`
+      );
+    }
+  }
+
+  private async lockTicketType(client: Prisma.TransactionClient, ticketTypeId: string) {
+    await client.$queryRaw`SELECT id FROM "TicketType" WHERE id = ${ticketTypeId} FOR UPDATE`;
+  }
+
+  private getBookableEventWhere(now: Date): Prisma.EventWhereInput {
+    return {
+      status: EventStatus.PUBLISHED,
+      OR: [
+        { endsAt: { gt: now } },
+        {
+          endsAt: null,
+          startsAt: { gt: now }
+        }
+      ]
+    };
+  }
+
+  private isBookableEvent(event: { status: EventStatus; startsAt: Date; endsAt: Date | null }, now: Date) {
+    if (event.status !== EventStatus.PUBLISHED) {
+      return false;
+    }
+
+    if (event.endsAt) {
+      return event.endsAt > now;
+    }
+
+    return event.startsAt > now;
   }
 
   private isValidSignature(signature: string, rawBody: Buffer) {

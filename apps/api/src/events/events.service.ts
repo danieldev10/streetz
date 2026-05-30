@@ -1,10 +1,11 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { EventStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
+import { EventStatus, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { EVENT_IMAGE_UPLOAD_MAX_BYTES, formatUploadLimit } from "../storage/upload-limits";
 import { getAccountAccessBlock } from "../users/account-status";
+import { BookEventDto } from "./dto/book-event.dto";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { PresignEventImageDto } from "./dto/presign-event-image.dto";
 import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "./ticket-reservations";
@@ -12,6 +13,8 @@ import { UpdateEventDto } from "./dto/update-event.dto";
 
 const EVENT_IMAGE_UPLOAD_EXPIRES_SECONDS = 300;
 const GENERAL_ADMISSION_TICKET_NAME = "General Admission";
+const EVENT_CANCELLATION_REASON_MAX_LENGTH = 500;
+const DEFAULT_MAX_TICKETS_PER_USER = 4;
 
 const contentTypeExtensions: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -54,6 +57,8 @@ export class EventsService {
     this.assertCreatableEventStatus(dto.status ?? EventStatus.DRAFT);
 
     const priceKobo = dto.priceKobo ?? 0;
+    const maxTicketsPerUser = dto.maxTicketsPerUser ?? DEFAULT_MAX_TICKETS_PER_USER;
+    this.assertTicketPurchaseLimit(maxTicketsPerUser, dto.capacity);
 
     const event = await this.prisma.event.create({
       data: {
@@ -71,7 +76,8 @@ export class EventsService {
           create: {
             name: GENERAL_ADMISSION_TICKET_NAME,
             priceKobo,
-            capacity: dto.capacity
+            capacity: dto.capacity,
+            maxTicketsPerUser
           }
         }
       },
@@ -136,8 +142,28 @@ export class EventsService {
       }
     }
 
+    if (dto.capacity !== undefined || dto.maxTicketsPerUser !== undefined) {
+      this.assertTicketPurchaseLimit(
+        dto.maxTicketsPerUser ?? ticketType.maxTicketsPerUser,
+        dto.capacity ?? ticketType.capacity
+      );
+    }
+
     if (dto.status !== undefined) {
       await this.assertEventStatusTransition(event, dto.status, ticketType.id);
+    }
+
+    const isCancellingEvent = dto.status === EventStatus.CANCELLED && event.status !== EventStatus.CANCELLED;
+    const cancellationReason = dto.cancellationReason !== undefined
+      ? this.cleanOptionalText(dto.cancellationReason)
+      : undefined;
+
+    if (isCancellingEvent && !cancellationReason) {
+      throw new BadRequestException("Cancellation reason is required.");
+    }
+
+    if (cancellationReason && cancellationReason.length > EVENT_CANCELLATION_REASON_MAX_LENGTH) {
+      throw new BadRequestException(`Cancellation reason must be ${EVENT_CANCELLATION_REASON_MAX_LENGTH} characters or fewer.`);
     }
 
     const updatedEvent = await this.prisma.$transaction(async (transaction) => {
@@ -146,11 +172,12 @@ export class EventsService {
         data: {
           name: GENERAL_ADMISSION_TICKET_NAME,
           ...(dto.priceKobo !== undefined ? { priceKobo: dto.priceKobo } : {}),
-          ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {})
+          ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
+          ...(dto.maxTicketsPerUser !== undefined ? { maxTicketsPerUser: dto.maxTicketsPerUser } : {})
         }
       });
 
-      return transaction.event.update({
+      await transaction.event.update({
         where: { id: eventId },
         data: {
           ...(dto.title !== undefined ? { title: this.cleanText(dto.title) } : {}),
@@ -161,8 +188,26 @@ export class EventsService {
           ...(dto.city !== undefined ? { city: this.cleanText(dto.city) } : {}),
           ...(startsAt !== undefined ? { startsAt } : {}),
           ...(dto.endsAt !== undefined ? { endsAt } : {}),
-          ...(dto.status !== undefined ? { status: dto.status } : {})
+          ...(dto.status !== undefined ? { status: dto.status } : {}),
+          ...(isCancellingEvent ? { cancellationReason, cancelledAt: new Date() } : {})
         },
+        include: {
+          ticketTypes: { orderBy: { createdAt: "asc" } },
+          tickets: true
+        }
+      });
+
+      if (isCancellingEvent) {
+        await transaction.ticket.deleteMany({
+          where: {
+            eventId,
+            status: TicketStatus.RESERVED
+          }
+        });
+      }
+
+      return transaction.event.findUniqueOrThrow({
+        where: { id: eventId },
         include: {
           ticketTypes: { orderBy: { createdAt: "asc" } },
           tickets: true
@@ -178,27 +223,53 @@ export class EventsService {
     const now = new Date();
 
     const events = await this.prisma.event.findMany({
-      where: { status: EventStatus.PUBLISHED },
+      where: this.getVisibleMemberEventWhere(userId, now),
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
         tickets: {
           where: {
             userId,
-            ...getActiveTicketWhere(now)
+            status: { in: CONFIRMED_TICKET_STATUSES }
           },
-          orderBy: { createdAt: "desc" },
-          take: 1
+          orderBy: { createdAt: "desc" }
         }
       },
       orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }]
     });
 
     return {
-      events: await Promise.all(events.map((event) => this.formatEvent(event, { includeUserTicket: true })))
+      events: await Promise.all(events.map((event) => this.formatEvent(event, { includeUserTickets: true })))
     };
   }
 
-  async bookFreeEvent(userId: string, eventId: string) {
+  async getEventTickets(userId: string, eventId: string) {
+    await this.ensureMemberOrAdmin(userId);
+    const now = new Date();
+    const event = await this.prisma.event.findFirst({
+      where: {
+        id: eventId,
+        ...this.getVisibleMemberEventWhere(userId, now)
+      },
+      include: {
+        ticketTypes: { orderBy: { createdAt: "asc" } },
+        tickets: {
+          where: {
+            userId,
+            status: { in: CONFIRMED_TICKET_STATUSES }
+          },
+          orderBy: { createdAt: "desc" }
+        }
+      }
+    });
+
+    if (!event) {
+      throw new NotFoundException("Event not found.");
+    }
+
+    return this.formatEvent(event, { includeUserTickets: true });
+  }
+
+  async bookFreeEvent(userId: string, eventId: string, dto: BookEventDto = {}) {
     const user = await this.ensureMemberOrAdmin(userId);
 
     if (user.role === UserRole.ADMIN) {
@@ -216,35 +287,110 @@ export class EventsService {
       throw new BadRequestException("This event requires a paid ticket.");
     }
 
-    const existingTicket = await this.findUserActiveTicket(userId, eventId);
+    const quantity = this.getTicketQuantity(dto.quantity);
 
-    if (existingTicket) {
-      return this.getPublishedEventForUser(userId, eventId);
-    }
+    await this.prisma.$transaction(async (transaction) => {
+      await this.lockTicketType(transaction, ticketType.id);
 
-    const activeTickets = await this.countActiveTickets(ticketType.id);
+      const [activeTickets, userOwnedTickets] = await Promise.all([
+        transaction.ticket.count({
+          where: {
+            ticketTypeId: ticketType.id,
+            ...getActiveTicketWhere(new Date())
+          }
+        }),
+        transaction.ticket.count({
+          where: {
+            userId,
+            eventId,
+            status: { in: CONFIRMED_TICKET_STATUSES }
+          }
+        })
+      ]);
 
-    if (activeTickets >= ticketType.capacity) {
-      throw new BadRequestException("This event is sold out.");
-    }
+      this.assertTicketPurchaseAvailability({
+        quantity,
+        activeTickets,
+        capacity: ticketType.capacity,
+        userOwnedTickets,
+        maxTicketsPerUser: ticketType.maxTicketsPerUser
+      });
 
-    await this.prisma.$transaction([
-      this.prisma.ticket.create({
-        data: {
-          eventId,
-          userId,
-          ticketTypeId: ticketType.id,
-          code: this.createTicketCode(),
-          status: TicketStatus.PAID
-        }
-      }),
-      this.prisma.ticketType.update({
+      await Promise.all(
+        Array.from({ length: quantity }, () =>
+          transaction.ticket.create({
+            data: {
+              eventId,
+              userId,
+              ticketTypeId: ticketType.id,
+              code: this.createTicketCode(),
+              status: TicketStatus.PAID
+            }
+          })
+        )
+      );
+
+      await transaction.ticketType.update({
         where: { id: ticketType.id },
-        data: { soldCount: { increment: 1 } }
-      })
-    ]);
+        data: { soldCount: { increment: quantity } }
+      });
+    });
 
     return this.getPublishedEventForUser(userId, eventId);
+  }
+
+  private getTicketQuantity(quantity: number | undefined) {
+    if (quantity === undefined) {
+      return 1;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
+      throw new BadRequestException("Ticket quantity must be between 1 and 20.");
+    }
+
+    return quantity;
+  }
+
+  private assertTicketPurchaseLimit(maxTicketsPerUser: number, capacity: number) {
+    if (!Number.isInteger(maxTicketsPerUser) || maxTicketsPerUser < 1) {
+      throw new BadRequestException("Max tickets per person must be at least 1.");
+    }
+
+    if (maxTicketsPerUser > capacity) {
+      throw new BadRequestException("Max tickets per person cannot be greater than event capacity.");
+    }
+  }
+
+  private assertTicketPurchaseAvailability({
+    quantity,
+    activeTickets,
+    capacity,
+    userOwnedTickets,
+    maxTicketsPerUser
+  }: {
+    quantity: number;
+    activeTickets: number;
+    capacity: number;
+    userOwnedTickets: number;
+    maxTicketsPerUser: number;
+  }) {
+    if (activeTickets + quantity > capacity) {
+      throw new BadRequestException(quantity === 1 ? "This event is sold out." : "Not enough tickets are available.");
+    }
+
+    if (userOwnedTickets + quantity > maxTicketsPerUser) {
+      const remaining = Math.max(0, maxTicketsPerUser - userOwnedTickets);
+
+      throw new BadRequestException(
+        remaining === 0
+          ? `You already own the maximum of ${maxTicketsPerUser} ticket${maxTicketsPerUser === 1 ? "" : "s"} for this event.`
+          : `You can only buy ${remaining} more ticket${remaining === 1 ? "" : "s"} for this event.`
+      );
+    }
+  }
+
+  private async lockTicketType(client: Prisma.TransactionClient, ticketTypeId: string) {
+    await client.$queryRaw`SELECT id FROM "TicketType" WHERE id = ${ticketTypeId} FOR UPDATE`;
   }
 
   private async getPublishedEventForUser(userId: string, eventId: string) {
@@ -252,17 +398,16 @@ export class EventsService {
     const event = await this.prisma.event.findFirst({
       where: {
         id: eventId,
-        status: EventStatus.PUBLISHED
+        ...this.getBookableEventWhere(now)
       },
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
         tickets: {
           where: {
             userId,
-            ...getActiveTicketWhere(now)
+            status: { in: CONFIRMED_TICKET_STATUSES }
           },
-          orderBy: { createdAt: "desc" },
-          take: 1
+          orderBy: { createdAt: "desc" }
         }
       }
     });
@@ -271,14 +416,15 @@ export class EventsService {
       throw new NotFoundException("Event not found.");
     }
 
-    return this.formatEvent(event, { includeUserTicket: true });
+    return this.formatEvent(event, { includeUserTickets: true });
   }
 
   private async findPublishedEvent(eventId: string) {
+    const now = new Date();
     const event = await this.prisma.event.findFirst({
       where: {
         id: eventId,
-        status: EventStatus.PUBLISHED
+        ...this.getBookableEventWhere(now)
       },
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
@@ -291,6 +437,35 @@ export class EventsService {
     }
 
     return event;
+  }
+
+  private getBookableEventWhere(now: Date): Prisma.EventWhereInput {
+    return {
+      status: EventStatus.PUBLISHED,
+      OR: [
+        { endsAt: { gt: now } },
+        {
+          endsAt: null,
+          startsAt: { gt: now }
+        }
+      ]
+    };
+  }
+
+  private getVisibleMemberEventWhere(userId: string, now: Date): Prisma.EventWhereInput {
+    return {
+      OR: [
+        this.getBookableEventWhere(now),
+        {
+          tickets: {
+            some: {
+              userId,
+              status: { in: CONFIRMED_TICKET_STATUSES }
+            }
+          }
+        }
+      ]
+    };
   }
 
   private async ensureMemberOrAdmin(userId: string) {
@@ -332,18 +507,6 @@ export class EventsService {
     return user;
   }
 
-  private async findUserActiveTicket(userId: string, eventId: string) {
-    const now = new Date();
-
-    return this.prisma.ticket.findFirst({
-      where: {
-        userId,
-        eventId,
-        ...getActiveTicketWhere(now)
-      }
-    });
-  }
-
   private async countActiveTickets(ticketTypeId: string) {
     const now = new Date();
 
@@ -364,11 +527,42 @@ export class EventsService {
     });
   }
 
-  private async formatEvent(event: EventSource, options: { includeAdminCounts?: boolean; includeUserTicket?: boolean }) {
+  private async countActiveReservations(ticketTypeId: string) {
+    return this.prisma.ticket.count({
+      where: {
+        ticketTypeId,
+        status: TicketStatus.RESERVED,
+        reservedUntil: { gt: new Date() }
+      }
+    });
+  }
+
+  private async sumSuccessfulEventTicketPayments(eventId: string) {
+    const result = await this.prisma.payment.aggregate({
+      where: {
+        purpose: PaymentPurpose.EVENT_TICKET,
+        status: PaymentStatus.SUCCESS,
+        providerMetadata: {
+          path: ["eventId"],
+          equals: eventId
+        }
+      },
+      _sum: {
+        amountKobo: true
+      }
+    });
+
+    return result._sum.amountKobo ?? 0;
+  }
+
+  private async formatEvent(event: EventSource, options: { includeAdminCounts?: boolean; includeUserTickets?: boolean }) {
     const ticketType = event.ticketTypes[0] ?? null;
-    const activeCount = ticketType ? await this.countActiveTickets(ticketType.id) : 0;
     const confirmedCount = ticketType ? await this.countConfirmedTickets(ticketType.id) : 0;
-    const userTicket = options.includeUserTicket ? event.tickets[0] ?? null : null;
+    const activeReservationCount = ticketType ? await this.countActiveReservations(ticketType.id) : 0;
+    const activeCount = confirmedCount + activeReservationCount;
+    const userTickets = options.includeUserTickets ? event.tickets : [];
+    const userTicket = userTickets[0] ?? null;
+    const totalPaidAmountKobo = options.includeAdminCounts ? await this.sumSuccessfulEventTicketPayments(event.id) : 0;
 
     return {
       id: event.id,
@@ -382,37 +576,47 @@ export class EventsService {
       startsAt: event.startsAt,
       endsAt: event.endsAt,
       status: event.status,
+      cancellationReason: event.cancellationReason,
+      cancelledAt: event.cancelledAt,
       ticketType: ticketType
         ? {
             id: ticketType.id,
             name: ticketType.name,
             priceKobo: ticketType.priceKobo,
             capacity: ticketType.capacity,
+            maxTicketsPerUser: ticketType.maxTicketsPerUser,
             soldCount: confirmedCount,
-            reservedCount: activeCount,
+            reservedCount: activeReservationCount,
             availableCount: Math.max(0, ticketType.capacity - activeCount)
           }
         : null,
       ...(options.includeAdminCounts
         ? {
             attendeeCount: confirmedCount,
-            reservationCount: activeCount
+            reservationCount: activeReservationCount,
+            totalPaidAmountKobo
           }
         : {}),
-      ...(options.includeUserTicket
+      ...(options.includeUserTickets
         ? {
+            userTickets: userTickets.map((ticket) => this.formatTicket(ticket)),
             userTicket: userTicket
-              ? {
-                  id: userTicket.id,
-                  code: userTicket.code,
-                  status: userTicket.status,
-                  createdAt: userTicket.createdAt
-                }
+              ? this.formatTicket(userTicket)
               : null
           }
         : {}),
       createdAt: event.createdAt,
       updatedAt: event.updatedAt
+    };
+  }
+
+  private formatTicket(ticket: { id: string; code: string; status: TicketStatus; checkedInAt: Date | null; createdAt: Date }) {
+    return {
+      id: ticket.id,
+      code: ticket.code,
+      status: ticket.status,
+      checkedInAt: ticket.checkedInAt,
+      createdAt: ticket.createdAt
     };
   }
 
@@ -464,14 +668,6 @@ export class EventsService {
         return;
       }
 
-      if (nextStatus === EventStatus.COMPLETED) {
-        if (event.startsAt > new Date()) {
-          throw new BadRequestException("Events cannot be completed before they start.");
-        }
-
-        return;
-      }
-
       if (nextStatus === EventStatus.DRAFT) {
         const activeTickets = await this.countActiveTickets(ticketTypeId);
 
@@ -485,6 +681,10 @@ export class EventsService {
 
         return;
       }
+    }
+
+    if (nextStatus === EventStatus.COMPLETED) {
+      throw new BadRequestException("Events are completed automatically after they end.");
     }
 
     throw new BadRequestException("Cancelled or completed events cannot move to another status.");

@@ -24,7 +24,7 @@ import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import type { ChatRoom, RoomMessage, StreetzUser } from "@/lib/types";
 
-type RoomViewMode = "explore" | "joined";
+type RoomViewMode = "explore" | "joined" | "active" | "inactive";
 type AdminRoomView = "list" | "form";
 type AdminRoomMode = "list" | "create" | "edit";
 
@@ -149,7 +149,7 @@ export function RoomsTab({
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialSelectedRoomId);
   const [pendingJoinRoom, setPendingJoinRoom] = useState<ChatRoom | null>(null);
   const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<RoomViewMode>("joined");
+  const [viewMode, setViewMode] = useState<RoomViewMode>(isAdmin ? "active" : "joined");
   const [adminRoomView, setAdminRoomView] = useState<AdminRoomView>(adminMode === "list" ? "list" : "form");
   const [editingRoomId, setEditingRoomId] = useState<string | null>(adminMode === "edit" ? adminRoomId : null);
   const [roomForm, setRoomForm] = useState<RoomForm>(emptyRoomForm);
@@ -161,6 +161,8 @@ export function RoomsTab({
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
   const [isSavingRoom, setIsSavingRoom] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [pendingToggleRoom, setPendingToggleRoom] = useState<ChatRoom | null>(null);
+  const [isTogglingRoom, setIsTogglingRoom] = useState(false);
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "offline">("connecting");
   const [notice, setNotice] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -185,8 +187,12 @@ export function RoomsTab({
     [rooms]
   );
   const joinedRooms = orderedRooms.filter((room) => room.hasJoined);
-  const exploreRooms = isAdmin ? orderedRooms : orderedRooms.filter((room) => !room.hasJoined);
-  const visibleRooms = viewMode === "joined" && !isAdmin ? joinedRooms : exploreRooms;
+  const exploreRooms = orderedRooms.filter((room) => !room.hasJoined);
+  const activeRooms = orderedRooms.filter((room) => room.isActive);
+  const inactiveRooms = orderedRooms.filter((room) => !room.isActive);
+  const visibleRooms = isAdmin
+    ? viewMode === "inactive" ? inactiveRooms : activeRooms
+    : viewMode === "joined" ? joinedRooms : exploreRooms;
 
   async function loadRooms(options: { clearNotice?: boolean; showLoading?: boolean } = {}) {
     const { clearNotice = true, showLoading = true } = options;
@@ -511,6 +517,7 @@ export function RoomsTab({
       return;
     }
 
+    setIsTogglingRoom(true);
     setNotice(null);
 
     try {
@@ -526,6 +533,9 @@ export function RoomsTab({
       }
     } catch (error) {
       setNotice(getUserErrorMessage(error));
+    } finally {
+      setIsTogglingRoom(false);
+      setPendingToggleRoom(null);
     }
   }
 
@@ -556,9 +566,15 @@ export function RoomsTab({
       roomMessageIdsRef.current = new Set();
       setMessageBody("");
       setAdminRoomView("form");
-      setEditingRoomId(adminMode === "edit" ? adminRoomId : null);
-      setRoomForm(emptyRoomForm);
       setNotice(null);
+
+      if (adminMode === "create") {
+        setEditingRoomId(null);
+        setRoomForm(emptyRoomForm);
+        return;
+      }
+
+      setEditingRoomId(adminRoomId);
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -998,24 +1014,43 @@ export function RoomsTab({
       />
 
       <div className="px-5 md:px-8">
-        {!isAdmin ? (
-          <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
-            <button
-              type="button"
-              className={`rounded-full px-4 py-2 ${viewMode === "joined" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-              onClick={() => setViewMode("joined")}
-            >
-              Joined
-            </button>
-            <button
-              type="button"
-              className={`rounded-full px-4 py-2 ${viewMode === "explore" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-              onClick={() => setViewMode("explore")}
-            >
-              Explore
-            </button>
-          </div>
-        ) : null}
+        <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
+          {isAdmin ? (
+            <>
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2 ${viewMode === "active" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+                onClick={() => setViewMode("active")}
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2 ${viewMode === "inactive" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+                onClick={() => setViewMode("inactive")}
+              >
+                Inactive
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2 ${viewMode === "joined" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+                onClick={() => setViewMode("joined")}
+              >
+                Joined
+              </button>
+              <button
+                type="button"
+                className={`rounded-full px-4 py-2 ${viewMode === "explore" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+                onClick={() => setViewMode("explore")}
+              >
+                Explore
+              </button>
+            </>
+          )}
+        </div>
 
         {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
@@ -1031,7 +1066,7 @@ export function RoomsTab({
             {visibleRooms.map((room) => (
               <article
                 key={room.id}
-                className="rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+                className={`rounded-3xl border p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${room.isActive ? "border-black/5 bg-white" : "border-black/[0.03] bg-[#fafafa] opacity-70"}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -1064,9 +1099,9 @@ export function RoomsTab({
                           <Pencil className="size-4" aria-hidden="true" />
                         </button>
                         <button
-                          className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
+                          className={`inline-flex size-10 items-center justify-center rounded-full border ${room.isActive ? "border-red-200 text-red-500 hover:bg-red-50" : "border-[#18E299] text-[#0b9f69] hover:bg-[#d4fae8]"}`}
                           type="button"
-                          onClick={() => toggleRoom(room)}
+                          onClick={() => setPendingToggleRoom(room)}
                           aria-label={room.isActive ? `Deactivate ${room.name}` : `Activate ${room.name}`}
                           title={room.isActive ? "Deactivate" : "Activate"}
                         >
@@ -1110,12 +1145,16 @@ export function RoomsTab({
             <div>
               <MessageCircle className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">
-                {viewMode === "joined" && !isAdmin ? "No joined rooms yet" : "No rooms yet"}
+                {isAdmin
+                  ? viewMode === "inactive" ? "No inactive rooms" : "No active rooms"
+                  : viewMode === "joined" ? "No joined rooms yet" : "No rooms yet"}
               </h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-[#666666]">
-                {viewMode === "joined" && !isAdmin
-                  ? "Rooms you join from Explore will appear here."
-                  : "Admin-created rooms will appear here once they are active."}
+                {isAdmin
+                  ? viewMode === "inactive" ? "Deactivated rooms will appear here." : "Create a room to get started."
+                  : viewMode === "joined"
+                    ? "Rooms you join from Explore will appear here."
+                    : "Admin-created rooms will appear here once they are active."}
               </p>
               <button
                 className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 px-5 text-sm font-medium"
@@ -1163,6 +1202,55 @@ export function RoomsTab({
               >
                 {isJoiningRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
                 Yes
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {pendingToggleRoom ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
+          <section className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-[#0d0d0d]">
+                  {pendingToggleRoom.isActive ? "Deactivate room?" : "Activate room?"}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-[#666666]">
+                  {pendingToggleRoom.isActive
+                    ? `"${pendingToggleRoom.name}" will be hidden from members and no new messages can be sent.`
+                    : `"${pendingToggleRoom.name}" will become visible to members again.`}
+                </p>
+              </div>
+              <button
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
+                type="button"
+                onClick={() => setPendingToggleRoom(null)}
+                disabled={isTogglingRoom}
+                aria-label="Close confirmation"
+                title="Close"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => setPendingToggleRoom(null)}
+                disabled={isTogglingRoom}
+              >
+                Cancel
+              </button>
+              <button
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${pendingToggleRoom.isActive ? "bg-red-600 text-white" : "bg-[#0d0d0d] text-white"}`}
+                type="button"
+                onClick={() => void toggleRoom(pendingToggleRoom)}
+                disabled={isTogglingRoom}
+              >
+                {isTogglingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+                {pendingToggleRoom.isActive ? "Deactivate" : "Activate"}
               </button>
             </div>
           </section>

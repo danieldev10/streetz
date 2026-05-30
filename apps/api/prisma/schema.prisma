@@ -343,33 +343,36 @@ model RoomMembership {
 }
 
 model Event {
-  id          String       @id @default(cuid())
-  title       String
-  slug        String       @unique
-  description String?
-  coverImage  String?
-  venue       String
-  state       String?
-  city        String
-  startsAt    DateTime
-  endsAt      DateTime?
-  status      EventStatus  @default(DRAFT)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  ticketTypes TicketType[]
-  tickets     Ticket[]
+  id                 String       @id @default(cuid())
+  title              String
+  slug               String       @unique
+  description        String?
+  coverImage         String?
+  venue              String
+  state              String?
+  city               String
+  startsAt           DateTime
+  endsAt             DateTime?
+  status             EventStatus  @default(DRAFT)
+  cancellationReason String?
+  cancelledAt        DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  ticketTypes        TicketType[]
+  tickets            Ticket[]
 }
 
 model TicketType {
-  id        String   @id @default(cuid())
-  eventId   String
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name      String
-  priceKobo Int
-  capacity  Int
-  soldCount Int      @default(0)
-  createdAt DateTime @default(now())
-  tickets   Ticket[]
+  id                  String   @id @default(cuid())
+  eventId             String
+  event               Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name                String
+  priceKobo           Int
+  capacity            Int
+  maxTicketsPerUser   Int      @default(4)
+  soldCount           Int      @default(0)
+  createdAt           DateTime @default(now())
+  tickets             Ticket[]
 }
 
 model Ticket {

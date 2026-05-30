@@ -4,6 +4,7 @@ import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthUser } from "../auth/types/auth-user";
+import { BookEventDto } from "../events/dto/book-event.dto";
 import { VerifySubscriptionPaymentDto } from "./dto/verify-subscription-payment.dto";
 import { PaymentsService } from "./payments.service";
 
@@ -36,8 +37,8 @@ export class PaymentsController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseGuards(JwtAuthGuard)
   @Post("events/:eventId/ticket/initialize")
-  initializeEventTicket(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {
-    return this.paymentsService.initializeEventTicket(user.id, eventId);
+  initializeEventTicket(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string, @Body() dto: BookEventDto) {
+    return this.paymentsService.initializeEventTicket(user.id, eventId, dto);
   }
 
   @ApiBearerAuth()
