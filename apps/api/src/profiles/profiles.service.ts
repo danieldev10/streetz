@@ -1,4 +1,5 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadGatewayException, BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { randomBytes } from "crypto";
 import sharp = require("sharp");
 import { PrismaService } from "../prisma/prisma.service";
@@ -6,11 +7,13 @@ import { StorageService } from "../storage/storage.service";
 import { PROFILE_PHOTO_UPLOAD_MAX_BYTES, formatUploadLimit } from "../storage/upload-limits";
 import { CreateProfilePhotoDto } from "./dto/create-profile-photo.dto";
 import { PresignProfilePhotoDto } from "./dto/presign-profile-photo.dto";
+import { ReverseGeocodeDto } from "./dto/reverse-geocode.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 
 const MAX_PROFILE_PHOTOS = 4;
 const PHOTO_UPLOAD_EXPIRES_SECONDS = 300;
 const DEFAULT_MAX_DISTANCE_KM = 50;
+const GOOGLE_GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 
 const contentTypeExtensions: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -24,11 +27,26 @@ const profilePhotoVariants = [
   { name: "full", width: 1400, quality: 84 }
 ] as const;
 
+type GoogleAddressComponent = {
+  long_name: string;
+  short_name: string;
+  types: string[];
+};
+
+type GoogleReverseGeocodeResponse = {
+  status: string;
+  results: Array<{
+    formatted_address?: string;
+    address_components: GoogleAddressComponent[];
+  }>;
+};
+
 @Injectable()
 export class ProfilesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    private readonly config: ConfigService
   ) {}
 
   async getMyProfile(userId: string) {
@@ -138,6 +156,75 @@ export class ProfilesService {
     });
 
     return this.withSignedProfilePhotos(profile);
+  }
+
+  async reverseGeocodeLocation(dto: ReverseGeocodeDto) {
+    const apiKey = this.config.get<string>("GOOGLE_MAPS_API_KEY")?.trim();
+
+    if (!apiKey) {
+      throw new ServiceUnavailableException("Location lookup is not configured.");
+    }
+
+    const url = new URL(GOOGLE_GEOCODING_URL);
+    url.searchParams.set("latlng", `${dto.latitude},${dto.longitude}`);
+    url.searchParams.set("language", "en");
+    url.searchParams.set("region", "ng");
+    url.searchParams.set("key", apiKey);
+
+    let response: Response;
+
+    try {
+      response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    } catch {
+      throw new BadGatewayException("Could not look up this location right now.");
+    }
+
+    if (!response.ok) {
+      throw new BadGatewayException("Could not look up this location right now.");
+    }
+
+    const body = (await response.json()) as GoogleReverseGeocodeResponse;
+
+    if (body.status === "ZERO_RESULTS") {
+      return {
+        state: null,
+        city: null,
+        stateCandidates: [],
+        cityCandidates: [],
+        formattedAddress: null
+      };
+    }
+
+    if (body.status !== "OK") {
+      throw new BadGatewayException("Could not look up this location right now.");
+    }
+
+    const components = body.results.flatMap((result) => result.address_components);
+    const stateCandidates = this.getUniqueLocationNames(
+      components.filter((component) => component.types.includes("administrative_area_level_1"))
+    ).map((state) => state.replace(/\s+State$/i, ""));
+    const cityCandidates = this.getUniqueLocationNames(
+      components.filter((component) =>
+        component.types.some((type) =>
+          [
+            "sublocality_level_1",
+            "sublocality",
+            "locality",
+            "postal_town",
+            "administrative_area_level_2",
+            "neighborhood"
+          ].includes(type)
+        )
+      )
+    );
+
+    return {
+      state: stateCandidates[0] ?? null,
+      city: cityCandidates[0] ?? null,
+      stateCandidates,
+      cityCandidates,
+      formattedAddress: body.results[0]?.formatted_address ?? null
+    };
   }
 
   async createPhotoUpload(userId: string, dto: PresignProfilePhotoDto) {
@@ -300,6 +387,20 @@ export class ProfilesService {
     }
 
     return value;
+  }
+
+  private getUniqueLocationNames(components: GoogleAddressComponent[]) {
+    const names = new Set<string>();
+
+    for (const component of components) {
+      const name = component.long_name.trim();
+
+      if (name) {
+        names.add(name);
+      }
+    }
+
+    return [...names];
   }
 
   private cleanInterests(interests: string[]) {

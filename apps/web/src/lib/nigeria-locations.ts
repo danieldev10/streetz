@@ -60,3 +60,67 @@ export function findStateForCity(city: string) {
     location.cities.some((candidate) => candidate.toLowerCase() === normalizedCity)
   )?.state ?? null;
 }
+
+type LocationSuggestion = {
+  state: string | null;
+  city: string | null;
+  stateCandidates?: string[];
+  cityCandidates?: string[];
+};
+
+const stateAliases: Record<string, string> = {
+  fct: "Federal Capital Territory",
+  abuja: "Federal Capital Territory",
+  "federal capital territory": "Federal Capital Territory",
+  "abuja federal capital territory": "Federal Capital Territory",
+};
+
+export function normalizeLocationSuggestion(suggestion: LocationSuggestion) {
+  const rawStateCandidates = [suggestion.state, ...(suggestion.stateCandidates ?? [])]
+    .filter((value): value is string => Boolean(value?.trim()));
+  const rawCityCandidates = [suggestion.city, ...(suggestion.cityCandidates ?? [])]
+    .filter((value): value is string => Boolean(value?.trim()));
+  const state = rawStateCandidates.map(findKnownStateName).find(Boolean) ?? cleanLocationName(rawStateCandidates[0]) ?? "";
+  const knownCity = state
+    ? rawCityCandidates.map((candidate) => findKnownCityName(state, candidate)).find(Boolean)
+    : null;
+  const city = knownCity ?? cleanLocationName(rawCityCandidates[0]) ?? "";
+
+  return {
+    state,
+    city,
+  };
+}
+
+function findKnownStateName(value: string) {
+  const normalized = normalizeLocationName(value.replace(/\s+State$/i, ""));
+  const aliased = stateAliases[normalized];
+
+  if (aliased) {
+    return aliased;
+  }
+
+  return nigeriaStateNames.find((state) => normalizeLocationName(state) === normalized) ?? null;
+}
+
+function findKnownCityName(state: string, value: string) {
+  const normalized = normalizeLocationName(value);
+
+  return getCitiesForState(state).find((city) => normalizeLocationName(city) === normalized) ?? null;
+}
+
+function cleanLocationName(value: string | undefined) {
+  const trimmed = value?.replace(/\s+State$/i, "").trim();
+
+  return trimmed || null;
+}
+
+function normalizeLocationName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+state$/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}

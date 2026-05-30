@@ -9,6 +9,14 @@ export type BrowserCoordinates = {
   accuracy: number | null;
 };
 
+export type ReverseGeocodeSuggestion = {
+  state: string | null;
+  city: string | null;
+  stateCandidates: string[];
+  cityCandidates: string[];
+  formattedAddress: string | null;
+};
+
 export function getCurrentBrowserCoordinates(): Promise<BrowserCoordinates> {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     return Promise.reject(new Error("Location is not available in this browser."));

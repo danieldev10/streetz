@@ -9,8 +9,8 @@ import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import { PROFILE_PHOTO_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
-import { DEFAULT_DISCOVERY_DISTANCE_KM, getCurrentBrowserCoordinates, getLocationPermissionMessage } from "@/lib/location";
-import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
+import { DEFAULT_DISCOVERY_DISTANCE_KM, getCurrentBrowserCoordinates, getLocationPermissionMessage, type ReverseGeocodeSuggestion } from "@/lib/location";
+import { getCitiesForState, nigeriaStateNames, normalizeLocationSuggestion } from "@/lib/nigeria-locations";
 import {
   PROFILE_PHOTO_LIMIT,
   connectionStatusOptions,
@@ -277,15 +277,43 @@ export function ProfileTab({
 
     try {
       const coordinates = await getCurrentBrowserCoordinates();
+      let locationNotice = "GPS location captured. Save your profile to use exact distance in Discovery.";
+      let suggestedCity = "";
+      let suggestedState = "";
+
+      try {
+        const suggestion = await apiRequest<ReverseGeocodeSuggestion>("/profiles/location/reverse-geocode", {
+          method: "POST",
+          headers: authHeaders(token),
+          body: JSON.stringify({
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude,
+          }),
+        });
+        const normalizedLocation = normalizeLocationSuggestion(suggestion);
+
+        suggestedCity = normalizedLocation.city;
+        suggestedState = normalizedLocation.state;
+
+        if (suggestedCity && suggestedState) {
+          locationNotice = `GPS location captured as ${suggestedCity}, ${suggestedState}. Save your profile to use exact distance in Discovery.`;
+        } else {
+          locationNotice = "GPS location captured, but we could not auto-fill city and state. Choose them manually before saving.";
+        }
+      } catch {
+        locationNotice = "GPS location captured, but we could not auto-fill city and state. Choose them manually before saving.";
+      }
 
       setProfileForm((current) => ({
         ...current,
+        city: suggestedCity || current.city,
+        state: suggestedState || current.state,
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
         locationAccuracyMeters: coordinates.accuracy,
         locationUpdatedAt: new Date().toISOString(),
       }));
-      setNotice("GPS location captured. Save your profile to use exact distance in Discovery.");
+      setNotice(locationNotice);
     } catch (error) {
       setNotice(getLocationPermissionMessage(error));
     } finally {

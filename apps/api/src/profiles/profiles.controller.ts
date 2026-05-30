@@ -6,6 +6,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthUser } from "../auth/types/auth-user";
 import { CreateProfilePhotoDto } from "./dto/create-profile-photo.dto";
 import { PresignProfilePhotoDto } from "./dto/presign-profile-photo.dto";
+import { ReverseGeocodeDto } from "./dto/reverse-geocode.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { ProfilesService } from "./profiles.service";
 
@@ -24,6 +25,11 @@ export class ProfilesController {
   @Put("me")
   updateMyProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
     return this.profilesService.updateMyProfile(user.id, dto);
+  }
+
+  @Post("location/reverse-geocode")
+  reverseGeocodeLocation(@Body() dto: ReverseGeocodeDto) {
+    return this.profilesService.reverseGeocodeLocation(dto);
   }
 
   @Post("photos/presign")
