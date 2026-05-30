@@ -116,7 +116,7 @@ export class NotificationsService {
   async getSummary(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true }
+      select: { role: true, createdAt: true }
     });
 
     if (user?.role === UserRole.ADMIN) {
@@ -128,10 +128,11 @@ export class NotificationsService {
       };
     }
 
+    const userCreatedAt = user?.createdAt ?? new Date(0);
     const [matchesUnreadCount, roomsUnreadCount, notificationsUnreadCount] = await Promise.all([
       this.getUnreadDirectMessageCount(userId),
       this.getUnreadRoomMessageCount(userId),
-      this.getUnreadFeedNotificationCount(userId)
+      this.getUnreadFeedNotificationCount(userId, userCreatedAt)
     ]);
 
     return {
@@ -143,6 +144,12 @@ export class NotificationsService {
   }
 
   async getFeed(userId: string) {
+    const userRecord = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { createdAt: true }
+    });
+    const userCreatedAt = userRecord?.createdAt ?? new Date(0);
+
     const [
       likes,
       matches,
@@ -160,8 +167,8 @@ export class NotificationsService {
       this.getNewMatches(userId),
       this.getUnreadDirectMessageSummaries(userId),
       this.getUnreadRoomMessageSummaries(userId),
-      this.getRecentRooms(userId),
-      this.getUpcomingEvents(userId),
+      this.getRecentRooms(userId, userCreatedAt),
+      this.getUpcomingEvents(userId, userCreatedAt),
       this.getConfirmedTickets(userId),
       this.getEventAlerts(userId),
       this.getSubscriptionAlerts(userId),
@@ -402,16 +409,17 @@ export class NotificationsService {
       .slice(0, FEED_ROOM_MESSAGES_LIMIT);
   }
 
-  private async getRecentRooms(userId: string) {
+  private async getRecentRooms(userId: string, userCreatedAt: Date) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - FEED_ROOMS_RECENCY_DAYS);
+    const effectiveCutoff = userCreatedAt > cutoff ? userCreatedAt : cutoff;
     const seenRoomIds = await this.getSeenEntityIds(userId, NotificationKind.ROOM_CREATED);
 
     const rooms = await this.prisma.chatRoom.findMany({
       where: {
         id: { notIn: seenRoomIds },
         isActive: true,
-        createdAt: { gte: cutoff },
+        createdAt: { gte: effectiveCutoff },
         memberships: {
           none: { userId }
         }
@@ -438,7 +446,7 @@ export class NotificationsService {
     }));
   }
 
-  private async getUpcomingEvents(userId: string) {
+  private async getUpcomingEvents(userId: string, userCreatedAt: Date) {
     const now = new Date();
     const seenEventIds = await this.getSeenEntityIds(userId, NotificationKind.EVENT_PUBLISHED);
 
@@ -447,6 +455,7 @@ export class NotificationsService {
         id: { notIn: seenEventIds },
         status: EventStatus.PUBLISHED,
         startsAt: { gt: now },
+        createdAt: { gte: userCreatedAt },
         tickets: {
           none: {
             userId,
@@ -723,7 +732,7 @@ export class NotificationsService {
       .slice(0, FEED_PAYMENT_ALERTS_LIMIT);
   }
 
-  private async getUnreadFeedNotificationCount(userId: string) {
+  private async getUnreadFeedNotificationCount(userId: string, userCreatedAt: Date) {
     const [
       pendingLikeCount,
       unseenMatchCount,
@@ -737,8 +746,8 @@ export class NotificationsService {
     ] = await Promise.all([
       this.getPendingLikeCount(userId),
       this.getUnseenMatchNotificationCount(userId),
-      this.getUnseenRoomNotificationCount(userId),
-      this.getUnseenEventNotificationCount(userId),
+      this.getUnseenRoomNotificationCount(userId, userCreatedAt),
+      this.getUnseenEventNotificationCount(userId, userCreatedAt),
       this.getUnseenTicketNotificationCount(userId),
       this.getUnseenEventAlertCount(userId),
       this.getUnseenSubscriptionNotificationCount(userId),
@@ -839,7 +848,6 @@ export class NotificationsService {
             birthDate: { not: null },
             city: { not: null },
             state: { not: null },
-            connectionStatus: context.connectionStatus,
             discoveryLive: true,
             interests: { isEmpty: false }
           }
@@ -870,16 +878,17 @@ export class NotificationsService {
     });
   }
 
-  private async getUnseenRoomNotificationCount(userId: string) {
+  private async getUnseenRoomNotificationCount(userId: string, userCreatedAt: Date) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - FEED_ROOMS_RECENCY_DAYS);
+    const effectiveCutoff = userCreatedAt > cutoff ? userCreatedAt : cutoff;
     const seenRoomIds = await this.getSeenEntityIds(userId, NotificationKind.ROOM_CREATED);
 
     return this.prisma.chatRoom.count({
       where: {
         id: { notIn: seenRoomIds },
         isActive: true,
-        createdAt: { gte: cutoff },
+        createdAt: { gte: effectiveCutoff },
         memberships: {
           none: { userId }
         }
@@ -887,7 +896,7 @@ export class NotificationsService {
     });
   }
 
-  private async getUnseenEventNotificationCount(userId: string) {
+  private async getUnseenEventNotificationCount(userId: string, userCreatedAt: Date) {
     const now = new Date();
     const seenEventIds = await this.getSeenEntityIds(userId, NotificationKind.EVENT_PUBLISHED);
 
@@ -896,6 +905,7 @@ export class NotificationsService {
         id: { notIn: seenEventIds },
         status: EventStatus.PUBLISHED,
         startsAt: { gt: now },
+        createdAt: { gte: userCreatedAt },
         tickets: {
           none: {
             userId,
