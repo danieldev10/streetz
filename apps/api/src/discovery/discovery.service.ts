@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { AccountStatus, ConnectionStatus, DiscoveryAction, MatchStatus, ReportStatus, SubscriptionStatus, UserRole } from "@prisma/client";
+import { AccountStatus, ConnectionStatus, DiscoveryAction, MatchStatus, Prisma, ReportStatus, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
@@ -10,8 +10,21 @@ import { ReportUserDto } from "./dto/report-user.dto";
 import { UnblockUserDto } from "./dto/unblock-user.dto";
 
 const DEFAULT_CANDIDATE_LIMIT = 12;
-const CANDIDATE_POOL_LIMIT = DEFAULT_CANDIDATE_LIMIT * 5;
-const EARTH_RADIUS_KM = 6371;
+
+type ReadyDiscoveryProfile = {
+  connectionStatus: ConnectionStatus;
+  city: string | null;
+  state: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationUpdatedAt: Date | null;
+  maxDistanceKm: number;
+};
+
+type SpatialCandidateRow = {
+  id: string;
+  distanceKm: number;
+};
 
 @Injectable()
 export class DiscoveryService {
@@ -64,6 +77,41 @@ export class DiscoveryService {
       excludedIds.add(match.userAId === userId ? match.userBId : match.userAId);
     }
 
+    const candidateInclude = {
+      profile: true,
+      photos: {
+        orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
+        take: 6
+      }
+    };
+
+    if (currentProfile.latitude !== null && currentProfile.longitude !== null) {
+      const nearbyRows = await this.getNearbyCandidateRows(currentProfile, excludedIds, now);
+      const nearbyCandidateIds = nearbyRows.map((row) => row.id);
+      const candidates =
+        nearbyCandidateIds.length > 0
+          ? await this.prisma.user.findMany({
+              where: { id: { in: nearbyCandidateIds } },
+              include: candidateInclude
+            })
+          : [];
+      const candidatesById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+
+      return {
+        candidates: await Promise.all(
+          nearbyRows
+            .map((row) => {
+              const candidate = candidatesById.get(row.id);
+
+              return candidate ? { candidate, distanceKm: row.distanceKm } : null;
+            })
+            .filter((row): row is { candidate: (typeof candidates)[number]; distanceKm: number } => Boolean(row))
+            .map(({ candidate, distanceKm }) => this.formatCandidate(candidate, { distanceKm }))
+        ),
+        location: this.formatLocationMeta(currentProfile)
+      };
+    }
+
     const candidates = await this.prisma.user.findMany({
       where: {
         id: { notIn: Array.from(excludedIds) },
@@ -84,49 +132,14 @@ export class DiscoveryService {
         },
         photos: { some: {} }
       },
-      include: {
-        profile: true,
-        photos: {
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-          take: 6
-        }
-      },
+      include: candidateInclude,
       orderBy: { updatedAt: "desc" },
-      take: currentProfile.latitude !== null && currentProfile.longitude !== null ? CANDIDATE_POOL_LIMIT : DEFAULT_CANDIDATE_LIMIT
+      take: DEFAULT_CANDIDATE_LIMIT
     });
 
-    const rankedCandidates = candidates
-      .map((candidate) => ({
-        candidate,
-        distanceKm: this.calculateDistanceKm(currentProfile, candidate.profile)
-      }))
-      .filter(({ distanceKm }) => distanceKm === null || distanceKm <= currentProfile.maxDistanceKm)
-      .sort((left, right) => {
-        if (left.distanceKm !== null && right.distanceKm !== null) {
-          return left.distanceKm - right.distanceKm;
-        }
-
-        if (left.distanceKm !== null) {
-          return -1;
-        }
-
-        if (right.distanceKm !== null) {
-          return 1;
-        }
-
-        return right.candidate.updatedAt.getTime() - left.candidate.updatedAt.getTime();
-      })
-      .slice(0, DEFAULT_CANDIDATE_LIMIT);
-
     return {
-      candidates: await Promise.all(
-        rankedCandidates.map(({ candidate, distanceKm }) => this.formatCandidate(candidate, { distanceKm }))
-      ),
-      location: {
-        hasCoordinates: currentProfile.latitude !== null && currentProfile.longitude !== null,
-        maxDistanceKm: currentProfile.maxDistanceKm,
-        locationUpdatedAt: currentProfile.locationUpdatedAt
-      }
+      candidates: await Promise.all(candidates.map((candidate) => this.formatCandidate(candidate))),
+      location: this.formatLocationMeta(currentProfile)
     };
   }
 
@@ -503,6 +516,8 @@ export class DiscoveryService {
 
     return {
       connectionStatus,
+      city: profile.city,
+      state: profile.state,
       latitude: profile.latitude,
       longitude: profile.longitude,
       locationUpdatedAt: profile.locationUpdatedAt,
@@ -536,35 +551,56 @@ export class DiscoveryService {
     };
   }
 
-  private calculateDistanceKm(
-    origin: { latitude: number | null; longitude: number | null },
-    target: { latitude?: number | null; longitude?: number | null } | null
-  ) {
-    if (
-      origin.latitude === null ||
-      origin.longitude === null ||
-      target?.latitude === null ||
-      target?.latitude === undefined ||
-      target.longitude === null ||
-      target.longitude === undefined
-    ) {
-      return null;
-    }
-
-    const latDistance = this.degreesToRadians(target.latitude - origin.latitude);
-    const lonDistance = this.degreesToRadians(target.longitude - origin.longitude);
-    const originLat = this.degreesToRadians(origin.latitude);
-    const targetLat = this.degreesToRadians(target.latitude);
-
-    const haversine =
-      Math.sin(latDistance / 2) * Math.sin(latDistance / 2) +
-      Math.cos(originLat) * Math.cos(targetLat) * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-
-    return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+  private formatLocationMeta(profile: ReadyDiscoveryProfile) {
+    return {
+      hasCoordinates: profile.latitude !== null && profile.longitude !== null,
+      city: profile.city,
+      state: profile.state,
+      maxDistanceKm: profile.maxDistanceKm,
+      locationUpdatedAt: profile.locationUpdatedAt
+    };
   }
 
-  private degreesToRadians(value: number) {
-    return (value * Math.PI) / 180;
+  private async getNearbyCandidateRows(profile: ReadyDiscoveryProfile, excludedIds: Set<string>, now: Date) {
+    if (profile.latitude === null || profile.longitude === null) {
+      return [];
+    }
+
+    const maxDistanceMeters = profile.maxDistanceKm * 1000;
+    const excludedIdList = Array.from(excludedIds);
+
+    return this.prisma.$queryRaw<SpatialCandidateRow[]>(Prisma.sql`
+      WITH origin AS (
+        SELECT ST_SetSRID(ST_MakePoint(${profile.longitude}, ${profile.latitude}), 4326)::geography AS geog
+      )
+      SELECT
+        candidate."id",
+        (ST_Distance(candidate_profile."location", origin.geog) / 1000.0)::double precision AS "distanceKm"
+      FROM origin
+      JOIN "User" AS candidate ON TRUE
+      JOIN "Profile" AS candidate_profile ON candidate_profile."userId" = candidate."id"
+      WHERE candidate."id" NOT IN (${Prisma.join(excludedIdList)})
+        AND candidate."accountStatus" = CAST(${AccountStatus.ACTIVE} AS "AccountStatus")
+        AND candidate."role" = CAST(${UserRole.USER} AS "UserRole")
+        AND candidate."subscriptionStatus" = CAST(${SubscriptionStatus.ACTIVE} AS "SubscriptionStatus")
+        AND candidate."subscriptionEndsAt" > ${now}
+        AND candidate_profile."bio" IS NOT NULL
+        AND candidate_profile."birthDate" IS NOT NULL
+        AND candidate_profile."city" IS NOT NULL
+        AND candidate_profile."state" IS NOT NULL
+        AND candidate_profile."connectionStatus" = CAST(${profile.connectionStatus} AS "ConnectionStatus")
+        AND candidate_profile."discoveryLive" = TRUE
+        AND cardinality(candidate_profile."interests") > 0
+        AND candidate_profile."location" IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM "ProfilePhoto" AS photo
+          WHERE photo."userId" = candidate."id"
+        )
+        AND ST_DWithin(candidate_profile."location", origin.geog, ${maxDistanceMeters})
+      ORDER BY ST_Distance(candidate_profile."location", origin.geog) ASC, candidate."updatedAt" DESC
+      LIMIT ${DEFAULT_CANDIDATE_LIMIT}
+    `);
   }
 
   private async formatCandidate(candidate: {

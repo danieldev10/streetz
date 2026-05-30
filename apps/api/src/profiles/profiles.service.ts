@@ -35,6 +35,7 @@ type GoogleAddressComponent = {
 
 type GoogleReverseGeocodeResponse = {
   status: string;
+  error_message?: string;
   results: Array<{
     formatted_address?: string;
     address_components: GoogleAddressComponent[];
@@ -180,7 +181,7 @@ export class ProfilesService {
     }
 
     if (!response.ok) {
-      throw new BadGatewayException("Could not look up this location right now.");
+      throw new BadGatewayException(`Google location lookup failed with HTTP ${response.status}.`);
     }
 
     const body = (await response.json()) as GoogleReverseGeocodeResponse;
@@ -196,7 +197,7 @@ export class ProfilesService {
     }
 
     if (body.status !== "OK") {
-      throw new BadGatewayException("Could not look up this location right now.");
+      throw new BadGatewayException(this.getGoogleGeocodingError(body.status, body.error_message));
     }
 
     const components = body.results.flatMap((result) => result.address_components);
@@ -401,6 +402,26 @@ export class ProfilesService {
     }
 
     return [...names];
+  }
+
+  private getGoogleGeocodingError(status: string, errorMessage?: string) {
+    const safeMessage = errorMessage?.replace(/AIza[0-9A-Za-z_-]+/g, "[redacted]");
+
+    if (status === "REQUEST_DENIED") {
+      return safeMessage
+        ? `Google location lookup was denied: ${safeMessage}`
+        : "Google location lookup was denied. Check the Geocoding API, billing, and API key restrictions.";
+    }
+
+    if (status === "OVER_QUERY_LIMIT") {
+      return "Google location lookup quota has been reached.";
+    }
+
+    if (status === "INVALID_REQUEST") {
+      return "Google location lookup received invalid coordinates.";
+    }
+
+    return safeMessage ? `Google location lookup failed: ${safeMessage}` : "Could not look up this location right now.";
   }
 
   private cleanInterests(interests: string[]) {

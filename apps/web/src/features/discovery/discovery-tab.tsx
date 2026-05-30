@@ -21,11 +21,13 @@ import {
   DISCOVERY_DISTANCE_STEP_KM,
   MAX_DISCOVERY_DISTANCE_KM,
   MIN_DISCOVERY_DISTANCE_KM,
+  type ReverseGeocodeSuggestion,
   formatDistanceKm,
   getCurrentBrowserCoordinates,
   getLocationPermissionMessage,
 } from "@/lib/location";
 import { getCandidatePhotoUrl } from "@/lib/media";
+import { normalizeLocationSuggestion } from "@/lib/nigeria-locations";
 import { formatConnectionStatus } from "@/lib/profile";
 import { REPORT_DETAILS_MAX_LENGTH, REPORT_REASON_OPTIONS } from "@/lib/report-reasons";
 import type { DiscoveryActionName, DiscoveryCandidate, StreetzProfile } from "@/lib/types";
@@ -34,6 +36,8 @@ import { MemberProfileView } from "@/features/discovery/member-profile-view";
 
 type DiscoveryLocationMeta = {
   hasCoordinates: boolean;
+  city: string | null;
+  state: string | null;
   maxDistanceKm: number;
   locationUpdatedAt: string | null;
 };
@@ -45,8 +49,17 @@ type DiscoveryResponse = {
 
 const defaultDiscoveryLocation: DiscoveryLocationMeta = {
   hasCoordinates: false,
+  city: null,
+  state: null,
   maxDistanceKm: DEFAULT_DISCOVERY_DISTANCE_KM,
   locationUpdatedAt: null,
+};
+
+const LOCATION_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+type PendingDisplayLocation = {
+  city: string;
+  state: string;
 };
 
 export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatchCreated: () => void }) {
@@ -68,6 +81,8 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
   const [draftMaxDistanceKm, setDraftMaxDistanceKm] = useState(DEFAULT_DISCOVERY_DISTANCE_KM);
   const [isSavingFilters, setIsSavingFilters] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [pendingDisplayLocation, setPendingDisplayLocation] = useState<PendingDisplayLocation | null>(null);
+  const [isSavingDisplayLocation, setIsSavingDisplayLocation] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDraggingCard, setIsDraggingCard] = useState(false);
   const swipeStartRef = useRef<{ x: number; y: number; candidateId: string; startedAt: number } | null>(null);
@@ -86,6 +101,10 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
     transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0) rotate(${dragOffset.x / 18}deg)`,
     transition: isDraggingCard ? "none" : "transform 180ms ease",
   };
+  const shouldPromptForLocation = shouldRefreshDiscoveryLocation(locationMeta);
+  const locationPromptText = !locationMeta.hasCoordinates
+    ? "Update your location to see nearby people."
+    : "Refresh your location to keep nearby profiles accurate.";
 
   async function loadDiscovery(options: { clearNotice?: boolean; mode?: "append" | "replace"; showLoading?: boolean } = {}) {
     const { clearNotice = true, mode = "replace", showLoading = true } = options;
@@ -134,6 +153,8 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
   function syncLocationMetaFromProfile(profile: StreetzProfile) {
     const nextLocationMeta = {
       hasCoordinates: profile.latitude !== null && profile.longitude !== null,
+      city: profile.city,
+      state: profile.state,
       maxDistanceKm: profile.maxDistanceKm ?? DEFAULT_DISCOVERY_DISTANCE_KM,
       locationUpdatedAt: profile.locationUpdatedAt,
     };
@@ -169,6 +190,8 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
 
     try {
       const coordinates = await getCurrentBrowserCoordinates();
+      const suggestion = await reverseGeocodeCoordinates(coordinates).catch(() => null);
+      const suggestedDisplayLocation = suggestion ? getDisplayLocationSuggestion(suggestion, locationMeta) : null;
       const savedProfile = await apiRequest<StreetzProfile>("/profiles/me", {
         method: "PUT",
         headers: authHeaders(token),
@@ -181,13 +204,58 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
       });
 
       syncLocationMetaFromProfile(savedProfile);
-      setNotice("Location updated for distance.");
+      if (suggestedDisplayLocation) {
+        setPendingDisplayLocation(suggestedDisplayLocation);
+        setIsFilterOpen(false);
+        setNotice("Location updated for distance.");
+      } else {
+        setNotice("Location updated for nearby profiles.");
+      }
       void loadDiscovery({ clearNotice: false });
     } catch (error) {
       setNotice(getLocationPermissionMessage(error));
     } finally {
       setIsDetectingLocation(false);
     }
+  }
+
+  async function updateDisplayLocation() {
+    if (!pendingDisplayLocation) {
+      return;
+    }
+
+    setIsSavingDisplayLocation(true);
+    setNotice(null);
+
+    try {
+      const savedProfile = await apiRequest<StreetzProfile>("/profiles/me", {
+        method: "PUT",
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          city: pendingDisplayLocation.city,
+          state: pendingDisplayLocation.state,
+        }),
+      });
+
+      syncLocationMetaFromProfile(savedProfile);
+      setPendingDisplayLocation(null);
+      setNotice(`Display location updated to ${pendingDisplayLocation.city}, ${pendingDisplayLocation.state}.`);
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    } finally {
+      setIsSavingDisplayLocation(false);
+    }
+  }
+
+  async function reverseGeocodeCoordinates(coordinates: { latitude: number; longitude: number }) {
+    return apiRequest<ReverseGeocodeSuggestion>("/profiles/location/reverse-geocode", {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      }),
+    });
   }
 
   useEffect(() => {
@@ -531,6 +599,26 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
       <div className="px-5 md:px-8">
         {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
+        {!isLoading && shouldPromptForLocation ? (
+          <div className="mb-4 rounded-[20px] border border-black/[0.06] bg-[#fafafa] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#0d0d0d]">Nearby discovery</p>
+                <p className="mt-1 text-sm leading-5 text-[#666666]">{locationPromptText}</p>
+              </div>
+              <button
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => void saveCurrentLocation()}
+                disabled={isDetectingLocation}
+              >
+                {isDetectingLocation ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <MapPin className="size-4" aria-hidden="true" />}
+                Update
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid gap-5 xl:grid-cols-[minmax(360px,520px)_1fr]">
           {isLoading ? (
             <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] xl:max-w-[520px]">
@@ -797,8 +885,81 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
           </div>
         </div>
       ) : null}
+
+      {pendingDisplayLocation ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+            <div className="flex items-start gap-3">
+              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#d4fae8] text-[#0fa76e]">
+                <MapPin className="size-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-[#0d0d0d]">Update display location?</h2>
+                <p className="mt-1 text-sm leading-6 text-[#666666]">
+                  You seem to be in {pendingDisplayLocation.city}, {pendingDisplayLocation.state}.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button
+                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => setPendingDisplayLocation(null)}
+                disabled={isSavingDisplayLocation}
+              >
+                Keep current
+              </button>
+              <button
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => void updateDisplayLocation()}
+                disabled={isSavingDisplayLocation}
+              >
+                {isSavingDisplayLocation ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+                Update
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
+}
+
+function shouldRefreshDiscoveryLocation(location: DiscoveryLocationMeta) {
+  if (!location.hasCoordinates || !location.locationUpdatedAt) {
+    return true;
+  }
+
+  const updatedAt = new Date(location.locationUpdatedAt).getTime();
+
+  if (Number.isNaN(updatedAt)) {
+    return true;
+  }
+
+  return Date.now() - updatedAt > LOCATION_STALE_AFTER_MS;
+}
+
+function getDisplayLocationSuggestion(
+  suggestion: ReverseGeocodeSuggestion,
+  currentLocation: Pick<DiscoveryLocationMeta, "city" | "state">
+): PendingDisplayLocation | null {
+  const normalizedLocation = normalizeLocationSuggestion(suggestion);
+
+  if (!normalizedLocation.city || !normalizedLocation.state) {
+    return null;
+  }
+
+  const currentCity = currentLocation.city?.trim().toLowerCase() ?? "";
+  const currentState = currentLocation.state?.trim().toLowerCase() ?? "";
+  const suggestedCity = normalizedLocation.city.trim().toLowerCase();
+  const suggestedState = normalizedLocation.state.trim().toLowerCase();
+
+  if (currentCity === suggestedCity && currentState === suggestedState) {
+    return null;
+  }
+
+  return normalizedLocation;
 }
 
 function DiscoveryCandidateCard({

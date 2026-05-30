@@ -300,8 +300,8 @@ export function ProfileTab({
         } else {
           locationNotice = "GPS location captured, but we could not auto-fill city and state. Choose them manually before saving.";
         }
-      } catch {
-        locationNotice = "GPS location captured, but we could not auto-fill city and state. Choose them manually before saving.";
+      } catch (error) {
+        locationNotice = `GPS location captured, but city/state lookup failed: ${getUserErrorMessage(error)}`;
       }
 
       setProfileForm((current) => ({
