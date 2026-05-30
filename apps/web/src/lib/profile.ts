@@ -1,4 +1,4 @@
-import type { ConnectionStatus, StreetzProfile } from "@/lib/types";
+import type { ConnectionStatus, Sexuality, StreetzProfile } from "@/lib/types";
 
 export const PROFILE_PHOTO_LIMIT = 4;
 export const MINIMUM_PROFILE_AGE = 18;
@@ -16,6 +16,32 @@ export const connectionStatusLabels: Record<ConnectionStatus, string> = {
   JUST_FRIENDS: "Just Friends",
   DATING: "Dating",
 };
+
+export const sexualityOptions: Array<{ value: Sexuality; label: string }> = [
+  { value: "STRAIGHT", label: "Straight" },
+  { value: "GAY", label: "Gay" },
+  { value: "LESBIAN", label: "Lesbian" },
+  { value: "BISEXUAL", label: "Bisexual" },
+  { value: "PANSEXUAL", label: "Pansexual" },
+  { value: "ASEXUAL", label: "Asexual" },
+  { value: "QUEER", label: "Queer" },
+  { value: "PREFER_NOT_TO_SAY", label: "Prefer not to say" },
+];
+
+export const sexualityLabels: Record<Sexuality, string> = {
+  STRAIGHT: "Straight",
+  GAY: "Gay",
+  LESBIAN: "Lesbian",
+  BISEXUAL: "Bisexual",
+  PANSEXUAL: "Pansexual",
+  ASEXUAL: "Asexual",
+  QUEER: "Queer",
+  PREFER_NOT_TO_SAY: "Prefer not to say",
+};
+
+export function formatSexuality(sexuality: Sexuality | null | undefined) {
+  return sexuality ? sexualityLabels[sexuality] : null;
+}
 
 export function getAgeFromBirthDate(value: string | null | undefined) {
   if (!value) {

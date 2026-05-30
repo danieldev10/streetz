@@ -93,6 +93,7 @@ export class ProfilesService {
       bio: null,
       birthDate: null,
       gender: null,
+      sexuality: null,
       connectionStatus: null,
       city: null,
       state: null,
@@ -122,6 +123,7 @@ export class ProfilesService {
         bio: this.cleanNullableText(dto.bio),
         birthDate,
         gender: dto.gender,
+        sexuality: dto.sexuality,
         connectionStatus: dto.connectionStatus,
         city: this.cleanNullableText(dto.city),
         state: this.cleanNullableText(dto.state),
@@ -134,6 +136,7 @@ export class ProfilesService {
         bio: dto.bio === undefined ? undefined : this.cleanNullableText(dto.bio),
         birthDate,
         gender: dto.gender,
+        sexuality: dto.sexuality,
         connectionStatus: dto.connectionStatus,
         city: dto.city === undefined ? undefined : this.cleanNullableText(dto.city),
         state: dto.state === undefined ? undefined : this.cleanNullableText(dto.state),
@@ -383,8 +386,8 @@ export class ProfilesService {
       return undefined;
     }
 
-    if (!Number.isInteger(value) || value < 1 || value > 500) {
-      throw new BadRequestException("Max distance must be between 1km and 500km.");
+    if (!Number.isInteger(value) || value < 0 || value > 500) {
+      throw new BadRequestException("Max distance must be between 0 and 500 km (0 = no limit).");
     }
 
     return value;

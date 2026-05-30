@@ -1,11 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { AccountStatus, ConnectionStatus, DiscoveryAction, MatchStatus, Prisma, ReportStatus, SubscriptionStatus, UserRole } from "@prisma/client";
+import { AccountStatus, ConnectionStatus, DiscoveryAction, Gender, MatchStatus, Prisma, ReportStatus, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
 import { BlockUserDto } from "./dto/block-user.dto";
 import { DiscoveryActionDto } from "./dto/discovery-action.dto";
+import { DiscoveryFiltersDto } from "./dto/discovery-filters.dto";
 import { ReportUserDto } from "./dto/report-user.dto";
 import { UnblockUserDto } from "./dto/unblock-user.dto";
 
@@ -33,7 +34,7 @@ export class DiscoveryService {
     private readonly storage: StorageService
   ) {}
 
-  async getCandidates(userId: string) {
+  async getCandidates(userId: string, filters: DiscoveryFiltersDto = {}) {
     const currentProfile = await this.ensureCurrentProfileReady(userId);
 
     const now = new Date();
@@ -86,7 +87,7 @@ export class DiscoveryService {
     };
 
     if (currentProfile.latitude !== null && currentProfile.longitude !== null) {
-      const nearbyRows = await this.getNearbyCandidateRows(currentProfile, excludedIds, now);
+      const nearbyRows = await this.getNearbyCandidateRows(currentProfile, excludedIds, now, filters);
       const nearbyCandidateIds = nearbyRows.map((row) => row.id);
       const candidates =
         nearbyCandidateIds.length > 0
@@ -112,6 +113,22 @@ export class DiscoveryService {
       };
     }
 
+    const profileWhere: Prisma.ProfileWhereInput = {
+      bio: { not: null },
+      birthDate: {
+        not: null,
+        ...(filters.minAge !== undefined ? { lte: new Date(now.getFullYear() - filters.minAge, now.getMonth(), now.getDate()) } : {}),
+        ...(filters.maxAge !== undefined ? { gt: new Date(now.getFullYear() - (filters.maxAge + 1), now.getMonth(), now.getDate()) } : {})
+      },
+      city: { not: null },
+      state: { not: null },
+      discoveryLive: true,
+      interests: { isEmpty: false },
+      ...(filters.gender?.length ? { gender: { in: filters.gender } } : {}),
+      ...(filters.sexuality?.length ? { sexuality: { in: filters.sexuality } } : {}),
+      ...(filters.lookingFor?.length ? { connectionStatus: { in: filters.lookingFor } } : {})
+    };
+
     const candidates = await this.prisma.user.findMany({
       where: {
         id: { notIn: Array.from(excludedIds) },
@@ -119,17 +136,7 @@ export class DiscoveryService {
         role: UserRole.USER,
         subscriptionStatus: SubscriptionStatus.ACTIVE,
         subscriptionEndsAt: { gt: now },
-        profile: {
-          is: {
-            bio: { not: null },
-            birthDate: { not: null },
-            city: { not: null },
-            state: { not: null },
-            connectionStatus: currentProfile.connectionStatus,
-            discoveryLive: true,
-            interests: { isEmpty: false }
-          }
-        },
+        profile: { is: profileWhere },
         photos: { some: {} }
       },
       include: candidateInclude,
@@ -144,8 +151,8 @@ export class DiscoveryService {
   }
 
   async recordAction(userId: string, dto: DiscoveryActionDto) {
-    const currentProfile = await this.ensureCurrentProfileReady(userId);
-    await this.ensureActionTarget(userId, dto.targetUserId, currentProfile.connectionStatus);
+    await this.ensureCurrentProfileReady(userId);
+    await this.ensureActionTarget(userId, dto.targetUserId);
 
     const pair = this.getMatchPair(userId, dto.targetUserId);
 
@@ -419,7 +426,7 @@ export class DiscoveryService {
     };
   }
 
-  private async ensureActionTarget(userId: string, targetUserId: string, connectionStatus: ConnectionStatus) {
+  private async ensureActionTarget(userId: string, targetUserId: string) {
     this.ensureDifferentUsers(userId, targetUserId);
 
     const target = await this.prisma.user.findFirst({
@@ -435,7 +442,6 @@ export class DiscoveryService {
             birthDate: { not: null },
             city: { not: null },
             state: { not: null },
-            connectionStatus,
             discoveryLive: true,
             interests: { isEmpty: false }
           }
@@ -561,13 +567,39 @@ export class DiscoveryService {
     };
   }
 
-  private async getNearbyCandidateRows(profile: ReadyDiscoveryProfile, excludedIds: Set<string>, now: Date) {
+  private async getNearbyCandidateRows(profile: ReadyDiscoveryProfile, excludedIds: Set<string>, now: Date, filters: DiscoveryFiltersDto = {}) {
     if (profile.latitude === null || profile.longitude === null) {
       return [];
     }
 
+    const hasDistanceLimit = profile.maxDistanceKm > 0;
     const maxDistanceMeters = profile.maxDistanceKm * 1000;
     const excludedIdList = Array.from(excludedIds);
+    const filterClauses: Prisma.Sql[] = [];
+
+    if (filters.minAge !== undefined) {
+      const cutoff = new Date(now.getFullYear() - filters.minAge, now.getMonth(), now.getDate());
+      filterClauses.push(Prisma.sql`AND candidate_profile."birthDate" <= ${cutoff}`);
+    }
+
+    if (filters.maxAge !== undefined) {
+      const cutoff = new Date(now.getFullYear() - (filters.maxAge + 1), now.getMonth(), now.getDate());
+      filterClauses.push(Prisma.sql`AND candidate_profile."birthDate" > ${cutoff}`);
+    }
+
+    if (filters.gender?.length) {
+      filterClauses.push(Prisma.sql`AND candidate_profile."gender" = ANY(ARRAY[${Prisma.join(filters.gender)}]::"Gender"[])`);
+    }
+
+    if (filters.sexuality?.length) {
+      filterClauses.push(Prisma.sql`AND candidate_profile."sexuality" = ANY(ARRAY[${Prisma.join(filters.sexuality)}]::"Sexuality"[])`);
+    }
+
+    if (filters.lookingFor?.length) {
+      filterClauses.push(Prisma.sql`AND candidate_profile."connectionStatus" = ANY(ARRAY[${Prisma.join(filters.lookingFor)}]::"ConnectionStatus"[])`);
+    }
+
+    const filterSql = filterClauses.length > 0 ? Prisma.join(filterClauses, "\n        ") : Prisma.sql``;
 
     return this.prisma.$queryRaw<SpatialCandidateRow[]>(Prisma.sql`
       WITH origin AS (
@@ -588,7 +620,6 @@ export class DiscoveryService {
         AND candidate_profile."birthDate" IS NOT NULL
         AND candidate_profile."city" IS NOT NULL
         AND candidate_profile."state" IS NOT NULL
-        AND candidate_profile."connectionStatus" = CAST(${profile.connectionStatus} AS "ConnectionStatus")
         AND candidate_profile."discoveryLive" = TRUE
         AND cardinality(candidate_profile."interests") > 0
         AND candidate_profile."location" IS NOT NULL
@@ -597,7 +628,8 @@ export class DiscoveryService {
           FROM "ProfilePhoto" AS photo
           WHERE photo."userId" = candidate."id"
         )
-        AND ST_DWithin(candidate_profile."location", origin.geog, ${maxDistanceMeters})
+        ${hasDistanceLimit ? Prisma.sql`AND ST_DWithin(candidate_profile."location", origin.geog, ${maxDistanceMeters})` : Prisma.sql``}
+        ${filterSql}
       ORDER BY ST_Distance(candidate_profile."location", origin.geog) ASC, candidate."updatedAt" DESC
       LIMIT ${DEFAULT_CANDIDATE_LIMIT}
     `);
@@ -610,6 +642,8 @@ export class DiscoveryService {
     profile: {
       bio: string | null;
       birthDate: Date | null;
+      gender?: Gender | null;
+      sexuality?: Sexuality | null;
       connectionStatus: ConnectionStatus | null;
       city: string | null;
       state: string | null;
@@ -636,6 +670,8 @@ export class DiscoveryService {
       accountStatus: candidate.accountStatus ?? AccountStatus.ACTIVE,
       age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,
+      gender: candidate.profile?.gender ?? null,
+      sexuality: candidate.profile?.sexuality ?? null,
       connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
       state: candidate.profile?.state ?? null,

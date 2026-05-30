@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { ConnectionStatus, Gender } from "@prisma/client";
+import { ConnectionStatus, Gender, Sexuality } from "@prisma/client";
 import {
   ArrayMaxSize,
   IsArray,
@@ -34,6 +34,11 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;
+
+  @ApiPropertyOptional({ enum: Sexuality })
+  @IsOptional()
+  @IsEnum(Sexuality)
+  sexuality?: Sexuality;
 
   @ApiPropertyOptional({ enum: ConnectionStatus })
   @IsOptional()
@@ -72,11 +77,11 @@ export class UpdateProfileDto {
   @Max(10000)
   locationAccuracyMeters?: number;
 
-  @ApiPropertyOptional({ example: 50 })
+  @ApiPropertyOptional({ example: 50, description: "0 means no distance limit" })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Max(500)
   maxDistanceKm?: number;
 

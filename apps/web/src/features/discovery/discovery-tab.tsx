@@ -2,6 +2,7 @@
 
 import type { CSSProperties, PointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import type { ConnectionStatus, Gender, Sexuality } from "@/lib/types";
 import { Ban, Eye, Flag, Heart, LoaderCircle, MapPin, RefreshCw, SlidersHorizontal, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -28,7 +29,7 @@ import {
 } from "@/lib/location";
 import { getCandidatePhotoUrl } from "@/lib/media";
 import { normalizeLocationSuggestion } from "@/lib/nigeria-locations";
-import { formatConnectionStatus } from "@/lib/profile";
+import { connectionStatusOptions, formatConnectionStatus, formatSexuality, sexualityOptions } from "@/lib/profile";
 import { REPORT_DETAILS_MAX_LENGTH, REPORT_REASON_OPTIONS } from "@/lib/report-reasons";
 import type { DiscoveryActionName, DiscoveryCandidate, StreetzProfile } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
@@ -57,6 +58,22 @@ const defaultDiscoveryLocation: DiscoveryLocationMeta = {
 
 const LOCATION_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 
+type DiscoveryFilters = {
+  minAge: number | null;
+  maxAge: number | null;
+  gender: Gender[];
+  sexuality: Sexuality[];
+  lookingFor: ConnectionStatus[];
+};
+
+const defaultDiscoveryFilters: DiscoveryFilters = {
+  minAge: null,
+  maxAge: null,
+  gender: [],
+  sexuality: [],
+  lookingFor: [],
+};
+
 type PendingDisplayLocation = {
   city: string;
   state: string;
@@ -79,6 +96,9 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
   const [locationMeta, setLocationMeta] = useState<DiscoveryLocationMeta>(defaultDiscoveryLocation);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [draftMaxDistanceKm, setDraftMaxDistanceKm] = useState(DEFAULT_DISCOVERY_DISTANCE_KM);
+  const [activeFilters, setActiveFilters] = useState<DiscoveryFilters>(defaultDiscoveryFilters);
+  const [draftFilters, setDraftFilters] = useState<DiscoveryFilters>(defaultDiscoveryFilters);
+  const activeFiltersRef = useRef<DiscoveryFilters>(defaultDiscoveryFilters);
   const [isSavingFilters, setIsSavingFilters] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [pendingDisplayLocation, setPendingDisplayLocation] = useState<PendingDisplayLocation | null>(null);
@@ -95,12 +115,19 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
 
   const activeCandidate = candidates[0];
   const isActingOnActiveCandidate = activeCandidate ? actionTargetId === activeCandidate.id : false;
+  const activeFilterCount = [
+    activeFilters.minAge !== null || activeFilters.maxAge !== null ? 1 : 0,
+    activeFilters.gender.length > 0 ? 1 : 0,
+    activeFilters.sexuality.length > 0 ? 1 : 0,
+    activeFilters.lookingFor.length > 0 ? 1 : 0,
+  ].reduce((sum, n) => sum + n, 0);
   const swipeIntent = dragOffset.x > 60 ? "LIKE" : dragOffset.x < -60 ? "PASS" : null;
   const renderedCandidates = candidates.slice(0, DISCOVERY_RENDERED_STACK_SIZE);
   const swipeCardStyle: CSSProperties = {
     transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0) rotate(${dragOffset.x / 18}deg)`,
     transition: isDraggingCard ? "none" : "transform 180ms ease",
   };
+  const isNoLimitDistance = locationMeta.maxDistanceKm === 0;
   const shouldPromptForLocation = shouldRefreshDiscoveryLocation(locationMeta);
   const locationPromptText = !locationMeta.hasCoordinates
     ? "Update your location to see nearby people."
@@ -121,7 +148,15 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
     }
 
     try {
-      const candidatesResponse = await apiRequest<DiscoveryResponse>("/discovery/candidates", {
+      const params = new URLSearchParams();
+      const filters = activeFiltersRef.current;
+      if (filters.minAge !== null) params.append("minAge", String(filters.minAge));
+      if (filters.maxAge !== null) params.append("maxAge", String(filters.maxAge));
+      for (const g of filters.gender) params.append("gender", g);
+      for (const s of filters.sexuality) params.append("sexuality", s);
+      for (const l of filters.lookingFor) params.append("lookingFor", l);
+      const qs = params.toString();
+      const candidatesResponse = await apiRequest<DiscoveryResponse>(`/discovery/candidates${qs ? `?${qs}` : ""}`, {
         headers: authHeaders(token),
       });
       const nextLocationMeta = candidatesResponse.location ?? defaultDiscoveryLocation;
@@ -163,18 +198,22 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
     setDraftMaxDistanceKm(nextLocationMeta.maxDistanceKm);
   }
 
-  async function saveDistanceFilter() {
+  async function saveFilters() {
     setIsSavingFilters(true);
     setNotice(null);
 
     try {
-      const savedProfile = await apiRequest<StreetzProfile>("/profiles/me", {
-        method: "PUT",
-        headers: authHeaders(token),
-        body: JSON.stringify({ maxDistanceKm: draftMaxDistanceKm }),
-      });
+      if (draftMaxDistanceKm !== locationMeta.maxDistanceKm) {
+        const savedProfile = await apiRequest<StreetzProfile>("/profiles/me", {
+          method: "PUT",
+          headers: authHeaders(token),
+          body: JSON.stringify({ maxDistanceKm: draftMaxDistanceKm }),
+        });
+        syncLocationMetaFromProfile(savedProfile);
+      }
 
-      syncLocationMetaFromProfile(savedProfile);
+      activeFiltersRef.current = draftFilters;
+      setActiveFilters(draftFilters);
       setIsFilterOpen(false);
       void loadDiscovery({ clearNotice: false });
     } catch (error) {
@@ -257,6 +296,10 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
       }),
     });
   }
+
+  useEffect(() => {
+    activeFiltersRef.current = activeFilters;
+  }, [activeFilters]);
 
   useEffect(() => {
     dismissedCandidateIdsRef.current = new Set();
@@ -572,15 +615,21 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
         title=""
         action={
           <button
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium"
+            className="relative inline-flex h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium"
             type="button"
             onClick={() => {
               setDraftMaxDistanceKm(locationMeta.maxDistanceKm);
+              setDraftFilters(activeFilters);
               setIsFilterOpen(true);
             }}
           >
             <SlidersHorizontal className="size-4" aria-hidden="true" />
             Filters
+            {activeFilterCount > 0 ? (
+              <span className="ml-1 grid min-w-5 place-items-center rounded-full bg-[#18E299] px-1 text-[10px] font-semibold leading-5 text-[#0d0d0d]">
+                {activeFilterCount}
+              </span>
+            ) : null}
           </button>
         }
       />
@@ -816,13 +865,13 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
       ) : null}
 
       {isFilterOpen ? (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-black/35 px-5 backdrop-blur-sm" style={{ display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "max(24px, env(safe-area-inset-top))", paddingBottom: 24 }}>
           <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-[#0d0d0d]">Discovery filters</h2>
                 <p className="mt-1 text-sm leading-6 text-[#666666]">
-                  {locationMeta.hasCoordinates ? "Using GPS for nearby profiles." : "GPS is off, so distances stay hidden."}
+                  {!locationMeta.hasCoordinates ? "GPS is off, so distances stay hidden." : isNoLimitDistance ? "Showing profiles from anywhere." : "Using GPS for nearby profiles."}
                 </p>
               </div>
               <button
@@ -835,26 +884,41 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
               </button>
             </div>
 
+            {/* Distance */}
             <div className="mt-5 rounded-[20px] border border-black/[0.06] bg-[#fafafa] p-4">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-sm font-semibold text-[#0d0d0d]">Maximum distance</span>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0d0d0d]">
-                  {draftMaxDistanceKm} km
-                </span>
+                <div className="flex items-center gap-2">
+                  {draftMaxDistanceKm > 0 ? (
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0d0d0d]">
+                      {draftMaxDistanceKm} km
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${draftMaxDistanceKm === 0 ? "bg-[#0d0d0d] text-white" : "bg-white text-[#666666]"}`}
+                    onClick={() =>
+                      setDraftMaxDistanceKm(draftMaxDistanceKm === 0 ? DEFAULT_DISCOVERY_DISTANCE_KM : 0)
+                    }
+                  >
+                    No limit
+                  </button>
+                </div>
               </div>
               <input
-                className="mt-4 w-full accent-[#18E299]"
+                className="mt-4 w-full accent-[#18E299] disabled:opacity-40"
                 type="range"
                 min={MIN_DISCOVERY_DISTANCE_KM}
                 max={MAX_DISCOVERY_DISTANCE_KM}
                 step={DISCOVERY_DISTANCE_STEP_KM}
-                value={draftMaxDistanceKm}
+                value={draftMaxDistanceKm === 0 ? MAX_DISCOVERY_DISTANCE_KM : draftMaxDistanceKm}
                 onChange={(event) => setDraftMaxDistanceKm(Number(event.target.value))}
+                disabled={draftMaxDistanceKm === 0}
               />
             </div>
 
             <button
-              className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
               type="button"
               onClick={() => void saveCurrentLocation()}
               disabled={isDetectingLocation || isSavingFilters}
@@ -863,7 +927,121 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
               {locationMeta.hasCoordinates ? "Update GPS location" : "Use GPS location"}
             </button>
 
-            <div className="mt-5 grid grid-cols-2 gap-3">
+            {/* Age range */}
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Age range</p>
+              <div className="mt-2 flex items-center gap-3">
+                <label className="flex flex-1 flex-col gap-1">
+                  <span className="text-xs text-[#666666]">Min</span>
+                  <input
+                    className="h-11 w-full rounded-full border border-black/[0.08] px-4 text-sm text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    type="number"
+                    min={18}
+                    max={100}
+                    placeholder="18"
+                    value={draftFilters.minAge ?? ""}
+                    onChange={(event) => {
+                      const val = event.target.value === "" ? null : Math.max(18, Math.min(100, Number(event.target.value)));
+                      setDraftFilters((f) => ({ ...f, minAge: val }));
+                    }}
+                  />
+                </label>
+                <span className="mt-5 text-sm text-[#888888]">–</span>
+                <label className="flex flex-1 flex-col gap-1">
+                  <span className="text-xs text-[#666666]">Max</span>
+                  <input
+                    className="h-11 w-full rounded-full border border-black/[0.08] px-4 text-sm text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    type="number"
+                    min={18}
+                    max={100}
+                    placeholder="100"
+                    value={draftFilters.maxAge ?? ""}
+                    onChange={(event) => {
+                      const val = event.target.value === "" ? null : Math.max(18, Math.min(100, Number(event.target.value)));
+                      setDraftFilters((f) => ({ ...f, maxAge: val }));
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Looking for */}
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Looking for</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {connectionStatusOptions.map((option) => {
+                  const active = draftFilters.lookingFor.includes(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition ${active ? "border-[#0d0d0d] bg-[#0d0d0d] text-white" : "border-black/[0.08] text-[#444444]"}`}
+                      onClick={() =>
+                        setDraftFilters((f) => ({
+                          ...f,
+                          lookingFor: active ? f.lookingFor.filter((v) => v !== option.value) : [...f.lookingFor, option.value],
+                        }))
+                      }
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Gender */}
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Gender</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(["WOMAN", "MAN", "NON_BINARY", "PREFER_NOT_TO_SAY"] as Gender[]).map((value) => {
+                  const label = value === "WOMAN" ? "Female" : value === "MAN" ? "Male" : value === "NON_BINARY" ? "Non-binary" : "Prefer not to say";
+                  const active = draftFilters.gender.includes(value);
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition ${active ? "border-[#0d0d0d] bg-[#0d0d0d] text-white" : "border-black/[0.08] text-[#444444]"}`}
+                      onClick={() =>
+                        setDraftFilters((f) => ({
+                          ...f,
+                          gender: active ? f.gender.filter((v) => v !== value) : [...f.gender, value],
+                        }))
+                      }
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sexuality */}
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Sexuality</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {sexualityOptions.filter((o) => o.value !== "PREFER_NOT_TO_SAY").map((option) => {
+                  const active = draftFilters.sexuality.includes(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition ${active ? "border-[#0d0d0d] bg-[#0d0d0d] text-white" : "border-black/[0.08] text-[#444444]"}`}
+                      onClick={() =>
+                        setDraftFilters((f) => ({
+                          ...f,
+                          sexuality: active ? f.sexuality.filter((v) => v !== option.value) : [...f.sexuality, option.value],
+                        }))
+                      }
+                    >
+                      {formatSexuality(option.value)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
               <button
                 className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
@@ -875,11 +1053,11 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
               <button
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
-                onClick={() => void saveDistanceFilter()}
+                onClick={() => void saveFilters()}
                 disabled={isSavingFilters || isDetectingLocation}
               >
                 {isSavingFilters ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                Save
+                Apply
               </button>
             </div>
           </div>

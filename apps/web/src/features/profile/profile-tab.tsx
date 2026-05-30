@@ -16,14 +16,16 @@ import {
   connectionStatusOptions,
   formatConnectionStatus,
   formatProfileSetupIssues,
+  formatSexuality,
   getAdultBirthDateMaxValue,
   getAgeFromBirthDate,
   getBirthDateValidationMessage,
   getProfileSetupIssues,
   getProfileSetupIssuesFromForm,
   isProfileReadyForDiscovery,
+  sexualityOptions,
 } from "@/lib/profile";
-import type { ConnectionStatus, Gender, ProfilePhoto, ProfileTabMode, StreetzProfile, StreetzUser } from "@/lib/types";
+import type { ConnectionStatus, Gender, ProfilePhoto, ProfileTabMode, Sexuality, StreetzProfile, StreetzUser } from "@/lib/types";
 
 const SUPPORTED_PROFILE_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
@@ -60,6 +62,7 @@ export function ProfileTab({
     bio: "",
     birthDate: "",
     gender: "PREFER_NOT_TO_SAY" as Gender,
+    sexuality: "" as Sexuality | "",
     connectionStatus: "" as ConnectionStatus | "",
     city: "",
     state: "",
@@ -102,6 +105,7 @@ export function ProfileTab({
       bio: profileResponse.bio ?? "",
       birthDate: profileResponse.birthDate ? profileResponse.birthDate.slice(0, 10) : "",
       gender: profileResponse.gender ?? "PREFER_NOT_TO_SAY",
+      sexuality: profileResponse.sexuality ?? "",
       connectionStatus: profileResponse.connectionStatus ?? "",
       city: profileResponse.city ?? "",
       state: profileResponse.state ?? "",
@@ -238,6 +242,7 @@ export function ProfileTab({
           bio: profileForm.bio,
           birthDate: profileForm.birthDate || undefined,
           gender: profileForm.gender,
+          sexuality: profileForm.sexuality || undefined,
           connectionStatus: profileForm.connectionStatus || undefined,
           city: profileForm.city,
           state: profileForm.state,
@@ -744,6 +749,21 @@ export function ProfileTab({
                         </select>
                       </label>
                     </div>
+                    <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                      Sexuality
+                      <select
+                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                        value={profileForm.sexuality}
+                        onChange={(event) => setProfileForm((current) => ({ ...current, sexuality: event.target.value as Sexuality | "" }))}
+                      >
+                        <option value="">Prefer not to say</option>
+                        {sexualityOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                         State
@@ -950,6 +970,13 @@ export function ProfileTab({
                       <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Status</p>
                       <p className="mt-2 text-sm font-medium text-[#444444]">{profileStatusLabel}</p>
                     </div>
+
+                    {formatSexuality(profileForm.sexuality || null) ? (
+                      <div className="mt-5">
+                        <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Sexuality</p>
+                        <p className="mt-2 text-sm font-medium text-[#444444]">{formatSexuality(profileForm.sexuality || null)}</p>
+                      </div>
+                    ) : null}
 
                     <div className="mt-5">
                       <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Bio</p>

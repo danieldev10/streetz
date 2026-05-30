@@ -19,6 +19,7 @@ export type AuthResponse = {
 };
 
 export type Gender = "WOMAN" | "MAN" | "NON_BINARY" | "PREFER_NOT_TO_SAY";
+export type Sexuality = "STRAIGHT" | "GAY" | "LESBIAN" | "BISEXUAL" | "PANSEXUAL" | "ASEXUAL" | "QUEER" | "PREFER_NOT_TO_SAY";
 export type ConnectionStatus = "MEET_NOW" | "FWB" | "JUST_FRIENDS" | "DATING";
 export type ReportStatus = "OPEN" | "REVIEWED" | "DISMISSED" | "ACTIONED";
 export type AccountStatus = "ACTIVE" | "DEACTIVATED" | "SUSPENDED" | "BANNED" | "DELETED";
@@ -43,6 +44,7 @@ export type StreetzProfile = {
   bio: string | null;
   birthDate: string | null;
   gender: Gender | null;
+  sexuality: Sexuality | null;
   connectionStatus: ConnectionStatus | null;
   city: string | null;
   state: string | null;
@@ -67,6 +69,8 @@ export type DiscoveryCandidate = {
   accountStatus?: AccountStatus;
   age: number | null;
   bio: string | null;
+  gender?: Gender | null;
+  sexuality?: Sexuality | null;
   connectionStatus: ConnectionStatus | null;
   city: string | null;
   state: string | null;
