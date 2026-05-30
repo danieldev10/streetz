@@ -571,11 +571,11 @@ export class DiscoveryService {
 
     return this.prisma.$queryRaw<SpatialCandidateRow[]>(Prisma.sql`
       WITH origin AS (
-        SELECT ST_SetSRID(ST_MakePoint(${profile.longitude}, ${profile.latitude}), 4326)::geography AS geog
+        SELECT extensions.ST_SetSRID(extensions.ST_MakePoint(${profile.longitude}, ${profile.latitude}), 4326)::extensions.geography AS geog
       )
       SELECT
         candidate."id",
-        (ST_Distance(candidate_profile."location", origin.geog) / 1000.0)::double precision AS "distanceKm"
+        (extensions.ST_Distance(candidate_profile."location", origin.geog) / 1000.0)::double precision AS "distanceKm"
       FROM origin
       JOIN "User" AS candidate ON TRUE
       JOIN "Profile" AS candidate_profile ON candidate_profile."userId" = candidate."id"
@@ -597,8 +597,8 @@ export class DiscoveryService {
           FROM "ProfilePhoto" AS photo
           WHERE photo."userId" = candidate."id"
         )
-        AND ST_DWithin(candidate_profile."location", origin.geog, ${maxDistanceMeters})
-      ORDER BY ST_Distance(candidate_profile."location", origin.geog) ASC, candidate."updatedAt" DESC
+        AND extensions.ST_DWithin(candidate_profile."location", origin.geog, ${maxDistanceMeters})
+      ORDER BY extensions.ST_Distance(candidate_profile."location", origin.geog) ASC, candidate."updatedAt" DESC
       LIMIT ${DEFAULT_CANDIDATE_LIMIT}
     `);
   }

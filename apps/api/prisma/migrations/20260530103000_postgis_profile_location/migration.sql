@@ -1,10 +1,11 @@
-CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA extensions;
 
 ALTER TABLE "Profile"
-  ADD COLUMN IF NOT EXISTS "location" geography(Point, 4326);
+  ADD COLUMN IF NOT EXISTS "location" extensions.geography(Point, 4326);
 
 UPDATE "Profile"
-SET "location" = ST_SetSRID(ST_MakePoint("longitude", "latitude"), 4326)::geography
+SET "location" = extensions.ST_SetSRID(extensions.ST_MakePoint("longitude", "latitude"), 4326)::extensions.geography
 WHERE "latitude" IS NOT NULL
   AND "longitude" IS NOT NULL;
 
@@ -18,7 +19,7 @@ BEGIN
   IF NEW."latitude" IS NULL OR NEW."longitude" IS NULL THEN
     NEW."location" := NULL;
   ELSE
-    NEW."location" := ST_SetSRID(ST_MakePoint(NEW."longitude", NEW."latitude"), 4326)::geography;
+    NEW."location" := extensions.ST_SetSRID(extensions.ST_MakePoint(NEW."longitude", NEW."latitude"), 4326)::extensions.geography;
   END IF;
 
   RETURN NEW;
