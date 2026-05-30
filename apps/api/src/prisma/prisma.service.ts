@@ -15,6 +15,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleInit() {
     await this.$connect();
+    // Ensure PostGIS functions resolve from whichever schema the extension
+    // is installed in (Supabase uses "extensions", Railway uses "public").
+    await this.$executeRawUnsafe(
+      `SET search_path TO public,extensions`
+    );
   }
 
   async onModuleDestroy() {
