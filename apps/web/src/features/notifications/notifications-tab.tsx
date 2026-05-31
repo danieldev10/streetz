@@ -248,6 +248,62 @@ export function NotificationsTab({
     [onNotificationsChanged, token]
   );
 
+  const markActiveTabSeen = useCallback(
+    async (currentFeed: NotificationFeed, tab: NotificationTabKey) => {
+      const candidates: FeedSeenItem[] = [];
+
+      if (tab === "likes") {
+        for (const match of currentFeed.matches) {
+          candidates.push({ kind: "MATCH_CREATED", entityId: match.id });
+        }
+      }
+
+      if (tab === "events") {
+        for (const alert of currentFeed.eventAlerts) {
+          candidates.push({ kind: alert.kind, entityId: alert.id });
+        }
+        for (const ticket of currentFeed.tickets) {
+          candidates.push({ kind: "TICKET_CONFIRMED", entityId: ticket.id });
+        }
+      }
+
+      if (tab === "notifications") {
+        for (const alert of currentFeed.subscriptionAlerts) {
+          candidates.push({ kind: "SUBSCRIPTION_EXPIRING", entityId: alert.id });
+        }
+        for (const report of currentFeed.reportUpdates) {
+          candidates.push({ kind: "REPORT_STATUS_UPDATED", entityId: report.id });
+        }
+        for (const payment of currentFeed.paymentAlerts) {
+          candidates.push({ kind: payment.kind, entityId: payment.id });
+        }
+      }
+
+      const unseen = candidates.filter(
+        (item) => !submittedSeenKeysRef.current.has(`${item.kind}:${item.entityId}`)
+      );
+
+      if (unseen.length === 0) return;
+
+      try {
+        await apiRequest("/notifications/feed/seen", {
+          method: "POST",
+          headers: authHeaders(token),
+          body: JSON.stringify({ items: unseen }),
+        });
+
+        for (const item of unseen) {
+          submittedSeenKeysRef.current.add(`${item.kind}:${item.entityId}`);
+        }
+
+        onNotificationsChanged();
+      } catch {
+
+      }
+    },
+    [onNotificationsChanged, token]
+  );
+
   const markFeedItemSeen = useCallback(
     async (item: FeedSeenItem) => {
       const key = `${item.kind}:${item.entityId}`;
@@ -306,6 +362,18 @@ export function NotificationsTab({
     return () => window.clearTimeout(timer);
   }, [feed, markFeedItemsSeen]);
 
+  useEffect(() => {
+    if (!feed) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      void markActiveTabSeen(feed, activeNotificationTab);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [feed, activeNotificationTab, markActiveTabSeen]);
+
   if (viewedLiker) {
     return (
       <MemberProfileView
@@ -354,7 +422,7 @@ export function NotificationsTab({
 
   const tabCounts: Record<NotificationTabKey, number> = feed
     ? {
-      likes: feed.likes.length + feed.matches.length + feed.directMessages.length,
+      likes: feed.likes.length + feed.matches.filter((m) => !m.seen).length + feed.directMessages.length,
       rooms: feed.roomMessages.length + feed.rooms.length,
       events: feed.eventAlerts.length + feed.tickets.length + feed.events.length,
       notifications: feed.subscriptionAlerts.length + feed.reportUpdates.length + feed.paymentAlerts.length,
@@ -365,6 +433,14 @@ export function NotificationsTab({
       events: 0,
       notifications: 0,
     };
+  const tabHasContent: Record<NotificationTabKey, boolean> = feed
+    ? {
+      likes: feed.likes.length > 0 || feed.matches.length > 0 || feed.directMessages.length > 0,
+      rooms: feed.roomMessages.length > 0 || feed.rooms.length > 0,
+      events: feed.eventAlerts.length > 0 || feed.tickets.length > 0 || feed.events.length > 0,
+      notifications: feed.subscriptionAlerts.length > 0 || feed.reportUpdates.length > 0 || feed.paymentAlerts.length > 0,
+    }
+    : { likes: false, rooms: false, events: false, notifications: false };
   const notificationTabs: Array<{ id: NotificationTabKey; label: string; count: number }> = [
     { id: "likes", label: "Likes", count: tabCounts.likes },
     { id: "rooms", label: "Rooms", count: tabCounts.rooms },
@@ -377,7 +453,7 @@ export function NotificationsTab({
     events: "No event alerts, tickets, or upcoming events right now.",
     notifications: "No membership, payment, or report updates right now.",
   };
-  const totalItems = tabCounts.likes + tabCounts.rooms + tabCounts.events + tabCounts.notifications;
+  const hasSomeContent = feed ? Object.values(tabHasContent).some(Boolean) : false;
 
   return (
     <section>
@@ -409,7 +485,7 @@ export function NotificationsTab({
               <p className="mt-3 text-sm font-medium text-[#666666]">Loading notifications</p>
             </div>
           </div>
-        ) : feed && totalItems === 0 ? (
+        ) : feed && !hasSomeContent ? (
           <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
               <Bell className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
@@ -448,7 +524,7 @@ export function NotificationsTab({
               </div>
             </div>
 
-            {tabCounts[activeNotificationTab] === 0 ? (
+            {!tabHasContent[activeNotificationTab] ? (
               <div className="grid min-h-80 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
                 <div>
                   <Bell className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
@@ -495,31 +571,48 @@ export function NotificationsTab({
 
                 {activeNotificationTab === "likes" && feed.matches.length > 0 ? (
                   <div>
-                    <SectionHeader icon={Users} label="New matches" count={feed.matches.length} />
+                    <SectionHeader icon={Users} label="New matches" count={feed.matches.filter((m) => !m.seen).length} />
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {feed.matches.map((match) => (
-                        <button
-                          key={match.id}
-                          type="button"
-                          className="group flex items-center gap-4 rounded-[20px] border border-black/5 bg-white p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-                          onClick={() => {
-                            void markFeedItemSeen({ kind: "MATCH_CREATED", entityId: match.id });
-                            router.push(`/matches/${match.id}`);
-                          }}
-                        >
-                          <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
-                            <CandidatePhoto candidate={match.user} variant="thumb" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-[#0d0d0d]">{match.user.displayName}</p>
-                            <p className="mt-0.5 truncate text-xs text-[#666666]">
-                              New match
-                              {match.user.city ? ` · ${match.user.city}` : ""}
-                            </p>
-                            <p className="mt-1 text-[11px] text-[#999999]">{timeAgo(match.createdAt)}</p>
-                          </div>
-                        </button>
-                      ))}
+                      {[...feed.matches]
+                        .sort((a, b) => {
+                          if (a.seen !== b.seen) return a.seen ? 1 : -1;
+                          return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+                        })
+                        .map((match) => (
+                          <button
+                            key={match.id}
+                            type="button"
+                            className={`flex items-center gap-4 rounded-[20px] border bg-white p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition ${
+                              match.seen
+                                ? "border-black/[0.03] opacity-50"
+                                : "border-black/5 hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                            }`}
+                            onClick={() => {
+                              if (!match.seen) {
+                                void markFeedItemSeen({ kind: "MATCH_CREATED", entityId: match.id });
+                              }
+                              router.push(`/matches/${match.id}`);
+                            }}
+                          >
+                            <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                              <CandidatePhoto candidate={match.user} variant="thumb" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="truncate text-sm font-semibold text-[#0d0d0d]">{match.user.displayName}</p>
+                                {match.seen
+                                  ? <CheckCircle2 className="size-4 shrink-0 text-[#18E299]" aria-hidden="true" />
+                                  : <Heart className="size-4 shrink-0 fill-[#ff6b8a] text-[#ff6b8a]" aria-hidden="true" />
+                                }
+                              </div>
+                              <p className="mt-0.5 truncate text-xs text-[#666666]">
+                                {match.seen ? "Match" : "New match"}
+                                {match.user.city ? ` · ${match.user.city}` : ""}
+                              </p>
+                              <p className="mt-1 text-[11px] text-[#999999]">{timeAgo(match.createdAt)}</p>
+                            </div>
+                          </button>
+                        ))}
                     </div>
                   </div>
                 ) : null}

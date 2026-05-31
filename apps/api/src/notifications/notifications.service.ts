@@ -29,6 +29,7 @@ const FEED_EVENT_ALERTS_LIMIT = 10;
 const FEED_REPORT_UPDATES_LIMIT = 10;
 const FEED_PAYMENT_ALERTS_LIMIT = 10;
 const FEED_ROOMS_RECENCY_DAYS = 30;
+const FEED_MATCHES_SEEN_RECENCY_DAYS = 7;
 const SUBSCRIPTION_EXPIRING_DAYS = 7;
 const EVENT_REMINDER_HOURS = 48;
 const FAILED_PAYMENT_STATUSES = [PaymentStatus.FAILED, PaymentStatus.ABANDONED, PaymentStatus.REVERSED];
@@ -270,12 +271,24 @@ export class NotificationsService {
   }
 
   private async getNewMatches(userId: string) {
+    const now = new Date();
+    const seenCutoff = new Date(now);
+    seenCutoff.setDate(seenCutoff.getDate() - FEED_MATCHES_SEEN_RECENCY_DAYS);
+
     const seenMatchIds = await this.getSeenEntityIds(userId, NotificationKind.MATCH_CREATED);
+    const seenSet = new Set(seenMatchIds);
+
+    // Include unseen matches of any age, plus any match created within the recency window.
     const matches = await this.prisma.match.findMany({
       where: {
-        id: { notIn: seenMatchIds },
         status: MatchStatus.ACTIVE,
-        OR: [{ userAId: userId }, { userBId: userId }]
+        OR: [{ userAId: userId }, { userBId: userId }],
+        AND: [{
+          OR: [
+            { id: { notIn: seenMatchIds } },
+            { createdAt: { gte: seenCutoff } }
+          ]
+        }]
       },
       include: {
         userA: this.candidateInclude(6),
@@ -289,6 +302,7 @@ export class NotificationsService {
       matches.map(async (match) => ({
         id: match.id,
         createdAt: match.createdAt.toISOString(),
+        seen: seenSet.has(match.id),
         user: await this.formatCandidate(match.userAId === userId ? match.userB : match.userA)
       }))
     );

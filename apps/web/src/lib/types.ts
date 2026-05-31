@@ -19,6 +19,7 @@ export type AuthResponse = {
 };
 
 export type Gender = "WOMAN" | "MAN" | "NON_BINARY" | "PREFER_NOT_TO_SAY";
+export type SubscriptionStatus = "INACTIVE" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
 export type Sexuality = "STRAIGHT" | "GAY" | "LESBIAN" | "BISEXUAL" | "PANSEXUAL" | "ASEXUAL" | "QUEER" | "PREFER_NOT_TO_SAY";
 export type ConnectionStatus = "MEET_NOW" | "FWB" | "JUST_FRIENDS" | "DATING";
 export type ReportStatus = "OPEN" | "REVIEWED" | "DISMISSED" | "ACTIONED";
@@ -243,7 +244,8 @@ export type TabKey =
   | "rooms"
   | "events"
   | "admin"
-  | "reports";
+  | "reports"
+  | "users";
 export type DiscoveryActionName = "LIKE" | "PASS";
 export type ProfileGateState = "checking" | "required" | "ready";
 export type ProfileTabMode = "normal" | "setup";
@@ -275,6 +277,7 @@ export type NotificationKind =
 export type NotificationFeedMatch = {
   id: string;
   createdAt: string;
+  seen: boolean;
   user: DiscoveryCandidate;
 };
 
@@ -387,4 +390,114 @@ export type NotificationFeed = {
   subscriptionAlerts: NotificationFeedSubscriptionAlert[];
   reportUpdates: NotificationFeedReportUpdate[];
   paymentAlerts: NotificationFeedPaymentAlert[];
+};
+
+// ── Admin User Management ──────────────────────────────────────────────────
+
+export type AdminUserSummary = {
+  id: string;
+  displayName: string;
+  email: string;
+  role: "ADMIN" | "USER";
+  accountStatus: AccountStatus;
+  subscriptionStatus: SubscriptionStatus;
+  subscriptionEndsAt: string | null;
+  moderationReason: string | null;
+  createdAt: string;
+  profile: {
+    city: string | null;
+    state: string | null;
+    connectionStatus: ConnectionStatus | null;
+    discoveryLive: boolean;
+  } | null;
+  matchCount: number;
+  ticketCount: number;
+  roomCount: number;
+};
+
+export type AdminUserActivity = {
+  id: string;
+  displayName: string;
+  email: string;
+  role: "ADMIN" | "USER";
+  accountStatus: AccountStatus;
+  subscriptionStatus: SubscriptionStatus;
+  subscriptionEndsAt: string | null;
+  suspendedUntil: string | null;
+  deactivatedAt: string | null;
+  deletedAt: string | null;
+  moderationReason: string | null;
+  ageConfirmedAt: string | null;
+  createdAt: string;
+  profile: {
+    bio: string | null;
+    birthDate: string | null;
+    gender: string | null;
+    sexuality: string | null;
+    connectionStatus: string | null;
+    city: string | null;
+    state: string | null;
+    interests: string[];
+    discoveryLive: boolean;
+    maxDistanceKm: number;
+    locationUpdatedAt: string | null;
+  } | null;
+  photoCount: number;
+  payments: Array<{
+    id: string;
+    purpose: string;
+    status: string;
+    amountKobo: number;
+    provider: string;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  discoveryActions: Array<{
+    targetId: string;
+    targetName: string;
+    action: string;
+    createdAt: string;
+  }>;
+  receivedActions: Array<{
+    actorId: string;
+    actorName: string;
+    action: string;
+    createdAt: string;
+  }>;
+  matches: Array<{
+    id: string;
+    otherUserId: string;
+    otherUserName: string;
+    status: string;
+    createdAt: string;
+  }>;
+  roomMemberships: Array<{
+    roomId: string;
+    roomName: string;
+    roomCategory: string;
+    joinedAt: string;
+  }>;
+  tickets: Array<{
+    id: string;
+    code: string;
+    eventId: string;
+    eventTitle: string;
+    ticketTypeName: string;
+    priceKobo: number;
+    status: string;
+    checkedInAt: string | null;
+    createdAt: string;
+  }>;
+  moderationActions: Array<{
+    action: string;
+    reason: string | null;
+    expiresAt: string | null;
+    adminName: string | null;
+    createdAt: string;
+  }>;
+  loginSessions: Array<{
+    createdAt: string;
+    expiresAt: string;
+    revokedAt: string | null;
+  }>;
 };

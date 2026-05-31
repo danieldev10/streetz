@@ -20,10 +20,10 @@ function isRouteAllowed(user: StreetzUser, activeTab: TabKey, adminOnly: boolean
   }
 
   if (user.role === "ADMIN") {
-    return activeTab === "admin" || activeTab === "reports" || activeTab === "rooms" || activeTab === "events";
+    return activeTab === "admin" || activeTab === "reports" || activeTab === "rooms" || activeTab === "events" || activeTab === "users";
   }
 
-  return activeTab !== "admin" && activeTab !== "reports";
+  return activeTab !== "admin" && activeTab !== "reports" && activeTab !== "users";
 }
 
 function LoadingShell() {

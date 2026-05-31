@@ -2,14 +2,14 @@
 
 import Image from "next/image";
 import type { ChangeEvent, FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, RefreshCw, Save, SlidersHorizontal, Ticket, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { EVENT_IMAGE_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
-import type { EventStatus, StreetzEvent, StreetzUser, TicketStatus } from "@/lib/types";
+import type { EventStatus, StreetzEvent, StreetzProfile, StreetzUser, TicketStatus } from "@/lib/types";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
@@ -246,7 +246,9 @@ export function EventsTab({
   const isAdmin = user.role === "ADMIN";
   const [events, setEvents] = useState<StreetzEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-  const [eventViewMode, setEventViewMode] = useState<EventViewMode>("tickets");
+  const [eventViewMode, setEventViewMode] = useState<EventViewMode>("events");
+  const viewModeInitializedRef = useRef(false);
+  const filterInitializedRef = useRef(false);
   const [adminEventView, setAdminEventView] = useState<AdminEventView>(adminMode === "list" ? "list" : "form");
   const [editingEventId, setEditingEventId] = useState<string | null>(adminMode === "edit" ? adminEventId : null);
   const [eventForm, setEventForm] = useState<EventForm>(emptyEventForm);
@@ -303,6 +305,10 @@ export function EventsTab({
     return [...cityOptions];
   }, [eventFilterState, memberEventsForMode]);
   const visibleMemberEvents = useMemo(() => {
+    if (eventViewMode === "tickets") {
+      return memberEventsForMode;
+    }
+
     return memberEventsForMode.filter((event) => {
       if (eventFilterState && getEventState(event) !== eventFilterState) {
         return false;
@@ -314,19 +320,17 @@ export function EventsTab({
 
       return true;
     });
-  }, [eventFilterCity, eventFilterState, memberEventsForMode]);
+  }, [eventFilterCity, eventFilterState, eventViewMode, memberEventsForMode]);
   const hasEventLocationFilter = Boolean(eventFilterState || eventFilterCity);
-  const emptyMemberTitle = hasEventLocationFilter
-    ? eventViewMode === "tickets"
-      ? "No tickets found"
-      : "No events found"
-    : eventViewMode === "tickets"
-      ? "No tickets yet"
+  const emptyMemberTitle = eventViewMode === "tickets"
+    ? "No tickets yet"
+    : hasEventLocationFilter
+      ? "No events found"
       : "No events yet";
-  const emptyMemberDescription = hasEventLocationFilter
-    ? "Try another state or city."
-    : eventViewMode === "tickets"
-      ? "Tickets you book or buy will appear here."
+  const emptyMemberDescription = eventViewMode === "tickets"
+    ? "Tickets you book or buy will appear here."
+    : hasEventLocationFilter
+      ? "Try another state or city."
       : "Events you have not booked yet will appear here.";
   const eventStateOptions = eventForm.state && !nigeriaStateNames.includes(eventForm.state)
     ? [...nigeriaStateNames, eventForm.state]
@@ -335,6 +339,18 @@ export function EventsTab({
   const eventCityOptions = eventForm.city && !knownEventCityOptions.includes(eventForm.city)
     ? [...knownEventCityOptions, eventForm.city]
     : knownEventCityOptions;
+
+  useEffect(() => {
+    if (isLoadingEvents || viewModeInitializedRef.current) {
+      return;
+    }
+
+    viewModeInitializedRef.current = true;
+
+    if (ticketEvents.length > 0) {
+      setEventViewMode("tickets");
+    }
+  }, [isLoadingEvents, ticketEvents.length]);
 
   async function loadEvents(options: { clearNotice?: boolean; showLoading?: boolean } = {}) {
     const { clearNotice = true, showLoading = true } = options;
@@ -348,10 +364,25 @@ export function EventsTab({
     }
 
     try {
-      const response = await apiRequest<{ events: StreetzEvent[] }>(isAdmin ? "/admin/events" : "/events", {
-        headers: authHeaders(token),
-      });
-      setEvents(response.events);
+      const fetchProfile = !filterInitializedRef.current && !isAdmin;
+      const [eventsResult, profileResult] = await Promise.all([
+        apiRequest<{ events: StreetzEvent[] }>(isAdmin ? "/admin/events" : "/events", {
+          headers: authHeaders(token),
+        }),
+        fetchProfile
+          ? apiRequest<StreetzProfile | null>("/profiles/me", { headers: authHeaders(token) }).catch(() => null)
+          : Promise.resolve(null)
+      ]);
+
+      setEvents(eventsResult.events);
+
+      if (!filterInitializedRef.current) {
+        filterInitializedRef.current = true;
+
+        if (profileResult?.state) {
+          setEventFilterState(profileResult.state);
+        }
+      }
     } catch (error) {
       setNotice(getUserErrorMessage(error));
     } finally {
@@ -1283,20 +1314,22 @@ export function EventsTab({
         eyebrow="Events"
         title=""
         action={
-          <button
-            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasEventLocationFilter ? "border-[#18E299] bg-[#d4fae8]" : "border-black/8 bg-white"
-              }`}
-            type="button"
-            onClick={() => setIsEventFilterOpen(true)}
-            aria-label="Filter events"
-          >
-            <SlidersHorizontal className="size-4" aria-hidden="true" />
-            {hasEventLocationFilter ? (
-              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#18E299] text-[9px] font-semibold text-[#0d0d0d]">
-                {[eventFilterState, eventFilterCity].filter(Boolean).length}
-              </span>
-            ) : null}
-          </button>
+          eventViewMode === "events" ? (
+            <button
+              className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasEventLocationFilter ? "border-[#18E299] bg-[#d4fae8]" : "border-black/8 bg-white"
+                }`}
+              type="button"
+              onClick={() => setIsEventFilterOpen(true)}
+              aria-label="Filter events"
+            >
+              <SlidersHorizontal className="size-4" aria-hidden="true" />
+              {hasEventLocationFilter ? (
+                <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#18E299] text-[9px] font-semibold text-[#0d0d0d]">
+                  {[eventFilterState, eventFilterCity].filter(Boolean).length}
+                </span>
+              ) : null}
+            </button>
+          ) : undefined
         }
       />
 

@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Ticket,
   UserRound,
+  UsersRound,
   X,
 } from "lucide-react";
 import type { StreetzUser, TabKey } from "@/lib/types";
@@ -37,6 +38,7 @@ export const adminTabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> =
   { id: "rooms", label: "Rooms", icon: MessageCircle },
   { id: "events", label: "Events", icon: Ticket },
   { id: "reports", label: "Reports", icon: Flag },
+  { id: "users", label: "Users", icon: UsersRound },
   { id: "admin", label: "Metrics", icon: ShieldCheck },
 ];
 
@@ -50,6 +52,7 @@ export const tabRoutes: Record<TabKey, string> = {
   events: "/events",
   admin: "/admin",
   reports: "/reports",
+  users: "/users",
 };
 
 function AccountMenu({ onLogout }: { onLogout: () => void }) {

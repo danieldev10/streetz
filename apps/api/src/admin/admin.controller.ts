@@ -27,6 +27,16 @@ export class AdminController {
     return this.adminService.getMetrics();
   }
 
+  @Get("users")
+  getUsers() {
+    return this.adminService.getUsers();
+  }
+
+  @Get("users/:userId")
+  getUserActivity(@Param("userId") userId: string) {
+    return this.adminService.getUserActivity(userId);
+  }
+
   @Get("reports")
   getReports() {
     return this.adminService.getReports();
