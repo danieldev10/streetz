@@ -601,38 +601,43 @@ export class DiscoveryService {
 
     const filterSql = filterClauses.length > 0 ? Prisma.join(filterClauses, "\n        ") : Prisma.sql``;
 
-    return this.prisma.$queryRaw<SpatialCandidateRow[]>(Prisma.sql`
-      WITH origin AS (
-        SELECT ST_SetSRID(ST_MakePoint(${profile.longitude}, ${profile.latitude}), 4326)::geography AS geog
-      )
-      SELECT
-        candidate."id",
-        (ST_Distance(candidate_profile."location", origin.geog) / 1000.0)::double precision AS "distanceKm"
-      FROM origin
-      JOIN "User" AS candidate ON TRUE
-      JOIN "Profile" AS candidate_profile ON candidate_profile."userId" = candidate."id"
-      WHERE candidate."id" NOT IN (${Prisma.join(excludedIdList)})
-        AND candidate."accountStatus" = CAST(${AccountStatus.ACTIVE} AS "AccountStatus")
-        AND candidate."role" = CAST(${UserRole.USER} AS "UserRole")
-        AND candidate."subscriptionStatus" = CAST(${SubscriptionStatus.ACTIVE} AS "SubscriptionStatus")
-        AND candidate."subscriptionEndsAt" > ${now}
-        AND candidate_profile."bio" IS NOT NULL
-        AND candidate_profile."birthDate" IS NOT NULL
-        AND candidate_profile."city" IS NOT NULL
-        AND candidate_profile."state" IS NOT NULL
-        AND candidate_profile."discoveryLive" = TRUE
-        AND cardinality(candidate_profile."interests") > 0
-        AND candidate_profile."location" IS NOT NULL
-        AND EXISTS (
-          SELECT 1
-          FROM "ProfilePhoto" AS photo
-          WHERE photo."userId" = candidate."id"
+    return this.prisma.$transaction(async (transaction) => {
+      // Supabase installs PostGIS in "extensions"; local databases may use "public".
+      await transaction.$executeRaw`SET LOCAL search_path = public, extensions`;
+
+      return transaction.$queryRaw<SpatialCandidateRow[]>(Prisma.sql`
+        WITH origin AS (
+          SELECT ST_SetSRID(ST_MakePoint(${profile.longitude}, ${profile.latitude}), 4326)::geography AS geog
         )
-        ${hasDistanceLimit ? Prisma.sql`AND ST_DWithin(candidate_profile."location", origin.geog, ${maxDistanceMeters})` : Prisma.sql``}
-        ${filterSql}
-      ORDER BY ST_Distance(candidate_profile."location", origin.geog) ASC, candidate."updatedAt" DESC
-      LIMIT ${DEFAULT_CANDIDATE_LIMIT}
-    `);
+        SELECT
+          candidate."id",
+          (ST_Distance(candidate_profile."location", origin.geog) / 1000.0)::double precision AS "distanceKm"
+        FROM origin
+        JOIN "User" AS candidate ON TRUE
+        JOIN "Profile" AS candidate_profile ON candidate_profile."userId" = candidate."id"
+        WHERE candidate."id" NOT IN (${Prisma.join(excludedIdList)})
+          AND candidate."accountStatus" = CAST(${AccountStatus.ACTIVE} AS "AccountStatus")
+          AND candidate."role" = CAST(${UserRole.USER} AS "UserRole")
+          AND candidate."subscriptionStatus" = CAST(${SubscriptionStatus.ACTIVE} AS "SubscriptionStatus")
+          AND candidate."subscriptionEndsAt" > ${now}
+          AND candidate_profile."bio" IS NOT NULL
+          AND candidate_profile."birthDate" IS NOT NULL
+          AND candidate_profile."city" IS NOT NULL
+          AND candidate_profile."state" IS NOT NULL
+          AND candidate_profile."discoveryLive" = TRUE
+          AND cardinality(candidate_profile."interests") > 0
+          AND candidate_profile."location" IS NOT NULL
+          AND EXISTS (
+            SELECT 1
+            FROM "ProfilePhoto" AS photo
+            WHERE photo."userId" = candidate."id"
+          )
+          ${hasDistanceLimit ? Prisma.sql`AND ST_DWithin(candidate_profile."location", origin.geog, ${maxDistanceMeters})` : Prisma.sql``}
+          ${filterSql}
+        ORDER BY ST_Distance(candidate_profile."location", origin.geog) ASC, candidate."updatedAt" DESC
+        LIMIT ${DEFAULT_CANDIDATE_LIMIT}
+      `);
+    });
   }
 
   private async formatCandidate(candidate: {

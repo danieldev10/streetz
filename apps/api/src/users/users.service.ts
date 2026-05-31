@@ -196,6 +196,7 @@ export class UsersService {
           bio: null,
           birthDate: null,
           gender: null,
+          sexuality: null,
           connectionStatus: null,
           city: null,
           state: null,

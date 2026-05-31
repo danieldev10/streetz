@@ -134,6 +134,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     applySession(token, user);
   }, [applySession]);
 
+  const refreshFromCookie = useCallback(async () => {
+    const refreshedAuth = await refreshAccessToken();
+    return applySession(refreshedAuth.accessToken, refreshedAuth.user);
+  }, [applySession]);
+
   const refreshSession = useCallback(async (options: { force?: boolean } = {}) => {
     if (typeof window === "undefined") {
       return null;
@@ -143,8 +148,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     if (!savedToken) {
       try {
-        const refreshedAuth = await refreshAccessToken();
-        return applySession(refreshedAuth.accessToken, refreshedAuth.user);
+        return await refreshFromCookie();
       } catch {
         clearSession({ redirect: false, revoke: false });
         return null;
@@ -158,10 +162,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setStatus("authenticated");
       return nextSession;
     } catch {
-      clearSession({ revoke: false });
+      try {
+        return await refreshFromCookie();
+      } catch {
+        clearSession({ revoke: false });
+      }
+
       return null;
     }
-  }, [applySession, clearSession]);
+  }, [clearSession, refreshFromCookie]);
 
   const updateSessionUser = useCallback((updater: (user: StreetzUser) => StreetzUser) => {
     setSessionState((current) => {
@@ -225,8 +234,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setStatus("authenticated");
         }
       } catch {
-        if (!cancelled) {
-          clearSession({ revoke: false });
+        try {
+          const refreshedAuth = await refreshAccessToken();
+
+          if (!cancelled) {
+            applySession(refreshedAuth.accessToken, refreshedAuth.user);
+          }
+        } catch {
+          if (!cancelled) {
+            clearSession({ revoke: false });
+          }
         }
       }
     }

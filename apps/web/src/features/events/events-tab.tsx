@@ -340,18 +340,6 @@ export function EventsTab({
     ? [...knownEventCityOptions, eventForm.city]
     : knownEventCityOptions;
 
-  useEffect(() => {
-    if (isLoadingEvents || viewModeInitializedRef.current) {
-      return;
-    }
-
-    viewModeInitializedRef.current = true;
-
-    if (ticketEvents.length > 0) {
-      setEventViewMode("tickets");
-    }
-  }, [isLoadingEvents, ticketEvents.length]);
-
   async function loadEvents(options: { clearNotice?: boolean; showLoading?: boolean } = {}) {
     const { clearNotice = true, showLoading = true } = options;
 
@@ -375,6 +363,11 @@ export function EventsTab({
       ]);
 
       setEvents(eventsResult.events);
+
+      if (!isAdmin && !viewModeInitializedRef.current) {
+        viewModeInitializedRef.current = true;
+        setEventViewMode(eventsResult.events.some(hasConfirmedTicket) ? "tickets" : "events");
+      }
 
       if (!filterInitializedRef.current) {
         filterInitializedRef.current = true;
