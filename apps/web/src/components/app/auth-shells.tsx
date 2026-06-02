@@ -139,7 +139,7 @@ export function AuthShell({
             disabled={isSubmitting}
           >
             {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-            {isSubmitting ? "Please wait" : authMode === "register" ? "Create account" : "Login"}
+            {authMode === "register" ? "Create account" : "Login"}
           </button>
         </form>
       </section>

@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { AccountStatus, AdminUserActivity, AdminUserSummary } from "@/lib/types";
 
@@ -538,12 +539,7 @@ export function UsersTab({ token }: { token: string }) {
         ) : null}
 
         {isLoadingUsers ? (
-          <div className="grid min-h-80 place-items-center rounded-3xl border border-black/5">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading users</p>
-            </div>
-          </div>
+          <LoadingState label="Loading users" className="min-h-80 rounded-3xl border border-black/5" />
         ) : filteredUsers.length === 0 ? (
           <div className="grid min-h-80 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>

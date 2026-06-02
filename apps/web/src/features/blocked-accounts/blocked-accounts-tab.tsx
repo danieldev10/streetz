@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { LoaderCircle, RefreshCw, ShieldOff, Unlock } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { BlockedAccount } from "@/lib/types";
@@ -97,12 +98,7 @@ export function BlockedAccountsTab({
         {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isLoadingBlockedAccounts ? (
-          <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05]">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading blocked accounts</p>
-            </div>
-          </div>
+          <LoadingState label="Loading blocked accounts" className="min-h-[420px] rounded-[28px] border border-black/[0.05]" />
         ) : blockedAccounts.length > 0 ? (
           <div className="mx-auto grid max-w-2xl gap-3">
             {blockedAccounts.map((account) => (

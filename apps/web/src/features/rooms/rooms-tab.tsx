@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import type { ChatRoom, RoomMessage, StreetzUser } from "@/lib/types";
@@ -853,9 +854,7 @@ export function RoomsTab({
 
             <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
               {isLoadingMessages ? (
-                <div className="grid h-full min-h-90 place-items-center text-sm font-medium text-[#666666]">
-                  Loading room messages
-                </div>
+                <LoadingState label="Loading room messages" className="h-full min-h-90" />
               ) : messages.length > 0 ? (
                 <div className="grid gap-3">
                   {datedMessages.map((item) => {
@@ -1055,12 +1054,7 @@ export function RoomsTab({
         {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isLoadingRooms ? (
-          <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading rooms</p>
-            </div>
-          </div>
+          <LoadingState label="Loading rooms" className="min-h-105 rounded-[28px] border border-black/5" />
         ) : visibleRooms.length > 0 ? (
           <div className="grid gap-3">
             {visibleRooms.map((room) => (

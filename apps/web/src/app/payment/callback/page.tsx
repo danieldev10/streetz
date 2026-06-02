@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { useSession } from "@/components/app/session-provider";
 import { TOKEN_KEY, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 
@@ -86,10 +87,7 @@ export default function PaymentCallbackPage() {
     <Suspense
       fallback={
         <main className="grid min-h-screen place-items-center bg-[#f6f8f4] px-4 text-[#17211b]">
-          <section className="w-full max-w-sm rounded-lg border border-[#dfe7dc] bg-white p-6 text-center">
-            <p className="text-3xl font-black text-[#0f8f63]">crushclub</p>
-            <p className="mt-3 text-sm font-bold text-[#667369]">Loading payment status...</p>
-          </section>
+          <LoadingState label="Loading payment status" />
         </main>
       }
     >

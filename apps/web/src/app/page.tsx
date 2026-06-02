@@ -3,8 +3,8 @@
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoaderCircle } from "lucide-react";
-import { AccountStatusShell, AuthShell, CenteredShell, PaywallShell } from "@/components/app/auth-shells";
+import { AccountStatusShell, AuthShell, PaywallShell } from "@/components/app/auth-shells";
+import { LoadingState } from "@/components/loading-state";
 import { useSession } from "@/components/app/session-provider";
 import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/lib/api";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
@@ -57,7 +57,7 @@ function getAuthValidationMessage(options: {
 function LoadingShell() {
   return (
     <main className="grid min-h-screen place-items-center bg-white px-4 text-[#0d0d0d]">
-      <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-label="Loading" />
+      <LoadingState label="Loading" />
     </main>
   );
 }
@@ -234,5 +234,5 @@ export default function Home() {
     );
   }
 
-  return <CenteredShell title="crushclub" subtitle="Opening your account" />;
+  return <LoadingShell />;
 }

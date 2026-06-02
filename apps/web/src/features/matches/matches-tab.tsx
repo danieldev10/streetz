@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
 import { ArrowLeft, CheckCheck, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import type { DirectMessage, DiscoveryCandidate, MatchThread, StreetzUser } from "@/lib/types";
@@ -605,9 +606,7 @@ export function MatchesTab({
 
           <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
             {isLoadingMessages ? (
-              <div className="grid h-full min-h-[360px] place-items-center text-sm font-medium text-[#666666]">
-                Loading messages
-              </div>
+              <LoadingState label="Loading messages" className="h-full min-h-[360px]" />
             ) : messages.length > 0 ? (
               <div className="grid gap-3">
                 {datedMessages.map((item) => {
@@ -731,12 +730,7 @@ export function MatchesTab({
         {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isLoadingMatches ? (
-          <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05]">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading matches</p>
-            </div>
-          </div>
+          <LoadingState label="Loading matches" className="min-h-[420px] rounded-[28px] border border-black/[0.05]" />
         ) : matches.length > 0 ? (
           <div className="mx-auto max-w-3xl">
 

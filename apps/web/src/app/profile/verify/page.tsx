@@ -6,6 +6,7 @@ import { Amplify } from "aws-amplify";
 import { FaceLivenessDetector } from "@aws-amplify/ui-react-liveness";
 import { AlertTriangle, ArrowLeft, Camera, CheckCircle2, LoaderCircle, ShieldCheck } from "lucide-react";
 import { AuthenticatedRoute } from "@/components/app/authenticated-route";
+import { LoadingState } from "@/components/loading-state";
 import { ScreenHeader } from "@/components/app/navigation";
 import { useSession } from "@/components/app/session-provider";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -175,12 +176,7 @@ function FaceVerificationContent({ token }: { token: string }) {
           {notice ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-medium text-red-600">{notice}</p> : null}
 
           {isLoadingState ? (
-            <article className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 bg-white p-6 text-center">
-              <div>
-                <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-                <p className="mt-3 text-sm font-medium text-[#666666]">Checking verification</p>
-              </div>
-            </article>
+            <LoadingState label="Checking verification" className="min-h-105 rounded-[28px] border border-black/5 bg-white p-6" />
           ) : livenessSession ? (
             <article className="overflow-hidden rounded-[28px] border border-black/5 bg-white p-3 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
               <FaceLivenessDetector

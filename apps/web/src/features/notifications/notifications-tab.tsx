@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -479,12 +480,7 @@ export function NotificationsTab({
         ) : null}
 
         {isLoading && !feed ? (
-          <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading notifications</p>
-            </div>
-          </div>
+          <LoadingState label="Loading notifications" className="min-h-105 rounded-[28px] border border-black/5" />
         ) : feed && !hasSomeContent ? (
           <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>

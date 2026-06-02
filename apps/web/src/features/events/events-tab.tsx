@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, RefreshCw, Save, SlidersHorizontal, Ticket, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { EVENT_IMAGE_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
@@ -1221,12 +1222,7 @@ export function EventsTab({
           {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
           {isLoadingEvents ? (
-            <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5">
-              <div className="text-center">
-                <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-                <p className="mt-3 text-sm font-medium text-[#666666]">Loading events</p>
-              </div>
-            </div>
+            <LoadingState label="Loading events" className="min-h-90 rounded-3xl border border-black/5" />
           ) : adminVisibleEvents.length > 0 ? (
             <div className="grid gap-3">
               {adminVisibleEvents.map((event) => (
@@ -1437,12 +1433,7 @@ export function EventsTab({
         {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isLoadingEvents ? (
-          <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading events</p>
-            </div>
-          </div>
+          <LoadingState label="Loading events" className="min-h-90 rounded-3xl border border-black/5" />
         ) : visibleMemberEvents.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visibleMemberEvents.map((event) => {

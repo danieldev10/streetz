@@ -7,7 +7,6 @@ import {
   CalendarDays,
   Flag,
   Heart,
-  LoaderCircle,
   MessageCircle,
   MessagesSquare,
   RefreshCw,
@@ -16,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { AdminMetrics } from "@/lib/types";
 
@@ -177,12 +177,7 @@ export function AdminDashboard({ token }: { token: string }) {
         {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isLoadingMetrics ? (
-          <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading metrics</p>
-            </div>
-          </div>
+          <LoadingState label="Loading metrics" className="min-h-105 rounded-[28px] border border-black/5" />
         ) : metrics ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {cards.map((card) => (

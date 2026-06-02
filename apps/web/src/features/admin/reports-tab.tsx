@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { REPORT_REASON_OPTIONS } from "@/lib/report-reasons";
@@ -351,12 +352,7 @@ export function ReportsTab({ token }: { token: string }) {
         {notice ? <p className="rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isLoadingReports ? (
-          <div className={`${notice ? "mt-4" : ""} grid min-h-64 place-items-center rounded-[28px] border border-black/5`}>
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading reports</p>
-            </div>
-          </div>
+          <LoadingState label="Loading reports" className={`${notice ? "mt-4" : ""} min-h-64 rounded-[28px] border border-black/5`} />
         ) : visibleReports.length > 0 ? (
           <div className={`${notice ? "mt-4" : ""} overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
             {visibleReports.map((report) => (
@@ -510,12 +506,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
         {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isLoadingReport ? (
-          <div className="grid min-h-80 place-items-center rounded-[28px] border border-black/5">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading report</p>
-            </div>
-          </div>
+          <LoadingState label="Loading report" className="min-h-80 rounded-[28px] border border-black/5" />
         ) : report ? (
           <div className="mx-auto max-w-3xl">
             <article className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, CheckCircle2, LoaderCircle, MapPin, Ticket } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { StreetzEvent, StreetzEventTicket, StreetzUser, TicketStatus } from "@/lib/types";
 
@@ -233,12 +234,7 @@ export function EventTicketsTab({
         {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isLoading ? (
-          <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading tickets</p>
-            </div>
-          </div>
+          <LoadingState label="Loading tickets" className="min-h-90 rounded-3xl border border-black/5" />
         ) : event ? (
           (() => {
             const isPaidEvent = Boolean(event.ticketType && event.ticketType.priceKobo > 0);

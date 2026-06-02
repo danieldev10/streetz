@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, LoaderCircle, ShieldCheck, UserRound } from "lucide-react";
+import { Heart, ShieldCheck, UserRound } from "lucide-react";
 import { AuthenticatedRoute } from "@/components/app/authenticated-route";
+import { LoadingState } from "@/components/loading-state";
 import { ScreenHeader } from "@/components/app/navigation";
 import { DiscoveryTab } from "@/features/discovery/discovery-tab";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -82,12 +83,7 @@ function DiscoveryProfileGate({
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
         {profileState === "checking" ? (
-          <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-white p-6 text-center">
-            <div>
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Checking profile</p>
-            </div>
-          </article>
+          <LoadingState label="Checking profile" className="min-h-90 rounded-[28px] border border-black/[0.05] bg-white p-6" />
         ) : profileState === "verificationRequired" ? (
           <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-white p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
             <div className="max-w-xs">

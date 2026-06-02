@@ -3,9 +3,9 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoaderCircle } from "lucide-react";
-import { AccountStatusShell, CenteredShell, PaywallShell } from "@/components/app/auth-shells";
+import { AccountStatusShell, PaywallShell } from "@/components/app/auth-shells";
 import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
+import { LoadingState } from "@/components/loading-state";
 import { useSession } from "@/components/app/session-provider";
 import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/lib/api";
 import type { StreetzUser, TabKey } from "@/lib/types";
@@ -29,7 +29,7 @@ function isRouteAllowed(user: StreetzUser, activeTab: TabKey, adminOnly: boolean
 function LoadingShell() {
   return (
     <main className="grid min-h-screen place-items-center bg-white px-4 text-[#0d0d0d]">
-      <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-label="Loading" />
+      <LoadingState label="Loading" />
     </main>
   );
 }
@@ -162,7 +162,7 @@ export function AuthenticatedRoute({
   }
 
   if (!isAllowed) {
-    return <CenteredShell title="crushclub" subtitle="Opening your account" />;
+    return <LoadingShell />;
   }
 
   return (

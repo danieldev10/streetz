@@ -4,6 +4,7 @@ import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Camera, Heart, LoaderCircle, MapPin, Power, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { useSession } from "@/components/app/session-provider";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -565,12 +566,7 @@ export function ProfileTab({
         {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {isLoadingProfile ? (
-          <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05]">
-            <div className="text-center">
-              <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-[#666666]">Loading profile</p>
-            </div>
-          </div>
+          <LoadingState label="Loading profile" className="min-h-[420px] rounded-[28px] border border-black/[0.05]" />
         ) : (
           <div className={profileView === "edit" ? "mx-auto max-w-2xl" : "mx-auto max-w-[520px]"}>
             {profileView === "edit" ? (

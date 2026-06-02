@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ConnectionStatus, Gender, Sexuality } from "@/lib/types";
 import { Ban, Eye, Flag, Heart, LoaderCircle, MapPin, RefreshCw, SlidersHorizontal, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
+import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import {
   DISCOVERY_DECK_SIZE,
@@ -671,12 +672,7 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
         <div className="grid gap-5 xl:grid-cols-[minmax(360px,520px)_1fr]">
           {isLoading ? (
             <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] xl:max-w-[520px]">
-              <div className="grid min-h-[520px] place-items-center p-6 text-center">
-                <div>
-                  <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
-                  <p className="mt-3 text-sm font-medium text-[#666666]">Loading discovery</p>
-                </div>
-              </div>
+              <LoadingState label="Loading discovery" className="min-h-[520px] p-6" />
             </article>
           ) : renderedCandidates.length > 0 ? (
             <div className="relative xl:max-w-[520px]">
