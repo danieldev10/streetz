@@ -361,6 +361,9 @@ export class AdminService {
 
   async getUsers() {
     const users = await this.prisma.user.findMany({
+      where: {
+        accountStatus: { not: AccountStatus.DELETED }
+      },
       select: {
         id: true,
         displayName: true,

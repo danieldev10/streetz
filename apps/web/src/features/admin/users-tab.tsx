@@ -424,10 +424,11 @@ export function UsersTab({ token }: { token: string }) {
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [selectedUser, setSelectedUser] = useState<AdminUserActivity | null>(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+  const [openingUserId, setOpeningUserId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<AccountStatus | "">("");
   const [notice, setNotice] = useState<string | null>(null);
+  const openingUser = openingUserId ? users.find((user) => user.id === openingUserId) : null;
 
   const loadUsers = useCallback(async () => {
     setIsLoadingUsers(true);
@@ -446,7 +447,8 @@ export function UsersTab({ token }: { token: string }) {
   }, [token]);
 
   async function openUserDetail(userId: string) {
-    setIsLoadingActivity(true);
+    setOpeningUserId(userId);
+    setNotice(null);
 
     try {
       const response = await apiRequest<{ user: AdminUserActivity }>(`/admin/users/${userId}`, {
@@ -456,7 +458,7 @@ export function UsersTab({ token }: { token: string }) {
     } catch (error) {
       setNotice(getUserErrorMessage(error));
     } finally {
-      setIsLoadingActivity(false);
+      setOpeningUserId(null);
     }
   }
 
@@ -472,6 +474,7 @@ export function UsersTab({ token }: { token: string }) {
     const q = search.trim().toLowerCase();
 
     return users.filter((user) => {
+      if (user.accountStatus === "DELETED") return false;
       if (statusFilter && user.accountStatus !== statusFilter) return false;
       if (q && !user.displayName.toLowerCase().includes(q) && !user.email.toLowerCase().includes(q)) return false;
       return true;
@@ -524,9 +527,15 @@ export function UsersTab({ token }: { token: string }) {
             <option value="DEACTIVATED">Deactivated</option>
             <option value="SUSPENDED">Suspended</option>
             <option value="BANNED">Banned</option>
-            <option value="DELETED">Deleted</option>
           </select>
         </div>
+
+        {openingUser ? (
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-black/5 bg-[#fafafa] p-3 text-sm font-medium text-[#666666]">
+            <LoaderCircle className="size-4 animate-spin text-[#18E299]" aria-hidden="true" />
+            Opening {openingUser.displayName}
+          </div>
+        ) : null}
 
         {isLoadingUsers ? (
           <div className="grid min-h-80 place-items-center rounded-3xl border border-black/5">
@@ -545,23 +554,29 @@ export function UsersTab({ token }: { token: string }) {
           </div>
         ) : (
           <div className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-            <div className="grid grid-cols-[1fr_1fr] border-b border-black/5 px-4 py-2.5">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-4 border-b border-black/5 px-4 py-2.5">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                 Name ({filteredUsers.length})
               </p>
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Email</p>
+              <span className="size-4" aria-hidden="true" />
             </div>
             <div className="divide-y divide-black/[0.04]">
               {filteredUsers.map((user) => (
                 <button
                   key={user.id}
                   type="button"
-                  className="grid w-full grid-cols-[1fr_1fr] items-center gap-4 px-4 py-3 text-left transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 text-left transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
                   onClick={() => void openUserDetail(user.id)}
-                  disabled={isLoadingActivity}
+                  disabled={openingUserId !== null}
                 >
                   <p className="truncate text-sm font-medium text-[#0d0d0d]">{user.displayName}</p>
                   <p className="truncate text-sm text-[#666666]">{user.email}</p>
+                  {openingUserId === user.id ? (
+                    <LoaderCircle className="size-4 animate-spin text-[#18E299]" aria-hidden="true" />
+                  ) : (
+                    <span className="size-4" aria-hidden="true" />
+                  )}
                 </button>
               ))}
             </div>
