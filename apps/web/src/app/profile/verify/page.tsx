@@ -160,7 +160,7 @@ function FaceVerificationContent({ token }: { token: string }) {
     <section>
       <div className="px-5 pt-5 md:px-8 md:pt-8">
         <button
-          className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#0d0d0d]"
+          className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-white text-[#0d0d0d]"
           onClick={() => router.push("/profile")}
           aria-label="Back to profile"
           title="Back"
@@ -171,18 +171,18 @@ function FaceVerificationContent({ token }: { token: string }) {
       <ScreenHeader eyebrow="Verification" title="" />
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        <div className="mx-auto max-w-[520px]">
-          {notice ? <p className="mb-4 rounded-[16px] bg-red-50 p-3 text-sm font-medium text-red-600">{notice}</p> : null}
+        <div className="mx-auto max-w-130">
+          {notice ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-medium text-red-600">{notice}</p> : null}
 
           {isLoadingState ? (
-            <article className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05] bg-white p-6 text-center">
+            <article className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 bg-white p-6 text-center">
               <div>
                 <LoaderCircle className="mx-auto size-7 animate-spin text-[#18E299]" aria-hidden="true" />
                 <p className="mt-3 text-sm font-medium text-[#666666]">Checking verification</p>
               </div>
             </article>
           ) : livenessSession ? (
-            <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white p-3 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+            <article className="overflow-hidden rounded-[28px] border border-black/5 bg-white p-3 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
               <FaceLivenessDetector
                 sessionId={livenessSession.sessionId}
                 region={livenessSession.region}
@@ -202,7 +202,7 @@ function FaceVerificationContent({ token }: { token: string }) {
               ) : null}
             </article>
           ) : (
-            <article className="rounded-[28px] border border-black/[0.05] bg-white p-5 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+            <article className="rounded-[28px] border border-black/5 bg-white p-5 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
               <div className={`mx-auto grid size-16 place-items-center rounded-full ${isVerified ? "bg-[#d4fae8] text-[#0fa76e]" : "bg-[#fafafa] text-[#0d0d0d]"}`}>
                 {isVerified ? <CheckCircle2 className="size-7" aria-hidden="true" /> : <ShieldCheck className="size-7" aria-hidden="true" />}
               </div>
@@ -256,7 +256,7 @@ function FaceVerificationContent({ token }: { token: string }) {
                   </button>
                 ) : null}
                 <button
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-black/[0.08] bg-white px-5 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 bg-white px-5 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-50"
                   type="button"
                   disabled={!canContinue}
                   onClick={() => router.replace(nextPath)}

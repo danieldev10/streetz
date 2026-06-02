@@ -645,7 +645,7 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
         </div>
       ) : null}
 
-      <div className="px-5 md:px-8">
+      <div className="px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] md:px-8 md:pb-8">
         {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
         {!isLoading && shouldPromptForLocation ? (
@@ -679,7 +679,7 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
               </div>
             </article>
           ) : renderedCandidates.length > 0 ? (
-            <div className="relative min-h-[700px] xl:max-w-[520px]">
+            <div className="relative xl:max-w-[520px]">
               {renderedCandidates.map((candidate, index) => {
                 const isTopCard = index === 0;
                 const stackStyle: CSSProperties = isTopCard
@@ -695,7 +695,7 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
                   <article
                     key={candidate.id}
                     aria-hidden={!isTopCard}
-                    className={`absolute inset-x-0 top-0 overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.08)] ${isTopCard ? "touch-pan-y select-none" : "pointer-events-none"
+                    className={`${isTopCard ? "relative" : "absolute inset-x-0 top-0"} overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.08)] ${isTopCard ? "touch-pan-y select-none" : "pointer-events-none"
                       } ${isTopCard && isDraggingCard ? "cursor-grabbing" : isTopCard ? "cursor-grab" : ""}`}
                     style={stackStyle}
                     onPointerDown={isTopCard ? handleSwipeStart : undefined}
@@ -1167,7 +1167,7 @@ function DiscoveryCandidateCard({
 
   return (
     <>
-      <div className="relative aspect-[4/5] min-h-[440px] bg-[#d4fae8]">
+      <div className="relative h-[clamp(320px,44svh,440px)] bg-[#d4fae8] md:aspect-[4/5] md:h-auto md:min-h-[440px]">
         <CandidatePhoto candidate={candidate} priority={priority} />
         <div
           className={`absolute left-5 top-5 rounded-[14px] border-2 px-4 py-2 text-lg font-semibold uppercase tracking-[0.08em] transition-opacity ${swipeIntent === "PASS" ? "border-white bg-white/90 text-[#0d0d0d] opacity-100" : "border-white/60 text-white opacity-0"
@@ -1183,11 +1183,11 @@ function DiscoveryCandidateCard({
         >
           Like
         </div>
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-5 text-white">
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-4 text-white md:p-5">
           <div className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
             {formatConnectionStatus(candidate.connectionStatus)}
           </div>
-          <h2 className="mt-3 text-3xl font-semibold">
+          <h2 className="mt-2 text-2xl font-semibold md:mt-3 md:text-3xl">
             {candidate.displayName}
             {candidate.age ? `, ${candidate.age}` : ""}
           </h2>
@@ -1198,16 +1198,16 @@ function DiscoveryCandidateCard({
         </div>
       </div>
       <div className="p-4">
-        {candidate.bio ? <p className="text-sm leading-6 text-[#444444]">{candidate.bio}</p> : null}
+        {candidate.bio ? <p className="line-clamp-2 text-sm leading-6 text-[#444444]">{candidate.bio}</p> : null}
         <div className="mt-3 flex flex-wrap gap-2">
-          {candidate.interests.slice(0, 5).map((interest) => (
+          {candidate.interests.slice(0, 4).map((interest) => (
             <span key={interest} className="rounded-full bg-[#fafafa] px-3 py-1 text-xs font-medium text-[#666666]">
               {interest}
             </span>
           ))}
         </div>
         <button
-          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
           onClick={onViewProfile}
           onPointerDown={(event) => event.stopPropagation()}
           disabled={isActionDisabled}
@@ -1215,9 +1215,9 @@ function DiscoveryCandidateCard({
           <Eye className="size-4" aria-hidden="true" />
           View Profile
         </button>
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <button
-            className="inline-flex h-12 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onPass}
             onPointerDown={(event) => event.stopPropagation()}
             disabled={isActionDisabled}
@@ -1227,7 +1227,7 @@ function DiscoveryCandidateCard({
             <X className="size-5" aria-hidden="true" />
           </button>
           <button
-            className="inline-flex h-12 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onLike}
             onPointerDown={(event) => event.stopPropagation()}
             disabled={isActionDisabled}
@@ -1237,9 +1237,9 @@ function DiscoveryCandidateCard({
             <Heart className="size-5 fill-current" aria-hidden="true" />
           </button>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="mt-2 grid grid-cols-2 gap-3">
           <button
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#fafafa] px-3 text-xs font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#fafafa] px-3 text-xs font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onBlock}
             onPointerDown={(event) => event.stopPropagation()}
             disabled={isActionDisabled}
@@ -1248,7 +1248,7 @@ function DiscoveryCandidateCard({
             Block
           </button>
           <button
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#fafafa] px-3 text-xs font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#fafafa] px-3 text-xs font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onReport}
             onPointerDown={(event) => event.stopPropagation()}
             disabled={isActionDisabled}
