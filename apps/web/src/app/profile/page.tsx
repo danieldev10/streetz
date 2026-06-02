@@ -17,7 +17,7 @@ function ProfilePageContent() {
           token={token}
           user={user}
           mode={isSetupMode ? "setup" : "normal"}
-          onProfileReady={isSetupMode ? () => router.replace("/discover") : undefined}
+          onProfileReady={isSetupMode ? () => router.replace("/profile/verify?next=/discover") : undefined}
         />
       )}
     </AuthenticatedRoute>

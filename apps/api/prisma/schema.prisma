@@ -120,6 +120,18 @@ enum NotificationKind {
   SUBSCRIPTION_PAYMENT_SUCCESS
 }
 
+enum FaceVerificationStatus {
+  NOT_STARTED
+  PENDING
+  VERIFIED
+  FAILED
+  REVIEW_REQUIRED
+}
+
+enum FaceVerificationProvider {
+  AWS_REKOGNITION
+}
+
 model User {
   id                 String               @id @default(cuid())
   email              String               @unique
@@ -134,6 +146,9 @@ model User {
   deletedAt          DateTime?
   moderationReason   String?
   ageConfirmedAt     DateTime?
+  faceVerificationStatus         FaceVerificationStatus @default(NOT_STARTED)
+  faceVerificationVerifiedAt     DateTime?
+  faceVerificationOverrideReason String?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   profile            Profile?
@@ -155,8 +170,33 @@ model User {
   payments           Payment[]
   notificationSeens  NotificationSeen[]
   refreshTokens      RefreshToken[]
+  faceVerificationAttempts FaceVerificationAttempt[]
   moderationActionsTaken    ModerationAction[] @relation("ModerationAdmin")
   moderationActionsReceived ModerationAction[] @relation("ModerationTarget")
+}
+
+model FaceVerificationAttempt {
+  id                  String                   @id @default(cuid())
+  userId              String
+  user                User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider            FaceVerificationProvider @default(AWS_REKOGNITION)
+  providerSessionId   String?                  @unique
+  status              FaceVerificationStatus   @default(PENDING)
+  effectiveStatus     FaceVerificationStatus?
+  livenessConfidence  Float?
+  faceMatchSimilarity Float?
+  matchedPhotoId      String?
+  referenceImageBucket String?
+  referenceImageKey   String?
+  auditImagePrefix    String?
+  failureReason       String?
+  overrideReason      String?
+  completedAt         DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
 }
 
 model RefreshToken {

@@ -14,6 +14,7 @@ import { ProfilesModule } from "./profiles/profiles.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { RoomsModule } from "./rooms/rooms.module";
 import { UsersModule } from "./users/users.module";
+import { VerificationModule } from "./verification/verification.module";
 
 @Module({
   imports: [
@@ -37,7 +38,8 @@ import { UsersModule } from "./users/users.module";
     MessagesModule,
     RoomsModule,
     AdminModule,
-    NotificationsModule
+    NotificationsModule,
+    VerificationModule
   ],
   providers: [
     {

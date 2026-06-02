@@ -11,6 +11,9 @@ export type StreetzUser = {
   deletedAt?: string | null;
   moderationReason?: string | null;
   ageConfirmedAt?: string | null;
+  faceVerificationStatus: FaceVerificationStatus;
+  faceVerificationVerifiedAt?: string | null;
+  faceVerificationOverrideReason?: string | null;
 };
 
 export type AuthResponse = {
@@ -25,6 +28,8 @@ export type ConnectionStatus = "MEET_NOW" | "FWB" | "JUST_FRIENDS" | "DATING";
 export type ReportStatus = "OPEN" | "REVIEWED" | "DISMISSED" | "ACTIONED";
 export type AccountStatus = "ACTIVE" | "DEACTIVATED" | "SUSPENDED" | "BANNED" | "DELETED";
 export type ModerationActionType = "SUSPEND" | "BAN" | "RESTORE" | "DELETE" | "DEACTIVATE" | "REACTIVATE";
+export type FaceVerificationStatus = "NOT_STARTED" | "PENDING" | "VERIFIED" | "FAILED" | "REVIEW_REQUIRED";
+export type FaceVerificationMode = "off" | "observe" | "prototype-pass" | "enforce";
 
 export type ProfilePhoto = {
   id: string;
@@ -249,6 +254,28 @@ export type TabKey =
 export type DiscoveryActionName = "LIKE" | "PASS";
 export type ProfileGateState = "checking" | "required" | "ready";
 export type ProfileTabMode = "normal" | "setup";
+
+export type FaceVerificationAttempt = {
+  id: string;
+  status: FaceVerificationStatus;
+  effectiveStatus: FaceVerificationStatus | null;
+  livenessConfidence: number | null;
+  faceMatchSimilarity: number | null;
+  failureReason: string | null;
+  overrideReason: string | null;
+  completedAt: string | null;
+  createdAt: string;
+};
+
+export type FaceVerificationState = {
+  mode: FaceVerificationMode;
+  enabled: boolean;
+  required: boolean;
+  status: FaceVerificationStatus;
+  verifiedAt: string | null;
+  overrideReason: string | null;
+  latestAttempt: FaceVerificationAttempt | null;
+};
 
 export type NotificationSummary = {
   matchesUnreadCount: number;

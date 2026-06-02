@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { AccountStatus, ConnectionStatus, DiscoveryAction, Gender, MatchStatus, Prisma, ReportStatus, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
+import { AccountStatus, ConnectionStatus, DiscoveryAction, FaceVerificationStatus, Gender, MatchStatus, Prisma, ReportStatus, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
+import { VerificationService } from "../verification/verification.service";
 import { BlockUserDto } from "./dto/block-user.dto";
 import { DiscoveryActionDto } from "./dto/discovery-action.dto";
 import { DiscoveryFiltersDto } from "./dto/discovery-filters.dto";
@@ -31,13 +32,15 @@ type SpatialCandidateRow = {
 export class DiscoveryService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    private readonly verification: VerificationService
   ) {}
 
   async getCandidates(userId: string, filters: DiscoveryFiltersDto = {}) {
     const currentProfile = await this.ensureCurrentProfileReady(userId);
 
     const now = new Date();
+    const requiresFaceVerification = this.verification.isRequired();
     const [actions, blocks, matches] = await Promise.all([
       this.prisma.discoveryActionLog.findMany({
         where: { actorId: userId },
@@ -133,6 +136,7 @@ export class DiscoveryService {
       where: {
         id: { notIn: Array.from(excludedIds) },
         accountStatus: AccountStatus.ACTIVE,
+        ...(requiresFaceVerification ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
         role: UserRole.USER,
         subscriptionStatus: SubscriptionStatus.ACTIVE,
         subscriptionEndsAt: { gt: now },
@@ -433,6 +437,7 @@ export class DiscoveryService {
       where: {
         id: targetUserId,
         accountStatus: AccountStatus.ACTIVE,
+        ...(this.verification.isRequired() ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
         role: UserRole.USER,
         subscriptionStatus: SubscriptionStatus.ACTIVE,
         subscriptionEndsAt: { gt: new Date() },
@@ -476,6 +481,7 @@ export class DiscoveryService {
       select: {
         accountStatus: true,
         suspendedUntil: true,
+        faceVerificationStatus: true,
         profile: {
           select: {
             bio: true,
@@ -502,6 +508,10 @@ export class DiscoveryService {
 
       if (accountBlock) {
         throw new ForbiddenException(accountBlock);
+      }
+
+      if (this.verification.isRequired() && user.faceVerificationStatus !== FaceVerificationStatus.VERIFIED) {
+        throw new ForbiddenException("Verify your face before using discovery.");
       }
     }
 
@@ -617,6 +627,7 @@ export class DiscoveryService {
         JOIN "Profile" AS candidate_profile ON candidate_profile."userId" = candidate."id"
         WHERE candidate."id" NOT IN (${Prisma.join(excludedIdList)})
           AND candidate."accountStatus" = CAST(${AccountStatus.ACTIVE} AS "AccountStatus")
+          ${this.verification.isRequired() ? Prisma.sql`AND candidate."faceVerificationStatus" = CAST(${FaceVerificationStatus.VERIFIED} AS "FaceVerificationStatus")` : Prisma.sql``}
           AND candidate."role" = CAST(${UserRole.USER} AS "UserRole")
           AND candidate."subscriptionStatus" = CAST(${SubscriptionStatus.ACTIVE} AS "SubscriptionStatus")
           AND candidate."subscriptionEndsAt" > ${now}

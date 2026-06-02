@@ -227,7 +227,10 @@ export class AuthService {
       deactivatedAt: user.deactivatedAt,
       deletedAt: user.deletedAt,
       moderationReason: user.moderationReason,
-      ageConfirmedAt: user.ageConfirmedAt
+      ageConfirmedAt: user.ageConfirmedAt,
+      faceVerificationStatus: user.faceVerificationStatus,
+      faceVerificationVerifiedAt: user.faceVerificationVerifiedAt,
+      faceVerificationOverrideReason: user.faceVerificationOverrideReason
     };
   }
 }

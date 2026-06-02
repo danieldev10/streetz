@@ -2,7 +2,7 @@
 
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Camera, Heart, LoaderCircle, MapPin, Power, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, Camera, Heart, LoaderCircle, MapPin, Power, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { useSession } from "@/components/app/session-provider";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
@@ -1003,6 +1003,20 @@ export function ProfileTab({
                 </article>
 
                 <div className="mt-5 grid gap-3">
+                  {user.faceVerificationStatus === "VERIFIED" ? (
+                    <div className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#d4fae8] px-5 text-sm font-medium text-[#0fa76e]">
+                      <ShieldCheck className="size-4" aria-hidden="true" />
+                      Live Verified
+                    </div>
+                  ) : (
+                    <a
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#18E299]/40 bg-[#d4fae8] px-5 text-sm font-medium text-[#0b7a50]"
+                      href="/profile/verify"
+                    >
+                      <ShieldCheck className="size-4" aria-hidden="true" />
+                      Verify Profile
+                    </a>
+                  )}
                   <button
                     className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-5 text-sm font-medium text-[#0d0d0d]"
                     type="button"

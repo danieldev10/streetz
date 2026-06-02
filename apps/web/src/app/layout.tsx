@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SessionProvider } from "@/components/app/session-provider";
+import "@aws-amplify/ui-react/styles.css";
 import "./globals.css";
 
 function getOrigin(value: string | undefined) {
