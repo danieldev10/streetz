@@ -8,6 +8,13 @@ export const connectionStatusOptions: Array<{ value: ConnectionStatus; label: st
   { value: "FWB", label: "FWB" },
   { value: "JUST_FRIENDS", label: "Just Friends" },
   { value: "DATING", label: "Dating" },
+  { value: "SERIOUS_RELATIONSHIP", label: "Serious Relationship" },
+  { value: "CASUAL_DATING", label: "Casual Dating" },
+  { value: "FRIENDS_FIRST", label: "Friends First" },
+  { value: "OPEN_TO_ANYTHING", label: "Open to Anything" },
+  { value: "EVENT_BUDDY", label: "Event Buddy" },
+  { value: "CHAT_FIRST", label: "Chat First" },
+  { value: "SEX", label: "Sex" },
 ];
 
 export const connectionStatusLabels: Record<ConnectionStatus, string> = {
@@ -15,6 +22,13 @@ export const connectionStatusLabels: Record<ConnectionStatus, string> = {
   FWB: "FWB",
   JUST_FRIENDS: "Just Friends",
   DATING: "Dating",
+  SERIOUS_RELATIONSHIP: "Serious Relationship",
+  CASUAL_DATING: "Casual Dating",
+  FRIENDS_FIRST: "Friends First",
+  OPEN_TO_ANYTHING: "Open to Anything",
+  EVENT_BUDDY: "Event Buddy",
+  CHAT_FIRST: "Chat First",
+  SEX: "Sex",
 };
 
 export const sexualityOptions: Array<{ value: Sexuality; label: string }> = [
@@ -156,7 +170,7 @@ export function getProfileSetupIssuesFromForm(
   }
 
   if (!form.connectionStatus) {
-    issues.push("choose your status");
+    issues.push("choose what you are looking for");
   }
 
   if (!form.city.trim()) {

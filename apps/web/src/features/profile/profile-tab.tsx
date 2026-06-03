@@ -88,7 +88,7 @@ export function ProfileTab({
   const adultBirthDateMax = getAdultBirthDateMaxValue();
   const profileLocation = [profileForm.city, profileForm.state].filter(Boolean).join(", ") || "Nigeria";
   const hasGpsLocation = profileForm.latitude !== null && profileForm.longitude !== null;
-  const profileStatusLabel = profileForm.connectionStatus ? formatConnectionStatus(profileForm.connectionStatus) : "Set status";
+  const profileStatusLabel = profileForm.connectionStatus ? formatConnectionStatus(profileForm.connectionStatus) : "Looking for?";
   const stateOptions = profileForm.state && !nigeriaStateNames.includes(profileForm.state)
     ? [...nigeriaStateNames, profileForm.state]
     : nigeriaStateNames;
@@ -697,7 +697,7 @@ export function ProfileTab({
                       />
                     </label>
                     <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                      Connection status
+                      Looking for?
                       <select
                         className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                         value={profileForm.connectionStatus}
@@ -710,7 +710,7 @@ export function ProfileTab({
                         required={isSetupMode}
                       >
                         <option value="" disabled>
-                          Choose status
+                          Choose what you are looking for
                         </option>
                         {connectionStatusOptions.map((status) => (
                           <option key={status.value} value={status.value}>
