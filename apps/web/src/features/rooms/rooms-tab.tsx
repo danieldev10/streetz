@@ -23,7 +23,10 @@ import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
-import type { ChatRoom, RoomMessage, StreetzUser } from "@/lib/types";
+import { formatConnectionStatus } from "@/lib/profile";
+import type { ChatRoom, DiscoveryCandidate, RoomMember, RoomMessage, StreetzUser } from "@/lib/types";
+import { CandidatePhoto } from "@/features/discovery/candidate-photo";
+import { MemberProfileView } from "@/features/discovery/member-profile-view";
 
 type RoomViewMode = "explore" | "joined" | "active" | "inactive";
 type AdminRoomView = "list" | "form";
@@ -123,6 +126,92 @@ function OpeningRoomShell({
   );
 }
 
+function RoomMembersView({
+  room,
+  members,
+  isLoading,
+  notice,
+  onBack,
+  onOpenMember,
+}: {
+  room: ChatRoom;
+  members: RoomMember[];
+  isLoading: boolean;
+  notice: string | null;
+  onBack: () => void;
+  onOpenMember: (member: RoomMember) => void;
+}) {
+  return (
+    <section className="px-0 md:px-8 md:py-8">
+      <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-180 md:rounded-[28px] md:border md:border-black/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+        <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
+          <button
+            type="button"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
+            onClick={onBack}
+            aria-label="Back to room chat"
+            title="Back"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-lg font-semibold">{room.name}</h1>
+            <p className="truncate text-sm text-[#666666]">
+              {room.memberCount} {room.memberCount === 1 ? "member" : "members"}
+            </p>
+          </div>
+        </div>
+
+        {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
+          {isLoading ? (
+            <LoadingState label="Loading room members" className="h-full min-h-90 rounded-[28px] border border-black/5 bg-white" />
+          ) : members.length > 0 ? (
+            <div className="grid gap-3">
+              {members.map((member) => {
+                const location = [member.city, member.state].filter(Boolean).join(", ") || "Nigeria";
+
+                return (
+                  <button
+                    key={member.id}
+                    type="button"
+                    className="flex items-center gap-3 rounded-[24px] border border-black/5 bg-white p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/40"
+                    onClick={() => onOpenMember(member)}
+                    aria-label={`View ${member.displayName} profile`}
+                  >
+                    <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                      <CandidatePhoto candidate={member} variant="thumb" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[#0d0d0d]">{member.displayName}</p>
+                      <p className="truncate text-xs font-medium text-[#666666]">
+                        {formatConnectionStatus(member.connectionStatus)} · {location}
+                      </p>
+                    </div>
+
+                    <ArrowRight className="size-4 shrink-0 text-[#888888]" aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid h-full min-h-90 place-items-center text-center">
+              <div>
+                <Users className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+                <h2 className="mt-3 text-2xl font-semibold">No members yet</h2>
+                <p className="mt-2 text-sm text-[#666666]">Members will appear here after they join.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </article>
+    </section>
+  );
+}
+
 export function RoomsTab({
   token,
   user,
@@ -155,15 +244,19 @@ export function RoomsTab({
   const [editingRoomId, setEditingRoomId] = useState<string | null>(adminMode === "edit" ? adminRoomId : null);
   const [roomForm, setRoomForm] = useState<RoomForm>(emptyRoomForm);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
+  const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
+  const [viewedRoomProfile, setViewedRoomProfile] = useState<DiscoveryCandidate | null>(null);
   const [messageBody, setMessageBody] = useState("");
   const [isLoadingRooms, setIsLoadingRooms] = useState(initialRooms.length === 0);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingRoomMembers, setIsLoadingRoomMembers] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
   const [isSavingRoom, setIsSavingRoom] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [pendingToggleRoom, setPendingToggleRoom] = useState<ChatRoom | null>(null);
   const [isTogglingRoom, setIsTogglingRoom] = useState(false);
+  const [isRoomMembersOpen, setIsRoomMembersOpen] = useState(false);
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "offline">("connecting");
   const [notice, setNotice] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -246,11 +339,46 @@ export function RoomsTab({
     }
   }
 
+  async function loadRoomMembers(roomId: string) {
+    setIsLoadingRoomMembers(true);
+    setNotice(null);
+
+    try {
+      const response = await apiRequest<{ members: RoomMember[] }>(`/rooms/${roomId}/members`, {
+        headers: authHeaders(token),
+      });
+      setRoomMembers(response.members);
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    } finally {
+      setIsLoadingRoomMembers(false);
+    }
+  }
+
+  function openRoomMembers() {
+    if (!selectedRoom) {
+      return;
+    }
+
+    setIsRoomMembersOpen(true);
+    setViewedRoomProfile(null);
+    void loadRoomMembers(selectedRoom.id);
+  }
+
+  function closeRoomMembers() {
+    setIsRoomMembersOpen(false);
+    setViewedRoomProfile(null);
+    setNotice(null);
+  }
+
   function openJoinedRoom(room: ChatRoom) {
     setSelectedRoomId(room.id);
     setMessages([]);
+    setRoomMembers([]);
     roomMessageIdsRef.current = new Set();
     setMessageBody("");
+    setIsRoomMembersOpen(false);
+    setViewedRoomProfile(null);
     setNotice(null);
     router.push(`/rooms/${room.id}`);
 
@@ -280,8 +408,11 @@ export function RoomsTab({
     setIsLeaveConfirmOpen(false);
     setSelectedRoomId(null);
     setMessages([]);
+    setRoomMembers([]);
     roomMessageIdsRef.current = new Set();
     setMessageBody("");
+    setIsRoomMembersOpen(false);
+    setViewedRoomProfile(null);
     setNotice(null);
   }
 
@@ -803,6 +934,36 @@ export function RoomsTab({
     );
   }
 
+  if (selectedRoom && viewedRoomProfile) {
+    return (
+      <MemberProfileView
+        candidate={viewedRoomProfile}
+        onBack={() => setViewedRoomProfile(null)}
+        backLabel={isRoomMembersOpen ? "Back to members" : "Back to chat"}
+        token={token}
+        showSafetyActions={!isAdmin && viewedRoomProfile.id !== user.id}
+        onBlocked={(candidate) => {
+          setRoomMembers((current) => current.filter((member) => member.id !== candidate.id));
+          setViewedRoomProfile(null);
+          setNotice("Profile blocked.");
+        }}
+      />
+    );
+  }
+
+  if (selectedRoom && isRoomMembersOpen) {
+    return (
+      <RoomMembersView
+        room={selectedRoom}
+        members={roomMembers}
+        isLoading={isLoadingRoomMembers}
+        notice={notice}
+        onBack={closeRoomMembers}
+        onOpenMember={setViewedRoomProfile}
+      />
+    );
+  }
+
   if (selectedRoomId && !selectedRoom) {
     return <OpeningRoomShell isAdmin={isAdmin} notice={notice} socketStatus={socketStatus} onBack={closeRoom} />;
   }
@@ -823,12 +984,17 @@ export function RoomsTab({
                 <ArrowLeft className="size-4" aria-hidden="true" />
               </button>
 
-              <div className="min-w-0 flex-1">
+              <button
+                type="button"
+                className="min-w-0 flex-1 rounded-[18px] p-1 text-left transition hover:bg-[#fafafa]"
+                onClick={openRoomMembers}
+                aria-label={`View ${selectedRoom.name} members`}
+              >
                 <h1 className="truncate text-lg font-semibold">{selectedRoom.name}</h1>
                 <p className="truncate text-sm text-[#666666]">
-                  {selectedRoom.category}
+                  {selectedRoom.category} · {selectedRoom.memberCount} {selectedRoom.memberCount === 1 ? "member" : "members"}
                 </p>
-              </div>
+              </button>
 
               {!isAdmin ? (
                 <button
@@ -870,9 +1036,29 @@ export function RoomsTab({
 
                     const message = item.message;
                     const isMine = message.authorId === user.id;
+                    const author = message.author ?? roomMembers.find((member) => member.id === message.authorId) ?? null;
 
                     return (
-                      <div key={item.key} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                      <div key={item.key} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
+                        {!isMine ? (
+                          <button
+                            type="button"
+                            className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[#d4fae8] text-[#0d0d0d] disabled:cursor-default"
+                            onClick={() => {
+                              if (author) {
+                                setViewedRoomProfile(author);
+                              }
+                            }}
+                            disabled={!author}
+                            aria-label={author ? `View ${author.displayName} profile` : `View ${message.authorName} profile`}
+                          >
+                            {author ? (
+                              <CandidatePhoto candidate={author} variant="thumb" />
+                            ) : (
+                              <Users className="size-4" aria-hidden="true" />
+                            )}
+                          </button>
+                        ) : null}
                         <div
                           className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#18E299] text-[#0d0d0d]" : "rounded-bl-md bg-white text-[#0d0d0d]"
                             }`}

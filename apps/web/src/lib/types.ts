@@ -139,6 +139,10 @@ export type ChatRoom = {
   updatedAt: string;
 };
 
+export type RoomMember = DiscoveryCandidate & {
+  joinedAt: string;
+};
+
 export type EventStatus = "DRAFT" | "PUBLISHED" | "CANCELLED" | "COMPLETED";
 export type TicketStatus = "RESERVED" | "PAID" | "CHECKED_IN" | "CANCELLED" | "REFUNDED";
 export type PaymentPurpose = "SUBSCRIPTION" | "EVENT_TICKET";
@@ -247,6 +251,7 @@ export type RoomMessage = {
   roomId: string;
   authorId: string;
   authorName: string;
+  author?: DiscoveryCandidate;
   body: string;
   createdAt: string;
 };

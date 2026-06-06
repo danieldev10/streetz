@@ -34,6 +34,12 @@ export class RoomsController {
     return this.roomsService.getRoomMessages(user.id, roomId);
   }
 
+  @Get("rooms/:roomId/members")
+  @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
+  getRoomMembers(@CurrentUser() user: AuthUser, @Param("roomId") roomId: string) {
+    return this.roomsService.getRoomMembers(user.id, roomId);
+  }
+
   @Post("rooms/:roomId/join")
   @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
   joinRoom(@CurrentUser() user: AuthUser, @Param("roomId") roomId: string) {

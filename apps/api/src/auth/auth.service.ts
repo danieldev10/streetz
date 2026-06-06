@@ -5,6 +5,7 @@ import { AccountStatus, User } from "@prisma/client";
 import { compare } from "bcryptjs";
 import { createHmac, randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
+import { getAccountAccessBlock } from "../users/account-status";
 import { UsersService } from "../users/users.service";
 import { ConfirmPasswordDto } from "./dto/confirm-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -20,7 +21,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService
-  ) {}
+  ) { }
 
   async register(dto: RegisterDto) {
     const user = await this.usersService.create(dto);
@@ -54,12 +55,23 @@ export class AuthService {
     });
 
     if (!storedToken || storedToken.revokedAt !== null || storedToken.expiresAt <= new Date()) {
-      throw new UnauthorizedException("Refresh session expired. Please log in again.");
+      throw new UnauthorizedException("Session expired. Please log in again.");
     }
 
-    if (storedToken.user.accountStatus === AccountStatus.DELETED) {
-      await this.revokeAllRefreshTokens(storedToken.userId);
-      throw new UnauthorizedException("This account has been deleted.");
+    // DEACTIVATED is reversible and self-service, so allow it to refresh — the
+    // reactivate flow needs a valid session. Every other block (DELETED, BANNED,
+    // active SUSPENDED) rejects the refresh; getAccountAccessBlock also honours
+    // suspendedUntil so an expired suspension is no longer treated as a block.
+    const accountBlock = getAccountAccessBlock(storedToken.user);
+
+    if (accountBlock && storedToken.user.accountStatus !== AccountStatus.DEACTIVATED) {
+      // Permanent states wipe every session; a temporary suspension only rejects
+      // this refresh so access resumes automatically once it lifts.
+      if (storedToken.user.accountStatus !== AccountStatus.SUSPENDED) {
+        await this.revokeAllRefreshTokens(storedToken.userId);
+      }
+
+      throw new UnauthorizedException(accountBlock);
     }
 
     const nextRefreshToken = this.createRawRefreshToken();

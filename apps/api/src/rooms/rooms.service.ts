@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma, SubscriptionStatus, UserRole } from "@prisma/client";
+import { AccountStatus, ConnectionStatus, Gender, Prisma, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
+import { calculateAge } from "../common/age";
 import { PrismaService } from "../prisma/prisma.service";
+import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { UpdateRoomDto } from "./dto/update-room.dto";
@@ -32,15 +34,43 @@ type RoomMessageSource = {
   authorId: string;
   body: string;
   createdAt: Date;
-  author: {
+  author: CandidateUser;
+};
+
+type CandidateUser = {
+  id: string;
+  displayName: string;
+  accountStatus: AccountStatus;
+  profile: {
+    bio: string | null;
+    birthDate: Date | null;
+    gender: Gender | null;
+    sexuality: Sexuality | null;
+    connectionStatus: ConnectionStatus | null;
+    city: string | null;
+    state: string | null;
+    interests: string[];
+  } | null;
+  photos: Array<{
     id: string;
-    displayName: string;
-  };
+    url: string;
+    objectKey?: string | null;
+    thumbUrl?: string | null;
+    thumbObjectKey?: string | null;
+    cardUrl?: string | null;
+    cardObjectKey?: string | null;
+    fullUrl?: string | null;
+    fullObjectKey?: string | null;
+    sortOrder: number;
+  }>;
 };
 
 @Injectable()
 export class RoomsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService
+  ) {}
 
   async getAdminRooms() {
     const rooms = await this.prisma.chatRoom.findMany({
@@ -118,12 +148,7 @@ export class RoomsService {
         deletedAt: null
       },
       include: {
-        author: {
-          select: {
-            id: true,
-            displayName: true
-          }
-        }
+        author: this.userInclude()
       },
       orderBy: { createdAt: "desc" },
       take: ROOM_MESSAGE_HISTORY_LIMIT
@@ -133,7 +158,33 @@ export class RoomsService {
     await this.markRoomRead(userId, roomId);
 
     return {
-      messages: orderedMessages.map((message) => this.formatMessage(message))
+      messages: await Promise.all(orderedMessages.map((message) => this.formatMessage(message)))
+    };
+  }
+
+  async getRoomMembers(userId: string, roomId: string) {
+    await this.assertRoomParticipant(userId, roomId);
+
+    const memberships = await this.prisma.roomMembership.findMany({
+      where: {
+        roomId,
+        user: {
+          accountStatus: { not: AccountStatus.DELETED }
+        }
+      },
+      include: {
+        user: this.userInclude()
+      },
+      orderBy: { joinedAt: "asc" }
+    });
+
+    return {
+      members: await Promise.all(
+        memberships.map(async (membership) => ({
+          ...(await this.formatCandidate(membership.user)),
+          joinedAt: membership.joinedAt
+        }))
+      )
     };
   }
 
@@ -237,12 +288,7 @@ export class RoomsService {
         body
       },
       include: {
-        author: {
-          select: {
-            id: true,
-            displayName: true
-          }
-        }
+        author: this.userInclude()
       }
     });
     await this.prisma.chatRoom.update({
@@ -424,14 +470,44 @@ export class RoomsService {
     };
   }
 
-  private formatMessage(message: RoomMessageSource) {
+  private async formatMessage(message: RoomMessageSource) {
     return {
       id: message.id,
       roomId: message.roomId,
       authorId: message.authorId,
       authorName: message.author.displayName,
+      author: await this.formatCandidate(message.author),
       body: message.body,
       createdAt: message.createdAt
+    };
+  }
+
+  private async formatCandidate(candidate: CandidateUser) {
+    return {
+      id: candidate.id,
+      displayName: candidate.displayName,
+      accountStatus: candidate.accountStatus,
+      age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
+      bio: candidate.profile?.bio ?? null,
+      gender: candidate.profile?.gender ?? null,
+      sexuality: candidate.profile?.sexuality ?? null,
+      connectionStatus: candidate.profile?.connectionStatus ?? null,
+      city: candidate.profile?.city ?? null,
+      state: candidate.profile?.state ?? null,
+      interests: candidate.profile?.interests ?? [],
+      photos: await this.storage.signPhotoUrls(candidate.photos)
+    };
+  }
+
+  private userInclude() {
+    return {
+      include: {
+        profile: true,
+        photos: {
+          orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
+          take: 6
+        }
+      }
     };
   }
 
