@@ -48,7 +48,7 @@ export class ProfilesService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly config: ConfigService
-  ) {}
+  ) { }
 
   async getMyProfile(userId: string) {
     const profile = await this.prisma.profile.findUnique({
@@ -111,52 +111,62 @@ export class ProfilesService {
   }
 
   async updateMyProfile(userId: string, dto: UpdateProfileDto) {
+    const displayName = this.cleanDisplayName(dto.displayName);
     const birthDate = dto.birthDate ? this.parseAdultBirthDate(dto.birthDate) : undefined;
     const interests = dto.interests ? this.cleanInterests(dto.interests) : undefined;
     const locationUpdate = this.getLocationUpdate(dto);
     const maxDistanceKm = this.cleanMaxDistance(dto.maxDistanceKm);
 
-    const profile = await this.prisma.profile.upsert({
-      where: { userId },
-      create: {
-        userId,
-        bio: this.cleanNullableText(dto.bio),
-        birthDate,
-        gender: dto.gender,
-        sexuality: dto.sexuality,
-        connectionStatus: dto.connectionStatus,
-        city: this.cleanNullableText(dto.city),
-        state: this.cleanNullableText(dto.state),
-        ...locationUpdate,
-        ...(maxDistanceKm === undefined ? {} : { maxDistanceKm }),
-        interests: interests ?? [],
-        discoveryLive: true
-      },
-      update: {
-        bio: dto.bio === undefined ? undefined : this.cleanNullableText(dto.bio),
-        birthDate,
-        gender: dto.gender,
-        sexuality: dto.sexuality,
-        connectionStatus: dto.connectionStatus,
-        city: dto.city === undefined ? undefined : this.cleanNullableText(dto.city),
-        state: dto.state === undefined ? undefined : this.cleanNullableText(dto.state),
-        ...locationUpdate,
-        ...(maxDistanceKm === undefined ? {} : { maxDistanceKm }),
-        interests,
-        discoveryLive: true
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            displayName: true,
-            email: true,
-            photos: {
-              orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+    const profile = await this.prisma.$transaction(async (transaction) => {
+      if (displayName !== undefined) {
+        await transaction.user.update({
+          where: { id: userId },
+          data: { displayName }
+        });
+      }
+
+      return transaction.profile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          bio: this.cleanNullableText(dto.bio),
+          birthDate,
+          gender: dto.gender,
+          sexuality: dto.sexuality,
+          connectionStatus: dto.connectionStatus,
+          city: this.cleanNullableText(dto.city),
+          state: this.cleanNullableText(dto.state),
+          ...locationUpdate,
+          ...(maxDistanceKm === undefined ? {} : { maxDistanceKm }),
+          interests: interests ?? [],
+          discoveryLive: true
+        },
+        update: {
+          bio: dto.bio === undefined ? undefined : this.cleanNullableText(dto.bio),
+          birthDate,
+          gender: dto.gender,
+          sexuality: dto.sexuality,
+          connectionStatus: dto.connectionStatus,
+          city: dto.city === undefined ? undefined : this.cleanNullableText(dto.city),
+          state: dto.state === undefined ? undefined : this.cleanNullableText(dto.state),
+          ...locationUpdate,
+          ...(maxDistanceKm === undefined ? {} : { maxDistanceKm }),
+          interests,
+          discoveryLive: true
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              photos: {
+                orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+              }
             }
           }
         }
-      }
+      });
     });
 
     return this.withSignedProfilePhotos(profile);
@@ -360,6 +370,24 @@ export class ProfilesService {
     const trimmed = value.trim();
 
     return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private cleanDisplayName(value: string | undefined) {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+
+    if (trimmed.length < 2) {
+      throw new BadRequestException("Username must be at least 2 characters.");
+    }
+
+    if (trimmed.length > 80) {
+      throw new BadRequestException("Username must be 80 characters or fewer.");
+    }
+
+    return trimmed;
   }
 
   private getLocationUpdate(dto: UpdateProfileDto) {

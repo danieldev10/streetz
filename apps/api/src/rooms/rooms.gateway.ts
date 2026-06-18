@@ -1,6 +1,6 @@
 import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { JwtService } from "@nestjs/jwt";
+import { JwtService } from "@nestjs/jwt/dist";
 import {
   ConnectedSocket,
   MessageBody,

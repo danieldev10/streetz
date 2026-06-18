@@ -1,6 +1,6 @@
 import { INestApplicationContext } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { IoAdapter } from "@nestjs/platform-socket.io";
+import { IoAdapter } from "@nestjs/platform-socket.io/adapters/io-adapter";
 import { createAdapter } from "@socket.io/redis-adapter";
 import Redis from "ioredis";
 import { ServerOptions } from "socket.io";

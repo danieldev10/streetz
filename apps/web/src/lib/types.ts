@@ -24,18 +24,7 @@ export type AuthResponse = {
 export type Gender = "WOMAN" | "MAN" | "NON_BINARY" | "PREFER_NOT_TO_SAY";
 export type SubscriptionStatus = "INACTIVE" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
 export type Sexuality = "STRAIGHT" | "GAY" | "LESBIAN" | "BISEXUAL" | "PANSEXUAL" | "ASEXUAL" | "QUEER" | "PREFER_NOT_TO_SAY";
-export type ConnectionStatus =
-  | "MEET_NOW"
-  | "FWB"
-  | "JUST_FRIENDS"
-  | "DATING"
-  | "SERIOUS_RELATIONSHIP"
-  | "CASUAL_DATING"
-  | "FRIENDS_FIRST"
-  | "OPEN_TO_ANYTHING"
-  | "EVENT_BUDDY"
-  | "CHAT_FIRST"
-  | "SEX";
+export type ConnectionStatus = "MEET_NOW" | "FWB" | "JUST_FRIENDS" | "DATING";
 export type ReportStatus = "OPEN" | "REVIEWED" | "DISMISSED" | "ACTIONED";
 export type AccountStatus = "ACTIVE" | "DEACTIVATED" | "SUSPENDED" | "BANNED" | "DELETED";
 export type ModerationActionType = "SUSPEND" | "BAN" | "RESTORE" | "DELETE" | "DEACTIVATE" | "REACTIVATE";
@@ -104,6 +93,7 @@ export type BlockedAccount = DiscoveryCandidate & {
 export type DiscoveryMatch = {
   id: string;
   createdAt: string;
+  matchedConnectionStatus: ConnectionStatus | null;
   user: DiscoveryCandidate;
 };
 
@@ -164,6 +154,11 @@ export type StreetzEventTicket = {
   code: string;
   status: TicketStatus;
   checkedInAt: string | null;
+  ticketType: {
+    id: string;
+    name: string;
+    priceKobo: number;
+  } | null;
   createdAt: string;
 };
 
@@ -182,6 +177,7 @@ export type StreetzEvent = {
   cancellationReason: string | null;
   cancelledAt: string | null;
   ticketType: StreetzEventTicketType | null;
+  ticketTypes: StreetzEventTicketType[];
   attendeeCount?: number;
   reservationCount?: number;
   totalPaidAmountKobo?: number;

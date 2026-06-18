@@ -18,12 +18,14 @@ import {
   getReservationExpiry
 } from "../events/ticket-reservations";
 import { BookEventDto } from "../events/dto/book-event.dto";
+import { EVENT_TICKET_TIER_NAMES } from "../events/dto/create-event.dto";
 import { PrismaService } from "../prisma/prisma.service";
 import { getAccountAccessBlock } from "../users/account-status";
 
 const SUBSCRIPTION_AMOUNT_KOBO = 100_000;
 const SUBSCRIPTION_DAYS = 30;
 const RESERVATION_CLEANUP_INTERVAL_MS = 5 * 60_000;
+const REGULAR_TICKET_NAME = "Regular";
 
 type PaystackInitializeResponse = {
   status: boolean;
@@ -170,10 +172,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         ...this.getBookableEventWhere(now)
       },
       include: {
-        ticketTypes: {
-          orderBy: { createdAt: "asc" },
-          take: 1
-        }
+        ticketTypes: { orderBy: { createdAt: "asc" } }
       }
     });
 
@@ -181,11 +180,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException("Event is not available.");
     }
 
-    const ticketType = event.ticketTypes[0];
-
-    if (!ticketType) {
-      throw new BadRequestException("Event ticket type is missing.");
-    }
+    const ticketType = this.getRequestedTicketType(event.ticketTypes, dto.ticketTypeId);
 
     if (ticketType.priceKobo <= 0) {
       throw new BadRequestException("This event is free. Book it from the event page.");
@@ -264,6 +259,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
             ticketId: primaryTicket.id,
             ticketIds,
             ticketTypeId: ticketType.id,
+            ticketTypeName: this.normalizeTicketTypeName(ticketType.name),
             quantity,
             purpose: PaymentPurpose.EVENT_TICKET,
             product: event.title
@@ -287,6 +283,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
             ticketId: primaryTicket.id,
             ticketIds,
             ticketTypeId: ticketType.id,
+            ticketTypeName: this.normalizeTicketTypeName(ticketType.name),
             quantity
           }
         }
@@ -812,6 +809,56 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     return {};
   }
 
+  private getRequestedTicketType<T extends { id: string; name: string }>(ticketTypes: T[], ticketTypeId: string | undefined) {
+    const sortedTicketTypes = this.sortTicketTypes(ticketTypes);
+
+    if (ticketTypeId) {
+      const ticketType = sortedTicketTypes.find((item) => item.id === ticketTypeId);
+
+      if (!ticketType) {
+        throw new BadRequestException("Ticket tier is not available for this event.");
+      }
+
+      return ticketType;
+    }
+
+    if (sortedTicketTypes.length > 1) {
+      throw new BadRequestException("Choose a ticket tier.");
+    }
+
+    const ticketType = sortedTicketTypes[0];
+
+    if (!ticketType) {
+      throw new BadRequestException("Event ticket type is missing.");
+    }
+
+    return ticketType;
+  }
+
+  private sortTicketTypes<T extends { name: string }>(ticketTypes: T[]) {
+    return [...ticketTypes].sort((a, b) => this.getTicketTierOrder(a.name) - this.getTicketTierOrder(b.name));
+  }
+
+  private getTicketTierOrder(name: string) {
+    const normalizedName = this.normalizeTicketTypeName(name);
+
+    return EVENT_TICKET_TIER_NAMES.indexOf(normalizedName);
+  }
+
+  private normalizeTicketTypeName(name: string): (typeof EVENT_TICKET_TIER_NAMES)[number] {
+    const normalized = name.trim();
+
+    if (normalized === "General Admission") {
+      return REGULAR_TICKET_NAME;
+    }
+
+    if ((EVENT_TICKET_TIER_NAMES as readonly string[]).includes(normalized)) {
+      return normalized as (typeof EVENT_TICKET_TIER_NAMES)[number];
+    }
+
+    return REGULAR_TICKET_NAME;
+  }
+
   private formatTicket(ticket: {
     id: string;
     code: string;
@@ -832,7 +879,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       },
       ticketType: {
         id: ticket.ticketType.id,
-        name: ticket.ticketType.name,
+        name: this.normalizeTicketTypeName(ticket.ticketType.name),
         priceKobo: ticket.ticketType.priceKobo
       }
     };

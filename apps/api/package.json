@@ -14,6 +14,10 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio"
   },
+  "engines": {
+    "node": ">=22.13.0 <23",
+    "npm": ">=10.0.0 <12"
+  },
   "dependencies": {
     "@aws-sdk/client-rekognition": "^3.1057.0",
     "@aws-sdk/client-s3": "^3.958.0",
@@ -31,12 +35,13 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.2.0",
     "@socket.io/redis-adapter": "^8.3.0",
-    "bcryptjs": "^3.0.3",
+    "bcryptjs": "2.4.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "dotenv": "^17.4.2",
     "helmet": "^8.1.0",
     "ioredis": "^5.8.2",
+    "nodemailer": "^8.0.11",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.20.0",
@@ -45,13 +50,17 @@
     "sharp": "^0.34.5",
     "socket.io": "^4.8.3"
   },
+  "overrides": {
+    "balanced-match": "1.0.2"
+  },
   "devDependencies": {
     "@nestjs/cli": "^11.0.14",
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/testing": "^11.1.9",
-    "@types/bcryptjs": "^3.0.0",
+    "@types/bcryptjs": "2.4.6",
     "@types/express": "^5.0.6",
     "@types/node": "^20.19.27",
+    "@types/nodemailer": "^8.0.1",
     "@types/passport-jwt": "^4.0.1",
     "@typescript-eslint/eslint-plugin": "^8.50.0",
     "@typescript-eslint/parser": "^8.50.0",

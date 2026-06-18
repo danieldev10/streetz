@@ -141,6 +141,11 @@ export function AuthShell({
             {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
             {authMode === "register" ? "Create account" : "Login"}
           </button>
+          {authMode === "login" ? (
+            <a className="mt-4 block text-center text-sm font-medium text-[#666666] hover:text-[#0d0d0d]" href="/forgot-password">
+              Forgot password?
+            </a>
+          ) : null}
         </form>
       </section>
     </main>

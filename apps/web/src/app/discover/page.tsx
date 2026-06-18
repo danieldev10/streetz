@@ -20,6 +20,7 @@ function DiscoveryProfileGate({
 }) {
   const router = useRouter();
   const [profileState, setProfileState] = useState<"checking" | "ready" | "required" | "verificationRequired">("checking");
+  const [readyProfile, setReadyProfile] = useState<StreetzProfile | null>(null);
   const [profileIssues, setProfileIssues] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -48,11 +49,13 @@ function DiscoveryProfileGate({
             return;
           }
 
+          setReadyProfile(profile);
           setProfileIssues([]);
           setProfileState(verification.required && verification.status !== "VERIFIED" ? "verificationRequired" : "ready");
           return;
         }
 
+        setReadyProfile(null);
         setProfileIssues(getProfileSetupIssues(profile));
         setProfileState("required");
       } catch (error) {
@@ -61,6 +64,7 @@ function DiscoveryProfileGate({
         }
 
         setNotice(getUserErrorMessage(error));
+        setReadyProfile(null);
         setProfileIssues(["set up your profile"]);
         setProfileState("required");
       }
@@ -74,7 +78,21 @@ function DiscoveryProfileGate({
   }, [token]);
 
   if (profileState === "ready") {
-    return <DiscoveryTab token={token} onMatchCreated={onMatchCreated} />;
+    return (
+      <DiscoveryTab
+        key={[
+          readyProfile?.id ?? "profile",
+          readyProfile?.connectionStatus ?? "none",
+          readyProfile?.gender ?? "no-gender",
+          readyProfile?.sexuality ?? "no-sexuality",
+        ].join(":")}
+        token={token}
+        onMatchCreated={onMatchCreated}
+        initialConnectionStatus={readyProfile?.connectionStatus ?? null}
+        initialGender={readyProfile?.gender ?? null}
+        initialSexuality={readyProfile?.sexuality ?? null}
+      />
+    );
   }
 
   return (

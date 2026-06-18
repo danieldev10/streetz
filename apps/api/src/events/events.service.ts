@@ -6,15 +6,16 @@ import { StorageService } from "../storage/storage.service";
 import { EVENT_IMAGE_UPLOAD_MAX_BYTES, formatUploadLimit } from "../storage/upload-limits";
 import { getAccountAccessBlock } from "../users/account-status";
 import { BookEventDto } from "./dto/book-event.dto";
-import { CreateEventDto } from "./dto/create-event.dto";
+import { CreateEventDto, EVENT_TICKET_TIER_NAMES, EventTicketTierDto } from "./dto/create-event.dto";
 import { PresignEventImageDto } from "./dto/presign-event-image.dto";
 import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "./ticket-reservations";
 import { UpdateEventDto } from "./dto/update-event.dto";
 
 const EVENT_IMAGE_UPLOAD_EXPIRES_SECONDS = 300;
-const GENERAL_ADMISSION_TICKET_NAME = "General Admission";
+const REGULAR_TICKET_NAME = "Regular";
 const EVENT_CANCELLATION_REASON_MAX_LENGTH = 500;
 const DEFAULT_MAX_TICKETS_PER_USER = 4;
+const DEFAULT_EVENT_CAPACITY = 100;
 
 const contentTypeExtensions: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -25,9 +26,22 @@ const contentTypeExtensions: Record<string, string> = {
 type EventSource = Prisma.EventGetPayload<{
   include: {
     ticketTypes: true;
-    tickets: true;
+    tickets: {
+      include: {
+        ticketType: true;
+      };
+    };
   };
 }>;
+
+type TicketTypeSource = EventSource["ticketTypes"][number];
+type TicketTierName = (typeof EVENT_TICKET_TIER_NAMES)[number];
+type TicketTypeInput = {
+  name: TicketTierName;
+  priceKobo: number;
+  capacity: number;
+  maxTicketsPerUser: number;
+};
 
 @Injectable()
 export class EventsService {
@@ -40,7 +54,11 @@ export class EventsService {
     const events = await this.prisma.event.findMany({
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
-        tickets: true
+        tickets: {
+          include: {
+            ticketType: true
+          }
+        }
       },
       orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }]
     });
@@ -56,9 +74,7 @@ export class EventsService {
     this.assertDateOrder(startsAt, endsAt);
     this.assertCreatableEventStatus(dto.status ?? EventStatus.DRAFT);
 
-    const priceKobo = dto.priceKobo ?? 0;
-    const maxTicketsPerUser = dto.maxTicketsPerUser ?? DEFAULT_MAX_TICKETS_PER_USER;
-    this.assertTicketPurchaseLimit(maxTicketsPerUser, dto.capacity);
+    const ticketTypes = this.buildTicketTypeInputs(dto);
 
     const event = await this.prisma.event.create({
       data: {
@@ -73,17 +89,16 @@ export class EventsService {
         endsAt,
         status: dto.status ?? EventStatus.DRAFT,
         ticketTypes: {
-          create: {
-            name: GENERAL_ADMISSION_TICKET_NAME,
-            priceKobo,
-            capacity: dto.capacity,
-            maxTicketsPerUser
-          }
+          create: ticketTypes
         }
       },
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
-        tickets: true
+        tickets: {
+          include: {
+            ticketType: true
+          }
+        }
       }
     });
 
@@ -116,7 +131,11 @@ export class EventsService {
       where: { id: eventId },
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
-        tickets: true
+        tickets: {
+          include: {
+            ticketType: true
+          }
+        }
       }
     });
 
@@ -128,29 +147,15 @@ export class EventsService {
     const endsAt = dto.endsAt !== undefined ? this.parseOptionalDate(dto.endsAt, "Event end date is invalid.") : undefined;
     this.assertDateOrder(startsAt ?? event.startsAt, endsAt === undefined ? event.endsAt : endsAt);
 
-    const ticketType = event.ticketTypes[0];
-
-    if (!ticketType) {
-      throw new BadRequestException("Event ticket type is missing.");
-    }
-
-    if (dto.capacity !== undefined) {
-      const activeTickets = await this.countActiveTickets(ticketType.id);
-
-      if (dto.capacity < activeTickets) {
-        throw new BadRequestException("Capacity cannot be lower than existing reservations.");
-      }
-    }
-
-    if (dto.capacity !== undefined || dto.maxTicketsPerUser !== undefined) {
-      this.assertTicketPurchaseLimit(
-        dto.maxTicketsPerUser ?? ticketType.maxTicketsPerUser,
-        dto.capacity ?? ticketType.capacity
-      );
-    }
+    const shouldSyncTicketTypes =
+      dto.ticketTypes !== undefined ||
+      dto.priceKobo !== undefined ||
+      dto.capacity !== undefined ||
+      dto.maxTicketsPerUser !== undefined;
+    const ticketTypes = shouldSyncTicketTypes ? this.buildTicketTypeInputs(dto, event.ticketTypes) : null;
 
     if (dto.status !== undefined) {
-      await this.assertEventStatusTransition(event, dto.status, ticketType.id);
+      await this.assertEventStatusTransition(event, dto.status);
     }
 
     const isCancellingEvent = dto.status === EventStatus.CANCELLED && event.status !== EventStatus.CANCELLED;
@@ -167,15 +172,9 @@ export class EventsService {
     }
 
     const updatedEvent = await this.prisma.$transaction(async (transaction) => {
-      await transaction.ticketType.update({
-        where: { id: ticketType.id },
-        data: {
-          name: GENERAL_ADMISSION_TICKET_NAME,
-          ...(dto.priceKobo !== undefined ? { priceKobo: dto.priceKobo } : {}),
-          ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
-          ...(dto.maxTicketsPerUser !== undefined ? { maxTicketsPerUser: dto.maxTicketsPerUser } : {})
-        }
-      });
+      if (ticketTypes) {
+        await this.syncTicketTypes(transaction, eventId, event.ticketTypes, ticketTypes);
+      }
 
       await transaction.event.update({
         where: { id: eventId },
@@ -193,7 +192,11 @@ export class EventsService {
         },
         include: {
           ticketTypes: { orderBy: { createdAt: "asc" } },
-          tickets: true
+          tickets: {
+            include: {
+              ticketType: true
+            }
+          }
         }
       });
 
@@ -210,7 +213,11 @@ export class EventsService {
         where: { id: eventId },
         include: {
           ticketTypes: { orderBy: { createdAt: "asc" } },
-          tickets: true
+          tickets: {
+            include: {
+              ticketType: true
+            }
+          }
         }
       });
     });
@@ -230,6 +237,9 @@ export class EventsService {
           where: {
             userId,
             status: { in: CONFIRMED_TICKET_STATUSES }
+          },
+          include: {
+            ticketType: true
           },
           orderBy: { createdAt: "desc" }
         }
@@ -257,6 +267,9 @@ export class EventsService {
             userId,
             status: { in: CONFIRMED_TICKET_STATUSES }
           },
+          include: {
+            ticketType: true
+          },
           orderBy: { createdAt: "desc" }
         }
       }
@@ -277,11 +290,7 @@ export class EventsService {
     }
 
     const event = await this.findPublishedEvent(eventId);
-    const ticketType = event.ticketTypes[0];
-
-    if (!ticketType) {
-      throw new BadRequestException("Event ticket type is missing.");
-    }
+    const ticketType = this.getRequestedTicketType(event.ticketTypes, dto.ticketTypeId);
 
     if (ticketType.priceKobo > 0) {
       throw new BadRequestException("This event requires a paid ticket.");
@@ -351,6 +360,169 @@ export class EventsService {
     return quantity;
   }
 
+  private buildTicketTypeInputs(
+    dto: Pick<CreateEventDto, "ticketTypes" | "priceKobo" | "capacity" | "maxTicketsPerUser">,
+    currentTicketTypes: TicketTypeSource[] = []
+  ): TicketTypeInput[] {
+    const currentByName = new Map<TicketTierName, TicketTypeSource>();
+
+    for (const ticketType of this.sortTicketTypes(currentTicketTypes)) {
+      currentByName.set(this.normalizeTicketTypeName(ticketType.name), ticketType);
+    }
+
+    const submittedByName = new Map<TicketTierName, EventTicketTierDto>();
+
+    for (const ticketType of dto.ticketTypes ?? []) {
+      const name = this.normalizeTicketTypeName(ticketType.name);
+
+      if (submittedByName.has(name)) {
+        throw new BadRequestException(`Duplicate ticket tier: ${name}.`);
+      }
+
+      submittedByName.set(name, ticketType);
+    }
+
+    const candidates = EVENT_TICKET_TIER_NAMES.map((name) => {
+      const submitted = submittedByName.get(name);
+      const current = currentByName.get(name);
+      const isRegular = name === REGULAR_TICKET_NAME;
+      const priceKobo = submitted?.priceKobo ?? (dto.ticketTypes ? undefined : isRegular ? dto.priceKobo : undefined) ?? current?.priceKobo ?? 0;
+      const capacity = submitted?.capacity ?? (dto.ticketTypes ? undefined : isRegular ? dto.capacity : undefined) ?? current?.capacity ?? DEFAULT_EVENT_CAPACITY;
+      const maxTicketsPerUser =
+        submitted?.maxTicketsPerUser ??
+        (dto.ticketTypes ? undefined : isRegular ? dto.maxTicketsPerUser : undefined) ??
+        current?.maxTicketsPerUser ??
+        DEFAULT_MAX_TICKETS_PER_USER;
+
+      this.assertTicketTypeValues({ name, priceKobo, capacity, maxTicketsPerUser });
+
+      return {
+        name,
+        priceKobo,
+        capacity,
+        maxTicketsPerUser
+      };
+    });
+
+    const paidTiers = candidates.filter((ticketType) => ticketType.priceKobo > 0);
+    const ticketTypes = paidTiers.length > 0
+      ? paidTiers
+      : candidates.filter((ticketType) => ticketType.name === REGULAR_TICKET_NAME).map((ticketType) => ({ ...ticketType, priceKobo: 0 }));
+
+    ticketTypes.forEach((ticketType) => this.assertTicketPurchaseLimit(ticketType.maxTicketsPerUser, ticketType.capacity));
+
+    return ticketTypes;
+  }
+
+  private assertTicketTypeValues(ticketType: TicketTypeInput) {
+    if (!Number.isInteger(ticketType.priceKobo) || ticketType.priceKobo < 0) {
+      throw new BadRequestException(`${ticketType.name} price must be zero or more.`);
+    }
+
+    if (!Number.isInteger(ticketType.capacity) || ticketType.capacity < 1) {
+      throw new BadRequestException(`${ticketType.name} capacity must be at least 1.`);
+    }
+
+    if (!Number.isInteger(ticketType.maxTicketsPerUser) || ticketType.maxTicketsPerUser < 1) {
+      throw new BadRequestException(`${ticketType.name} max tickets per person must be at least 1.`);
+    }
+  }
+
+  private async syncTicketTypes(
+    client: Prisma.TransactionClient,
+    eventId: string,
+    existingTicketTypes: TicketTypeSource[],
+    nextTicketTypes: TicketTypeInput[]
+  ) {
+    const existingByName = new Map<TicketTierName, TicketTypeSource>();
+    const nextNames = new Set(nextTicketTypes.map((ticketType) => ticketType.name));
+
+    for (const ticketType of existingTicketTypes) {
+      existingByName.set(this.normalizeTicketTypeName(ticketType.name), ticketType);
+    }
+
+    for (const ticketType of nextTicketTypes) {
+      const existing = existingByName.get(ticketType.name);
+
+      if (!existing) {
+        await client.ticketType.create({
+          data: {
+            eventId,
+            name: ticketType.name,
+            priceKobo: ticketType.priceKobo,
+            capacity: ticketType.capacity,
+            maxTicketsPerUser: ticketType.maxTicketsPerUser
+          }
+        });
+        continue;
+      }
+
+      const activeTickets = await this.countActiveTickets(existing.id, client);
+
+      if (ticketType.capacity < activeTickets) {
+        throw new BadRequestException(`${ticketType.name} capacity cannot be lower than existing reservations.`);
+      }
+
+      await client.ticketType.update({
+        where: { id: existing.id },
+        data: {
+          name: ticketType.name,
+          priceKobo: ticketType.priceKobo,
+          capacity: ticketType.capacity,
+          maxTicketsPerUser: ticketType.maxTicketsPerUser
+        }
+      });
+    }
+
+    for (const existing of existingTicketTypes) {
+      const name = this.normalizeTicketTypeName(existing.name);
+
+      if (nextNames.has(name)) {
+        continue;
+      }
+
+      const activeTickets = await this.countActiveTickets(existing.id, client);
+
+      if (activeTickets > 0) {
+        throw new BadRequestException(`${name} cannot be removed while it has active tickets.`);
+      }
+
+      const historicalTickets = await client.ticket.count({ where: { ticketTypeId: existing.id } });
+
+      if (historicalTickets > 0) {
+        throw new BadRequestException(`${name} cannot be removed because it has ticket history.`);
+      }
+
+      await client.ticketType.delete({ where: { id: existing.id } });
+    }
+  }
+
+  private getRequestedTicketType(ticketTypes: TicketTypeSource[], ticketTypeId: string | undefined) {
+    const sortedTicketTypes = this.sortTicketTypes(ticketTypes);
+
+    if (ticketTypeId) {
+      const ticketType = sortedTicketTypes.find((item) => item.id === ticketTypeId);
+
+      if (!ticketType) {
+        throw new BadRequestException("Ticket tier is not available for this event.");
+      }
+
+      return ticketType;
+    }
+
+    if (sortedTicketTypes.length > 1) {
+      throw new BadRequestException("Choose a ticket tier.");
+    }
+
+    const ticketType = sortedTicketTypes[0];
+
+    if (!ticketType) {
+      throw new BadRequestException("Event ticket type is missing.");
+    }
+
+    return ticketType;
+  }
+
   private assertTicketPurchaseLimit(maxTicketsPerUser: number, capacity: number) {
     if (!Number.isInteger(maxTicketsPerUser) || maxTicketsPerUser < 1) {
       throw new BadRequestException("Max tickets per person must be at least 1.");
@@ -407,6 +579,9 @@ export class EventsService {
             userId,
             status: { in: CONFIRMED_TICKET_STATUSES }
           },
+          include: {
+            ticketType: true
+          },
           orderBy: { createdAt: "desc" }
         }
       }
@@ -428,7 +603,11 @@ export class EventsService {
       },
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
-        tickets: true
+        tickets: {
+          include: {
+            ticketType: true
+          }
+        }
       }
     });
 
@@ -507,13 +686,22 @@ export class EventsService {
     return user;
   }
 
-  private async countActiveTickets(ticketTypeId: string) {
+  private async countActiveTickets(ticketTypeId: string, client: Prisma.TransactionClient | PrismaService = this.prisma) {
     const now = new Date();
 
-    return this.prisma.ticket.count({
+    return client.ticket.count({
       where: {
         ticketTypeId,
         ...getActiveTicketWhere(now)
+      }
+    });
+  }
+
+  private async countActiveTicketsForEvent(eventId: string) {
+    return this.prisma.ticket.count({
+      where: {
+        eventId,
+        ...getActiveTicketWhere(new Date())
       }
     });
   }
@@ -555,11 +743,52 @@ export class EventsService {
     return result._sum.amountKobo ?? 0;
   }
 
+  private sortTicketTypes<T extends { name: string }>(ticketTypes: T[]) {
+    return [...ticketTypes].sort((a, b) => this.getTicketTierOrder(a.name) - this.getTicketTierOrder(b.name));
+  }
+
+  private getTicketTierOrder(name: string) {
+    const normalizedName = this.normalizeTicketTypeName(name);
+
+    return EVENT_TICKET_TIER_NAMES.indexOf(normalizedName);
+  }
+
+  private normalizeTicketTypeName(name: string): TicketTierName {
+    const normalized = name.trim();
+
+    if (normalized === "General Admission") {
+      return REGULAR_TICKET_NAME;
+    }
+
+    if ((EVENT_TICKET_TIER_NAMES as readonly string[]).includes(normalized)) {
+      return normalized as TicketTierName;
+    }
+
+    return REGULAR_TICKET_NAME;
+  }
+
   private async formatEvent(event: EventSource, options: { includeAdminCounts?: boolean; includeUserTickets?: boolean }) {
-    const ticketType = event.ticketTypes[0] ?? null;
-    const confirmedCount = ticketType ? await this.countConfirmedTickets(ticketType.id) : 0;
-    const activeReservationCount = ticketType ? await this.countActiveReservations(ticketType.id) : 0;
-    const activeCount = confirmedCount + activeReservationCount;
+    const formattedTicketTypes = await Promise.all(
+      this.sortTicketTypes(event.ticketTypes).map(async (ticketType) => {
+        const confirmedCount = await this.countConfirmedTickets(ticketType.id);
+        const activeReservationCount = await this.countActiveReservations(ticketType.id);
+        const activeCount = confirmedCount + activeReservationCount;
+
+        return {
+          id: ticketType.id,
+          name: this.normalizeTicketTypeName(ticketType.name),
+          priceKobo: ticketType.priceKobo,
+          capacity: ticketType.capacity,
+          maxTicketsPerUser: ticketType.maxTicketsPerUser,
+          soldCount: confirmedCount,
+          reservedCount: activeReservationCount,
+          availableCount: Math.max(0, ticketType.capacity - activeCount)
+        };
+      })
+    );
+    const ticketType = formattedTicketTypes[0] ?? null;
+    const confirmedCount = formattedTicketTypes.reduce((total, item) => total + item.soldCount, 0);
+    const activeReservationCount = formattedTicketTypes.reduce((total, item) => total + item.reservedCount, 0);
     const userTickets = options.includeUserTickets ? event.tickets : [];
     const userTicket = userTickets[0] ?? null;
     const totalPaidAmountKobo = options.includeAdminCounts ? await this.sumSuccessfulEventTicketPayments(event.id) : 0;
@@ -578,18 +807,8 @@ export class EventsService {
       status: event.status,
       cancellationReason: event.cancellationReason,
       cancelledAt: event.cancelledAt,
-      ticketType: ticketType
-        ? {
-            id: ticketType.id,
-            name: ticketType.name,
-            priceKobo: ticketType.priceKobo,
-            capacity: ticketType.capacity,
-            maxTicketsPerUser: ticketType.maxTicketsPerUser,
-            soldCount: confirmedCount,
-            reservedCount: activeReservationCount,
-            availableCount: Math.max(0, ticketType.capacity - activeCount)
-          }
-        : null,
+      ticketType,
+      ticketTypes: formattedTicketTypes,
       ...(options.includeAdminCounts
         ? {
             attendeeCount: confirmedCount,
@@ -610,12 +829,26 @@ export class EventsService {
     };
   }
 
-  private formatTicket(ticket: { id: string; code: string; status: TicketStatus; checkedInAt: Date | null; createdAt: Date }) {
+  private formatTicket(ticket: {
+    id: string;
+    code: string;
+    status: TicketStatus;
+    checkedInAt: Date | null;
+    createdAt: Date;
+    ticketType?: { id: string; name: string; priceKobo: number } | null;
+  }) {
     return {
       id: ticket.id,
       code: ticket.code,
       status: ticket.status,
       checkedInAt: ticket.checkedInAt,
+      ticketType: ticket.ticketType
+        ? {
+            id: ticket.ticketType.id,
+            name: this.normalizeTicketTypeName(ticket.ticketType.name),
+            priceKobo: ticket.ticketType.priceKobo
+          }
+        : null,
       createdAt: ticket.createdAt
     };
   }
@@ -650,7 +883,7 @@ export class EventsService {
     }
   }
 
-  private async assertEventStatusTransition(event: EventSource, nextStatus: EventStatus, ticketTypeId: string) {
+  private async assertEventStatusTransition(event: EventSource, nextStatus: EventStatus) {
     if (event.status === nextStatus) {
       return;
     }
@@ -669,7 +902,7 @@ export class EventsService {
       }
 
       if (nextStatus === EventStatus.DRAFT) {
-        const activeTickets = await this.countActiveTickets(ticketTypeId);
+        const activeTickets = await this.countActiveTicketsForEvent(event.id);
 
         if (activeTickets > 0) {
           throw new BadRequestException("Published events with active tickets cannot be moved back to draft.");

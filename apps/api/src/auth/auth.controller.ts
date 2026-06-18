@@ -5,8 +5,10 @@ import type { Request, Response } from "express";
 import { CurrentUser } from "./current-user.decorator";
 import { AuthService } from "./auth.service";
 import { ConfirmPasswordDto } from "./dto/confirm-password.dto";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { AuthUser } from "./types/auth-user";
 
@@ -35,6 +37,18 @@ export class AuthController {
     this.setRefreshCookie(response, auth);
 
     return this.toPublicAuthResponse(auth);
+  }
+
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Post("forgot-password")
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.requestPasswordReset(dto);
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("reset-password")
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   @Throttle({ default: { limit: 20, ttl: 60_000 } })

@@ -15,10 +15,18 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
   ValidateIf
 } from "class-validator";
 
 export class UpdateProfileDto {
+  @ApiPropertyOptional({ example: "Ada" })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  displayName?: string;
+
   @ApiPropertyOptional({ example: "Food popups, live music, and beach days." })
   @IsOptional()
   @IsString()

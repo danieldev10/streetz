@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { JwtModule } from "@nestjs/jwt";
+import { JwtModule } from "@nestjs/jwt/dist";
 import { StorageModule } from "../storage/storage.module";
 import { RoomsController } from "./rooms.controller";
 import { RoomsGateway } from "./rooms.gateway";

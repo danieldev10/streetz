@@ -67,20 +67,59 @@ type DiscoveryFilters = {
   lookingFor: ConnectionStatus[];
 };
 
-const defaultDiscoveryFilters: DiscoveryFilters = {
-  minAge: null,
-  maxAge: null,
-  gender: [],
-  sexuality: [],
-  lookingFor: [],
-};
+function getOppositeGenderForStraight(gender: Gender | null | undefined) {
+  if (gender === "WOMAN") {
+    return ["MAN" as const];
+  }
+
+  if (gender === "MAN") {
+    return ["WOMAN" as const];
+  }
+
+  return [];
+}
+
+function getDefaultDiscoveryFilters({
+  initialConnectionStatus = null,
+  initialGender = null,
+  initialSexuality = null,
+}: {
+  initialConnectionStatus?: ConnectionStatus | null;
+  initialGender?: Gender | null;
+  initialSexuality?: Sexuality | null;
+}): DiscoveryFilters {
+  return {
+    minAge: null,
+    maxAge: null,
+    gender: initialSexuality === "STRAIGHT" ? getOppositeGenderForStraight(initialGender) : [],
+    sexuality: initialSexuality && initialSexuality !== "PREFER_NOT_TO_SAY" ? [initialSexuality] : [],
+    lookingFor: initialConnectionStatus ? [initialConnectionStatus] : [],
+  };
+}
 
 type PendingDisplayLocation = {
   city: string;
   state: string;
 };
 
-export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatchCreated: () => void }) {
+export function DiscoveryTab({
+  token,
+  onMatchCreated,
+  initialConnectionStatus,
+  initialGender,
+  initialSexuality,
+}: {
+  token: string;
+  onMatchCreated: () => void;
+  initialConnectionStatus: ConnectionStatus | null;
+  initialGender: Gender | null;
+  initialSexuality: Sexuality | null;
+}) {
+  const initialFilters = getDefaultDiscoveryFilters({
+    initialConnectionStatus,
+    initialGender,
+    initialSexuality,
+  });
   const [candidates, setCandidates] = useState<DiscoveryCandidate[]>([]);
   const [viewedCandidate, setViewedCandidate] = useState<DiscoveryCandidate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,9 +136,9 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
   const [locationMeta, setLocationMeta] = useState<DiscoveryLocationMeta>(defaultDiscoveryLocation);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [draftMaxDistanceKm, setDraftMaxDistanceKm] = useState(DEFAULT_DISCOVERY_DISTANCE_KM);
-  const [activeFilters, setActiveFilters] = useState<DiscoveryFilters>(defaultDiscoveryFilters);
-  const [draftFilters, setDraftFilters] = useState<DiscoveryFilters>(defaultDiscoveryFilters);
-  const activeFiltersRef = useRef<DiscoveryFilters>(defaultDiscoveryFilters);
+  const [activeFilters, setActiveFilters] = useState<DiscoveryFilters>(() => initialFilters);
+  const [draftFilters, setDraftFilters] = useState<DiscoveryFilters>(() => initialFilters);
+  const activeFiltersRef = useRef<DiscoveryFilters>(initialFilters);
   const [isSavingFilters, setIsSavingFilters] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [pendingDisplayLocation, setPendingDisplayLocation] = useState<PendingDisplayLocation | null>(null);
@@ -116,12 +155,6 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
 
   const activeCandidate = candidates[0];
   const isActingOnActiveCandidate = activeCandidate ? actionTargetId === activeCandidate.id : false;
-  const activeFilterCount = [
-    activeFilters.minAge !== null || activeFilters.maxAge !== null ? 1 : 0,
-    activeFilters.gender.length > 0 ? 1 : 0,
-    activeFilters.sexuality.length > 0 ? 1 : 0,
-    activeFilters.lookingFor.length > 0 ? 1 : 0,
-  ].reduce((sum, n) => sum + n, 0);
   const swipeIntent = dragOffset.x > 60 ? "LIKE" : dragOffset.x < -60 ? "PASS" : null;
   const renderedCandidates = candidates.slice(0, DISCOVERY_RENDERED_STACK_SIZE);
   const swipeCardStyle: CSSProperties = {
@@ -626,11 +659,6 @@ export function DiscoveryTab({ token, onMatchCreated }: { token: string; onMatch
           >
             <SlidersHorizontal className="size-4" aria-hidden="true" />
             Filters
-            {activeFilterCount > 0 ? (
-              <span className="ml-1 grid min-w-5 place-items-center rounded-full bg-[#18E299] px-1 text-[10px] font-semibold leading-5 text-[#0d0d0d]">
-                {activeFilterCount}
-              </span>
-            ) : null}
           </button>
         }
       />

@@ -1,6 +1,6 @@
 import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { JwtService } from "@nestjs/jwt";
+import { JwtService } from "@nestjs/jwt/dist";
 import { OnGatewayConnection, WebSocketGateway, WsException } from "@nestjs/websockets";
 import { UserRole } from "@prisma/client";
 import { Server, Socket } from "socket.io";

@@ -83,6 +83,26 @@ export default function Home() {
     }
   }, [canEnterApp, router, status, user]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get("passwordReset") === "1") {
+      url.searchParams.delete("passwordReset");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+      const timer = window.setTimeout(() => {
+        setMessage("Password updated. Log in with your new password.");
+      }, 0);
+
+      return () => window.clearTimeout(timer);
+    }
+
+    return undefined;
+  }, []);
+
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage(null);

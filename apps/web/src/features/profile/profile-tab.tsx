@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Camera, Heart, LoaderCircle, MapPin, Power, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
@@ -14,6 +14,7 @@ import { DEFAULT_DISCOVERY_DISTANCE_KM, getCurrentBrowserCoordinates, getLocatio
 import { getCitiesForState, nigeriaStateNames, normalizeLocationSuggestion } from "@/lib/nigeria-locations";
 import {
   PROFILE_PHOTO_LIMIT,
+  PROFILE_INTEREST_LIMIT,
   connectionStatusOptions,
   formatConnectionStatus,
   formatProfileSetupIssues,
@@ -24,11 +25,46 @@ import {
   getProfileSetupIssues,
   getProfileSetupIssuesFromForm,
   isProfileReadyForDiscovery,
+  profileInterestSuggestions,
   sexualityOptions,
 } from "@/lib/profile";
 import type { ConnectionStatus, Gender, ProfilePhoto, ProfileTabMode, Sexuality, StreetzProfile, StreetzUser } from "@/lib/types";
 
 const SUPPORTED_PROFILE_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+function normalizeInterestValue(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function getInterestKey(value: string) {
+  return normalizeInterestValue(value).toLowerCase();
+}
+
+function parseInterestText(value: string) {
+  return value
+    .split(",")
+    .map(normalizeInterestValue)
+    .filter(Boolean);
+}
+
+function serializeInterests(interests: string[]) {
+  const seen = new Set<string>();
+  const uniqueInterests: string[] = [];
+
+  interests.forEach((interest) => {
+    const normalized = normalizeInterestValue(interest);
+    const key = getInterestKey(normalized);
+
+    if (!normalized || seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    uniqueInterests.push(normalized);
+  });
+
+  return uniqueInterests.join(", ");
+}
 
 export function ProfileTab({
   token,
@@ -59,7 +95,9 @@ export function ProfileTab({
   const [isDeactivateConfirmOpen, setIsDeactivateConfirmOpen] = useState(false);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
   const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
+  const [interestQuery, setInterestQuery] = useState("");
   const [profileForm, setProfileForm] = useState({
+    displayName: user.displayName,
     bio: "",
     birthDate: "",
     gender: "PREFER_NOT_TO_SAY" as Gender,
@@ -87,6 +125,7 @@ export function ProfileTab({
   const profileAge = getAgeFromBirthDate(profileForm.birthDate);
   const adultBirthDateMax = getAdultBirthDateMaxValue();
   const profileLocation = [profileForm.city, profileForm.state].filter(Boolean).join(", ") || "Nigeria";
+  const profileDisplayName = profileForm.displayName.trim() || user.displayName;
   const hasGpsLocation = profileForm.latitude !== null && profileForm.longitude !== null;
   const profileStatusLabel = profileForm.connectionStatus ? formatConnectionStatus(profileForm.connectionStatus) : "Looking for?";
   const stateOptions = profileForm.state && !nigeriaStateNames.includes(profileForm.state)
@@ -96,13 +135,18 @@ export function ProfileTab({
   const cityOptions = profileForm.city && !knownCityOptions.includes(profileForm.city)
     ? [...knownCityOptions, profileForm.city]
     : knownCityOptions;
-  const previewInterests = profileForm.interests
-    .split(",")
-    .map((interest) => interest.trim())
-    .filter(Boolean);
+  const previewInterests = parseInterestText(profileForm.interests);
+  const selectedInterestKeys = new Set(previewInterests.map(getInterestKey));
+  const normalizedInterestQuery = getInterestKey(interestQuery);
+  const suggestedInterests = profileInterestSuggestions
+    .filter((interest) => !selectedInterestKeys.has(getInterestKey(interest)))
+    .filter((interest) => !normalizedInterestQuery || getInterestKey(interest).includes(normalizedInterestQuery))
+    .slice(0, 18);
+  const canAddMoreInterests = previewInterests.length < PROFILE_INTEREST_LIMIT;
 
   function syncProfileForm(profileResponse: StreetzProfile) {
     setProfileForm({
+      displayName: profileResponse.user.displayName,
       bio: profileResponse.bio ?? "",
       birthDate: profileResponse.birthDate ? profileResponse.birthDate.slice(0, 10) : "",
       gender: profileResponse.gender ?? "PREFER_NOT_TO_SAY",
@@ -180,6 +224,48 @@ export function ProfileTab({
     return () => window.clearTimeout(timer);
   }, [setupNotice]);
 
+  function setInterests(interests: string[]) {
+    setProfileForm((current) => ({
+      ...current,
+      interests: serializeInterests(interests),
+    }));
+  }
+
+  function addInterest(interest: string) {
+    const normalized = normalizeInterestValue(interest);
+
+    if (!normalized || selectedInterestKeys.has(getInterestKey(normalized))) {
+      return;
+    }
+
+    if (!canAddMoreInterests) {
+      setNotice(`You can add up to ${PROFILE_INTEREST_LIMIT} interests.`);
+      return;
+    }
+
+    setInterests([...previewInterests, normalized]);
+    setInterestQuery("");
+  }
+
+  function removeInterest(interest: string) {
+    const key = getInterestKey(interest);
+    setInterests(previewInterests.filter((currentInterest) => getInterestKey(currentInterest) !== key));
+  }
+
+  function handleInterestSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+
+    const [firstSuggestion] = suggestedInterests;
+
+    if (firstSuggestion) {
+      addInterest(firstSuggestion);
+    }
+  }
+
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setNotice(null);
@@ -191,10 +277,18 @@ export function ProfileTab({
       return;
     }
 
-    const interests = profileForm.interests
-      .split(",")
-      .map((interest) => interest.trim())
-      .filter(Boolean);
+    const interests = parseInterestText(profileForm.interests);
+    const displayName = profileForm.displayName.trim();
+
+    if (displayName.length < 2) {
+      setNotice("Username must be at least 2 characters.");
+      return;
+    }
+
+    if (displayName.length > 80) {
+      setNotice("Username must be 80 characters or fewer.");
+      return;
+    }
 
     if (profileForm.bio.length > 500) {
       setNotice("Bio must be 500 characters or fewer.");
@@ -206,8 +300,8 @@ export function ProfileTab({
       return;
     }
 
-    if (interests.length > 12) {
-      setNotice("You can add up to 12 interests.");
+    if (interests.length > PROFILE_INTEREST_LIMIT) {
+      setNotice(`You can add up to ${PROFILE_INTEREST_LIMIT} interests.`);
       return;
     }
 
@@ -240,6 +334,7 @@ export function ProfileTab({
         method: "PUT",
         headers: authHeaders(token),
         body: JSON.stringify({
+          displayName,
           bio: profileForm.bio,
           birthDate: profileForm.birthDate || undefined,
           gender: profileForm.gender,
@@ -255,6 +350,10 @@ export function ProfileTab({
 
       setProfile(savedProfile);
       syncProfileForm(savedProfile);
+      updateSessionUser((currentUser) => ({
+        ...currentUser,
+        displayName: savedProfile.user.displayName,
+      }));
 
       if (isSetupMode) {
         if (!isProfileReadyForDiscovery(savedProfile)) {
@@ -596,7 +695,7 @@ export function ProfileTab({
                           {photo ? (
                             <ProfilePhotoImage
                               photo={photo}
-                              alt={`${user.displayName} photo ${index + 1}`}
+                              alt={`${profileDisplayName} photo ${index + 1}`}
                               variant="card"
                               sizes="(max-width: 640px) 50vw, 160px"
                               iconSize="md"
@@ -676,7 +775,7 @@ export function ProfileTab({
                 <section className="rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
                   <div className="flex items-start gap-3">
                     <div className="relative size-16 shrink-0 overflow-hidden rounded-[18px] bg-[#d4fae8]">
-                      <ProfilePhotoImage photo={profilePhoto} alt={`${user.displayName} profile`} variant="thumb" sizes="64px" iconSize="sm" />
+                      <ProfilePhotoImage photo={profilePhoto} alt={`${profileDisplayName} profile`} variant="thumb" sizes="64px" iconSize="sm" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-lg font-semibold">Profile details</p>
@@ -685,6 +784,18 @@ export function ProfileTab({
                   </div>
 
                   <div className="mt-4 grid gap-3">
+                    <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                      Username
+                      <input
+                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                        placeholder="Your display name"
+                        value={profileForm.displayName}
+                        onChange={(event) => setProfileForm((current) => ({ ...current, displayName: event.target.value }))}
+                        minLength={2}
+                        maxLength={80}
+                        required
+                      />
+                    </label>
                     <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                       Bio
                       <textarea
@@ -824,17 +935,62 @@ export function ProfileTab({
                         </button>
                       </div>
                     </div>
-                    <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                      Interests
+                    <div className="grid gap-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <label
+                          htmlFor="profile-interest-search"
+                          className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]"
+                        >
+                          Interests
+                        </label>
+                        <span className="rounded-full bg-[#d4fae8] px-3 py-1 text-xs font-semibold text-[#16784f]">
+                          {previewInterests.length}/{PROFILE_INTEREST_LIMIT}
+                        </span>
+                      </div>
+
+                      {previewInterests.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {previewInterests.map((interest) => (
+                            <button
+                              key={interest}
+                              className="inline-flex h-9 items-center gap-2 rounded-full bg-[#0d0d0d] px-3 text-sm font-medium text-white"
+                              type="button"
+                              onClick={() => removeInterest(interest)}
+                              aria-label={`Remove ${interest}`}
+                            >
+                              {interest}
+                              <X className="size-3.5" aria-hidden="true" />
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+
                       <input
-                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                        placeholder="e.g. Fashion, Music, Travel"
-                        value={profileForm.interests}
-                        onChange={(event) => setProfileForm((current) => ({ ...current, interests: event.target.value }))}
-                        maxLength={430}
-                        required={isSetupMode}
+                        id="profile-interest-search"
+                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299] disabled:cursor-not-allowed disabled:bg-[#f6f6f6] disabled:text-[#999999]"
+                        placeholder={canAddMoreInterests ? "Search interests" : "Interest limit reached"}
+                        value={interestQuery}
+                        onChange={(event) => setInterestQuery(event.target.value)}
+                        onKeyDown={handleInterestSearchKeyDown}
+                        disabled={!canAddMoreInterests}
                       />
-                    </label>
+
+                      {suggestedInterests.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {suggestedInterests.map((interest) => (
+                            <button
+                              key={interest}
+                              className="inline-flex h-9 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-sm font-medium text-[#444444] transition hover:border-[#18E299] hover:text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-50"
+                              type="button"
+                              onClick={() => addInterest(interest)}
+                              disabled={!canAddMoreInterests}
+                            >
+                              {interest}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="mt-4 flex justify-end">
@@ -862,7 +1018,7 @@ export function ProfileTab({
                   </button>
                   <ProfilePhotoImage
                     photo={profilePhoto}
-                    alt={`${user.displayName} profile preview`}
+                    alt={`${profileDisplayName} profile preview`}
                     variant="full"
                     sizes="(max-width: 768px) 100vw, 430px"
                     iconSize="lg"
@@ -872,7 +1028,7 @@ export function ProfileTab({
                       {profileStatusLabel}
                     </div>
                     <h2 className="mt-3 text-3xl font-semibold">
-                      {user.displayName}
+                      {profileDisplayName}
                       {profileAge ? `, ${profileAge}` : ""}
                     </h2>
                     <p className="mt-1 flex items-center gap-1 text-sm font-medium">
@@ -902,7 +1058,7 @@ export function ProfileTab({
                   <div className="relative aspect-[1.05] min-h-[320px] bg-[#d4fae8]">
                     <ProfilePhotoImage
                       photo={activeProfilePhoto}
-                      alt={`${user.displayName} profile`}
+                      alt={`${profileDisplayName} profile`}
                       variant="full"
                       sizes="(max-width: 768px) 100vw, 520px"
                       iconSize="lg"
@@ -928,7 +1084,7 @@ export function ProfileTab({
                         >
                           <ProfilePhotoImage
                             photo={photo}
-                            alt={`${user.displayName} thumbnail ${index + 1}`}
+                            alt={`${profileDisplayName} thumbnail ${index + 1}`}
                             variant="thumb"
                             sizes="96px"
                             iconSize="sm"
@@ -949,7 +1105,7 @@ export function ProfileTab({
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h2 className="text-3xl font-semibold text-[#0d0d0d]">
-                          {user.displayName}
+                          {profileDisplayName}
                           {profileAge ? `, ${profileAge}` : ""}
                         </h2>
                         <p className="mt-2 flex items-center gap-1 text-sm font-medium text-[#666666]">

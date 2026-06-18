@@ -1,24 +1,33 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { JwtService, JwtSignOptions } from "@nestjs/jwt";
+import { JwtService, JwtSignOptions } from "@nestjs/jwt/dist";
 import { AccountStatus, User } from "@prisma/client";
-import { compare } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import { createHmac, randomBytes } from "crypto";
+import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { getAccountAccessBlock } from "../users/account-status";
 import { UsersService } from "../users/users.service";
 import { ConfirmPasswordDto } from "./dto/confirm-password.dto";
+import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 
 const REFRESH_TOKEN_DAYS = 30;
 const REFRESH_TOKEN_BYTES = 48;
+const PASSWORD_RESET_TOKEN_BYTES = 48;
+const PASSWORD_RESET_TOKEN_MINUTES = 30;
+const PASSWORD_RESET_RESPONSE_MESSAGE = "If an account exists for that email, a password reset link has been sent.";
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService
   ) { }
@@ -41,6 +50,100 @@ export class AuthService {
     }
 
     return this.buildAuthResponseWithRefresh(user);
+  }
+
+  async requestPasswordReset(dto: ForgotPasswordDto) {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.usersService.findByEmail(email);
+
+    if (!user || user.accountStatus === AccountStatus.DELETED) {
+      return { message: PASSWORD_RESET_RESPONSE_MESSAGE };
+    }
+
+    const resetToken = this.createRawPasswordResetToken();
+    const expiresAt = this.getPasswordResetTokenExpiresAt();
+
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          usedAt: null,
+          expiresAt: { gt: new Date() }
+        },
+        data: {
+          usedAt: new Date()
+        }
+      });
+
+      await transaction.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: this.hashPasswordResetToken(resetToken),
+          expiresAt
+        }
+      });
+    });
+
+    const resetUrl = this.buildPasswordResetUrl(resetToken);
+    await this.sendPasswordResetEmail(user, email, resetUrl);
+
+    if (process.env.NODE_ENV !== "production") {
+      this.logger.warn(`Password reset link for ${email}: ${resetUrl}`);
+    }
+
+    return {
+      message: PASSWORD_RESET_RESPONSE_MESSAGE,
+      ...(process.env.NODE_ENV !== "production" ? { resetUrl } : {})
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const tokenHash = this.hashPasswordResetToken(dto.token);
+    const storedToken = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true }
+    });
+
+    if (
+      !storedToken ||
+      storedToken.usedAt !== null ||
+      storedToken.expiresAt <= new Date() ||
+      storedToken.user.accountStatus === AccountStatus.DELETED
+    ) {
+      throw new BadRequestException("Password reset link is invalid or expired.");
+    }
+
+    const passwordHash = await hash(dto.password, 12);
+    const now = new Date();
+
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.user.update({
+        where: { id: storedToken.userId },
+        data: { passwordHash }
+      });
+
+      await transaction.passwordResetToken.updateMany({
+        where: {
+          userId: storedToken.userId,
+          usedAt: null
+        },
+        data: {
+          usedAt: now
+        }
+      });
+
+      await transaction.refreshToken.updateMany({
+        where: {
+          userId: storedToken.userId,
+          revokedAt: null
+        },
+        data: {
+          revokedAt: now
+        }
+      });
+    });
+
+    return { reset: true };
   }
 
   async refresh(refreshToken: string | undefined) {
@@ -205,6 +308,47 @@ export class AuthService {
     const secret = this.config.get<string>("JWT_REFRESH_SECRET") ?? this.config.getOrThrow<string>("JWT_ACCESS_SECRET");
 
     return createHmac("sha256", secret).update(refreshToken).digest("hex");
+  }
+
+  private createRawPasswordResetToken() {
+    return randomBytes(PASSWORD_RESET_TOKEN_BYTES).toString("base64url");
+  }
+
+  private hashPasswordResetToken(resetToken: string) {
+    const secret =
+      this.config.get<string>("PASSWORD_RESET_SECRET") ??
+      this.config.get<string>("JWT_REFRESH_SECRET") ??
+      this.config.getOrThrow<string>("JWT_ACCESS_SECRET");
+
+    return createHmac("sha256", secret).update(resetToken).digest("hex");
+  }
+
+  private getPasswordResetTokenExpiresAt() {
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + PASSWORD_RESET_TOKEN_MINUTES);
+
+    return expiresAt;
+  }
+
+  private buildPasswordResetUrl(resetToken: string) {
+    const appUrl = this.config.get<string>("WEB_APP_URL") ?? "http://localhost:3000";
+
+    return `${appUrl.replace(/\/+$/, "")}/reset-password?token=${encodeURIComponent(resetToken)}`;
+  }
+
+  private async sendPasswordResetEmail(user: User, email: string, resetUrl: string) {
+    try {
+      await this.mailService.sendPasswordResetEmail({
+        to: email,
+        resetUrl,
+        expiresInMinutes: PASSWORD_RESET_TOKEN_MINUTES,
+        displayName: user.displayName
+      });
+    } catch (error) {
+      this.logger.error(
+        `Password reset email failed for user ${user.id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 
   private getRefreshTokenExpiresAt() {

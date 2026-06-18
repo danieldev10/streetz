@@ -10,11 +10,11 @@ import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { EVENT_IMAGE_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
-import type { EventStatus, StreetzEvent, StreetzProfile, StreetzUser, TicketStatus } from "@/lib/types";
+import type { EventStatus, StreetzEvent, StreetzEventTicketType, StreetzProfile, StreetzUser, TicketStatus } from "@/lib/types";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
-const GENERAL_ADMISSION_TICKET_NAME = "General Admission";
+const EVENT_TICKET_TIER_NAMES = ["Regular", "VIP", "Tables"] as const;
 const SUPPORTED_EVENT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["PAID", "CHECKED_IN"]);
 const EVENT_TITLE_MAX_LENGTH = 120;
@@ -38,6 +38,12 @@ type EventViewMode = "tickets" | "events";
 type AdminEventView = "list" | "form";
 type AdminEventMode = "list" | "create" | "edit";
 type AdminEventListMode = "active" | "inactive";
+type EventTicketTierName = (typeof EVENT_TICKET_TIER_NAMES)[number];
+type EventFormTicketTier = {
+  priceNaira: string;
+  capacity: string;
+  maxTicketsPerUser: string;
+};
 
 type EventForm = {
   title: string;
@@ -49,9 +55,7 @@ type EventForm = {
   startsAt: string;
   endsAt: string;
   status: EventStatus;
-  priceNaira: string;
-  capacity: string;
-  maxTicketsPerUser: string;
+  ticketTiers: Record<EventTicketTierName, EventFormTicketTier>;
 };
 
 type EventImageUploadResponse = {
@@ -71,9 +75,23 @@ const emptyEventForm: EventForm = {
   startsAt: "",
   endsAt: "",
   status: "DRAFT",
-  priceNaira: "0",
-  capacity: "100",
-  maxTicketsPerUser: "4",
+  ticketTiers: {
+    Regular: {
+      priceNaira: "",
+      capacity: "100",
+      maxTicketsPerUser: "4",
+    },
+    VIP: {
+      priceNaira: "",
+      capacity: "50",
+      maxTicketsPerUser: "4",
+    },
+    Tables: {
+      priceNaira: "",
+      capacity: "10",
+      maxTicketsPerUser: "1",
+    },
+  },
 };
 
 function formatEventDate(value: string) {
@@ -104,6 +122,61 @@ function hasConfirmedTicket(event: StreetzEvent) {
 
 function getUserTickets(event: StreetzEvent) {
   return event.userTickets ?? (event.userTicket ? [event.userTicket] : []);
+}
+
+function getOwnedTicketTypeIds(event: StreetzEvent) {
+  return new Set(
+    getUserTickets(event)
+      .filter((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status) && ticket.ticketType)
+      .map((ticket) => ticket.ticketType?.id)
+      .filter((ticketTypeId): ticketTypeId is string => Boolean(ticketTypeId))
+  );
+}
+
+function normalizeTicketTierName(name: string): EventTicketTierName {
+  if (name === "General Admission") {
+    return "Regular";
+  }
+
+  if ((EVENT_TICKET_TIER_NAMES as readonly string[]).includes(name)) {
+    return name as EventTicketTierName;
+  }
+
+  return "Regular";
+}
+
+function getEventTicketTypes(event: StreetzEvent) {
+  const ticketTypes = event.ticketTypes?.length ? event.ticketTypes : event.ticketType ? [event.ticketType] : [];
+
+  return [...ticketTypes].sort(
+    (first, second) =>
+      EVENT_TICKET_TIER_NAMES.indexOf(normalizeTicketTierName(first.name)) -
+      EVENT_TICKET_TIER_NAMES.indexOf(normalizeTicketTierName(second.name))
+  );
+}
+
+function getSelectedTicketType(event: StreetzEvent, selectedTicketTypeId: string | undefined) {
+  const ticketTypes = getEventTicketTypes(event);
+
+  return ticketTypes.find((ticketType) => ticketType.id === selectedTicketTypeId) ?? ticketTypes[0] ?? null;
+}
+
+function getTicketTypeSummary(event: StreetzEvent) {
+  const ticketTypes = getEventTicketTypes(event);
+
+  if (ticketTypes.length === 0) {
+    return "No ticket";
+  }
+
+  if (ticketTypes.every((ticketType) => ticketType.priceKobo <= 0)) {
+    return "Free";
+  }
+
+  return ticketTypes.map((ticketType) => `${normalizeTicketTierName(ticketType.name)} ${formatPrice(ticketType.priceKobo)}`).join(" · ");
+}
+
+function getTotalTicketCapacity(event: StreetzEvent) {
+  return getEventTicketTypes(event).reduce((total, ticketType) => total + ticketType.capacity, 0);
 }
 
 function getEventEndTimestamp(event: Pick<StreetzEvent, "startsAt" | "endsAt">) {
@@ -161,26 +234,29 @@ function formatEventLocation(event: Pick<StreetzEvent, "venue" | "city" | "state
 }
 
 function getCancellationImpact(event: StreetzEvent) {
-  const paidTickets = event.attendeeCount ?? event.ticketType?.soldCount ?? 0;
-  const activeReservations = event.reservationCount ?? event.ticketType?.reservedCount ?? 0;
-  const totalPaidAmountKobo = event.totalPaidAmountKobo ?? paidTickets * (event.ticketType?.priceKobo ?? 0);
+  const ticketTypes = getEventTicketTypes(event);
+  const paidTickets = event.attendeeCount ?? ticketTypes.reduce((total, ticketType) => total + ticketType.soldCount, 0);
+  const activeReservations = event.reservationCount ?? ticketTypes.reduce((total, ticketType) => total + ticketType.reservedCount, 0);
+  const totalPaidAmountKobo =
+    event.totalPaidAmountKobo ??
+    ticketTypes.reduce((total, ticketType) => total + ticketType.soldCount * ticketType.priceKobo, 0);
 
   return { activeReservations, paidTickets, totalPaidAmountKobo };
 }
 
-function getRemainingUserTicketAllowance(event: StreetzEvent) {
-  const maxTicketsPerUser = event.ticketType?.maxTicketsPerUser ?? 1;
+function getRemainingUserTicketAllowance(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {
+  const maxTicketsPerUser = ticketType?.maxTicketsPerUser ?? 1;
   const ownedTickets = getUserTickets(event).filter((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status)).length;
 
   return Math.max(0, maxTicketsPerUser - ownedTickets);
 }
 
-function getMaxPurchaseQuantity(event: StreetzEvent) {
-  if (!event.ticketType || !isMemberBookableEvent(event)) {
+function getMaxPurchaseQuantity(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {
+  if (!ticketType || !isMemberBookableEvent(event)) {
     return 0;
   }
 
-  return Math.max(0, Math.min(event.ticketType.availableCount, getRemainingUserTicketAllowance(event), MAX_TICKETS_PER_PURCHASE));
+  return Math.max(0, Math.min(ticketType.availableCount, getRemainingUserTicketAllowance(event, ticketType), MAX_TICKETS_PER_PURCHASE));
 }
 
 function findEventStateForCity(city: string) {
@@ -215,7 +291,39 @@ function toDateTimeLocal(value: string | null) {
   return localDate.toISOString().slice(0, 16);
 }
 
+function getDefaultEventTicketTiers(): Record<EventTicketTierName, EventFormTicketTier> {
+  return {
+    Regular: {
+      priceNaira: "",
+      capacity: "100",
+      maxTicketsPerUser: "4",
+    },
+    VIP: {
+      priceNaira: "",
+      capacity: "50",
+      maxTicketsPerUser: "4",
+    },
+    Tables: {
+      priceNaira: "",
+      capacity: "10",
+      maxTicketsPerUser: "1",
+    },
+  };
+}
+
 function getEventForm(event: StreetzEvent): EventForm {
+  const ticketTiers = getDefaultEventTicketTiers();
+
+  getEventTicketTypes(event).forEach((ticketType) => {
+    const name = normalizeTicketTierName(ticketType.name);
+
+    ticketTiers[name] = {
+      priceNaira: ticketType.priceKobo > 0 ? String(ticketType.priceKobo / 100) : "",
+      capacity: String(ticketType.capacity),
+      maxTicketsPerUser: String(ticketType.maxTicketsPerUser),
+    };
+  });
+
   return {
     title: event.title,
     description: event.description ?? "",
@@ -226,9 +334,7 @@ function getEventForm(event: StreetzEvent): EventForm {
     startsAt: toDateTimeLocal(event.startsAt),
     endsAt: toDateTimeLocal(event.endsAt),
     status: event.status,
-    priceNaira: String((event.ticketType?.priceKobo ?? 0) / 100),
-    capacity: String(event.ticketType?.capacity ?? 100),
-    maxTicketsPerUser: String(event.ticketType?.maxTicketsPerUser ?? 4),
+    ticketTiers,
   };
 }
 
@@ -258,6 +364,7 @@ export function EventsTab({
   const [isEventFilterOpen, setIsEventFilterOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [bookingQuantities, setBookingQuantities] = useState<Record<string, number>>({});
+  const [selectedTicketTypeIds, setSelectedTicketTypeIds] = useState<Record<string, string>>({});
   const [adminEventListMode, setAdminEventListMode] = useState<AdminEventListMode>("active");
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
@@ -568,9 +675,6 @@ export function EventsTab({
     setIsSavingEvent(true);
     setNotice(null);
 
-    const priceNaira = Number(eventForm.priceNaira || 0);
-    const capacity = Number(eventForm.capacity || 0);
-    const maxTicketsPerUser = Number(eventForm.maxTicketsPerUser || 0);
     const title = eventForm.title.trim();
     const description = eventForm.description.trim();
     const venue = eventForm.venue.trim();
@@ -652,26 +756,50 @@ export function EventsTab({
       return;
     }
 
-    if (!Number.isFinite(priceNaira) || priceNaira < 0) {
-      setNotice("Ticket price must be zero or higher.");
+    let ticketTierError: string | null = null;
+    const ticketTypes = EVENT_TICKET_TIER_NAMES.map((name) => {
+      const tier = eventForm.ticketTiers[name];
+      const priceNaira = Number(tier.priceNaira || 0);
+      const capacity = Number(tier.capacity || 0);
+      const maxTicketsPerUser = Number(tier.maxTicketsPerUser || 0);
+
+      if (!ticketTierError && (!Number.isFinite(priceNaira) || priceNaira < 0)) {
+        ticketTierError = `${name} price must be zero or higher.`;
+      }
+
+      if (!ticketTierError && (!Number.isInteger(capacity) || capacity < 1)) {
+        ticketTierError = `${name} capacity must be at least 1.`;
+      }
+
+      if (!ticketTierError && (!Number.isInteger(maxTicketsPerUser) || maxTicketsPerUser < 1)) {
+        ticketTierError = `${name} max tickets per person must be at least 1.`;
+      }
+
+      if (!ticketTierError && maxTicketsPerUser > capacity) {
+        ticketTierError = `${name} max tickets per person cannot be greater than its capacity.`;
+      }
+
+      return {
+        name,
+        priceKobo: Math.round(priceNaira * 100),
+        capacity,
+        maxTicketsPerUser,
+      };
+    });
+
+    if (ticketTierError) {
+      setNotice(ticketTierError);
       setIsSavingEvent(false);
       return;
     }
 
-    if (!Number.isInteger(capacity) || capacity < 1) {
-      setNotice("Capacity must be at least 1.");
-      setIsSavingEvent(false);
-      return;
-    }
+    const paidTicketTypes = ticketTypes.filter((ticketType) => ticketType.priceKobo > 0);
+    const ticketTypesPayload = paidTicketTypes.length > 0
+      ? paidTicketTypes
+      : ticketTypes.filter((ticketType) => ticketType.name === "Regular").map((ticketType) => ({ ...ticketType, priceKobo: 0 }));
 
-    if (!Number.isInteger(maxTicketsPerUser) || maxTicketsPerUser < 1) {
-      setNotice("Max tickets per person must be at least 1.");
-      setIsSavingEvent(false);
-      return;
-    }
-
-    if (maxTicketsPerUser > capacity) {
-      setNotice("Max tickets per person cannot be greater than event capacity.");
+    if (ticketTypesPayload.length === 0) {
+      setNotice("Add at least one ticket tier.");
       setIsSavingEvent(false);
       return;
     }
@@ -686,9 +814,7 @@ export function EventsTab({
       startsAt: new Date(startsAtTime).toISOString(),
       endsAt: endsAtTime !== null ? new Date(endsAtTime).toISOString() : undefined,
       status: eventForm.status,
-      priceKobo: Math.round(priceNaira * 100),
-      capacity,
-      maxTicketsPerUser,
+      ticketTypes: ticketTypesPayload,
     };
 
     try {
@@ -721,12 +847,12 @@ export function EventsTab({
     }
   }
 
-  async function bookEvent(event: StreetzEvent, quantity = 1) {
-    if (!event.ticketType || !isMemberBookableEvent(event) || event.ticketType.availableCount <= 0) {
+  async function bookEvent(event: StreetzEvent, ticketType: StreetzEventTicketType | null, quantity = 1) {
+    if (!ticketType || !isMemberBookableEvent(event) || ticketType.availableCount <= 0) {
       return;
     }
 
-    const maxQuantity = getMaxPurchaseQuantity(event);
+    const maxQuantity = getMaxPurchaseQuantity(event, ticketType);
     const safeQuantity = Math.max(1, Math.min(quantity, maxQuantity));
 
     if (safeQuantity < 1) {
@@ -737,11 +863,11 @@ export function EventsTab({
     setNotice(null);
 
     try {
-      if (event.ticketType.priceKobo <= 0) {
+      if (ticketType.priceKobo <= 0) {
         const updatedEvent = await apiRequest<StreetzEvent>(`/events/${event.id}/book`, {
           method: "POST",
           headers: authHeaders(token),
-          body: JSON.stringify({ quantity: safeQuantity }),
+          body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: ticketType.id }),
         });
         setEvents((current) => current.map((item) => (item.id === updatedEvent.id ? updatedEvent : item)));
         setBookingQuantities((current) => ({ ...current, [event.id]: 1 }));
@@ -754,7 +880,7 @@ export function EventsTab({
       }>(`/payments/events/${event.id}/ticket/initialize`, {
         method: "POST",
         headers: authHeaders(token),
-        body: JSON.stringify({ quantity: safeQuantity }),
+        body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: ticketType.id }),
       });
 
       if (!response.authorizationUrl) {
@@ -983,74 +1109,119 @@ export function EventsTab({
                   />
                 </label>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                  Ticket name
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                Status
+                {isEditingLockedEvent && editingEvent ? (
                   <div className="flex h-12 items-center rounded-full border border-black/8 bg-[#fafafa] px-4 text-sm font-medium normal-case tracking-normal text-[#666666]">
-                    {GENERAL_ADMISSION_TICKET_NAME}
+                    {eventStatusLabels[editingEvent.status === "PUBLISHED" && hasEventEnded(editingEvent) ? "COMPLETED" : editingEvent.status]}
                   </div>
-                </label>
-                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                  Status
-                  {isEditingLockedEvent && editingEvent ? (
-                    <div className="flex h-12 items-center rounded-full border border-black/8 bg-[#fafafa] px-4 text-sm font-medium normal-case tracking-normal text-[#666666]">
-                      {eventStatusLabels[editingEvent.status === "PUBLISHED" && hasEventEnded(editingEvent) ? "COMPLETED" : editingEvent.status]}
-                    </div>
-                  ) : (
-                    <select
-                      className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                      value={eventForm.status}
-                      onChange={(inputEvent) => setEventForm((current) => ({ ...current, status: inputEvent.target.value as EventStatus }))}
-                    >
-                      {(editingEventId ? editableEventStatuses : creatableEventStatuses).map((status) => (
-                        <option key={status} value={status}>
-                          {eventStatusLabels[status]}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </label>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                  Price (₦)
-                  <input
+                ) : (
+                  <select
                     className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                    min="0"
-                    step="100"
-                    type="number"
-                    placeholder="Price in naira"
-                    value={eventForm.priceNaira}
-                    onChange={(inputEvent) => setEventForm((current) => ({ ...current, priceNaira: inputEvent.target.value }))}
-                    required
-                  />
-                </label>
-                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                  Capacity
-                  <input
-                    className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                    min="1"
-                    step="1"
-                    type="number"
-                    placeholder="Capacity"
-                    value={eventForm.capacity}
-                    onChange={(inputEvent) => setEventForm((current) => ({ ...current, capacity: inputEvent.target.value }))}
-                    required
-                  />
-                </label>
-                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                  Max per person
-                  <input
-                    className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                    min="1"
-                    step="1"
-                    type="number"
-                    placeholder="Max tickets per member"
-                    value={eventForm.maxTicketsPerUser}
-                    onChange={(inputEvent) => setEventForm((current) => ({ ...current, maxTicketsPerUser: inputEvent.target.value }))}
-                    required
-                  />
-                </label>
+                    value={eventForm.status}
+                    onChange={(inputEvent) => setEventForm((current) => ({ ...current, status: inputEvent.target.value as EventStatus }))}
+                  >
+                    {(editingEventId ? editableEventStatuses : creatableEventStatuses).map((status) => (
+                      <option key={status} value={status}>
+                        {eventStatusLabels[status]}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </label>
+              <div className="rounded-[20px] border border-black/8 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-[#0d0d0d]">Ticket tiers</h3>
+                    <p className="mt-1 text-xs leading-5 text-[#666666]">
+                      Set prices for Regular, VIP, or Tables. If every price is empty, the event is free.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-4">
+                  {EVENT_TICKET_TIER_NAMES.map((name) => {
+                    const tier = eventForm.ticketTiers[name];
+
+                    return (
+                      <div key={name} className="rounded-2xl bg-[#fafafa] p-3">
+                        <p className="text-sm font-semibold text-[#0d0d0d]">{name}</p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                          <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                            Price (₦)
+                            <input
+                              className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                              min="0"
+                              step="100"
+                              type="number"
+                              placeholder="Free"
+                              value={tier.priceNaira}
+                              onChange={(inputEvent) =>
+                                setEventForm((current) => ({
+                                  ...current,
+                                  ticketTiers: {
+                                    ...current.ticketTiers,
+                                    [name]: {
+                                      ...current.ticketTiers[name],
+                                      priceNaira: inputEvent.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                            Capacity
+                            <input
+                              className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                              min="1"
+                              step="1"
+                              type="number"
+                              placeholder="Capacity"
+                              value={tier.capacity}
+                              onChange={(inputEvent) =>
+                                setEventForm((current) => ({
+                                  ...current,
+                                  ticketTiers: {
+                                    ...current.ticketTiers,
+                                    [name]: {
+                                      ...current.ticketTiers[name],
+                                      capacity: inputEvent.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              required
+                            />
+                          </label>
+                          <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                            Max
+                            <input
+                              className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                              min="1"
+                              step="1"
+                              type="number"
+                              placeholder="Max"
+                              value={tier.maxTicketsPerUser}
+                              onChange={(inputEvent) =>
+                                setEventForm((current) => ({
+                                  ...current,
+                                  ticketTiers: {
+                                    ...current.ticketTiers,
+                                    [name]: {
+                                      ...current.ticketTiers[name],
+                                      maxTicketsPerUser: inputEvent.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              required
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -1249,16 +1420,16 @@ export function EventsTab({
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
                         <span className="rounded-full bg-[#fafafa] px-3 py-1">
-                          {event.ticketType ? formatPrice(event.ticketType.priceKobo) : "No ticket"}
+                          {getTicketTypeSummary(event)}
                         </span>
                         <span className="rounded-full bg-[#fafafa] px-3 py-1">
-                          {event.attendeeCount ?? event.ticketType?.soldCount ?? 0} booked
+                          {event.attendeeCount ?? getEventTicketTypes(event).reduce((total, ticketType) => total + ticketType.soldCount, 0)} booked
                         </span>
                         <span className="rounded-full bg-[#fafafa] px-3 py-1">
                           {event.reservationCount ?? 0} active reservations
                         </span>
                         <span className="rounded-full bg-[#fafafa] px-3 py-1">
-                          {event.ticketType?.capacity ?? 0} capacity
+                          {getTotalTicketCapacity(event)} capacity
                         </span>
                       </div>
                     </div>
@@ -1437,9 +1608,11 @@ export function EventsTab({
         ) : visibleMemberEvents.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visibleMemberEvents.map((event) => {
-              const ticketType = event.ticketType;
+              const ticketTypes = getEventTicketTypes(event);
+              const ticketType = getSelectedTicketType(event, selectedTicketTypeIds[event.id]);
+              const ownedTicketTypeIds = getOwnedTicketTypeIds(event);
               const isBooked = getUserTickets(event).some((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status));
-              const maxPurchaseQuantity = getMaxPurchaseQuantity(event);
+              const maxPurchaseQuantity = getMaxPurchaseQuantity(event, ticketType);
               const selectedQuantity = maxPurchaseQuantity > 0
                 ? Math.min(Math.max(1, bookingQuantities[event.id] ?? 1), maxPurchaseQuantity)
                 : 1;
@@ -1491,6 +1664,50 @@ export function EventsTab({
                       <MapPin className="size-4" aria-hidden="true" />
                       {formatEventLocation(event)}
                     </p>
+                    {isTicketCard && ticketTypes.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {ticketTypes.map((availableTicketType) => {
+                          const isOwnedTier = ownedTicketTypeIds.has(availableTicketType.id);
+
+                          return (
+                            <span
+                              key={availableTicketType.id}
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                isOwnedTier ? "bg-[#d4fae8] text-[#0b7a50]" : "bg-[#fafafa] text-[#666666]"
+                              }`}
+                            >
+                              {normalizeTicketTierName(availableTicketType.name)} · {formatPrice(availableTicketType.priceKobo)}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : !isTicketCard && ticketTypes.length > 1 ? (
+                      <label
+                        className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]"
+                        onClick={(clickEvent) => clickEvent.stopPropagation()}
+                      >
+                        Tier
+                        <select
+                          className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          value={ticketType?.id ?? ""}
+                          onChange={(inputEvent) => {
+                            setSelectedTicketTypeIds((current) => ({ ...current, [event.id]: inputEvent.target.value }));
+                            setBookingQuantities((current) => ({ ...current, [event.id]: 1 }));
+                          }}
+                          disabled={isBusy}
+                        >
+                          {ticketTypes.map((availableTicketType) => (
+                            <option key={availableTicketType.id} value={availableTicketType.id}>
+                              {normalizeTicketTierName(availableTicketType.name)} · {formatPrice(availableTicketType.priceKobo)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : ticketType ? (
+                      <p className="mt-3 inline-flex rounded-full bg-[#fafafa] px-3 py-1 text-xs font-medium text-[#666666]">
+                        {normalizeTicketTierName(ticketType.name)} · {formatPrice(ticketType.priceKobo)}
+                      </p>
+                    ) : null}
                     {!isTicketCard && canBookMore && maxPurchaseQuantity > 1 ? (
                       <label
                         className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]"
@@ -1524,7 +1741,7 @@ export function EventsTab({
                           return;
                         }
 
-                        void bookEvent(event, selectedQuantity);
+                        void bookEvent(event, ticketType, selectedQuantity);
                       }}
                     >
                       {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}

@@ -7,12 +7,14 @@ import { ArrowLeft, CalendarDays, CheckCircle2, LoaderCircle, MapPin, Ticket } f
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
-import type { StreetzEvent, StreetzEventTicket, StreetzUser, TicketStatus } from "@/lib/types";
+import type { StreetzEvent, StreetzEventTicket, StreetzEventTicketType, StreetzUser, TicketStatus } from "@/lib/types";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["PAID", "CHECKED_IN"]);
 const MAX_TICKETS_PER_PURCHASE = 20;
+const EVENT_TICKET_TIER_NAMES = ["Regular", "VIP", "Tables"] as const;
+type EventTicketTierName = (typeof EVENT_TICKET_TIER_NAMES)[number];
 
 function formatEventDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -54,19 +56,47 @@ function getEventTickets(event: StreetzEvent) {
   return event.userTickets ?? (event.userTicket ? [event.userTicket] : []);
 }
 
-function getRemainingUserTicketAllowance(event: StreetzEvent) {
-  const maxTicketsPerUser = event.ticketType?.maxTicketsPerUser ?? 1;
+function normalizeTicketTierName(name: string): EventTicketTierName {
+  if (name === "General Admission") {
+    return "Regular";
+  }
+
+  if ((EVENT_TICKET_TIER_NAMES as readonly string[]).includes(name)) {
+    return name as EventTicketTierName;
+  }
+
+  return "Regular";
+}
+
+function getEventTicketTypes(event: StreetzEvent) {
+  const ticketTypes = event.ticketTypes?.length ? event.ticketTypes : event.ticketType ? [event.ticketType] : [];
+
+  return [...ticketTypes].sort(
+    (first, second) =>
+      EVENT_TICKET_TIER_NAMES.indexOf(normalizeTicketTierName(first.name)) -
+      EVENT_TICKET_TIER_NAMES.indexOf(normalizeTicketTierName(second.name))
+  );
+}
+
+function getSelectedTicketType(event: StreetzEvent, selectedTicketTypeId: string | null) {
+  const ticketTypes = getEventTicketTypes(event);
+
+  return ticketTypes.find((ticketType) => ticketType.id === selectedTicketTypeId) ?? ticketTypes[0] ?? null;
+}
+
+function getRemainingUserTicketAllowance(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {
+  const maxTicketsPerUser = ticketType?.maxTicketsPerUser ?? 1;
   const ownedTickets = getEventTickets(event).filter((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status)).length;
 
   return Math.max(0, maxTicketsPerUser - ownedTickets);
 }
 
-function getMaxPurchaseQuantity(event: StreetzEvent) {
-  if (!event.ticketType || !isBookableEvent(event)) {
+function getMaxPurchaseQuantity(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {
+  if (!ticketType || !isBookableEvent(event)) {
     return 0;
   }
 
-  return Math.max(0, Math.min(event.ticketType.availableCount, getRemainingUserTicketAllowance(event), MAX_TICKETS_PER_PURCHASE));
+  return Math.max(0, Math.min(ticketType.availableCount, getRemainingUserTicketAllowance(event, ticketType), MAX_TICKETS_PER_PURCHASE));
 }
 
 function getTicketState(ticket: StreetzEventTicket) {
@@ -108,19 +138,22 @@ export function EventTicketsTab({
   const [isLoading, setIsLoading] = useState(!isAdmin);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [bookingQuantity, setBookingQuantity] = useState(1);
+  const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const ticketTypes = useMemo(() => (event ? getEventTicketTypes(event) : []), [event]);
+  const selectedTicketType = event ? getSelectedTicketType(event, selectedTicketTypeId) : null;
   const tickets = useMemo(() => {
     const userTickets = event ? getEventTickets(event) : [];
 
     return userTickets.filter((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status));
   }, [event]);
-  const maxPurchaseQuantity = event ? getMaxPurchaseQuantity(event) : 0;
+  const maxPurchaseQuantity = event ? getMaxPurchaseQuantity(event, selectedTicketType) : 0;
   const selectedQuantity = maxPurchaseQuantity > 0 ? Math.min(Math.max(1, bookingQuantity), maxPurchaseQuantity) : 1;
   const quantityOptions = Array.from({ length: maxPurchaseQuantity }, (_, index) => index + 1);
   const canBookMore = maxPurchaseQuantity > 0;
-  const isSoldOut = Boolean(event?.ticketType && event.ticketType.availableCount <= 0);
-  const isLimitReached = Boolean(event?.ticketType && isBookableEvent(event) && !isSoldOut && maxPurchaseQuantity <= 0);
+  const isSoldOut = Boolean(selectedTicketType && selectedTicketType.availableCount <= 0);
+  const isLimitReached = Boolean(event && selectedTicketType && isBookableEvent(event) && !isSoldOut && maxPurchaseQuantity <= 0);
   const isBusy = activeEventId === event?.id;
 
   useEffect(() => {
@@ -163,7 +196,7 @@ export function EventTicketsTab({
   }, [eventId, isAdmin, token]);
 
   async function bookEvent() {
-    if (!event?.ticketType || !canBookMore) {
+    if (!event || !selectedTicketType || !canBookMore) {
       return;
     }
 
@@ -177,11 +210,11 @@ export function EventTicketsTab({
     setNotice(null);
 
     try {
-      if (event.ticketType.priceKobo <= 0) {
+      if (selectedTicketType.priceKobo <= 0) {
         const updatedEvent = await apiRequest<StreetzEvent>(`/events/${event.id}/book`, {
           method: "POST",
           headers: authHeaders(token),
-          body: JSON.stringify({ quantity: safeQuantity }),
+          body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: selectedTicketType.id }),
         });
         setEvent(updatedEvent);
         setBookingQuantity(1);
@@ -192,7 +225,7 @@ export function EventTicketsTab({
       const response = await apiRequest<{ authorizationUrl?: string }>(`/payments/events/${event.id}/ticket/initialize`, {
         method: "POST",
         headers: authHeaders(token),
-        body: JSON.stringify({ quantity: safeQuantity }),
+        body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: selectedTicketType.id }),
       });
 
       if (!response.authorizationUrl) {
@@ -237,7 +270,7 @@ export function EventTicketsTab({
           <LoadingState label="Loading tickets" className="min-h-90 rounded-3xl border border-black/5" />
         ) : event ? (
           (() => {
-            const isPaidEvent = Boolean(event.ticketType && event.ticketType.priceKobo > 0);
+            const isPaidEvent = Boolean(selectedTicketType && selectedTicketType.priceKobo > 0);
             const isBooked = tickets.length > 0;
             const purchaseNoun = isPaidEvent ? "ticket" : "spot";
             const purchaseNounPlural = isPaidEvent ? "tickets" : "spots";
@@ -255,7 +288,7 @@ export function EventTicketsTab({
                       className="object-cover"
                     />
                     <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#0d0d0d]">
-                      {event.ticketType ? formatPrice(event.ticketType.priceKobo) : "No ticket"}
+                      {selectedTicketType ? `${normalizeTicketTierName(selectedTicketType.name)} · ${formatPrice(selectedTicketType.priceKobo)}` : "No ticket"}
                     </span>
                   </div>
                   <div className="p-4">
@@ -268,10 +301,30 @@ export function EventTicketsTab({
                       <MapPin className="size-4" aria-hidden="true" />
                       {formatEventLocation(event)}
                     </p>
-                    {event.ticketType ? (
+                    {ticketTypes.length > 1 ? (
+                      <label className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                        Tier
+                        <select
+                          className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          value={selectedTicketType?.id ?? ""}
+                          onChange={(inputEvent) => {
+                            setSelectedTicketTypeId(inputEvent.target.value);
+                            setBookingQuantity(1);
+                          }}
+                          disabled={isBusy}
+                        >
+                          {ticketTypes.map((ticketType) => (
+                            <option key={ticketType.id} value={ticketType.id}>
+                              {normalizeTicketTierName(ticketType.name)} · {formatPrice(ticketType.priceKobo)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                    {selectedTicketType ? (
                       <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">{event.ticketType.availableCount} spots left</span>
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">Max {event.ticketType.maxTicketsPerUser} per person</span>
+                        <span className="rounded-full bg-[#fafafa] px-3 py-1">{selectedTicketType.availableCount} spots left</span>
+                        <span className="rounded-full bg-[#fafafa] px-3 py-1">Max {selectedTicketType.maxTicketsPerUser} per person</span>
                       </div>
                     ) : null}
                     {event.status === "CANCELLED" ? (
@@ -303,7 +356,7 @@ export function EventTicketsTab({
                       disabled={!canBookMore || isBusy}
                     >
                       {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
-                      {!event.ticketType
+                      {!selectedTicketType
                         ? "No tickets available"
                         : isSoldOut
                           ? "Sold out"
@@ -332,6 +385,9 @@ export function EventTicketsTab({
                             <div className="min-w-0">
                               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Ticket {tickets.length - index}</p>
                               <p className="mt-2 truncate text-lg font-semibold text-[#0d0d0d]">{ticket.code}</p>
+                              {ticket.ticketType ? (
+                                <p className="mt-1 text-sm font-medium text-[#666666]">{normalizeTicketTierName(ticket.ticketType.name)}</p>
+                              ) : null}
                               <p className="mt-1 text-sm text-[#666666]">Booked {formatEventDate(ticket.createdAt)}</p>
                               {ticket.checkedInAt ? (
                                 <p className="mt-1 text-sm text-[#666666]">Used {formatEventDate(ticket.checkedInAt)}</p>

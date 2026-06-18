@@ -58,13 +58,6 @@ enum ConnectionStatus {
   FWB
   JUST_FRIENDS
   DATING
-  SERIOUS_RELATIONSHIP
-  CASUAL_DATING
-  FRIENDS_FIRST
-  OPEN_TO_ANYTHING
-  EVENT_BUDDY
-  CHAT_FIRST
-  SEX
 }
 
 enum DiscoveryAction {
@@ -177,6 +170,7 @@ model User {
   payments           Payment[]
   notificationSeens  NotificationSeen[]
   refreshTokens      RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
   faceVerificationAttempts FaceVerificationAttempt[]
   moderationActionsTaken    ModerationAction[] @relation("ModerationAdmin")
   moderationActionsReceived ModerationAction[] @relation("ModerationTarget")
@@ -218,6 +212,20 @@ model RefreshToken {
   updatedAt         DateTime  @updatedAt
 
   @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, usedAt])
   @@index([expiresAt])
 }
 
@@ -278,14 +286,16 @@ model DiscoveryActionLog {
 }
 
 model Match {
-  id        String          @id @default(cuid())
-  userAId   String
-  userBId   String
-  userA     User            @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
-  userB     User            @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
-  status    MatchStatus     @default(ACTIVE)
-  createdAt DateTime        @default(now())
-  messages  DirectMessage[]
+  id                             String            @id @default(cuid())
+  userAId                        String
+  userBId                        String
+  userA                          User              @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB                          User              @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  status                         MatchStatus       @default(ACTIVE)
+  userAConnectionStatusAtMatch   ConnectionStatus?
+  userBConnectionStatusAtMatch   ConnectionStatus?
+  createdAt                      DateTime          @default(now())
+  messages                       DirectMessage[]
   readStates MatchReadState[]
 
   @@unique([userAId, userBId])
@@ -440,6 +450,8 @@ model TicketType {
   soldCount           Int      @default(0)
   createdAt           DateTime @default(now())
   tickets             Ticket[]
+
+  @@unique([eventId, name])
 }
 
 model Ticket {

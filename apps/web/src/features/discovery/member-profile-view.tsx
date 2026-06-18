@@ -8,7 +8,7 @@ import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { formatDistanceKm } from "@/lib/location";
 import { formatConnectionStatus } from "@/lib/profile";
 import { REPORT_DETAILS_MAX_LENGTH, REPORT_REASON_OPTIONS } from "@/lib/report-reasons";
-import type { DiscoveryCandidate } from "@/lib/types";
+import type { ConnectionStatus, DiscoveryCandidate } from "@/lib/types";
 
 export function MemberProfileView({
   candidate,
@@ -16,6 +16,7 @@ export function MemberProfileView({
   backLabel,
   footer,
   token,
+  matchedConnectionStatus,
   showSafetyActions = false,
   showUnmatchAction = false,
   onBlocked,
@@ -27,6 +28,7 @@ export function MemberProfileView({
   backLabel: string;
   footer?: ReactNode;
   token?: string;
+  matchedConnectionStatus?: ConnectionStatus | null;
   showSafetyActions?: boolean;
   showUnmatchAction?: boolean;
   onBlocked?: (candidate: DiscoveryCandidate) => void;
@@ -234,6 +236,14 @@ export function MemberProfileView({
 	                </p>
               </div>
             </div>
+
+            {matchedConnectionStatus ? (
+              <div className="border-b border-[#18E299]/20 bg-[#d9fbe9] px-5 py-3">
+                <p className="text-sm font-semibold text-[#064d34]">
+                  Matched as {formatConnectionStatus(matchedConnectionStatus)}
+                </p>
+              </div>
+            ) : null}
 
             <div className="px-5 pb-5 pt-5">
               <div>

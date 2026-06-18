@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { JwtModule } from "@nestjs/jwt";
+import { JwtModule } from "@nestjs/jwt/dist";
 import { ActiveSubscriptionGuard } from "../auth/guards/active-subscription.guard";
 import { StorageModule } from "../storage/storage.module";
 import { MessagesController } from "./messages.controller";

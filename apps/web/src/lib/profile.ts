@@ -1,6 +1,7 @@
 import type { ConnectionStatus, Sexuality, StreetzProfile } from "@/lib/types";
 
 export const PROFILE_PHOTO_LIMIT = 4;
+export const PROFILE_INTEREST_LIMIT = 12;
 export const MINIMUM_PROFILE_AGE = 18;
 
 export const connectionStatusOptions: Array<{ value: ConnectionStatus; label: string }> = [
@@ -8,13 +9,6 @@ export const connectionStatusOptions: Array<{ value: ConnectionStatus; label: st
   { value: "FWB", label: "FWB" },
   { value: "JUST_FRIENDS", label: "Just Friends" },
   { value: "DATING", label: "Dating" },
-  { value: "SERIOUS_RELATIONSHIP", label: "Serious Relationship" },
-  { value: "CASUAL_DATING", label: "Casual Dating" },
-  { value: "FRIENDS_FIRST", label: "Friends First" },
-  { value: "OPEN_TO_ANYTHING", label: "Open to Anything" },
-  { value: "EVENT_BUDDY", label: "Event Buddy" },
-  { value: "CHAT_FIRST", label: "Chat First" },
-  { value: "SEX", label: "Sex" },
 ];
 
 export const connectionStatusLabels: Record<ConnectionStatus, string> = {
@@ -22,13 +16,6 @@ export const connectionStatusLabels: Record<ConnectionStatus, string> = {
   FWB: "FWB",
   JUST_FRIENDS: "Just Friends",
   DATING: "Dating",
-  SERIOUS_RELATIONSHIP: "Serious Relationship",
-  CASUAL_DATING: "Casual Dating",
-  FRIENDS_FIRST: "Friends First",
-  OPEN_TO_ANYTHING: "Open to Anything",
-  EVENT_BUDDY: "Event Buddy",
-  CHAT_FIRST: "Chat First",
-  SEX: "Sex",
 };
 
 export const sexualityOptions: Array<{ value: Sexuality; label: string }> = [
@@ -52,6 +39,64 @@ export const sexualityLabels: Record<Sexuality, string> = {
   QUEER: "Queer",
   PREFER_NOT_TO_SAY: "Prefer not to say",
 };
+
+export const profileInterestSuggestions = [
+  "Afrobeats",
+  "Amapiano",
+  "Anime",
+  "Art",
+  "Basketball",
+  "Beach days",
+  "Beauty",
+  "Board games",
+  "Books",
+  "Brunch",
+  "Business",
+  "Cars",
+  "Church",
+  "Cocktails",
+  "Coffee",
+  "Comedy",
+  "Concerts",
+  "Content creation",
+  "Cooking",
+  "Crypto",
+  "Dancing",
+  "Design",
+  "DJ nights",
+  "Dogs",
+  "Fashion",
+  "Festivals",
+  "Fitness",
+  "Football",
+  "Gaming",
+  "Gym",
+  "Hiking",
+  "Hip-hop",
+  "Investing",
+  "Karaoke",
+  "K-drama",
+  "Language learning",
+  "Makeup",
+  "Movies",
+  "Music",
+  "Nature",
+  "Nightlife",
+  "Nollywood",
+  "Parties",
+  "Pets",
+  "Photography",
+  "Poetry",
+  "R&B",
+  "Restaurants",
+  "Road trips",
+  "Running",
+  "Sneakers",
+  "Startups",
+  "Tech",
+  "Travel",
+  "Volunteering",
+] as const;
 
 export function formatSexuality(sexuality: Sexuality | null | undefined) {
   return sexuality ? sexualityLabels[sexuality] : null;

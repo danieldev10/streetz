@@ -547,6 +547,7 @@ export function MatchesTab({
         onBack={() => setViewedMatchProfile(null)}
         backLabel="Back to chat"
         token={token}
+        matchedConnectionStatus={selectedMatch.matchedConnectionStatus}
         showSafetyActions
         showUnmatchAction={selectedMatch.blockStatus === "NONE"}
         onUnmatched={() => unmatchMatch(selectedMatch)}

@@ -125,11 +125,11 @@ export class DiscoveryService {
       },
       city: { not: null },
       state: { not: null },
+      connectionStatus: filters.lookingFor?.length ? { in: filters.lookingFor } : { not: null },
       discoveryLive: true,
       interests: { isEmpty: false },
       ...(filters.gender?.length ? { gender: { in: filters.gender } } : {}),
-      ...(filters.sexuality?.length ? { sexuality: { in: filters.sexuality } } : {}),
-      ...(filters.lookingFor?.length ? { connectionStatus: { in: filters.lookingFor } } : {})
+      ...(filters.sexuality?.length ? { sexuality: { in: filters.sexuality } } : {})
     };
 
     const candidates = await this.prisma.user.findMany({
@@ -155,8 +155,8 @@ export class DiscoveryService {
   }
 
   async recordAction(userId: string, dto: DiscoveryActionDto) {
-    await this.ensureCurrentProfileReady(userId);
-    await this.ensureActionTarget(userId, dto.targetUserId);
+    const currentProfile = await this.ensureCurrentProfileReady(userId);
+    const targetConnectionStatus = await this.ensureActionTarget(userId, dto.targetUserId);
 
     const pair = this.getMatchPair(userId, dto.targetUserId);
 
@@ -206,16 +206,28 @@ export class DiscoveryService {
       };
     }
 
+    const matchedAt = new Date();
+    const matchStatusSnapshot = this.getMatchStatusSnapshot(
+      pair,
+      userId,
+      currentProfile.connectionStatus,
+      targetConnectionStatus
+    );
+
     const match = await this.prisma.match.upsert({
       where: {
         userAId_userBId: pair
       },
       create: {
         ...pair,
-        status: MatchStatus.ACTIVE
+        status: MatchStatus.ACTIVE,
+        createdAt: matchedAt,
+        ...matchStatusSnapshot
       },
       update: {
-        status: MatchStatus.ACTIVE
+        status: MatchStatus.ACTIVE,
+        createdAt: matchedAt,
+        ...matchStatusSnapshot
       },
       include: {
         userA: {
@@ -447,16 +459,24 @@ export class DiscoveryService {
             birthDate: { not: null },
             city: { not: null },
             state: { not: null },
+            connectionStatus: { not: null },
             discoveryLive: true,
             interests: { isEmpty: false }
           }
         },
         photos: { some: {} }
       },
-      select: { id: true }
+      select: {
+        id: true,
+        profile: {
+          select: {
+            connectionStatus: true
+          }
+        }
+      }
     });
 
-    if (!target) {
+    if (!target?.profile?.connectionStatus) {
       throw new NotFoundException("Discovery profile not found.");
     }
 
@@ -473,6 +493,8 @@ export class DiscoveryService {
     if (existingBlock) {
       throw new ForbiddenException("This profile is no longer available.");
     }
+
+    return target.profile.connectionStatus;
   }
 
   private async ensureCurrentProfileReady(userId: string) {
@@ -567,6 +589,18 @@ export class DiscoveryService {
     };
   }
 
+  private getMatchStatusSnapshot(
+    pair: { userAId: string; userBId: string },
+    actorId: string,
+    actorConnectionStatus: ConnectionStatus,
+    targetConnectionStatus: ConnectionStatus
+  ) {
+    return {
+      userAConnectionStatusAtMatch: pair.userAId === actorId ? actorConnectionStatus : targetConnectionStatus,
+      userBConnectionStatusAtMatch: pair.userBId === actorId ? actorConnectionStatus : targetConnectionStatus
+    };
+  }
+
   private formatLocationMeta(profile: ReadyDiscoveryProfile) {
     return {
       hasCoordinates: profile.latitude !== null && profile.longitude !== null,
@@ -635,6 +669,7 @@ export class DiscoveryService {
           AND candidate_profile."birthDate" IS NOT NULL
           AND candidate_profile."city" IS NOT NULL
           AND candidate_profile."state" IS NOT NULL
+          AND candidate_profile."connectionStatus" IS NOT NULL
           AND candidate_profile."discoveryLive" = TRUE
           AND cardinality(candidate_profile."interests") > 0
           AND candidate_profile."location" IS NOT NULL
@@ -702,16 +737,22 @@ export class DiscoveryService {
       id: string;
       createdAt: Date;
       userAId: string;
+      userAConnectionStatusAtMatch: ConnectionStatus | null;
+      userBConnectionStatusAtMatch: ConnectionStatus | null;
       userA: Parameters<DiscoveryService["formatCandidate"]>[0];
       userB: Parameters<DiscoveryService["formatCandidate"]>[0];
     },
     currentUserId: string
   ) {
     const otherUser = match.userAId === currentUserId ? match.userB : match.userA;
+    const matchedConnectionStatus = match.userAId === currentUserId
+      ? match.userBConnectionStatusAtMatch
+      : match.userAConnectionStatusAtMatch;
 
     return {
       id: match.id,
       createdAt: match.createdAt,
+      matchedConnectionStatus: matchedConnectionStatus ?? otherUser.profile?.connectionStatus ?? null,
       user: await this.formatCandidate(otherUser)
     };
   }

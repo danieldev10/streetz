@@ -39,6 +39,8 @@ type MatchWithUsers = {
   status: MatchStatus;
   userAId: string;
   userBId: string;
+  userAConnectionStatusAtMatch: ConnectionStatus | null;
+  userBConnectionStatusAtMatch: ConnectionStatus | null;
   userA: CandidateUser;
   userB: CandidateUser;
   messages?: Array<FormattedDirectMessageSource>;
@@ -345,6 +347,9 @@ export class MessagesService {
     const otherUser = match.userAId === currentUserId ? match.userB : match.userA;
     const lastMessage = match.messages?.[0];
     const lastReadAt = match.readStates?.[0]?.lastReadAt ?? null;
+    const matchedConnectionStatus = match.userAId === currentUserId
+      ? match.userBConnectionStatusAtMatch
+      : match.userAConnectionStatusAtMatch;
     const unreadCount = match.status === MatchStatus.ACTIVE
       ? await this.countUnreadMessages(match.id, currentUserId, lastReadAt)
       : 0;
@@ -352,6 +357,7 @@ export class MessagesService {
     return {
       id: match.id,
       createdAt: match.createdAt,
+      matchedConnectionStatus: matchedConnectionStatus ?? otherUser.profile?.connectionStatus ?? null,
       user: await this.formatCandidate(otherUser),
       lastMessage: lastMessage ? this.formatMessage(lastMessage) : null,
       unreadCount,
