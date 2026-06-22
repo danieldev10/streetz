@@ -1,12 +1,12 @@
 "use client";
 
-import { AuthenticatedRoute } from "@/components/app/authenticated-route";
+import { PublicRoute } from "@/components/app/public-route";
 import { RoomsTab } from "@/features/rooms/rooms-tab";
 
 export default function RoomsPage() {
   return (
-    <AuthenticatedRoute activeTab="rooms">
-      {({ token, user, cachedRooms, onRoomsLoaded, onRoomOpened, onNotificationsChanged }) => (
+    <PublicRoute activeTab="rooms">
+      {({ token, user, cachedRooms, onRoomsLoaded, onRoomOpened, onNotificationsChanged, requestAuth }) => (
         <RoomsTab
           token={token}
           user={user}
@@ -14,8 +14,9 @@ export default function RoomsPage() {
           onRoomsLoaded={onRoomsLoaded}
           onRoomOpened={onRoomOpened}
           onNotificationsChanged={onNotificationsChanged}
+          onAuthRequired={requestAuth}
         />
       )}
-    </AuthenticatedRoute>
+    </PublicRoute>
   );
 }

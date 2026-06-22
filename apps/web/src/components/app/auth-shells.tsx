@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { LoaderCircle, LogOut, RotateCcw } from "lucide-react";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import type { StreetzUser } from "@/lib/types";
@@ -156,12 +156,20 @@ export function PaywallShell({
   user,
   message,
   isStartingPayment,
+  title = "Subscribe for ₦1,000/month.",
+  buttonLabel = "Pay with Paystack",
+  isActionDisabled = false,
+  children,
   onStartSubscription,
   onLogout,
 }: {
   user: StreetzUser;
   message: string | null;
   isStartingPayment: boolean;
+  title?: string;
+  buttonLabel?: string;
+  isActionDisabled?: boolean;
+  children?: ReactNode;
   onStartSubscription: () => void;
   onLogout: () => void;
 }) {
@@ -183,19 +191,21 @@ export function PaywallShell({
               <LogOut className="size-4" aria-hidden="true" />
             </button>
           </div>
-          <h1 className="mt-10 text-3xl font-semibold leading-tight md:text-5xl">Subscribe for ₦1,000/month.</h1>
+          <h1 className="mt-10 text-3xl font-semibold leading-tight md:text-5xl">{title}</h1>
         </div>
 
         <div className="p-6">
+          {children}
+
           {message ? <p className="mb-4 rounded-2xl bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
 
           <button
             className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#18E299] px-5 text-sm font-medium text-[#0d0d0d] shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onStartSubscription}
-            disabled={isStartingPayment}
+            disabled={isStartingPayment || isActionDisabled}
           >
             {isStartingPayment ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-            {isStartingPayment ? "Opening Paystack" : "Pay with Paystack"}
+            {isStartingPayment ? "Opening Paystack" : buttonLabel}
           </button>
         </div>
       </section>

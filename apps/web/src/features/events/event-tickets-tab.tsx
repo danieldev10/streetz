@@ -3,10 +3,13 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, CheckCircle2, LoaderCircle, MapPin, Ticket } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, LoaderCircle, MapPin, Share2, Ticket } from "lucide-react";
+import { type AuthPromptKind } from "@/components/app/public-route";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { consumePendingEventCheckoutNotice, savePendingEventCheckout } from "@/lib/pending-event-checkout";
+import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import type { StreetzEvent, StreetzEventTicket, StreetzEventTicketType, StreetzUser, TicketStatus } from "@/lib/types";
 
 const FALLBACK_EVENT_IMAGE =
@@ -85,10 +88,15 @@ function getSelectedTicketType(event: StreetzEvent, selectedTicketTypeId: string
 }
 
 function getRemainingUserTicketAllowance(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {
-  const maxTicketsPerUser = ticketType?.maxTicketsPerUser ?? 1;
-  const ownedTickets = getEventTickets(event).filter((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status)).length;
+  if (!ticketType?.id) {
+    return 0;
+  }
 
-  return Math.max(0, maxTicketsPerUser - ownedTickets);
+  const ownedTickets = getEventTickets(event).filter(
+    (ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status) && ticket.ticketType?.id === ticketType.id
+  ).length;
+
+  return Math.max(0, ticketType.maxTicketsPerUser - ownedTickets);
 }
 
 function getMaxPurchaseQuantity(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {
@@ -127,13 +135,16 @@ export function EventTicketsTab({
   token,
   user,
   eventId,
+  onAuthRequired,
 }: {
-  token: string;
-  user: StreetzUser;
+  token?: string | null;
+  user?: StreetzUser | null;
   eventId: string;
+  onAuthRequired?: (kind?: AuthPromptKind) => void;
 }) {
   const router = useRouter();
-  const isAdmin = user.role === "ADMIN";
+  const isGuest = !token || !user;
+  const isAdmin = user?.role === "ADMIN";
   const [event, setEvent] = useState<StreetzEvent | null>(null);
   const [isLoading, setIsLoading] = useState(!isAdmin);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
@@ -157,16 +168,28 @@ export function EventTicketsTab({
   const isBusy = activeEventId === event?.id;
 
   useEffect(() => {
+    const checkoutNotice = consumePendingEventCheckoutNotice();
+
+    if (!checkoutNotice) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => setNotice(checkoutNotice), 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     let isCancelled = false;
 
     async function loadEvent() {
       setIsLoading(true);
-      setNotice(null);
 
       try {
-        const response = await apiRequest<StreetzEvent>(`/events/${eventId}/tickets`, {
-          headers: authHeaders(token),
-        });
+        const response = await apiRequest<StreetzEvent>(
+          isGuest ? `/public/events/${eventId}` : `/events/${eventId}/tickets`,
+          isGuest ? undefined : { headers: authHeaders(token as string) }
+        );
 
         if (!isCancelled) {
           setEvent(response);
@@ -193,16 +216,51 @@ export function EventTicketsTab({
     return () => {
       isCancelled = true;
     };
-  }, [eventId, isAdmin, token]);
+  }, [eventId, isAdmin, isGuest, token]);
 
-  async function bookEvent() {
-    if (!event || !selectedTicketType || !canBookMore) {
+  async function shareEvent(ticket?: StreetzEventTicket) {
+    if (!event) {
       return;
     }
 
-    const safeQuantity = Math.max(1, Math.min(selectedQuantity, maxPurchaseQuantity));
+    const tierName = ticket?.ticketType ? normalizeTicketTierName(ticket.ticketType.name) : null;
+
+    try {
+      const result = await shareOrCopyLink({
+        title: event.title,
+        text: ticket
+          ? `I have a ${tierName ?? "ticket"} ticket for ${event.title} on Crushclub.`
+          : `Check out ${event.title} on Crushclub.`,
+        url: getAbsoluteAppUrl(`/events/${event.id}`),
+      });
+
+      if (result === "copied") {
+        setNotice(ticket ? "Ticket share link copied." : "Event link copied.");
+      }
+    } catch {
+      setNotice("Could not copy link right now.");
+    }
+  }
+
+  async function bookEvent() {
+    if (!event || !selectedTicketType) {
+      return;
+    }
+
+    const guestMaxQuantity = Math.min(selectedTicketType.availableCount, MAX_TICKETS_PER_PURCHASE);
+    const safeQuantity = Math.max(1, Math.min(selectedQuantity, isGuest ? guestMaxQuantity : maxPurchaseQuantity));
 
     if (safeQuantity < 1) {
+      return;
+    }
+
+    if (isGuest) {
+      savePendingEventCheckout({ eventId: event.id, ticketTypeId: selectedTicketType.id, quantity: safeQuantity });
+      onAuthRequired?.("eventTicket");
+      return;
+    }
+
+    if (!token || !canBookMore) {
       return;
     }
 
@@ -213,7 +271,7 @@ export function EventTicketsTab({
       if (selectedTicketType.priceKobo <= 0) {
         const updatedEvent = await apiRequest<StreetzEvent>(`/events/${event.id}/book`, {
           method: "POST",
-          headers: authHeaders(token),
+          headers: authHeaders(token as string),
           body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: selectedTicketType.id }),
         });
         setEvent(updatedEvent);
@@ -224,7 +282,7 @@ export function EventTicketsTab({
 
       const response = await apiRequest<{ authorizationUrl?: string }>(`/payments/events/${event.id}/ticket/initialize`, {
         method: "POST",
-        headers: authHeaders(token),
+        headers: authHeaders(token as string),
         body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: selectedTicketType.id }),
       });
 
@@ -243,7 +301,7 @@ export function EventTicketsTab({
   return (
     <section>
       <ScreenHeader
-        eyebrow="Tickets"
+        eyebrow={isGuest ? "Event" : "Tickets"}
         title=""
         action={
           <button
@@ -290,6 +348,15 @@ export function EventTicketsTab({
                     <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#0d0d0d]">
                       {selectedTicketType ? `${normalizeTicketTierName(selectedTicketType.name)} · ${formatPrice(selectedTicketType.priceKobo)}` : "No ticket"}
                     </span>
+                    <button
+                      className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-white/90 text-[#0d0d0d] shadow-sm backdrop-blur transition hover:bg-white"
+                      type="button"
+                      onClick={() => void shareEvent()}
+                      aria-label={`Share ${event.title}`}
+                      title="Share event"
+                    >
+                      <Share2 className="size-4" aria-hidden="true" />
+                    </button>
                   </div>
                   <div className="p-4">
                     <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
@@ -361,20 +428,21 @@ export function EventTicketsTab({
                         : isSoldOut
                           ? "Sold out"
                           : isLimitReached
-                            ? "Ticket limit reached"
-                            : !isBookableEvent(event)
-                              ? "Event unavailable"
-                              : isBooked && selectedQuantity === 1
-                                ? `${isPaidEvent ? "Buy" : "Book"} another ${purchaseNoun}`
-                                : isBooked
-                                  ? `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} more ${purchaseNounPlural}`
-                                  : `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} ${selectedNoun}`}
+                              ? "Ticket limit reached"
+                              : !isBookableEvent(event)
+                                ? "Event unavailable"
+                                : isBooked && selectedQuantity === 1
+                                  ? `${isPaidEvent ? "Buy" : "Book"} another ${purchaseNoun}`
+                                  : isBooked
+                                    ? `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} more ${purchaseNounPlural}`
+                                    : `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} ${selectedNoun}`}
                     </button>
                   </div>
                 </article>
 
-                <div className="grid gap-3">
-                  {tickets.length > 0 ? (
+                {!isGuest ? (
+                  <div className="grid gap-3">
+                    {tickets.length > 0 ? (
                     tickets.map((ticket, index) => {
                       const state = getTicketState(ticket);
                       const Icon = state.icon;
@@ -393,10 +461,21 @@ export function EventTicketsTab({
                                 <p className="mt-1 text-sm text-[#666666]">Used {formatEventDate(ticket.checkedInAt)}</p>
                               ) : null}
                             </div>
-                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${state.tone}`}>
-                              <Icon className="size-3.5" aria-hidden="true" />
-                              {state.label}
-                            </span>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <button
+                                className="inline-flex size-9 items-center justify-center rounded-full border border-black/8 text-[#666666] transition hover:border-[#18E299] hover:text-[#0d0d0d]"
+                                type="button"
+                                onClick={() => void shareEvent(ticket)}
+                                aria-label={`Share ${event.title} ticket`}
+                                title="Share ticket"
+                              >
+                                <Share2 className="size-4" aria-hidden="true" />
+                              </button>
+                              <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${state.tone}`}>
+                                <Icon className="size-3.5" aria-hidden="true" />
+                                {state.label}
+                              </span>
+                            </div>
                           </div>
                         </article>
                       );
@@ -409,8 +488,9 @@ export function EventTicketsTab({
                         <p className="mt-2 text-sm text-[#666666]">Book this event to see your tickets here.</p>
                       </div>
                     </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             );
           })()

@@ -96,6 +96,7 @@ enum TicketStatus {
 enum PaymentPurpose {
   SUBSCRIPTION
   EVENT_TICKET
+  MEMBERSHIP_EVENT_TICKET
 }
 
 enum PaymentStatus {
@@ -425,6 +426,7 @@ model Event {
   slug               String       @unique
   description        String?
   coverImage         String?
+  category           String
   venue              String
   state              String?
   city               String
@@ -437,6 +439,8 @@ model Event {
   updatedAt          DateTime     @updatedAt
   ticketTypes        TicketType[]
   tickets            Ticket[]
+
+  @@index([category, status, startsAt])
 }
 
 model TicketType {

@@ -6,7 +6,7 @@
     "dev": "rm -rf .next && next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint src"
   },
   "engines": {
     "node": ">=22.13.0 <23",

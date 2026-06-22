@@ -72,7 +72,15 @@ function formatNaira(amountKobo: number) {
 }
 
 function formatPaymentPurpose(purpose: PaymentPurpose) {
-  return purpose === "EVENT_TICKET" ? "event ticket" : "membership";
+  if (purpose === "EVENT_TICKET") {
+    return "event ticket";
+  }
+
+  if (purpose === "MEMBERSHIP_EVENT_TICKET") {
+    return "membership + event ticket";
+  }
+
+  return "membership";
 }
 
 function formatPaymentStatus(status: PaymentStatus) {

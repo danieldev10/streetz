@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@prisma/client";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ActiveSubscriptionGuard } from "../auth/guards/active-subscription.guard";
@@ -18,6 +19,18 @@ import { EventsService } from "./events.service";
 @Controller()
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
+
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get("public/events")
+  getPublicEvents() {
+    return this.eventsService.getPublicEvents();
+  }
+
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get("public/events/:eventId")
+  getPublicEvent(@Param("eventId") eventId: string) {
+    return this.eventsService.getPublicEvent(eventId);
+  }
 
   @Get("events")
   @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)

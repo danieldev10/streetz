@@ -4,10 +4,41 @@ import Image from "next/image";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, ImagePlus, LoaderCircle, MapPin, Pencil, Plus, RefreshCw, Save, SlidersHorizontal, Ticket, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Briefcase,
+  CalendarDays,
+  Drama,
+  Dumbbell,
+  Gamepad2,
+  Heart,
+  ImagePlus,
+  Laptop,
+  LoaderCircle,
+  MapPin,
+  Moon,
+  Music,
+  PartyPopper,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Save,
+  Shirt,
+  Share2,
+  SlidersHorizontal,
+  Sparkles,
+  Ticket,
+  UsersRound,
+  Utensils,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import { type AuthPromptKind } from "@/components/app/public-route";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { savePendingEventCheckout } from "@/lib/pending-event-checkout";
+import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import { EVENT_IMAGE_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
 import type { EventStatus, StreetzEvent, StreetzEventTicketType, StreetzProfile, StreetzUser, TicketStatus } from "@/lib/types";
@@ -15,10 +46,25 @@ import type { EventStatus, StreetzEvent, StreetzEventTicketType, StreetzProfile,
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
 const EVENT_TICKET_TIER_NAMES = ["Regular", "VIP", "Tables"] as const;
+const EVENT_CATEGORY_OPTIONS = [
+  "Music",
+  "Nightlife",
+  "Theatre",
+  "Holidays",
+  "Dating",
+  "Hobbies",
+  "Business",
+  "Food & Drink",
+  "Sports & Fitness",
+  "Fashion",
+  "Tech",
+  "Community",
+] as const;
 const SUPPORTED_EVENT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["PAID", "CHECKED_IN"]);
 const EVENT_TITLE_MAX_LENGTH = 120;
 const EVENT_DESCRIPTION_MAX_LENGTH = 600;
+const EVENT_CATEGORY_MAX_LENGTH = 40;
 const EVENT_COVER_IMAGE_MAX_LENGTH = 500;
 const EVENT_LOCATION_MAX_LENGTH = 80;
 const EVENT_VENUE_MAX_LENGTH = 120;
@@ -39,6 +85,7 @@ type AdminEventView = "list" | "form";
 type AdminEventMode = "list" | "create" | "edit";
 type AdminEventListMode = "active" | "inactive";
 type EventTicketTierName = (typeof EVENT_TICKET_TIER_NAMES)[number];
+type EventCategoryName = (typeof EVENT_CATEGORY_OPTIONS)[number];
 type EventFormTicketTier = {
   priceNaira: string;
   capacity: string;
@@ -47,6 +94,7 @@ type EventFormTicketTier = {
 
 type EventForm = {
   title: string;
+  category: string;
   description: string;
   coverImage: string;
   venue: string;
@@ -67,6 +115,7 @@ type EventImageUploadResponse = {
 
 const emptyEventForm: EventForm = {
   title: "",
+  category: "",
   description: "",
   coverImage: "",
   venue: "",
@@ -94,6 +143,21 @@ const emptyEventForm: EventForm = {
   },
 };
 
+const eventCategoryIcons: Record<EventCategoryName, LucideIcon> = {
+  Music,
+  Nightlife: Moon,
+  Theatre: Drama,
+  Holidays: PartyPopper,
+  Dating: Heart,
+  Hobbies: Gamepad2,
+  Business: Briefcase,
+  "Food & Drink": Utensils,
+  "Sports & Fitness": Dumbbell,
+  Fashion: Shirt,
+  Tech: Laptop,
+  Community: UsersRound,
+};
+
 function formatEventDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     weekday: "short",
@@ -114,6 +178,20 @@ function formatPrice(priceKobo: number) {
     currency: "NGN",
     maximumFractionDigits: 0,
   }).format(priceKobo / 100);
+}
+
+function normalizeEventCategory(category: string | null | undefined): EventCategoryName | null {
+  const normalizedCategory = category?.trim();
+
+  if (normalizedCategory === "Performing & Visual Arts") {
+    return "Theatre";
+  }
+
+  if (normalizedCategory && (EVENT_CATEGORY_OPTIONS as readonly string[]).includes(normalizedCategory)) {
+    return normalizedCategory as EventCategoryName;
+  }
+
+  return null;
 }
 
 function hasConfirmedTicket(event: StreetzEvent) {
@@ -245,10 +323,15 @@ function getCancellationImpact(event: StreetzEvent) {
 }
 
 function getRemainingUserTicketAllowance(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {
-  const maxTicketsPerUser = ticketType?.maxTicketsPerUser ?? 1;
-  const ownedTickets = getUserTickets(event).filter((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status)).length;
+  if (!ticketType?.id) {
+    return 0;
+  }
 
-  return Math.max(0, maxTicketsPerUser - ownedTickets);
+  const ownedTickets = getUserTickets(event).filter(
+    (ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status) && ticket.ticketType?.id === ticketType.id
+  ).length;
+
+  return Math.max(0, ticketType.maxTicketsPerUser - ownedTickets);
 }
 
 function getMaxPurchaseQuantity(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {
@@ -326,6 +409,7 @@ function getEventForm(event: StreetzEvent): EventForm {
 
   return {
     title: event.title,
+    category: normalizeEventCategory(event.category) ?? "",
     description: event.description ?? "",
     coverImage: event.coverImage ?? "",
     venue: event.venue,
@@ -343,14 +427,17 @@ export function EventsTab({
   user,
   adminMode = "list",
   adminEventId = null,
+  onAuthRequired,
 }: {
-  token: string;
-  user: StreetzUser;
+  token?: string | null;
+  user?: StreetzUser | null;
   adminMode?: AdminEventMode;
   adminEventId?: string | null;
+  onAuthRequired?: (kind?: AuthPromptKind) => void;
 }) {
   const router = useRouter();
-  const isAdmin = user.role === "ADMIN";
+  const isGuest = !token || !user;
+  const isAdmin = user?.role === "ADMIN";
   const [events, setEvents] = useState<StreetzEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [eventViewMode, setEventViewMode] = useState<EventViewMode>("events");
@@ -359,10 +446,12 @@ export function EventsTab({
   const [adminEventView, setAdminEventView] = useState<AdminEventView>(adminMode === "list" ? "list" : "form");
   const [editingEventId, setEditingEventId] = useState<string | null>(adminMode === "edit" ? adminEventId : null);
   const [eventForm, setEventForm] = useState<EventForm>(emptyEventForm);
+  const [eventFilterCategory, setEventFilterCategory] = useState<EventCategoryName | "">("");
   const [eventFilterState, setEventFilterState] = useState("");
   const [eventFilterCity, setEventFilterCity] = useState("");
   const [isEventFilterOpen, setIsEventFilterOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
+  const [ticketModalEventId, setTicketModalEventId] = useState<string | null>(null);
   const [bookingQuantities, setBookingQuantities] = useState<Record<string, number>>({});
   const [selectedTicketTypeIds, setSelectedTicketTypeIds] = useState<Record<string, string>>({});
   const [adminEventListMode, setAdminEventListMode] = useState<AdminEventListMode>("active");
@@ -384,6 +473,10 @@ export function EventsTab({
     () => events.find((event) => event.id === editingEventId) ?? null,
     [editingEventId, events]
   );
+  const ticketModalEvent = useMemo(
+    () => events.find((event) => event.id === ticketModalEventId) ?? null,
+    [events, ticketModalEventId]
+  );
   const isEditingLockedEvent = Boolean(editingEvent && isAdminLockedEvent(editingEvent));
   const canCancelEditingEvent = Boolean(
     editingEvent && editingEvent.status === "PUBLISHED" && !hasEventEnded(editingEvent)
@@ -394,9 +487,18 @@ export function EventsTab({
     [orderedEvents]
   );
   const memberEventsForMode = useMemo(
-    () => eventViewMode === "tickets" ? ticketEvents : exploreEvents,
-    [eventViewMode, exploreEvents, ticketEvents]
+    () => (isGuest ? exploreEvents : eventViewMode === "tickets" ? ticketEvents : exploreEvents),
+    [eventViewMode, exploreEvents, isGuest, ticketEvents]
   );
+  const memberCategoryOptions = useMemo(() => {
+    const availableCategories = new Set(
+      memberEventsForMode
+        .map((event) => normalizeEventCategory(event.category))
+        .filter((category): category is EventCategoryName => Boolean(category))
+    );
+
+    return EVENT_CATEGORY_OPTIONS.filter((category) => availableCategories.has(category));
+  }, [memberEventsForMode]);
   const eventFilterCityOptions = useMemo(() => {
     if (!eventFilterState) {
       return [];
@@ -413,32 +515,38 @@ export function EventsTab({
     return [...cityOptions];
   }, [eventFilterState, memberEventsForMode]);
   const visibleMemberEvents = useMemo(() => {
-    if (eventViewMode === "tickets") {
-      return memberEventsForMode;
-    }
-
     return memberEventsForMode.filter((event) => {
-      if (eventFilterState && getEventState(event) !== eventFilterState) {
+      if (eventFilterCategory && normalizeEventCategory(event.category) !== eventFilterCategory) {
         return false;
       }
 
-      if (eventFilterCity && event.city !== eventFilterCity) {
+      if (eventViewMode === "events" && eventFilterState && getEventState(event) !== eventFilterState) {
+        return false;
+      }
+
+      if (eventViewMode === "events" && eventFilterCity && event.city !== eventFilterCity) {
         return false;
       }
 
       return true;
     });
-  }, [eventFilterCity, eventFilterState, eventViewMode, memberEventsForMode]);
+  }, [eventFilterCategory, eventFilterCity, eventFilterState, eventViewMode, memberEventsForMode]);
   const hasEventLocationFilter = Boolean(eventFilterState || eventFilterCity);
-  const emptyMemberTitle = eventViewMode === "tickets"
-    ? "No tickets yet"
-    : hasEventLocationFilter
+  const hasEventCategoryFilter = Boolean(eventFilterCategory);
+  const hasMemberFilter = hasEventCategoryFilter || (eventViewMode === "events" && hasEventLocationFilter);
+  const emptyMemberTitle = !isGuest && eventViewMode === "tickets"
+    ? hasEventCategoryFilter
+      ? "No tickets found"
+      : "No tickets yet"
+    : hasMemberFilter
       ? "No events found"
       : "No events yet";
-  const emptyMemberDescription = eventViewMode === "tickets"
-    ? "Tickets you book or buy will appear here."
-    : hasEventLocationFilter
-      ? "Try another state or city."
+  const emptyMemberDescription = !isGuest && eventViewMode === "tickets"
+    ? hasEventCategoryFilter
+      ? "Try another category."
+      : "Tickets you book or buy will appear here."
+    : hasMemberFilter
+      ? "Try another category, state, or city."
       : "Events you have not booked yet will appear here.";
   const eventStateOptions = eventForm.state && !nigeriaStateNames.includes(eventForm.state)
     ? [...nigeriaStateNames, eventForm.state]
@@ -460,21 +568,26 @@ export function EventsTab({
     }
 
     try {
-      const fetchProfile = !filterInitializedRef.current && !isAdmin;
+      const fetchProfile = !isGuest && !filterInitializedRef.current && !isAdmin;
+      const eventsPath = isGuest ? "/public/events" : isAdmin ? "/admin/events" : "/events";
+      const requestOptions = isGuest ? undefined : { headers: authHeaders(token as string) };
       const [eventsResult, profileResult] = await Promise.all([
-        apiRequest<{ events: StreetzEvent[] }>(isAdmin ? "/admin/events" : "/events", {
-          headers: authHeaders(token),
-        }),
+        apiRequest<{ events: StreetzEvent[] }>(eventsPath, requestOptions),
         fetchProfile
-          ? apiRequest<StreetzProfile | null>("/profiles/me", { headers: authHeaders(token) }).catch(() => null)
+          ? apiRequest<StreetzProfile | null>("/profiles/me", { headers: authHeaders(token as string) }).catch(() => null)
           : Promise.resolve(null)
       ]);
 
       setEvents(eventsResult.events);
 
-      if (!isAdmin && !viewModeInitializedRef.current) {
+      if (!isAdmin && !isGuest && !viewModeInitializedRef.current) {
         viewModeInitializedRef.current = true;
         setEventViewMode(eventsResult.events.some(hasConfirmedTicket) ? "tickets" : "events");
+      }
+
+      if (isGuest && !viewModeInitializedRef.current) {
+        viewModeInitializedRef.current = true;
+        setEventViewMode("events");
       }
 
       if (!filterInitializedRef.current) {
@@ -629,7 +742,7 @@ export function EventsTab({
 
       const upload = await apiRequest<EventImageUploadResponse>("/admin/events/images/presign", {
         method: "POST",
-        headers: authHeaders(token),
+        headers: authHeaders(token as string),
         body: JSON.stringify({
           fileName: uploadFile.name,
           contentType: uploadFile.type,
@@ -676,6 +789,7 @@ export function EventsTab({
     setNotice(null);
 
     const title = eventForm.title.trim();
+    const category = eventForm.category.trim();
     const description = eventForm.description.trim();
     const venue = eventForm.venue.trim();
     const state = eventForm.state.trim();
@@ -695,6 +809,18 @@ export function EventsTab({
 
     if (description.length > EVENT_DESCRIPTION_MAX_LENGTH) {
       setNotice(`Event description must be ${EVENT_DESCRIPTION_MAX_LENGTH} characters or fewer.`);
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (!(EVENT_CATEGORY_OPTIONS as readonly string[]).includes(category)) {
+      setNotice("Choose a valid event category.");
+      setIsSavingEvent(false);
+      return;
+    }
+
+    if (category.length > EVENT_CATEGORY_MAX_LENGTH) {
+      setNotice(`Event category must be ${EVENT_CATEGORY_MAX_LENGTH} characters or fewer.`);
       setIsSavingEvent(false);
       return;
     }
@@ -806,6 +932,7 @@ export function EventsTab({
 
     const payload = {
       title,
+      category,
       description,
       coverImage: eventForm.coverImage,
       venue,
@@ -822,7 +949,7 @@ export function EventsTab({
         editingEventId ? `/admin/events/${editingEventId}` : "/admin/events",
         {
           method: editingEventId ? "PUT" : "POST",
-          headers: authHeaders(token),
+          headers: authHeaders(token as string),
           body: JSON.stringify(payload),
         }
       );
@@ -847,15 +974,44 @@ export function EventsTab({
     }
   }
 
+  async function shareEvent(event: StreetzEvent) {
+    try {
+      const result = await shareOrCopyLink({
+        title: event.title,
+        text: `Check out ${event.title} on Crushclub.`,
+        url: getAbsoluteAppUrl(`/events/${event.id}`),
+      });
+
+      if (result === "copied") {
+        setNotice("Event link copied.");
+      }
+    } catch {
+      setNotice("Could not copy event link right now.");
+    }
+  }
+
   async function bookEvent(event: StreetzEvent, ticketType: StreetzEventTicketType | null, quantity = 1) {
     if (!ticketType || !isMemberBookableEvent(event) || ticketType.availableCount <= 0) {
       return;
     }
 
-    const maxQuantity = getMaxPurchaseQuantity(event, ticketType);
+    const maxQuantity = isGuest
+      ? Math.min(ticketType.availableCount, MAX_TICKETS_PER_PURCHASE)
+      : getMaxPurchaseQuantity(event, ticketType);
     const safeQuantity = Math.max(1, Math.min(quantity, maxQuantity));
 
     if (safeQuantity < 1) {
+      return;
+    }
+
+    if (isGuest) {
+      savePendingEventCheckout({ eventId: event.id, ticketTypeId: ticketType.id, quantity: safeQuantity });
+      setTicketModalEventId(null);
+      onAuthRequired?.("eventTicket");
+      return;
+    }
+
+    if (!token) {
       return;
     }
 
@@ -866,11 +1022,12 @@ export function EventsTab({
       if (ticketType.priceKobo <= 0) {
         const updatedEvent = await apiRequest<StreetzEvent>(`/events/${event.id}/book`, {
           method: "POST",
-          headers: authHeaders(token),
+          headers: authHeaders(token as string),
           body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: ticketType.id }),
         });
         setEvents((current) => current.map((item) => (item.id === updatedEvent.id ? updatedEvent : item)));
         setBookingQuantities((current) => ({ ...current, [event.id]: 1 }));
+        setTicketModalEventId(null);
         setNotice(safeQuantity === 1 ? "Spot booked." : `${safeQuantity} spots booked.`);
         return;
       }
@@ -879,7 +1036,7 @@ export function EventsTab({
         authorizationUrl?: string;
       }>(`/payments/events/${event.id}/ticket/initialize`, {
         method: "POST",
-        headers: authHeaders(token),
+        headers: authHeaders(token as string),
         body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: ticketType.id }),
       });
 
@@ -913,7 +1070,7 @@ export function EventsTab({
     try {
       const updatedEvent = await apiRequest<StreetzEvent>(`/admin/events/${event.id}`, {
         method: "PUT",
-        headers: authHeaders(token),
+        headers: authHeaders(token as string),
         body: JSON.stringify({ status: "CANCELLED", cancellationReason: trimmedReason }),
       });
 
@@ -980,6 +1137,24 @@ export function EventsTab({
                 maxLength={EVENT_TITLE_MAX_LENGTH}
                 required
               />
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                Category
+                <select
+                  className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  value={eventForm.category}
+                  onChange={(inputEvent) => setEventForm((current) => ({ ...current, category: inputEvent.target.value }))}
+                  required
+                >
+                  <option value="" disabled>
+                    Choose category
+                  </option>
+                  {EVENT_CATEGORY_OPTIONS.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <textarea
                 className="min-h-28 rounded-[18px] border border-black/8 p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
                 placeholder="Description"
@@ -1396,57 +1571,66 @@ export function EventsTab({
             <LoadingState label="Loading events" className="min-h-90 rounded-3xl border border-black/5" />
           ) : adminVisibleEvents.length > 0 ? (
             <div className="grid gap-3">
-              {adminVisibleEvents.map((event) => (
-                <article
-                  key={event.id}
-                  className={`rounded-3xl border p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${isAdminInactiveEvent(event) ? "border-black/[0.03] bg-[#fafafa] opacity-70" : "border-black/5 bg-white"}`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-lg font-semibold">{event.title}</h2>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${getAdminEventStatusClass(event)}`}
+              {adminVisibleEvents.map((event) => {
+                const eventCategory = normalizeEventCategory(event.category);
+
+                return (
+                  <article
+                    key={event.id}
+                    className={`rounded-3xl border p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${isAdminInactiveEvent(event) ? "border-black/[0.03] bg-[#fafafa] opacity-70" : "border-black/5 bg-white"}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-lg font-semibold">{event.title}</h2>
+                          {eventCategory ? (
+                            <span className="rounded-full bg-[#f2f2f2] px-2.5 py-1 text-xs font-medium text-[#555555]">
+                              {eventCategory}
+                            </span>
+                          ) : null}
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${getAdminEventStatusClass(event)}`}
+                          >
+                            {getAdminEventStatusLabel(event)}
+                          </span>
+                        </div>
+                        <p className="mt-1 flex items-center gap-2 text-sm text-[#666666]">
+                          <CalendarDays className="size-4" aria-hidden="true" />
+                          {formatEventDate(event.startsAt)}
+                        </p>
+                        <p className="mt-1 text-sm text-[#666666]">
+                          {formatEventLocation(event)}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
+                          <span className="rounded-full bg-[#fafafa] px-3 py-1">
+                            {getTicketTypeSummary(event)}
+                          </span>
+                          <span className="rounded-full bg-[#fafafa] px-3 py-1">
+                            {event.attendeeCount ?? getEventTicketTypes(event).reduce((total, ticketType) => total + ticketType.soldCount, 0)} booked
+                          </span>
+                          <span className="rounded-full bg-[#fafafa] px-3 py-1">
+                            {event.reservationCount ?? 0} active reservations
+                          </span>
+                          <span className="rounded-full bg-[#fafafa] px-3 py-1">
+                            {getTotalTicketCapacity(event)} capacity
+                          </span>
+                        </div>
+                      </div>
+                      <div className="grid shrink-0 gap-2">
+                        <button
+                          className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
+                          type="button"
+                          onClick={() => startEditEvent(event)}
+                          aria-label={`Edit ${event.title}`}
+                          title="Edit"
                         >
-                          {getAdminEventStatusLabel(event)}
-                        </span>
-                      </div>
-                      <p className="mt-1 flex items-center gap-2 text-sm text-[#666666]">
-                        <CalendarDays className="size-4" aria-hidden="true" />
-                        {formatEventDate(event.startsAt)}
-                      </p>
-                      <p className="mt-1 text-sm text-[#666666]">
-                        {formatEventLocation(event)}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">
-                          {getTicketTypeSummary(event)}
-                        </span>
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">
-                          {event.attendeeCount ?? getEventTicketTypes(event).reduce((total, ticketType) => total + ticketType.soldCount, 0)} booked
-                        </span>
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">
-                          {event.reservationCount ?? 0} active reservations
-                        </span>
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">
-                          {getTotalTicketCapacity(event)} capacity
-                        </span>
+                          <Pencil className="size-4" aria-hidden="true" />
+                        </button>
                       </div>
                     </div>
-                    <div className="grid shrink-0 gap-2">
-                      <button
-                        className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
-                        type="button"
-                        onClick={() => startEditEvent(event)}
-                        aria-label={`Edit ${event.title}`}
-                        title="Edit"
-                      >
-                        <Pencil className="size-4" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
@@ -1583,22 +1767,188 @@ export function EventsTab({
         </div>
       ) : null}
 
+      {ticketModalEvent ? (() => {
+        const ticketTypes = getEventTicketTypes(ticketModalEvent);
+        const ticketType = getSelectedTicketType(ticketModalEvent, selectedTicketTypeIds[ticketModalEvent.id]);
+        const maxPurchaseQuantity = ticketType
+          ? isGuest
+            ? Math.min(ticketType.availableCount, MAX_TICKETS_PER_PURCHASE)
+            : getMaxPurchaseQuantity(ticketModalEvent, ticketType)
+          : 0;
+        const selectedQuantity = maxPurchaseQuantity > 0
+          ? Math.min(Math.max(1, bookingQuantities[ticketModalEvent.id] ?? 1), maxPurchaseQuantity)
+          : 1;
+        const quantityOptions = maxPurchaseQuantity > 0
+          ? Array.from({ length: maxPurchaseQuantity }, (_, index) => index + 1)
+          : [1];
+        const isBusy = activeEventId === ticketModalEvent.id;
+        const isSoldOut = Boolean(ticketType && ticketType.availableCount <= 0);
+        const isLimitReached = Boolean(ticketType && isMemberBookableEvent(ticketModalEvent) && !isSoldOut && maxPurchaseQuantity <= 0);
+        const isPaidEvent = Boolean(ticketType && ticketType.priceKobo > 0);
+        const purchaseNoun = isPaidEvent ? "ticket" : "spot";
+        const purchaseNounPlural = isPaidEvent ? "tickets" : "spots";
+        const selectedNoun = selectedQuantity === 1 ? purchaseNoun : purchaseNounPlural;
+        const statusCopy = !ticketType
+          ? "No ticket tiers are available for this event."
+          : isSoldOut
+            ? "This tier is sold out."
+            : isLimitReached
+              ? "You have reached the ticket limit for this tier."
+              : !isMemberBookableEvent(ticketModalEvent)
+                ? "This event is unavailable."
+                : null;
+
+        return (
+          <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-4 backdrop-blur-sm sm:p-5">
+            <button
+              className="absolute inset-0"
+              type="button"
+              onClick={() => setTicketModalEventId(null)}
+              aria-label="Close ticket selector"
+            />
+            <section
+              className="relative w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="event-ticket-modal-title"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Tickets</p>
+                  <h2 id="event-ticket-modal-title" className="mt-1 truncate text-xl font-semibold text-[#0d0d0d]">
+                    {ticketModalEvent.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-[#666666]">{formatEventDate(ticketModalEvent.startsAt)}</p>
+                </div>
+                <button
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
+                  type="button"
+                  onClick={() => setTicketModalEventId(null)}
+                  aria-label="Close ticket selector"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-3">
+                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                  Tier
+                  <select
+                    className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299] disabled:bg-[#fafafa] disabled:text-[#999999]"
+                    value={ticketType?.id ?? ""}
+                    onChange={(inputEvent) => {
+                      setSelectedTicketTypeIds((current) => ({ ...current, [ticketModalEvent.id]: inputEvent.target.value }));
+                      setBookingQuantities((current) => ({ ...current, [ticketModalEvent.id]: 1 }));
+                    }}
+                    disabled={isBusy || ticketTypes.length <= 1}
+                  >
+                    {ticketTypes.length > 0 ? (
+                      ticketTypes.map((availableTicketType) => (
+                        <option key={availableTicketType.id} value={availableTicketType.id}>
+                          {normalizeTicketTierName(availableTicketType.name)} · {formatPrice(availableTicketType.priceKobo)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No tickets available</option>
+                    )}
+                  </select>
+                </label>
+
+                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                  Quantity
+                  <select
+                    className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299] disabled:bg-[#fafafa] disabled:text-[#999999]"
+                    value={selectedQuantity}
+                    onChange={(inputEvent) =>
+                      setBookingQuantities((current) => ({ ...current, [ticketModalEvent.id]: Number(inputEvent.target.value) }))
+                    }
+                    disabled={isBusy || maxPurchaseQuantity <= 0}
+                  >
+                    {quantityOptions.map((quantity) => (
+                      <option key={quantity} value={quantity}>
+                        {quantity} {quantity === 1 ? purchaseNoun : purchaseNounPlural}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {statusCopy ? (
+                <p className="mt-4 rounded-2xl bg-[#fff4d9] p-3 text-sm font-medium text-[#9a6a12]">{statusCopy}</p>
+              ) : null}
+
+              <button
+                className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                disabled={!ticketType || maxPurchaseQuantity <= 0 || isBusy}
+                onClick={() => void bookEvent(ticketModalEvent, ticketType, selectedQuantity)}
+              >
+                {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
+                {isPaidEvent ? `Buy ${selectedQuantity} ${selectedNoun}` : `Book ${selectedQuantity} ${selectedNoun}`}
+              </button>
+            </section>
+          </div>
+        );
+      })() : null}
+
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
-          <button
-            type="button"
-            className={`rounded-full px-4 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-            onClick={() => setEventViewMode("tickets")}
-          >
-            Tickets
-          </button>
-          <button
-            type="button"
-            className={`rounded-full px-4 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-            onClick={() => setEventViewMode("events")}
-          >
-            Events
-          </button>
+        {!isGuest ? (
+          <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
+            <button
+              type="button"
+              className={`rounded-full px-4 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+              onClick={() => setEventViewMode("tickets")}
+            >
+              Tickets
+            </button>
+            <button
+              type="button"
+              className={`rounded-full px-4 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+              onClick={() => setEventViewMode("events")}
+            >
+              Events
+            </button>
+          </div>
+        ) : null}
+
+        <div className="-mx-5 mb-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8">
+          <div className="flex min-w-max gap-5">
+            <button
+              type="button"
+              className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${eventFilterCategory ? "text-[#666666]" : "text-[#0d0d0d]"}`}
+              onClick={() => setEventFilterCategory("")}
+              aria-pressed={!eventFilterCategory}
+            >
+              <span
+                className={`grid size-14 place-items-center rounded-full border ${eventFilterCategory ? "border-black/8 bg-white" : "border-[#18E299] bg-[#d4fae8]"}`}
+              >
+                <Sparkles className="size-5" aria-hidden="true" />
+              </span>
+              All
+            </button>
+            {EVENT_CATEGORY_OPTIONS.map((category) => {
+              const Icon = eventCategoryIcons[category];
+              const isActiveCategory = eventFilterCategory === category;
+              const hasCategoryEvents = memberCategoryOptions.includes(category);
+
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${isActiveCategory ? "text-[#0d0d0d]" : "text-[#666666]"} ${hasCategoryEvents ? "" : "opacity-55"}`}
+                  onClick={() => setEventFilterCategory(category)}
+                  aria-pressed={isActiveCategory}
+                >
+                  <span
+                    className={`grid size-14 place-items-center rounded-full border ${isActiveCategory ? "border-[#18E299] bg-[#d4fae8]" : "border-black/8 bg-white"}`}
+                  >
+                    <Icon className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="leading-tight">{category}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
@@ -1611,21 +1961,19 @@ export function EventsTab({
               const ticketTypes = getEventTicketTypes(event);
               const ticketType = getSelectedTicketType(event, selectedTicketTypeIds[event.id]);
               const ownedTicketTypeIds = getOwnedTicketTypeIds(event);
-              const isBooked = getUserTickets(event).some((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status));
+              const isTicketCard = eventViewMode === "tickets";
               const maxPurchaseQuantity = getMaxPurchaseQuantity(event, ticketType);
-              const selectedQuantity = maxPurchaseQuantity > 0
-                ? Math.min(Math.max(1, bookingQuantities[event.id] ?? 1), maxPurchaseQuantity)
-                : 1;
-              const quantityOptions = Array.from({ length: maxPurchaseQuantity }, (_, index) => index + 1);
               const canBookMore = maxPurchaseQuantity > 0;
               const isSoldOut = Boolean(ticketType && ticketType.availableCount <= 0);
               const isLimitReached = Boolean(ticketType && isMemberBookableEvent(event) && !isSoldOut && maxPurchaseQuantity <= 0);
               const isBusy = activeEventId === event.id;
-              const isTicketCard = eventViewMode === "tickets";
-              const isPaidEvent = Boolean(ticketType && ticketType.priceKobo > 0);
-              const purchaseNoun = isPaidEvent ? "ticket" : "spot";
-              const purchaseNounPlural = isPaidEvent ? "tickets" : "spots";
-              const selectedNoun = selectedQuantity === 1 ? purchaseNoun : purchaseNounPlural;
+              const getTicketsLabel = isSoldOut
+                ? "Sold out"
+                : isLimitReached
+                  ? "Ticket limit reached"
+                  : !isMemberBookableEvent(event)
+                    ? "Event unavailable"
+                    : "Get Tickets";
 
               return (
                 <article
@@ -1645,7 +1993,7 @@ export function EventsTab({
                       : undefined
                   }
                 >
-                  <div className="relative aspect-16/11 bg-[#d4fae8]">
+                  <div className="relative h-44 bg-[#d4fae8] md:h-48">
                     <Image
                       src={event.coverImage || FALLBACK_EVENT_IMAGE}
                       alt={`${event.title} event`}
@@ -1653,16 +2001,28 @@ export function EventsTab({
                       sizes="(max-width: 768px) 100vw, 33vw"
                       className="object-cover"
                     />
+                    <button
+                      className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-white/90 text-[#0d0d0d] shadow-sm backdrop-blur transition hover:bg-white"
+                      type="button"
+                      onClick={(clickEvent) => {
+                        clickEvent.stopPropagation();
+                        void shareEvent(event);
+                      }}
+                      aria-label={`Share ${event.title}`}
+                      title="Share event"
+                    >
+                      <Share2 className="size-4" aria-hidden="true" />
+                    </button>
                   </div>
                   <div className="p-4">
-                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                    <h2 className="text-lg font-semibold leading-snug">{event.title}</h2>
+                    <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-[#666666]">
+                      <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                      <span>{formatEventLocation(event)}</span>
+                    </p>
+                    <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                       <CalendarDays className="size-4" aria-hidden="true" />
                       {formatEventDate(event.startsAt)}
-                    </p>
-                    <h2 className="mt-2 text-lg font-semibold">{event.title}</h2>
-                    <p className="mt-1 flex items-center gap-1 text-sm text-[#666666]">
-                      <MapPin className="size-4" aria-hidden="true" />
-                      {formatEventLocation(event)}
                     </p>
                     {isTicketCard && ticketTypes.length > 0 ? (
                       <div className="mt-3 flex flex-wrap gap-2">
@@ -1681,57 +2041,9 @@ export function EventsTab({
                           );
                         })}
                       </div>
-                    ) : !isTicketCard && ticketTypes.length > 1 ? (
-                      <label
-                        className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]"
-                        onClick={(clickEvent) => clickEvent.stopPropagation()}
-                      >
-                        Tier
-                        <select
-                          className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                          value={ticketType?.id ?? ""}
-                          onChange={(inputEvent) => {
-                            setSelectedTicketTypeIds((current) => ({ ...current, [event.id]: inputEvent.target.value }));
-                            setBookingQuantities((current) => ({ ...current, [event.id]: 1 }));
-                          }}
-                          disabled={isBusy}
-                        >
-                          {ticketTypes.map((availableTicketType) => (
-                            <option key={availableTicketType.id} value={availableTicketType.id}>
-                              {normalizeTicketTierName(availableTicketType.name)} · {formatPrice(availableTicketType.priceKobo)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : ticketType ? (
-                      <p className="mt-3 inline-flex rounded-full bg-[#fafafa] px-3 py-1 text-xs font-medium text-[#666666]">
-                        {normalizeTicketTierName(ticketType.name)} · {formatPrice(ticketType.priceKobo)}
-                      </p>
-                    ) : null}
-                    {!isTicketCard && canBookMore && maxPurchaseQuantity > 1 ? (
-                      <label
-                        className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]"
-                        onClick={(clickEvent) => clickEvent.stopPropagation()}
-                      >
-                        Quantity
-                        <select
-                          className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                          value={selectedQuantity}
-                          onChange={(inputEvent) =>
-                            setBookingQuantities((current) => ({ ...current, [event.id]: Number(inputEvent.target.value) }))
-                          }
-                          disabled={isBusy}
-                        >
-                          {quantityOptions.map((quantity) => (
-                            <option key={quantity} value={quantity}>
-                              {quantity} {quantity === 1 ? purchaseNoun : purchaseNounPlural}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
                     ) : null}
                     <button
-                      className={`${!isTicketCard && canBookMore && maxPurchaseQuantity > 1 ? "mt-3" : "mt-4"} inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60`}
+                      className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                       type="button"
                       disabled={!isTicketCard && (!ticketType || !canBookMore || isBusy)}
                       onClick={(clickEvent) => {
@@ -1741,23 +2053,11 @@ export function EventsTab({
                           return;
                         }
 
-                        void bookEvent(event, ticketType, selectedQuantity);
+                        setTicketModalEventId(event.id);
                       }}
                     >
                       {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
-                      {isTicketCard
-                        ? "View tickets"
-                        : isSoldOut
-                          ? "Sold out"
-                          : isLimitReached
-                            ? "Ticket limit reached"
-                            : !isMemberBookableEvent(event)
-                              ? "Event unavailable"
-                              : isBooked && selectedQuantity === 1
-                                ? `${isPaidEvent ? "Buy" : "Book"} another ${purchaseNoun}`
-                                : isBooked
-                                  ? `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} more ${purchaseNounPlural}`
-                                  : `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} ${selectedNoun}`}
+                      {isTicketCard ? "View tickets" : getTicketsLabel}
                     </button>
                   </div>
                 </article>

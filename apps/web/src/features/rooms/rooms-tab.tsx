@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
@@ -19,6 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { type AuthPromptKind } from "@/components/app/public-route";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -50,6 +51,7 @@ const ROOM_NAME_MAX_LENGTH = 80;
 const ROOM_CATEGORY_MAX_LENGTH = 80;
 const ROOM_DESCRIPTION_MAX_LENGTH = 280;
 const ROOM_MESSAGE_MAX_LENGTH = 1000;
+const MENTION_SUGGESTION_LIMIT = 5;
 
 function getRoomActivityTime(room: ChatRoom) {
   return Date.parse(room.updatedAt) || Date.parse(room.createdAt) || 0;
@@ -66,6 +68,118 @@ function getRoomForm(room: ChatRoom): RoomForm {
     description: room.description ?? "",
     isActive: room.isActive,
   };
+}
+
+
+type MentionSearch = {
+  start: number;
+  end: number;
+  query: string;
+};
+
+function getMentionSearch(body: string, caretIndex: number | null | undefined): MentionSearch | null {
+  const end = Math.max(0, Math.min(caretIndex ?? body.length, body.length));
+  const textBeforeCaret = body.slice(0, end);
+  const mentionStart = textBeforeCaret.lastIndexOf("@");
+
+  if (mentionStart < 0) {
+    return null;
+  }
+
+  const beforeMention = mentionStart > 0 ? body[mentionStart - 1] : "";
+
+  if (beforeMention && !/\s/.test(beforeMention)) {
+    return null;
+  }
+
+  const query = body.slice(mentionStart + 1, end);
+
+  if (/\s/.test(query)) {
+    return null;
+  }
+
+  return {
+    start: mentionStart,
+    end,
+    query,
+  };
+}
+
+function isMentionBoundary(character: string | undefined) {
+  return !character || /[\s.,!?;:()[\]{}"']/u.test(character);
+}
+
+function getUniqueRoomMembers(members: RoomMember[]) {
+  const seenIds = new Set<string>();
+
+  return members.filter((member) => {
+    if (seenIds.has(member.id) || !member.displayName.trim()) {
+      return false;
+    }
+
+    seenIds.add(member.id);
+    return true;
+  });
+}
+
+function renderRoomMessageBody(
+  body: string,
+  members: RoomMember[],
+  currentUserId: string | null,
+  onOpenMember: (member: RoomMember) => void
+) {
+  const mentionTargets = getUniqueRoomMembers(members)
+    .map((member) => ({ member, token: `@${member.displayName.trim()}` }))
+    .sort((first, second) => second.token.length - first.token.length);
+
+  if (mentionTargets.length === 0) {
+    return body;
+  }
+
+  const parts = [];
+  let index = 0;
+  let key = 0;
+
+  while (index < body.length) {
+    if (body[index] !== "@") {
+      const nextMentionIndex = body.indexOf("@", index + 1);
+      const nextIndex = nextMentionIndex === -1 ? body.length : nextMentionIndex;
+      parts.push(body.slice(index, nextIndex));
+      index = nextIndex;
+      continue;
+    }
+
+    const match = mentionTargets.find(({ token }) => {
+      const possibleMention = body.slice(index, index + token.length);
+
+      return possibleMention.toLocaleLowerCase() === token.toLocaleLowerCase() && isMentionBoundary(body[index + token.length]);
+    });
+
+    if (!match) {
+      parts.push(body[index]);
+      index += 1;
+      continue;
+    }
+
+    const isCurrentUser = match.member.id === currentUserId;
+
+    parts.push(
+      <button
+        key={`mention-${match.member.id}-${key}`}
+        type="button"
+        className={`inline bg-transparent p-0 font-semibold transition ${
+          isCurrentUser ? "text-[#08784f]" : "text-[#0fa76e] hover:text-[#08784f]"
+        }`}
+        onClick={() => onOpenMember(match.member)}
+      >
+        {body.slice(index, index + match.token.length)}
+      </button>
+    );
+    key += 1;
+    index += match.token.length;
+  }
+
+  return parts;
 }
 
 function OpeningRoomShell({
@@ -222,24 +336,27 @@ export function RoomsTab({
   onRoomsLoaded,
   onRoomOpened,
   onNotificationsChanged,
+  onAuthRequired,
 }: {
-  token: string;
-  user: StreetzUser;
+  token?: string | null;
+  user?: StreetzUser | null;
   initialRooms?: ChatRoom[];
   initialSelectedRoomId?: string | null;
   adminMode?: AdminRoomMode;
   adminRoomId?: string | null;
-  onRoomsLoaded: (rooms: ChatRoom[]) => void;
-  onRoomOpened: (room: ChatRoom) => void;
-  onNotificationsChanged: () => void;
+  onRoomsLoaded?: (rooms: ChatRoom[]) => void;
+  onRoomOpened?: (room: ChatRoom) => void;
+  onNotificationsChanged?: () => void;
+  onAuthRequired?: (kind?: AuthPromptKind) => void;
 }) {
   const router = useRouter();
-  const isAdmin = user.role === "ADMIN";
+  const isGuest = !token || !user;
+  const isAdmin = user?.role === "ADMIN";
   const [rooms, setRooms] = useState<ChatRoom[]>(initialRooms);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialSelectedRoomId);
   const [pendingJoinRoom, setPendingJoinRoom] = useState<ChatRoom | null>(null);
   const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<RoomViewMode>(isAdmin ? "active" : "joined");
+  const [viewMode, setViewMode] = useState<RoomViewMode>(isAdmin ? "active" : isGuest ? "explore" : "joined");
   const [adminRoomView, setAdminRoomView] = useState<AdminRoomView>(adminMode === "list" ? "list" : "form");
   const [editingRoomId, setEditingRoomId] = useState<string | null>(adminMode === "edit" ? adminRoomId : null);
   const [roomForm, setRoomForm] = useState<RoomForm>(emptyRoomForm);
@@ -257,14 +374,17 @@ export function RoomsTab({
   const [pendingToggleRoom, setPendingToggleRoom] = useState<ChatRoom | null>(null);
   const [isTogglingRoom, setIsTogglingRoom] = useState(false);
   const [isRoomMembersOpen, setIsRoomMembersOpen] = useState(false);
+  const [messageCaretIndex, setMessageCaretIndex] = useState(0);
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0);
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "offline">("connecting");
   const [notice, setNotice] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const selectedRoomIdRef = useRef<string | null>(selectedRoomId);
   const roomMessageIdsRef = useRef<Set<string>>(new Set());
   const messageScrollerRef = useRef<HTMLDivElement | null>(null);
-  const onRoomsLoadedRef = useRef(onRoomsLoaded);
-  const onNotificationsChangedRef = useRef(onNotificationsChanged);
+  const messageInputRef = useRef<HTMLInputElement | null>(null);
+  const onRoomsLoadedRef = useRef(onRoomsLoaded ?? (() => undefined));
+  const onNotificationsChangedRef = useRef(onNotificationsChanged ?? (() => undefined));
 
   const selectedRoom = useMemo(
     () => rooms.find((room) => room.id === selectedRoomId) ?? null,
@@ -286,7 +406,30 @@ export function RoomsTab({
   const inactiveRooms = orderedRooms.filter((room) => !room.isActive);
   const visibleRooms = isAdmin
     ? viewMode === "inactive" ? inactiveRooms : activeRooms
-    : viewMode === "joined" ? joinedRooms : exploreRooms;
+    : isGuest ? activeRooms : viewMode === "joined" ? joinedRooms : exploreRooms;
+
+  const mentionableRoomMembers = useMemo(
+    () => getUniqueRoomMembers(roomMembers).filter((member) => member.id !== user?.id),
+    [roomMembers, user?.id]
+  );
+  const mentionSearch = useMemo(() => getMentionSearch(messageBody, messageCaretIndex), [messageBody, messageCaretIndex]);
+  const mentionSuggestions = useMemo(() => {
+    if (!mentionSearch) {
+      return [];
+    }
+
+    const query = mentionSearch.query.toLocaleLowerCase();
+
+    return mentionableRoomMembers
+      .filter((member) => {
+        const name = member.displayName.toLocaleLowerCase();
+
+        return !query || name.startsWith(query) || name.includes(query);
+      })
+      .slice(0, MENTION_SUGGESTION_LIMIT);
+  }, [mentionSearch, mentionableRoomMembers]);
+  const isMentionMenuOpen = mentionSuggestions.length > 0;
+  const activeMentionSuggestionIndex = mentionSuggestions.length > 0 ? Math.min(activeMentionIndex, mentionSuggestions.length - 1) : 0;
 
   async function loadRooms(options: { clearNotice?: boolean; showLoading?: boolean } = {}) {
     const { clearNotice = true, showLoading = true } = options;
@@ -300,9 +443,10 @@ export function RoomsTab({
     }
 
     try {
-      const response = await apiRequest<{ rooms: ChatRoom[] }>(isAdmin ? "/admin/rooms" : "/rooms", {
-        headers: authHeaders(token),
-      });
+      const response = await apiRequest<{ rooms: ChatRoom[] }>(
+        isGuest ? "/public/rooms" : isAdmin ? "/admin/rooms" : "/rooms",
+        isGuest ? undefined : { headers: authHeaders(token as string) }
+      );
       setRooms(response.rooms);
       setSelectedRoomId((current) => {
         if (current && response.rooms.some((room) => room.id === current)) {
@@ -321,12 +465,16 @@ export function RoomsTab({
   }
 
   async function loadMessages(roomId: string) {
+    if (!token) {
+      return;
+    }
+
     setIsLoadingMessages(true);
     setNotice(null);
 
     try {
       const response = await apiRequest<{ messages: RoomMessage[] }>(`/rooms/${roomId}/messages`, {
-        headers: authHeaders(token),
+        headers: authHeaders(token as string),
       });
       setMessages(response.messages);
       roomMessageIdsRef.current = new Set(response.messages.map((message) => message.id));
@@ -340,12 +488,16 @@ export function RoomsTab({
   }
 
   async function loadRoomMembers(roomId: string) {
+    if (!token) {
+      return;
+    }
+
     setIsLoadingRoomMembers(true);
     setNotice(null);
 
     try {
       const response = await apiRequest<{ members: RoomMember[] }>(`/rooms/${roomId}/members`, {
-        headers: authHeaders(token),
+        headers: authHeaders(token as string),
       });
       setRoomMembers(response.members);
     } catch (error) {
@@ -372,24 +524,36 @@ export function RoomsTab({
   }
 
   function openJoinedRoom(room: ChatRoom) {
+    if (isGuest) {
+      onAuthRequired?.("roomJoin");
+      return;
+    }
+
     setSelectedRoomId(room.id);
     setMessages([]);
     setRoomMembers([]);
     roomMessageIdsRef.current = new Set();
     setMessageBody("");
+    setMessageCaretIndex(0);
+    setActiveMentionIndex(0);
     setIsRoomMembersOpen(false);
     setViewedRoomProfile(null);
     setNotice(null);
     router.push(`/rooms/${room.id}`);
 
     if (!isAdmin) {
-      onRoomOpened(room);
+      onRoomOpened?.(room);
       clearRoomUnread(room.id);
       void markRoomRead(room.id);
     }
   }
 
   function requestJoinRoom(room: ChatRoom) {
+    if (isGuest) {
+      onAuthRequired?.("roomJoin");
+      return;
+    }
+
     if (isAdmin) {
       openJoinedRoom(room);
       return;
@@ -411,6 +575,8 @@ export function RoomsTab({
     setRoomMembers([]);
     roomMessageIdsRef.current = new Set();
     setMessageBody("");
+    setMessageCaretIndex(0);
+    setActiveMentionIndex(0);
     setIsRoomMembersOpen(false);
     setViewedRoomProfile(null);
     setNotice(null);
@@ -435,7 +601,7 @@ export function RoomsTab({
         }
 
         const isSelected = room.id === selectedRoomIdRef.current;
-        const isMine = message.authorId === user.id;
+        const isMine = message.authorId === user?.id;
 
         return {
           ...room,
@@ -458,10 +624,14 @@ export function RoomsTab({
   }
 
   async function markRoomRead(roomId: string) {
+    if (!token) {
+      return;
+    }
+
     try {
       await apiRequest(`/rooms/${roomId}/read`, {
         method: "POST",
-        headers: authHeaders(token),
+        headers: authHeaders(token as string),
       });
       onNotificationsChangedRef.current();
     } catch {
@@ -470,7 +640,7 @@ export function RoomsTab({
   }
 
   async function joinPendingRoom() {
-    if (!pendingJoinRoom) {
+    if (!pendingJoinRoom || !token) {
       return;
     }
 
@@ -480,7 +650,7 @@ export function RoomsTab({
     try {
       await apiRequest(`/rooms/${pendingJoinRoom.id}/join`, {
         method: "POST",
-        headers: authHeaders(token),
+        headers: authHeaders(token as string),
       });
       setRooms((current) =>
         current.map((room) =>
@@ -495,6 +665,8 @@ export function RoomsTab({
       setMessages([]);
       roomMessageIdsRef.current = new Set();
       setMessageBody("");
+      setMessageCaretIndex(0);
+      setActiveMentionIndex(0);
       router.push(`/rooms/${pendingJoinRoom.id}`);
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
@@ -505,7 +677,7 @@ export function RoomsTab({
   }
 
   async function leaveSelectedRoom() {
-    if (!selectedRoom || isAdmin) {
+    if (!selectedRoom || isAdmin || !token) {
       return;
     }
 
@@ -515,7 +687,7 @@ export function RoomsTab({
     try {
       await apiRequest(`/rooms/${selectedRoom.id}/leave`, {
         method: "POST",
-        headers: authHeaders(token),
+        headers: authHeaders(token as string),
       });
       socketRef.current?.emit("room:leave", { roomId: selectedRoom.id });
       setIsLeaveConfirmOpen(false);
@@ -530,6 +702,8 @@ export function RoomsTab({
       setMessages([]);
       roomMessageIdsRef.current = new Set();
       setMessageBody("");
+      setMessageCaretIndex(0);
+      setActiveMentionIndex(0);
       setViewMode("joined");
       router.push("/rooms");
       void loadRooms({ clearNotice: false, showLoading: false });
@@ -619,7 +793,7 @@ export function RoomsTab({
         editingRoomId ? `/admin/rooms/${editingRoomId}` : "/admin/rooms",
         {
           method: editingRoomId ? "PUT" : "POST",
-          headers: authHeaders(token),
+          headers: authHeaders(token as string),
           body: JSON.stringify(payload),
         }
       );
@@ -655,7 +829,7 @@ export function RoomsTab({
     try {
       const updatedRoom = await apiRequest<ChatRoom>(`/admin/rooms/${room.id}`, {
         method: "PUT",
-        headers: authHeaders(token),
+        headers: authHeaders(token as string),
         body: JSON.stringify({ isActive: !room.isActive }),
       });
       setRooms((current) => current.map((item) => (item.id === updatedRoom.id ? updatedRoom : item)));
@@ -678,7 +852,7 @@ export function RoomsTab({
 
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, isAdmin]);
+  }, [token, isAdmin, isGuest]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -697,6 +871,8 @@ export function RoomsTab({
       setMessages([]);
       roomMessageIdsRef.current = new Set();
       setMessageBody("");
+      setMessageCaretIndex(0);
+      setActiveMentionIndex(0);
       setAdminRoomView("form");
       setNotice(null);
 
@@ -730,6 +906,12 @@ export function RoomsTab({
   }, [adminMode, adminRoomId, isAdmin, rooms]);
 
   useEffect(() => {
+    if (isGuest || !token) {
+      const offlineTimer = window.setTimeout(() => setSocketStatus("offline"), 0);
+
+      return () => window.clearTimeout(offlineTimer);
+    }
+
     const socket = io(SOCKET_URL, {
       auth: { token },
       transports: ["websocket", "polling"],
@@ -758,15 +940,15 @@ export function RoomsTab({
       socketRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, isGuest]);
 
   useEffect(() => {
     selectedRoomIdRef.current = selectedRoomId;
   }, [selectedRoomId]);
 
   useEffect(() => {
-    onRoomsLoadedRef.current = onRoomsLoaded;
-    onNotificationsChangedRef.current = onNotificationsChanged;
+    onRoomsLoadedRef.current = onRoomsLoaded ?? (() => undefined);
+    onNotificationsChangedRef.current = onNotificationsChanged ?? (() => undefined);
   }, [onRoomsLoaded, onNotificationsChanged]);
 
   useEffect(() => {
@@ -774,12 +956,13 @@ export function RoomsTab({
   }, [rooms]);
 
   useEffect(() => {
-    if (!selectedRoomId || (!selectedRoom?.hasJoined && !isAdmin)) {
+    if (isGuest || !selectedRoomId || (!selectedRoom?.hasJoined && !isAdmin)) {
       return undefined;
     }
 
     const timer = window.setTimeout(() => {
       void loadMessages(selectedRoomId);
+      void loadRoomMembers(selectedRoomId);
       socketRef.current?.emit("room:join", { roomId: selectedRoomId });
     }, 0);
 
@@ -803,8 +986,80 @@ export function RoomsTab({
     return () => window.cancelAnimationFrame(frame);
   }, [selectedRoomId, latestDisplayedMessageId, isLoadingMessages]);
 
+  function syncMessageCaret(input: HTMLInputElement) {
+    setMessageCaretIndex(input.selectionStart ?? input.value.length);
+  }
+
+  function insertMention(member: RoomMember) {
+    const caretIndex = messageInputRef.current?.selectionStart ?? messageCaretIndex;
+    const search = getMentionSearch(messageBody, caretIndex);
+
+    if (!search) {
+      return;
+    }
+
+    const mention = `@${member.displayName.trim()} `;
+    const nextBody = `${messageBody.slice(0, search.start)}${mention}${messageBody.slice(search.end)}`;
+
+    if (nextBody.length > ROOM_MESSAGE_MAX_LENGTH) {
+      setNotice(`Messages must be ${ROOM_MESSAGE_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+
+    const nextCaretIndex = search.start + mention.length;
+    setMessageBody(nextBody);
+    setMessageCaretIndex(nextCaretIndex);
+    setActiveMentionIndex(0);
+
+    window.requestAnimationFrame(() => {
+      const input = messageInputRef.current;
+
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      input.setSelectionRange(nextCaretIndex, nextCaretIndex);
+    });
+  }
+
+  function handleMessageInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!isMentionMenuOpen) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveMentionIndex((current) => (current + 1) % mentionSuggestions.length);
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveMentionIndex((current) => (current - 1 + mentionSuggestions.length) % mentionSuggestions.length);
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      insertMention(mentionSuggestions[activeMentionSuggestionIndex] ?? mentionSuggestions[0]);
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setActiveMentionIndex(0);
+      setMessageCaretIndex(messageBody.length);
+    }
+  }
+
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isGuest) {
+      onAuthRequired?.("roomJoin");
+      return;
+    }
 
     if (isAdmin) {
       setNotice("Admins can view rooms but cannot send room messages.");
@@ -847,6 +1102,8 @@ export function RoomsTab({
         }
 
         setMessageBody("");
+        setMessageCaretIndex(0);
+        setActiveMentionIndex(0);
         upsertMessage(response.message);
       }
     );
@@ -940,8 +1197,8 @@ export function RoomsTab({
         candidate={viewedRoomProfile}
         onBack={() => setViewedRoomProfile(null)}
         backLabel={isRoomMembersOpen ? "Back to members" : "Back to chat"}
-        token={token}
-        showSafetyActions={!isAdmin && viewedRoomProfile.id !== user.id}
+        token={token ?? undefined}
+        showSafetyActions={!isAdmin && viewedRoomProfile.id !== user?.id}
         onBlocked={(candidate) => {
           setRoomMembers((current) => current.filter((member) => member.id !== candidate.id));
           setViewedRoomProfile(null);
@@ -1035,7 +1292,7 @@ export function RoomsTab({
                     }
 
                     const message = item.message;
-                    const isMine = message.authorId === user.id;
+                    const isMine = message.authorId === user?.id;
                     const author = message.author ?? roomMembers.find((member) => member.id === message.authorId) ?? null;
 
                     return (
@@ -1064,7 +1321,9 @@ export function RoomsTab({
                             }`}
                         >
                           {!isMine ? <p className="mb-1 text-xs font-semibold text-[#0fa76e]">{message.authorName}</p> : null}
-                          <p>{message.body}</p>
+                          <p className="whitespace-pre-wrap break-words">
+                            {renderRoomMessageBody(message.body, roomMembers, user?.id ?? null, setViewedRoomProfile)}
+                          </p>
                           <p className={`mt-1 text-[11px] ${isMine ? "text-[#0d0d0d]/55" : "text-[#888888]"}`}>
                             {new Date(message.createdAt).toLocaleTimeString([], {
                               hour: "2-digit",
@@ -1095,13 +1354,51 @@ export function RoomsTab({
               </div>
             ) : (
               <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/5 bg-white p-4">
-                <input
-                  className="h-12 min-w-0 flex-1 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
-                  placeholder="Write to the room"
-                  value={messageBody}
-                  onChange={(event) => setMessageBody(event.target.value)}
-                  maxLength={ROOM_MESSAGE_MAX_LENGTH}
-                />
+                <div className="relative min-w-0 flex-1">
+                  {isMentionMenuOpen ? (
+                    <div className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-y-auto rounded-[24px] border border-black/5 bg-white p-2 shadow-[0_16px_38px_rgba(0,0,0,0.14)]">
+                      {mentionSuggestions.map((member, index) => {
+                        const location = [member.city, member.state].filter(Boolean).join(", ") || "Nigeria";
+                        const isActiveMention = index === activeMentionSuggestionIndex;
+
+                        return (
+                          <button
+                            key={member.id}
+                            type="button"
+                            className={`flex w-full items-center gap-3 rounded-[18px] p-2 text-left transition ${isActiveMention ? "bg-[#d4fae8]" : "hover:bg-[#fafafa]"}`}
+                            onMouseDown={(mouseEvent) => {
+                              mouseEvent.preventDefault();
+                              insertMention(member);
+                            }}
+                          >
+                            <div className="relative size-9 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                              <CandidatePhoto candidate={member} variant="thumb" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-[#0d0d0d]">@{member.displayName}</p>
+                              <p className="truncate text-xs text-[#666666]">{location}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <input
+                    ref={messageInputRef}
+                    className="h-12 w-full rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    placeholder="Write to the room or tag @name"
+                    value={messageBody}
+                    onChange={(event) => {
+                      setMessageBody(event.target.value);
+                      setActiveMentionIndex(0);
+                      syncMessageCaret(event.currentTarget);
+                    }}
+                    onKeyDown={handleMessageInputKeyDown}
+                    onClick={(event) => syncMessageCaret(event.currentTarget)}
+                    onSelect={(event) => syncMessageCaret(event.currentTarget)}
+                    maxLength={ROOM_MESSAGE_MAX_LENGTH}
+                  />
+                </div>
                 <button
                   className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isSendingMessage || !messageBody.trim()}
@@ -1180,10 +1477,12 @@ export function RoomsTab({
         title={isAdmin ? "" : ""}
         action={
           <div className="flex items-center gap-2">
-            <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
-              <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
-              {socketStatus === "connected" ? "Live" : "Connecting"}
-            </div>
+            {!isGuest ? (
+              <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
+                <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+                {socketStatus === "connected" ? "Live" : "Connecting"}
+              </div>
+            ) : null}
             {isAdmin ? (
               <button
                 className="inline-flex h-9 items-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
@@ -1199,8 +1498,9 @@ export function RoomsTab({
       />
 
       <div className="px-5 md:px-8">
-        <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
-          {isAdmin ? (
+        {!isGuest ? (
+          <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
+            {isAdmin ? (
             <>
               <button
                 type="button"
@@ -1234,8 +1534,9 @@ export function RoomsTab({
                 Explore
               </button>
             </>
-          )}
-        </div>
+            )}
+          </div>
+        ) : null}
 
         {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
 
@@ -1327,14 +1628,16 @@ export function RoomsTab({
               <h2 className="mt-3 text-2xl font-semibold">
                 {isAdmin
                   ? viewMode === "inactive" ? "No inactive rooms" : "No active rooms"
-                  : viewMode === "joined" ? "No joined rooms yet" : "No rooms yet"}
+                  : isGuest ? "No rooms yet" : viewMode === "joined" ? "No joined rooms yet" : "No rooms yet"}
               </h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-[#666666]">
                 {isAdmin
                   ? viewMode === "inactive" ? "Deactivated rooms will appear here." : "Create a room to get started."
-                  : viewMode === "joined"
-                    ? "Rooms you join from Explore will appear here."
-                    : "Admin-created rooms will appear here once they are active."}
+                  : isGuest
+                    ? "Active rooms will appear here once they are available."
+                    : viewMode === "joined"
+                      ? "Rooms you join from Explore will appear here."
+                      : "Admin-created rooms will appear here once they are active."}
               </p>
               <button
                 className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 px-5 text-sm font-medium"

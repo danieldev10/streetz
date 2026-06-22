@@ -42,10 +42,25 @@ export class PaymentsController {
   }
 
   @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @UseGuards(JwtAuthGuard)
+  @Post("events/:eventId/checkout/initialize")
+  initializeEventTicketCheckout(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string, @Body() dto: BookEventDto) {
+    return this.paymentsService.initializeEventTicketCheckout(user.id, eventId, dto);
+  }
+
+  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post("events/ticket/verify")
   verifyEventTicket(@CurrentUser() user: AuthUser, @Body() dto: VerifySubscriptionPaymentDto) {
     return this.paymentsService.verifyEventTicketPayment(user.id, dto.reference);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("events/checkout/verify")
+  verifyEventTicketCheckout(@CurrentUser() user: AuthUser, @Body() dto: VerifySubscriptionPaymentDto) {
+    return this.paymentsService.verifyEventTicketCheckoutPayment(user.id, dto.reference);
   }
 
   @Post("paystack/webhook")

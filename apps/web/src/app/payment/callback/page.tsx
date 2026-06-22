@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { useSession } from "@/components/app/session-provider";
 import { TOKEN_KEY, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { clearPendingEventCheckout } from "@/lib/pending-event-checkout";
 
 function PaymentCallbackContent() {
   const router = useRouter();
@@ -22,7 +23,8 @@ function PaymentCallbackContent() {
     const purpose = searchParams.get("purpose");
     const eventId = searchParams.get("eventId");
     const savedToken = token ?? window.localStorage.getItem(TOKEN_KEY);
-    const isEventTicketPayment = purpose === "event-ticket";
+    const isCombinedEventTicketPayment = purpose === "membership-event-ticket";
+    const isEventTicketPayment = purpose === "event-ticket" || isCombinedEventTicketPayment;
     const eventRedirectPath = eventId ? `/events/${eventId}` : "/events";
 
     if (!reference) {
@@ -43,19 +45,23 @@ function PaymentCallbackContent() {
       message?: string;
       subscriptionStatus?: "INACTIVE" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
       subscriptionEndsAt?: string | null;
-    }>(isEventTicketPayment ? "/payments/events/ticket/verify" : "/payments/subscription/verify", {
+    }>(isCombinedEventTicketPayment ? "/payments/events/checkout/verify" : isEventTicketPayment ? "/payments/events/ticket/verify" : "/payments/subscription/verify", {
       method: "POST",
       headers: authHeaders(savedToken),
       body: JSON.stringify({ reference }),
     })
       .then(async (response) => {
-        if (!isEventTicketPayment && response.subscriptionStatus) {
+        if (response.subscriptionStatus) {
           updateSessionUser((current) => ({
             ...current,
             subscriptionStatus: response.subscriptionStatus ?? current.subscriptionStatus,
             subscriptionEndsAt: response.subscriptionEndsAt ?? current.subscriptionEndsAt,
           }));
           await refreshSession({ force: true });
+        }
+
+        if (isEventTicketPayment) {
+          clearPendingEventCheckout();
         }
 
         if (isEventTicketPayment && response.refundRequired) {

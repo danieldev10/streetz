@@ -115,6 +115,18 @@ export class RoomsService {
     return this.formatRoom(room, { includeMessageCount: true });
   }
 
+  async getPublicRooms() {
+    const rooms = await this.prisma.chatRoom.findMany({
+      where: { isActive: true },
+      include: this.roomCounts({ includeMessages: false }),
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }]
+    });
+
+    return {
+      rooms: await Promise.all(rooms.map((room) => this.formatRoom(room, { includeMessageCount: false })))
+    };
+  }
+
   async getActiveRooms(userId: string) {
     const user = await this.ensureMemberOrAdmin(userId);
 

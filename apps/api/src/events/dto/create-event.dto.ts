@@ -17,6 +17,20 @@ import {
 } from "class-validator";
 
 export const EVENT_TICKET_TIER_NAMES = ["Regular", "VIP", "Tables"] as const;
+export const EVENT_CATEGORY_NAMES = [
+  "Music",
+  "Nightlife",
+  "Theatre",
+  "Holidays",
+  "Dating",
+  "Hobbies",
+  "Business",
+  "Food & Drink",
+  "Sports & Fitness",
+  "Fashion",
+  "Tech",
+  "Community"
+] as const;
 
 export class EventTicketTierDto {
   @ApiProperty({ enum: EVENT_TICKET_TIER_NAMES, example: "Regular" })
@@ -36,7 +50,7 @@ export class EventTicketTierDto {
   @Min(1)
   capacity?: number;
 
-  @ApiPropertyOptional({ example: 4, description: "Maximum tickets one member can own for this event when buying this tier." })
+  @ApiPropertyOptional({ example: 4, description: "Maximum tickets one member can own for this tier." })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -49,6 +63,12 @@ export class CreateEventDto {
   @MinLength(2)
   @MaxLength(120)
   title: string;
+
+  @ApiProperty({ enum: EVENT_CATEGORY_NAMES, example: "Nightlife" })
+  @IsString()
+  @IsIn(EVENT_CATEGORY_NAMES)
+  @MaxLength(40)
+  category: (typeof EVENT_CATEGORY_NAMES)[number];
 
   @ApiPropertyOptional({ example: "A curated night out for crushclub members." })
   @IsOptional()
@@ -114,7 +134,7 @@ export class CreateEventDto {
   @Min(1)
   capacity?: number;
 
-  @ApiPropertyOptional({ example: 4, description: "Legacy maximum tickets one member can own for this event." })
+  @ApiPropertyOptional({ example: 4, description: "Legacy maximum tickets one member can own for the default tier." })
   @IsOptional()
   @IsInt()
   @Min(1)
