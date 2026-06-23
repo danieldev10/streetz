@@ -502,7 +502,7 @@ export function NotificationsTab({
         ) : feed ? (
           <div className="mx-auto max-w-3xl">
             <div className="mb-5">
-              <div className="grid grid-cols-4 gap-1 rounded-full bg-black/4 p-1">
+              <div className="grid grid-cols-4 gap-1 rounded-full bg-black/4 p-1.5">
                 {notificationTabs.map((tab) => {
                   const isActive = activeNotificationTab === tab.id;
 
@@ -510,7 +510,7 @@ export function NotificationsTab({
                     <button
                       key={tab.id}
                       type="button"
-                      className={`whitespace-nowrap rounded-full px-1.5 py-2 text-[11px] font-medium leading-5 transition sm:px-2 sm:text-[13px] ${isActive
+                      className={`whitespace-nowrap rounded-full px-1 py-2 text-[10px] font-medium leading-5 transition sm:px-2 sm:text-[12px] ${isActive
                         ? "bg-[#0d0d0d] text-white shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
                         : "text-[#666666] hover:text-[#0d0d0d]"
                         }`}
