@@ -174,7 +174,7 @@ export function AdminDashboard({ token }: { token: string }) {
       />
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingMetrics ? (
           <LoadingState label="Loading metrics" className="min-h-105 rounded-[28px] border border-black/5" />
@@ -190,7 +190,7 @@ export function AdminDashboard({ token }: { token: string }) {
                     <p className="text-sm font-medium text-[#666666]">{card.label}</p>
                     <p className="mt-3 text-3xl font-semibold tracking-normal text-[#0d0d0d]">{card.value}</p>
                   </div>
-                  <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#d4fae8] text-[#0b7a50]">
+                  <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#f6e0f6] text-[#7c1f7d]">
                     <card.icon className="size-5" aria-hidden="true" />
                   </span>
                 </div>
@@ -201,7 +201,7 @@ export function AdminDashboard({ token }: { token: string }) {
         ) : (
           <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
-              <Activity className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+              <Activity className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No metrics available</h2>
               <p className="mt-2 text-sm text-[#666666]">Try refreshing the admin overview.</p>
               <button

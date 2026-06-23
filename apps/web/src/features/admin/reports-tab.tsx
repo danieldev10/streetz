@@ -40,7 +40,7 @@ const reportStatusClasses: Record<ReportStatus, string> = {
   OPEN: "bg-[#fff2d9] text-[#9a5b00]",
   REVIEWED: "bg-[#e8f1ff] text-[#2867c7]",
   DISMISSED: "bg-[#f4f4f4] text-[#666666]",
-  ACTIONED: "bg-[#d4fae8] text-[#0b7a50]",
+  ACTIONED: "bg-[#f6e0f6] text-[#7c1f7d]",
 };
 
 type ReportModerationAction = Extract<ModerationActionType, "SUSPEND" | "BAN" | "RESTORE" | "DELETE">;
@@ -248,7 +248,7 @@ export function ReportsTab({ token }: { token: string }) {
         title=""
         action={
           <button
-            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasActiveReportFilter ? "border-[#18E299] bg-[#d4fae8]" : "border-black/8 bg-white"
+            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasActiveReportFilter ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"
               }`}
             type="button"
             onClick={() => setIsReportFilterOpen(true)}
@@ -256,7 +256,7 @@ export function ReportsTab({ token }: { token: string }) {
           >
             <SlidersHorizontal className="size-4" aria-hidden="true" />
             {hasActiveReportFilter ? (
-              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#18E299] text-[9px] font-semibold text-[#0d0d0d]">
+              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#9d2a9e] text-[9px] font-semibold text-white">
                 {activeFilterCount}
               </span>
             ) : null}
@@ -297,7 +297,7 @@ export function ReportsTab({ token }: { token: string }) {
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                 Status
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                   value={reportFilter}
                   onChange={(event) => setReportFilter(event.target.value as ReportStatus | "ALL")}
                 >
@@ -311,7 +311,7 @@ export function ReportsTab({ token }: { token: string }) {
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                 Violation
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                   value={reasonFilter}
                   onChange={(event) => setReasonFilter(event.target.value)}
                 >
@@ -349,7 +349,7 @@ export function ReportsTab({ token }: { token: string }) {
       ) : null}
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        {notice ? <p className="rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingReports ? (
           <LoadingState label="Loading reports" className={`${notice ? "mt-4" : ""} min-h-64 rounded-[28px] border border-black/5`} />
@@ -362,7 +362,7 @@ export function ReportsTab({ token }: { token: string }) {
         ) : (
           <div className={`${notice ? "mt-4" : ""} grid min-h-64 place-items-center rounded-[28px] border border-black/5 p-6 text-center`}>
             <div>
-              <AlertTriangle className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+              <AlertTriangle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h3 className="mt-3 text-2xl font-semibold">No reports here</h3>
               <p className="mt-2 text-sm text-[#666666]">Reports matching these filters will appear here.</p>
             </div>
@@ -503,7 +503,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
       />
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingReport ? (
           <LoadingState label="Loading report" className="min-h-80 rounded-[28px] border border-black/5" />
@@ -539,7 +539,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
                 <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Reason
                   <input
-                    className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                     value={moderationReason}
                     onChange={(event) => setModerationReason(event.target.value)}
                     maxLength={500}
@@ -549,7 +549,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
                 <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Days
                   <input
-                    className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                     type="number"
                     min={1}
                     max={365}
@@ -609,7 +609,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
         ) : (
           <div className="grid min-h-80 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
-              <AlertTriangle className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+              <AlertTriangle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Report not found</h2>
               <p className="mt-2 text-sm text-[#666666]">This report may have been removed.</p>
               <Link
@@ -670,7 +670,7 @@ function ReportListItem({ report }: { report: AdminReport }) {
           </p>
         </div>
       </div>
-      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#777777] transition group-hover:border-[#18E299] group-hover:text-[#0d0d0d]">
+      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#777777] transition group-hover:border-[#bd40be] group-hover:text-[#0d0d0d]">
         <ChevronRight className="size-4" aria-hidden="true" />
       </span>
     </Link>
@@ -716,12 +716,12 @@ function ReportAccountButton({
 }) {
   return (
     <button
-      className="flex min-w-0 flex-1 items-center gap-3 rounded-[20px] p-2 text-left transition hover:bg-[#fafafa] focus:outline-none focus:ring-2 focus:ring-[#18E299]"
+      className="flex min-w-0 flex-1 items-center gap-3 rounded-[20px] p-2 text-left transition hover:bg-[#fafafa] focus:outline-none focus:ring-2 focus:ring-[#bd40be]"
       type="button"
       onClick={onClick}
       aria-label={`View ${label.toLowerCase()} profile: ${user.displayName}`}
     >
-      <span className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+      <span className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
         <ProfilePhotoImage
           photo={user.photos[0]}
           alt={`${user.displayName} profile`}
@@ -743,7 +743,7 @@ function AdminProfileModal({ user, onClose }: { user: AdminReportUser; onClose: 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
       <section className="max-h-[86dvh] w-full max-w-sm overflow-hidden rounded-[28px] bg-white shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
-        <div className="relative aspect-[1.08] min-h-65 bg-[#d4fae8]">
+        <div className="relative aspect-[1.08] min-h-65 bg-[#f6e0f6]">
           <ProfilePhotoImage
             photo={primaryPhoto}
             alt={`${user.displayName} profile`}
@@ -775,7 +775,7 @@ function AdminProfileModal({ user, onClose }: { user: AdminReportUser; onClose: 
 
         <div className="max-h-[calc(86dvh-260px)] overflow-y-auto p-5">
           <div className="flex items-center gap-2 rounded-[18px] bg-[#fafafa] p-3 text-sm text-[#444444]">
-            <Mail className="size-4 shrink-0 text-[#18E299]" aria-hidden="true" />
+            <Mail className="size-4 shrink-0 text-[#bd40be]" aria-hidden="true" />
             <span className="min-w-0 truncate">{user.email}</span>
           </div>
 

@@ -164,7 +164,7 @@ export function MemberProfileView({
             {backLabel}
           </button>
           <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
-            <div className="relative aspect-[1.05] min-h-[320px] bg-[#d4fae8]">
+            <div className="relative aspect-[1.05] min-h-[320px] bg-[#f6e0f6]">
 
               {/* Segmented progress bar */}
               {hasMultiplePhotos ? (
@@ -238,8 +238,8 @@ export function MemberProfileView({
             </div>
 
             {matchedConnectionStatus ? (
-              <div className="border-b border-[#18E299]/20 bg-[#d9fbe9] px-5 py-3">
-                <p className="text-sm font-semibold text-[#064d34]">
+              <div className="border-b border-[#bd40be]/20 bg-[#f6e0f6] px-5 py-3">
+                <p className="text-sm font-semibold text-[#5e155f]">
                   Matched as {formatConnectionStatus(matchedConnectionStatus)}
                 </p>
               </div>
@@ -261,7 +261,7 @@ export function MemberProfileView({
               <div className="mt-5">
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Location</p>
 	                <p className="mt-2 flex items-center gap-1 text-sm font-medium text-[#444444]">
-	                  <MapPin className="size-4 text-[#18E299]" aria-hidden="true" />
+	                  <MapPin className="size-4 text-[#bd40be]" aria-hidden="true" />
 	                  {locationLabel}
 	                </p>
               </div>
@@ -282,7 +282,7 @@ export function MemberProfileView({
               </div>
 
               {actionNotice ? (
-                <p className="mt-5 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{actionNotice}</p>
+                <p className="mt-5 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{actionNotice}</p>
               ) : null}
 
               {canUseSafetyActions ? (
@@ -420,7 +420,7 @@ export function MemberProfileView({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
-                <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#d4fae8] text-[#0fa76e]">
+                <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#f6e0f6] text-[#9d2a9e]">
                   <Flag className="size-5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
@@ -446,7 +446,7 @@ export function MemberProfileView({
               </button>
             </div>
             <select
-              className="mt-4 h-11 w-full rounded-full border border-black/[0.08] bg-white px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              className="mt-4 h-11 w-full rounded-full border border-black/[0.08] bg-white px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
               value={reportReason}
               onChange={(event) => {
                 setReportReason(event.target.value);
@@ -463,7 +463,7 @@ export function MemberProfileView({
               ))}
             </select>
             <textarea
-              className="mt-3 min-h-24 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              className="mt-3 min-h-24 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
               placeholder="Optional details"
               value={reportDetails}
               onChange={(event) => {

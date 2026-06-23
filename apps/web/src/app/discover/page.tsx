@@ -105,7 +105,7 @@ function DiscoveryProfileGate({
         ) : profileState === "verificationRequired" ? (
           <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-white p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
             <div className="max-w-xs">
-              <div className="mx-auto grid size-14 place-items-center rounded-full bg-[#d4fae8] text-[#0fa76e]">
+              <div className="mx-auto grid size-14 place-items-center rounded-full bg-[#f6e0f6] text-[#9d2a9e]">
                 <ShieldCheck className="size-6" aria-hidden="true" />
               </div>
               <h2 className="mt-4 text-2xl font-semibold text-[#0d0d0d]">Verify your profile</h2>
@@ -126,7 +126,7 @@ function DiscoveryProfileGate({
         ) : (
           <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-white p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
             <div className="max-w-xs">
-              <div className="mx-auto grid size-14 place-items-center rounded-full bg-[#d4fae8] text-[#0fa76e]">
+              <div className="mx-auto grid size-14 place-items-center rounded-full bg-[#f6e0f6] text-[#9d2a9e]">
                 <Heart className="size-6" aria-hidden="true" />
               </div>
               <h2 className="mt-4 text-2xl font-semibold text-[#0d0d0d]">Complete your profile</h2>

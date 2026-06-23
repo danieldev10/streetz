@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoadingState } from "@/components/loading-state";
+import { BrandLogo } from "@/components/brand-logo";
 import { useSession } from "@/components/app/session-provider";
 import { TOKEN_KEY, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { clearPendingEventCheckout } from "@/lib/pending-event-checkout";
@@ -79,10 +80,10 @@ function PaymentCallbackContent() {
   }, [refreshSession, router, searchParams, token, updateSessionUser]);
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[#f6f8f4] px-4 text-[#17211b]">
-      <section className="w-full max-w-sm rounded-lg border border-[#dfe7dc] bg-white p-6 text-center">
-        <p className="text-3xl font-black text-[#0f8f63]">crushclub</p>
-        <p className="mt-3 text-sm font-bold text-[#667369]">{message}</p>
+    <main className="grid min-h-screen place-items-center bg-[#fbf7fb] px-4 text-[#1c131c]">
+      <section className="w-full max-w-sm rounded-lg border border-[#e7e3ef] bg-white p-6 text-center">
+        <BrandLogo size="payment" className="mx-auto" priority />
+        <p className="mt-3 text-sm font-bold text-[#6b6675]">{message}</p>
       </section>
     </main>
   );
@@ -92,7 +93,7 @@ export default function PaymentCallbackPage() {
   return (
     <Suspense
       fallback={
-        <main className="grid min-h-screen place-items-center bg-[#f6f8f4] px-4 text-[#17211b]">
+        <main className="grid min-h-screen place-items-center bg-[#fbf7fb] px-4 text-[#1c131c]">
           <LoadingState label="Loading payment status" />
         </main>
       }

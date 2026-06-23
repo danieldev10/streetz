@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { LogIn, Menu, X } from "lucide-react";
 import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
 import { bottomTabs, tabRoutes, tabs } from "@/components/app/navigation";
+import { BrandLogo } from "@/components/brand-logo";
 import { useSession } from "@/components/app/session-provider";
 import { isActiveMember } from "@/lib/api";
 import type { ChatRoom, MatchThread, StreetzUser, TabKey } from "@/lib/types";
@@ -149,8 +150,8 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
           <div>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-semibold">crushclub</p>
-                <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Explore</p>
+                <BrandLogo size="sidebar" priority />
+                <p className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Explore</p>
               </div>
               <button
                 type="button"
@@ -184,8 +185,8 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
           <header className="sticky top-0 z-10 border-b border-black/[0.05] bg-white/90 px-5 py-4 backdrop-blur md:hidden">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-2xl font-semibold">crushclub</p>
-                <p className="text-xs font-medium text-[#666666]">Explore</p>
+                <BrandLogo size="header" priority />
+                <p className="mt-1 text-xs font-medium text-[#666666]">Explore</p>
               </div>
               <button
                 type="button"

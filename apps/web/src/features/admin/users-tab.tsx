@@ -47,7 +47,7 @@ function formatNaira(amountKobo: number) {
 
 function StatusChip({ status }: { status: AccountStatus }) {
   const map: Record<AccountStatus, { label: string; cls: string }> = {
-    ACTIVE: { label: "Active", cls: "bg-[#d4fae8] text-[#0fa76e]" },
+    ACTIVE: { label: "Active", cls: "bg-[#f6e0f6] text-[#9d2a9e]" },
     DEACTIVATED: { label: "Deactivated", cls: "bg-[#fafafa] text-[#666666]" },
     SUSPENDED: { label: "Suspended", cls: "bg-orange-50 text-orange-700" },
     BANNED: { label: "Banned", cls: "bg-red-50 text-red-700" },
@@ -62,7 +62,7 @@ function SubChip({ status }: { status: string }) {
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-        isActive ? "bg-[#d4fae8] text-[#0fa76e]" : "bg-[#fafafa] text-[#888888]"
+        isActive ? "bg-[#f6e0f6] text-[#9d2a9e]" : "bg-[#fafafa] text-[#888888]"
       }`}
     >
       {isActive ? "Subscribed" : "No sub"}
@@ -121,7 +121,7 @@ function UserDetailView({
             </div>
             <div className="flex flex-wrap gap-2">
               {user.role === "ADMIN" && (
-                <span className="rounded-full bg-[#7c5cfc]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#7c5cfc]">
+                <span className="rounded-full bg-[#bd40be]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#bd40be]">
                   Admin
                 </span>
               )}
@@ -220,7 +220,7 @@ function UserDetailView({
             <div className="grid grid-cols-3 gap-3">
               <StatCard label="Likes given" value={givenLikes} icon={Heart} color="text-[#ff6b8a]" />
               <StatCard label="Passes given" value={givenPasses} icon={X} color="text-[#888888]" />
-              <StatCard label="Likes received" value={unseenLikes} icon={Heart} color="text-[#18E299]" />
+              <StatCard label="Likes received" value={unseenLikes} icon={Heart} color="text-[#bd40be]" />
             </div>
             <ActivityList
               title="Actions given (recent 50)"
@@ -257,7 +257,7 @@ function UserDetailView({
             items={user.matches.map((m) => ({
               key: m.id,
               icon: UsersRound,
-              iconCls: m.status === "ACTIVE" ? "text-[#18E299]" : "text-[#888888]",
+              iconCls: m.status === "ACTIVE" ? "text-[#bd40be]" : "text-[#888888]",
               primary: m.otherUserName,
               secondary: m.status,
               time: m.createdAt,
@@ -273,7 +273,7 @@ function UserDetailView({
             items={user.roomMemberships.map((r) => ({
               key: r.roomId,
               icon: MessageCircle,
-              iconCls: "text-[#7c5cfc]",
+              iconCls: "text-[#bd40be]",
               primary: r.roomName,
               secondary: r.roomCategory,
               time: r.joinedAt,
@@ -289,7 +289,7 @@ function UserDetailView({
             items={user.tickets.map((t) => ({
               key: t.id,
               icon: Ticket,
-              iconCls: t.status === "PAID" || t.status === "CHECKED_IN" ? "text-[#18E299]" : "text-[#888888]",
+              iconCls: t.status === "PAID" || t.status === "CHECKED_IN" ? "text-[#bd40be]" : "text-[#888888]",
               primary: t.eventTitle,
               secondary: `${t.code} · ${t.ticketTypeName} · ${formatNaira(t.priceKobo)} · ${t.status}`,
               time: t.createdAt,
@@ -306,7 +306,7 @@ function UserDetailView({
               items={user.payments.map((p) => ({
                 key: p.id,
                 icon: CheckCircle2,
-                iconCls: p.status === "SUCCESS" ? "text-[#18E299]" : "text-[#888888]",
+                iconCls: p.status === "SUCCESS" ? "text-[#bd40be]" : "text-[#888888]",
                 primary: `${p.purpose.replace("_", " ")} — ${formatNaira(p.amountKobo)}`,
                 secondary: `${p.status} via ${p.provider}`,
                 time: p.createdAt,
@@ -330,7 +330,7 @@ function UserDetailView({
               items={user.loginSessions.map((s, i) => ({
                 key: String(i),
                 icon: LogIn,
-                iconCls: s.revokedAt ? "text-[#888888]" : "text-[#18E299]",
+                iconCls: s.revokedAt ? "text-[#888888]" : "text-[#bd40be]",
                 primary: s.revokedAt ? "Session ended" : "Session active",
                 secondary: `Expires ${formatDate(s.expiresAt)}${s.revokedAt ? ` · Revoked ${formatDate(s.revokedAt)}` : ""}`,
                 time: s.createdAt,
@@ -505,21 +505,21 @@ export function UsersTab({ token }: { token: string }) {
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
         {notice ? (
-          <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p>
+          <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p>
         ) : null}
 
         <div className="mb-4 flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-48">
             <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#888888]" aria-hidden="true" />
             <input
-              className="h-11 w-full rounded-full border border-black/8 bg-white pl-10 pr-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              className="h-11 w-full rounded-full border border-black/8 bg-white pl-10 pr-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
               placeholder="Search name or email"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <select
-            className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+            className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as AccountStatus | "")}
           >
@@ -533,7 +533,7 @@ export function UsersTab({ token }: { token: string }) {
 
         {openingUser ? (
           <div className="mb-4 flex items-center gap-3 rounded-2xl border border-black/5 bg-[#fafafa] p-3 text-sm font-medium text-[#666666]">
-            <LoaderCircle className="size-4 animate-spin text-[#18E299]" aria-hidden="true" />
+            <LoaderCircle className="size-4 animate-spin text-[#bd40be]" aria-hidden="true" />
             Opening {openingUser.displayName}
           </div>
         ) : null}
@@ -543,7 +543,7 @@ export function UsersTab({ token }: { token: string }) {
         ) : filteredUsers.length === 0 ? (
           <div className="grid min-h-80 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>
-              <UserRound className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+              <UserRound className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No users found</h2>
               <p className="mt-2 text-sm text-[#666666]">Try adjusting the search or filter.</p>
             </div>
@@ -569,7 +569,7 @@ export function UsersTab({ token }: { token: string }) {
                   <p className="truncate text-sm font-medium text-[#0d0d0d]">{user.displayName}</p>
                   <p className="truncate text-sm text-[#666666]">{user.email}</p>
                   {openingUserId === user.id ? (
-                    <LoaderCircle className="size-4 animate-spin text-[#18E299]" aria-hidden="true" />
+                    <LoaderCircle className="size-4 animate-spin text-[#bd40be]" aria-hidden="true" />
                   ) : (
                     <span className="size-4" aria-hidden="true" />
                   )}

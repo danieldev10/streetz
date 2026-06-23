@@ -119,7 +119,7 @@ function getTicketState(ticket: StreetzEventTicket) {
   if (ticket.status === "PAID") {
     return {
       label: "Unused",
-      tone: "bg-[#d4fae8] text-[#0b7a50]",
+      tone: "bg-[#f6e0f6] text-[#7c1f7d]",
       icon: Ticket,
     };
   }
@@ -318,11 +318,11 @@ export function EventTicketsTab({
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
         {isAdmin ? (
-          <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">
+          <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">
             Admins manage events from the admin event page.
           </p>
         ) : null}
-        {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoading ? (
           <LoadingState label="Loading tickets" className="min-h-90 rounded-3xl border border-black/5" />
@@ -337,7 +337,7 @@ export function EventTicketsTab({
             return (
               <div className="grid gap-4">
                 <article className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-                  <div className="relative aspect-16/10 bg-[#d4fae8]">
+                  <div className="relative aspect-16/10 bg-[#f6e0f6]">
                     <Image
                       src={event.coverImage || FALLBACK_EVENT_IMAGE}
                       alt={`${event.title} event`}
@@ -372,7 +372,7 @@ export function EventTicketsTab({
                       <label className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                         Tier
                         <select
-                          className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                           value={selectedTicketType?.id ?? ""}
                           onChange={(inputEvent) => {
                             setSelectedTicketTypeId(inputEvent.target.value);
@@ -403,7 +403,7 @@ export function EventTicketsTab({
                       <label className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                         Quantity
                         <select
-                          className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                           value={selectedQuantity}
                           onChange={(inputEvent) => setBookingQuantity(Number(inputEvent.target.value))}
                           disabled={isBusy}
@@ -463,7 +463,7 @@ export function EventTicketsTab({
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                               <button
-                                className="inline-flex size-9 items-center justify-center rounded-full border border-black/8 text-[#666666] transition hover:border-[#18E299] hover:text-[#0d0d0d]"
+                                className="inline-flex size-9 items-center justify-center rounded-full border border-black/8 text-[#666666] transition hover:border-[#bd40be] hover:text-[#0d0d0d]"
                                 type="button"
                                 onClick={() => void shareEvent(ticket)}
                                 aria-label={`Share ${event.title} ticket`}
@@ -483,7 +483,7 @@ export function EventTicketsTab({
                   ) : (
                     <div className="grid min-h-48 place-items-center rounded-3xl border border-black/5 p-6 text-center">
                       <div>
-                        <Ticket className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+                        <Ticket className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
                         <h2 className="mt-3 text-2xl font-semibold">No tickets yet</h2>
                         <p className="mt-2 text-sm text-[#666666]">Book this event to see your tickets here.</p>
                       </div>
@@ -497,7 +497,7 @@ export function EventTicketsTab({
         ) : (
           <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>
-              <Ticket className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+              <Ticket className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Event unavailable</h2>
               <p className="mt-2 text-sm text-[#666666]">This event could not be loaded.</p>
             </div>

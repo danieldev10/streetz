@@ -123,7 +123,7 @@ function getEventAlertCopy(kind: NotificationFeedEventAlert["kind"]) {
       label: "Updated",
       title: "Event updated",
       description: "Event details changed. Check the event page for the latest information.",
-      tone: "bg-[#7c5cfc]/10 text-[#7c5cfc]",
+      tone: "bg-[#bd40be]/10 text-[#bd40be]",
     };
   }
 
@@ -142,7 +142,7 @@ function SectionHeader({ icon: Icon, label, count }: { icon: LucideIcon; label: 
       <Icon className="size-4 text-[#888888]" aria-hidden="true" />
       <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">{label}</h2>
       {count > 0 ? (
-        <span className="grid min-w-5 place-items-center rounded-full bg-[#18E299] px-1.5 text-[10px] font-semibold leading-5 text-[#0d0d0d]">
+        <span className="grid min-w-5 place-items-center rounded-full bg-[#9d2a9e] px-1.5 text-[10px] font-semibold leading-5 text-white">
           {count}
         </span>
       ) : null}
@@ -412,7 +412,7 @@ export function NotificationsTab({
             </button>
             <button
               type="button"
-              className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#18E299] text-sm font-medium text-[#0d0d0d] transition hover:bg-[#10c984] disabled:opacity-60"
+              className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#9d2a9e] text-sm font-medium text-white transition hover:bg-[#7c1f7d] disabled:opacity-60"
               onClick={() => handleLikeAction(viewedLiker, "LIKE")}
               disabled={actionTargetId === viewedLiker.id}
             >
@@ -484,7 +484,7 @@ export function NotificationsTab({
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
         {notice ? (
-          <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p>
+          <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p>
         ) : null}
 
         {isLoading && !feed ? (
@@ -492,7 +492,7 @@ export function NotificationsTab({
         ) : feed && !hasSomeContent ? (
           <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
-              <Bell className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+              <Bell className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Nothing new</h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-[#666666]">
                 Likes, matches, messages, rooms, events, tickets, payments, and report updates will appear here.
@@ -518,7 +518,7 @@ export function NotificationsTab({
                     >
                       {tab.label}
                       {tab.count > 0 ? (
-                        <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-[#18E299] px-1 text-[10px] font-semibold leading-4 text-[#0d0d0d] shadow-[0_0_0_1px_rgba(13,13,13,0.05)] sm:min-w-5 sm:px-1.5 sm:text-[11px] sm:leading-5">
+                        <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-[#9d2a9e] px-1 text-[10px] font-semibold leading-4 text-white shadow-[0_0_0_1px_rgba(13,13,13,0.05)] sm:min-w-5 sm:px-1.5 sm:text-[11px] sm:leading-5">
                           {tab.count}
                         </span>
                       ) : null}
@@ -531,7 +531,7 @@ export function NotificationsTab({
             {!tabHasContent[activeNotificationTab] ? (
               <div className="grid min-h-80 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
                 <div>
-                  <Bell className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+                  <Bell className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
                   <h2 className="mt-3 text-2xl font-semibold">Nothing here</h2>
                   <p className="mt-2 max-w-sm text-sm leading-6 text-[#666666]">{emptyTabCopy[activeNotificationTab]}</p>
                 </div>
@@ -546,10 +546,10 @@ export function NotificationsTab({
                         <button
                           key={liker.id}
                           type="button"
-                          className="group flex items-center gap-4 rounded-[20px] border border-black/5 bg-white p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-center gap-4 rounded-[20px] border border-black/5 bg-white p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => setViewedLiker(liker)}
                         >
-                          <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                          <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
                             <CandidatePhoto candidate={liker} variant="thumb" />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -589,7 +589,7 @@ export function NotificationsTab({
                             className={`flex items-center gap-4 rounded-[20px] border bg-white p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition ${
                               match.seen
                                 ? "border-black/[0.03] opacity-50"
-                                : "border-black/5 hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                                : "border-black/5 hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                             }`}
                             onClick={() => {
                               if (!match.seen) {
@@ -598,14 +598,14 @@ export function NotificationsTab({
                               router.push(`/matches/${match.id}`);
                             }}
                           >
-                            <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                            <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
                               <CandidatePhoto candidate={match.user} variant="thumb" />
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-2">
                                 <p className="truncate text-sm font-semibold text-[#0d0d0d]">{match.user.displayName}</p>
                                 {match.seen
-                                  ? <CheckCircle2 className="size-4 shrink-0 text-[#18E299]" aria-hidden="true" />
+                                  ? <CheckCircle2 className="size-4 shrink-0 text-[#bd40be]" aria-hidden="true" />
                                   : <Heart className="size-4 shrink-0 fill-[#ff6b8a] text-[#ff6b8a]" aria-hidden="true" />
                                 }
                               </div>
@@ -629,16 +629,16 @@ export function NotificationsTab({
                         <button
                           key={message.id}
                           type="button"
-                          className="group flex items-center gap-4 rounded-[20px] border border-black/5 bg-white p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-center gap-4 rounded-[20px] border border-black/5 bg-white p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => router.push(`/matches/${message.matchId}`)}
                         >
-                          <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                          <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
                             <CandidatePhoto candidate={message.user} variant="thumb" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
                               <p className="truncate text-sm font-semibold text-[#0d0d0d]">{message.user.displayName}</p>
-                              <span className="grid min-w-5 place-items-center rounded-full bg-[#18E299] px-1.5 text-[10px] font-semibold leading-5 text-[#0d0d0d]">
+                              <span className="grid min-w-5 place-items-center rounded-full bg-[#9d2a9e] px-1.5 text-[10px] font-semibold leading-5 text-white">
                                 {message.unreadCount}
                               </span>
                             </div>
@@ -661,16 +661,16 @@ export function NotificationsTab({
                         <button
                           key={room.id}
                           type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => router.push(`/rooms/${room.roomId}`)}
                         >
-                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#18E299]/10">
-                            <MessageCircle className="size-5 text-[#0b9f69]" aria-hidden="true" />
+                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#bd40be]/10">
+                            <MessageCircle className="size-5 text-[#9d2a9e]" aria-hidden="true" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
                               <p className="truncate text-sm font-semibold text-[#0d0d0d]">{room.name}</p>
-                              <span className="grid min-w-5 place-items-center rounded-full bg-[#18E299] px-1.5 text-[10px] font-semibold leading-5 text-[#0d0d0d]">
+                              <span className="grid min-w-5 place-items-center rounded-full bg-[#9d2a9e] px-1.5 text-[10px] font-semibold leading-5 text-white">
                                 {room.unreadCount}
                               </span>
                             </div>
@@ -697,7 +697,7 @@ export function NotificationsTab({
                           <button
                             key={`${alert.kind}:${alert.id}`}
                             type="button"
-                            className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                            className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                             onClick={() => {
                               void markFeedItemSeen({ kind: alert.kind, entityId: alert.id });
                               router.push("/events");
@@ -738,14 +738,14 @@ export function NotificationsTab({
                         <button
                           key={ticket.id}
                           type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => {
                             void markFeedItemSeen({ kind: "TICKET_CONFIRMED", entityId: ticket.id });
                             router.push("/events");
                           }}
                         >
-                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#18E299]/10">
-                            <CheckCircle2 className="size-5 text-[#0b9f69]" aria-hidden="true" />
+                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#bd40be]/10">
+                            <CheckCircle2 className="size-5 text-[#9d2a9e]" aria-hidden="true" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-[#0d0d0d]">Ticket confirmed</p>
@@ -769,11 +769,11 @@ export function NotificationsTab({
                         <button
                           key={room.id}
                           type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => router.push("/rooms")}
                         >
-                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#7c5cfc]/10">
-                            <MessageCircle className="size-5 text-[#7c5cfc]" aria-hidden="true" />
+                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#bd40be]/10">
+                            <MessageCircle className="size-5 text-[#bd40be]" aria-hidden="true" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-[#0d0d0d]">{room.name}</p>
@@ -800,7 +800,7 @@ export function NotificationsTab({
                         <button
                           key={event.id}
                           type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => router.push("/events")}
                         >
                           <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#f5a623]/10">
@@ -831,7 +831,7 @@ export function NotificationsTab({
                         <button
                           key={alert.id}
                           type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => {
                             void markFeedItemSeen({ kind: "SUBSCRIPTION_EXPIRING", entityId: alert.id });
                             router.push("/profile");
@@ -860,14 +860,14 @@ export function NotificationsTab({
                         <button
                           key={report.id}
                           type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => {
                             void markFeedItemSeen({ kind: "REPORT_STATUS_UPDATED", entityId: report.id });
                             router.push("/reports");
                           }}
                         >
-                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#7c5cfc]/10">
-                            <ShieldCheck className="size-5 text-[#7c5cfc]" aria-hidden="true" />
+                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#bd40be]/10">
+                            <ShieldCheck className="size-5 text-[#bd40be]" aria-hidden="true" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-[#0d0d0d]">Report {formatReportStatus(report.status)}</p>
@@ -891,14 +891,14 @@ export function NotificationsTab({
                           <button
                             key={`${payment.kind}:${payment.id}`}
                             type="button"
-                            className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                            className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-white p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                             onClick={() => {
                               void markFeedItemSeen({ kind: payment.kind, entityId: payment.id });
                               router.push(payment.purpose === "EVENT_TICKET" ? "/events" : "/profile");
                             }}
                           >
-                            <div className={`grid size-11 shrink-0 place-items-center rounded-full ${isSuccess ? "bg-[#18E299]/10" : "bg-[#ff6b6b]/10"}`}>
-                              <CreditCard className={`size-5 ${isSuccess ? "text-[#0b9f69]" : "text-[#d63f3f]"}`} aria-hidden="true" />
+                            <div className={`grid size-11 shrink-0 place-items-center rounded-full ${isSuccess ? "bg-[#bd40be]/10" : "bg-[#ff6b6b]/10"}`}>
+                              <CreditCard className={`size-5 ${isSuccess ? "text-[#9d2a9e]" : "text-[#d63f3f]"}`} aria-hidden="true" />
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-semibold text-[#0d0d0d]">

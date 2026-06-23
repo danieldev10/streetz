@@ -100,21 +100,21 @@ function OpeningMatchShell({
           </div>
 
           <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
-            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
             {socketStatus === "connected" ? "Live" : "Connecting"}
           </div>
         </div>
 
-        {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         <div className="grid min-h-0 flex-1 place-items-center bg-[#fafafa] px-4 py-5">
-          <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-hidden="true" />
+          <LoaderCircle className="size-7 animate-spin text-[#bd40be]" aria-hidden="true" />
           <span className="sr-only">Loading chat</span>
         </div>
 
         <div className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
           <div className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] bg-[#fafafa]" />
-          <div className="size-12 shrink-0 rounded-full bg-[#d4fae8]" />
+          <div className="size-12 shrink-0 rounded-full bg-[#f6e0f6]" />
         </div>
       </article>
     </section>
@@ -585,7 +585,7 @@ export function MatchesTab({
               onClick={() => setViewedMatchProfile(selectedMatch.user)}
               aria-label={`View ${selectedMatch.user.displayName} profile`}
             >
-              <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+              <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
                 <CandidatePhoto candidate={selectedMatch.user} variant="thumb" />
               </div>
 
@@ -598,12 +598,12 @@ export function MatchesTab({
             </button>
 
             <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
-              <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+              <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
               {socketStatus === "connected" ? "Live" : "Connecting"}
             </div>
           </div>
 
-          {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+          {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
           <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
             {isLoadingMessages ? (
@@ -629,7 +629,7 @@ export function MatchesTab({
                       {!isMine ? (
                         <button
                           type="button"
-                          className="relative size-7 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]"
+                          className="relative size-7 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]"
                           onClick={() => setViewedMatchProfile(selectedMatch.user)}
                           aria-label={`View ${selectedMatch.user.displayName} profile`}
                         >
@@ -637,12 +637,12 @@ export function MatchesTab({
                         </button>
                       ) : null}
                       <div
-                        className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#18E299] text-[#0d0d0d]" : "rounded-bl-md bg-white text-[#0d0d0d]"
+                        className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#9d2a9e] text-white" : "rounded-bl-md bg-white text-[#0d0d0d]"
                           }`}
                       >
                         <p>{message.body}</p>
                         <p
-                          className={`mt-1 flex items-center gap-1 text-[11px] ${isMine ? "justify-end text-[#0d0d0d]/55" : "text-[#888888]"
+                          className={`mt-1 flex items-center gap-1 text-[11px] ${isMine ? "justify-end text-white/70" : "text-[#888888]"
                             }`}
                         >
                           <span>
@@ -658,7 +658,7 @@ export function MatchesTab({
                               title={message.readAt ? "Read" : "Delivered"}
                             >
                               <CheckCheck
-                                className={`size-3.5 ${message.readAt ? "text-[#1b7cff]" : "text-[#0d0d0d]/45"}`}
+                                className={`size-3.5 ${message.readAt ? "text-white" : "text-white/50"}`}
                                 aria-hidden="true"
                               />
                             </span>
@@ -672,7 +672,7 @@ export function MatchesTab({
             ) : (
               <div className="grid h-full min-h-[360px] place-items-center text-center">
                 <div>
-                  <MessageCircle className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+                  <MessageCircle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
                   <h2 className="mt-3 text-2xl font-semibold">Start the chat</h2>
                   <p className="mt-2 text-sm text-[#666666]">Send the first message to {selectedMatch.user.displayName}.</p>
                 </div>
@@ -689,14 +689,14 @@ export function MatchesTab({
           ) : (
             <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
               <input
-                className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 placeholder="Write a message"
                 value={messageBody}
                 onChange={(event) => setMessageBody(event.target.value)}
                 maxLength={DIRECT_MESSAGE_MAX_LENGTH}
               />
               <button
-                className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#9d2a9e] text-white disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSendingMessage || !messageBody.trim()}
                 aria-label="Send message"
                 title="Send"
@@ -721,14 +721,14 @@ export function MatchesTab({
         title=""
         action={
           <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] px-4 py-2 text-sm font-medium md:inline-flex">
-            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
             {socketStatus === "connected" ? "Live" : "Connecting"}
           </div>
         }
       />
 
       <div className="px-5 md:px-8">
-        {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingMatches ? (
           <LoadingState label="Loading matches" className="min-h-[420px] rounded-[28px] border border-black/[0.05]" />
@@ -739,7 +739,7 @@ export function MatchesTab({
               <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[#888888]" aria-hidden="true" />
               <input
                 id="match-search"
-                className="h-12 w-full rounded-full border border-black/[0.08] pl-11 pr-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 w-full rounded-full border border-black/[0.08] pl-11 pr-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 placeholder="Search name, city, interest"
                 value={matchSearch}
                 onChange={(event) => setMatchSearch(event.target.value)}
@@ -757,14 +757,14 @@ export function MatchesTab({
                       className="flex w-full items-center gap-4 border-b border-black/[0.05] px-4 py-4 text-left transition last:border-b-0 hover:bg-[#fafafa]"
                       onClick={() => openMatch(match.id)}
                     >
-                      <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-[#d4fae8] sm:size-20">
+                      <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6] sm:size-20">
                         <CandidatePhoto candidate={match.user} variant="thumb" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-3">
                           <p className="truncate text-lg font-semibold">{match.user.displayName}</p>
                           {unreadCount > 0 ? (
-                            <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-[#18E299] px-1 text-[10px] font-semibold leading-5 text-[#0d0d0d]">
+                            <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-[#9d2a9e] px-1 text-[10px] font-semibold leading-5 text-white">
                               {unreadCount > 9 ? "9+" : unreadCount}
                             </span>
                           ) : (
@@ -784,7 +784,7 @@ export function MatchesTab({
               ) : (
                 <div className="grid min-h-[260px] place-items-center p-6 text-center">
                   <div>
-                    <Search className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+                    <Search className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
                     <h2 className="mt-3 text-2xl font-semibold">No matches found</h2>
                     <p className="mt-2 max-w-sm text-sm leading-6 text-[#666666]">Try another name, city, or interest.</p>
                   </div>
@@ -795,7 +795,7 @@ export function MatchesTab({
         ) : (
           <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
             <div>
-              <MessagesSquare className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+              <MessagesSquare className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No matches yet</h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-[#666666]">
                 When someone likes you back, they will appear here.

@@ -192,14 +192,14 @@ function FaceVerificationContent({ token }: { token: string }) {
               />
               {isCompleting ? (
                 <div className="p-4 text-center text-sm font-medium text-[#666666]">
-                  <LoaderCircle className="mx-auto mb-2 size-5 animate-spin text-[#18E299]" aria-hidden="true" />
+                  <LoaderCircle className="mx-auto mb-2 size-5 animate-spin text-[#bd40be]" aria-hidden="true" />
                   Saving verification result
                 </div>
               ) : null}
             </article>
           ) : (
             <article className="rounded-[28px] border border-black/5 bg-white p-5 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-              <div className={`mx-auto grid size-16 place-items-center rounded-full ${isVerified ? "bg-[#d4fae8] text-[#0fa76e]" : "bg-[#fafafa] text-[#0d0d0d]"}`}>
+              <div className={`mx-auto grid size-16 place-items-center rounded-full ${isVerified ? "bg-[#f6e0f6] text-[#9d2a9e]" : "bg-[#fafafa] text-[#0d0d0d]"}`}>
                 {isVerified ? <CheckCircle2 className="size-7" aria-hidden="true" /> : <ShieldCheck className="size-7" aria-hidden="true" />}
               </div>
               <h1 className="mt-4 text-2xl font-semibold text-[#0d0d0d]">

@@ -631,7 +631,7 @@ export function ProfileTab({
           eyebrow="Profile"
           title=""
           action={
-            <div className="hidden items-center rounded-full bg-[#d4fae8] px-4 py-2 text-sm font-medium text-[#0fa76e] md:inline-flex">
+            <div className="hidden items-center rounded-full bg-[#f6e0f6] px-4 py-2 text-sm font-medium text-[#9d2a9e] md:inline-flex">
               Discoverable
             </div>
           }
@@ -662,7 +662,7 @@ export function ProfileTab({
       )}
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingProfile ? (
           <LoadingState label="Loading profile" className="min-h-[420px] rounded-[28px] border border-black/[0.05]" />
@@ -676,7 +676,7 @@ export function ProfileTab({
                       <h2 className="text-lg font-semibold">Profile photos</h2>
                       <p className="mt-1 text-sm leading-6 text-[#666666]">Add one main photo, then up to three more.</p>
                     </div>
-                    <span className="rounded-full bg-[#d4fae8] px-3 py-1 text-xs font-medium text-[#0fa76e]">
+                    <span className="rounded-full bg-[#f6e0f6] px-3 py-1 text-xs font-medium text-[#9d2a9e]">
                       {Math.min(visibleProfilePhotos.length, PROFILE_PHOTO_LIMIT)}/{PROFILE_PHOTO_LIMIT}
                     </span>
                   </div>
@@ -690,7 +690,7 @@ export function ProfileTab({
                       return (
                         <div
                           key={photo?.id ?? `photo-slot-${index}`}
-                          className="relative aspect-[3/4] overflow-hidden rounded-[20px] border border-black/[0.06] bg-[#d4fae8]"
+                          className="relative aspect-[3/4] overflow-hidden rounded-[20px] border border-black/[0.06] bg-[#f6e0f6]"
                         >
                           {photo ? (
                             <ProfilePhotoImage
@@ -701,7 +701,7 @@ export function ProfileTab({
                               iconSize="md"
                             />
                           ) : (
-                            <div className="grid h-full place-items-center px-3 text-center text-[#0fa76e]">
+                            <div className="grid h-full place-items-center px-3 text-center text-[#9d2a9e]">
                               <div>
                                 <Camera className="mx-auto size-7" aria-hidden="true" />
                                 <p className="mt-2 text-xs font-medium">{index === 0 ? "Main photo" : `Photo ${index + 1}`}</p>
@@ -774,7 +774,7 @@ export function ProfileTab({
 
                 <section className="rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
                   <div className="flex items-start gap-3">
-                    <div className="relative size-16 shrink-0 overflow-hidden rounded-[18px] bg-[#d4fae8]">
+                    <div className="relative size-16 shrink-0 overflow-hidden rounded-[18px] bg-[#f6e0f6]">
                       <ProfilePhotoImage photo={profilePhoto} alt={`${profileDisplayName} profile`} variant="thumb" sizes="64px" iconSize="sm" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -787,7 +787,7 @@ export function ProfileTab({
                     <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                       Username
                       <input
-                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                         placeholder="Your display name"
                         value={profileForm.displayName}
                         onChange={(event) => setProfileForm((current) => ({ ...current, displayName: event.target.value }))}
@@ -799,7 +799,7 @@ export function ProfileTab({
                     <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                       Bio
                       <textarea
-                        className="min-h-24 rounded-[18px] border border-black/[0.08] p-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                        className="min-h-24 rounded-[18px] border border-black/[0.08] p-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                         placeholder="Tell people a bit about yourself"
                         value={profileForm.bio}
                         onChange={(event) => setProfileForm((current) => ({ ...current, bio: event.target.value }))}
@@ -810,7 +810,7 @@ export function ProfileTab({
                     <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                       Looking for?
                       <select
-                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                         value={profileForm.connectionStatus}
                         onChange={(event) =>
                           setProfileForm((current) => ({
@@ -834,7 +834,7 @@ export function ProfileTab({
                       <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                         Date of birth
                         <input
-                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                           type="date"
                           max={adultBirthDateMax}
                           value={profileForm.birthDate}
@@ -845,7 +845,7 @@ export function ProfileTab({
                       <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                         Gender
                         <select
-                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                           value={profileForm.gender}
                           onChange={(event) => setProfileForm((current) => ({ ...current, gender: event.target.value as Gender }))}
                         >
@@ -859,7 +859,7 @@ export function ProfileTab({
                     <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                       Sexuality
                       <select
-                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                         value={profileForm.sexuality}
                         onChange={(event) => setProfileForm((current) => ({ ...current, sexuality: event.target.value as Sexuality | "" }))}
                       >
@@ -875,7 +875,7 @@ export function ProfileTab({
                       <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                         State
                         <select
-                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                           value={profileForm.state}
                           onChange={(event) =>
                             setProfileForm((current) => ({
@@ -899,7 +899,7 @@ export function ProfileTab({
                       <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                         City
                         <select
-                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                          className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                           value={profileForm.city}
                           onChange={(event) => setProfileForm((current) => ({ ...current, city: event.target.value }))}
                           disabled={!profileForm.state}
@@ -943,7 +943,7 @@ export function ProfileTab({
                         >
                           Interests
                         </label>
-                        <span className="rounded-full bg-[#d4fae8] px-3 py-1 text-xs font-semibold text-[#16784f]">
+                        <span className="rounded-full bg-[#f6e0f6] px-3 py-1 text-xs font-semibold text-[#9d2a9e]">
                           {previewInterests.length}/{PROFILE_INTEREST_LIMIT}
                         </span>
                       </div>
@@ -967,7 +967,7 @@ export function ProfileTab({
 
                       <input
                         id="profile-interest-search"
-                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299] disabled:cursor-not-allowed disabled:bg-[#f6f6f6] disabled:text-[#999999]"
+                        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be] disabled:cursor-not-allowed disabled:bg-[#f6f6f6] disabled:text-[#999999]"
                         placeholder={canAddMoreInterests ? "Search interests" : "Interest limit reached"}
                         value={interestQuery}
                         onChange={(event) => setInterestQuery(event.target.value)}
@@ -980,7 +980,7 @@ export function ProfileTab({
                           {suggestedInterests.map((interest) => (
                             <button
                               key={interest}
-                              className="inline-flex h-9 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-sm font-medium text-[#444444] transition hover:border-[#18E299] hover:text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex h-9 items-center justify-center rounded-full border border-black/[0.08] bg-white px-3 text-sm font-medium text-[#444444] transition hover:border-[#bd40be] hover:text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-50"
                               type="button"
                               onClick={() => addInterest(interest)}
                               disabled={!canAddMoreInterests}
@@ -1006,7 +1006,7 @@ export function ProfileTab({
               </form>
             ) : profileView === "preview" ? (
               <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
-                <div className="relative aspect-[4/5] min-h-[420px] bg-[#d4fae8]">
+                <div className="relative aspect-[4/5] min-h-[420px] bg-[#f6e0f6]">
                   <button
                     className="absolute left-4 top-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white/95 text-[#0d0d0d] shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur"
                     type="button"
@@ -1055,7 +1055,7 @@ export function ProfileTab({
             ) : (
               <>
                 <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
-                  <div className="relative aspect-[1.05] min-h-[320px] bg-[#d4fae8]">
+                  <div className="relative aspect-[1.05] min-h-[320px] bg-[#f6e0f6]">
                     <ProfilePhotoImage
                       photo={activeProfilePhoto}
                       alt={`${profileDisplayName} profile`}
@@ -1076,7 +1076,7 @@ export function ProfileTab({
                       return photo ? (
                         <button
                           key={photo.id}
-                          className={`relative aspect-square overflow-hidden rounded-[16px] border ${isActive ? "border-[#18E299] ring-2 ring-[#18E299]/30" : "border-black/[0.06]"
+                          className={`relative aspect-square overflow-hidden rounded-[16px] border ${isActive ? "border-[#bd40be] ring-2 ring-[#bd40be]/30" : "border-black/[0.06]"
                             }`}
                           type="button"
                           onClick={() => setActiveProfilePhotoIndex(index)}
@@ -1113,7 +1113,7 @@ export function ProfileTab({
                           {profileLocation}
                         </p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-[#d4fae8] px-3 py-1 text-xs font-medium text-[#0fa76e]">
+                      <span className="shrink-0 rounded-full bg-[#f6e0f6] px-3 py-1 text-xs font-medium text-[#9d2a9e]">
                         {visibleProfilePhotos.length} photo{visibleProfilePhotos.length === 1 ? "" : "s"}
                       </span>
                     </div>
@@ -1156,13 +1156,13 @@ export function ProfileTab({
 
                 <div className="mt-5 grid gap-3">
                   {user.faceVerificationStatus === "VERIFIED" ? (
-                    <div className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#d4fae8] px-5 text-sm font-medium text-[#0fa76e]">
+                    <div className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#f6e0f6] px-5 text-sm font-medium text-[#9d2a9e]">
                       <ShieldCheck className="size-4" aria-hidden="true" />
                       Live Verified
                     </div>
                   ) : (
                     <a
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#18E299]/40 bg-[#d4fae8] px-5 text-sm font-medium text-[#0b7a50]"
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#bd40be]/40 bg-[#f6e0f6] px-5 text-sm font-medium text-[#7c1f7d]"
                       href="/profile/verify"
                     >
                       <ShieldCheck className="size-4" aria-hidden="true" />

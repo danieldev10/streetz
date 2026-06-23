@@ -3,6 +3,7 @@
 import type { FormEvent, ReactNode } from "react";
 import { LoaderCircle, LogOut, RotateCcw } from "lucide-react";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
+import { BrandLogo } from "@/components/brand-logo";
 import type { StreetzUser } from "@/lib/types";
 
 export function CenteredShell({ title, subtitle }: { title: string; subtitle: string }) {
@@ -50,11 +51,10 @@ export function AuthShell({
   return (
     <main className="min-h-screen bg-white text-[#0d0d0d]">
       <section className="mx-auto grid min-h-screen w-full max-w-6xl content-center items-center gap-5 px-5 py-8 md:grid-cols-[1fr_420px] md:gap-8 md:px-8">
-        <div className="relative overflow-hidden rounded-4xl border border-black/5 bg-[linear-gradient(180deg,#e8faf1_0%,#f0fdf6_34%,#ffffff_100%)] p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)] md:p-10">
+        <div className="relative overflow-hidden rounded-4xl border border-black/5 bg-[linear-gradient(180deg,#fbf2fb_0%,#fdf8fd_34%,#ffffff_100%)] p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)] md:p-10">
 
-          <h1 className="mt-6 max-w-xl text-4xl font-semibold leading-tight text-[#0d0d0d] md:text-6xl">
-            Crushclub
-          </h1>
+          <h1 className="sr-only">Crushclub</h1>
+          <BrandLogo size="hero" priority />
           <p className="mt-4 max-w-xl text-base leading-7 text-[#666666] md:text-lg">
             Discover & connect with new people.
           </p>
@@ -83,7 +83,7 @@ export function AuthShell({
               <label className="grid gap-2 text-sm font-medium">
                 Display name
                 <input
-                  className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                   value={displayName}
                   onChange={(event) => onDisplayNameChange(event.target.value)}
                   minLength={2}
@@ -96,7 +96,7 @@ export function AuthShell({
             <label className="grid gap-2 text-sm font-medium">
               Email
               <input
-                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 type="email"
                 value={email}
                 onChange={(event) => onEmailChange(event.target.value)}
@@ -107,7 +107,7 @@ export function AuthShell({
             <label className="grid gap-2 text-sm font-medium">
               Password
               <input
-                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 type="password"
                 value={password}
                 onChange={(event) => onPasswordChange(event.target.value)}
@@ -120,7 +120,7 @@ export function AuthShell({
             {authMode === "register" ? (
               <label className="flex items-start gap-3 rounded-2xl border border-black/8 bg-[#fafafa] p-3 text-sm font-medium text-[#333333]">
                 <input
-                  className="mt-0.5 size-4 rounded border-black/20 accent-[#18E299]"
+                  className="mt-0.5 size-4 rounded border-black/20 accent-[#bd40be]"
                   type="checkbox"
                   checked={ageConfirmed}
                   onChange={(event) => onAgeConfirmedChange(event.target.checked)}
@@ -176,10 +176,10 @@ export function PaywallShell({
   return (
     <main className="grid min-h-screen place-items-center bg-white px-5 py-8 text-[#0d0d0d]">
       <section className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-        <div className="bg-[linear-gradient(180deg,#e8faf1_0%,#ffffff_100%)] p-6">
+        <div className="bg-[linear-gradient(180deg,#fbf2fb_0%,#ffffff_100%)] p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-3xl font-semibold">Crushclub</p>
+              <BrandLogo size="header" priority />
               <p className="mt-2 text-sm font-medium text-[#666666]">{user.displayName}</p>
             </div>
             <button
@@ -200,7 +200,7 @@ export function PaywallShell({
           {message ? <p className="mb-4 rounded-2xl bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
 
           <button
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#18E299] px-5 text-sm font-medium text-[#0d0d0d] shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#9d2a9e] px-5 text-sm font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onStartSubscription}
             disabled={isStartingPayment || isActionDisabled}
           >
@@ -277,7 +277,7 @@ export function AccountStatusShell({
       <section className="w-full max-w-xl rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-3xl font-semibold">Crushclub</p>
+            <BrandLogo size="header" priority />
             <p className="mt-2 text-sm font-medium text-[#666666]">{user.displayName}</p>
           </div>
           <button
@@ -303,7 +303,7 @@ export function AccountStatusShell({
         {canReactivate ? (
           <div className="mt-6">
             <button
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#18E299] px-5 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#9d2a9e] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               type="button"
               onClick={onReactivate}
               disabled={isSubmitting}

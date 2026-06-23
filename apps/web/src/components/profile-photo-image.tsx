@@ -37,14 +37,14 @@ export function ProfilePhotoImage({
 
   if (!photoUrl || hasTerminalFailure) {
     return (
-      <div className="grid h-full w-full place-items-center text-[#0fa76e]">
+      <div className="grid h-full w-full place-items-center text-[#9d2a9e]">
         <Camera className={iconClass} aria-hidden="true" />
       </div>
     );
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#d4fae8]">
+    <div className="relative h-full w-full overflow-hidden bg-[#f6e0f6]">
       {photo?.blurDataUrl ? (
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -52,7 +52,7 @@ export function ProfilePhotoImage({
           aria-hidden="true"
         />
       ) : (
-        <div className="absolute inset-0 grid place-items-center text-[#0fa76e]" aria-hidden="true">
+        <div className="absolute inset-0 grid place-items-center text-[#9d2a9e]" aria-hidden="true">
           <Camera className={iconClass} />
         </div>
       )}

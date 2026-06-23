@@ -297,7 +297,7 @@ function getAdminEventStatusLabel(event: StreetzEvent) {
 
 function getAdminEventStatusClass(event: StreetzEvent) {
   if (event.status === "PUBLISHED" && !hasEventEnded(event)) {
-    return "bg-[#d4fae8] text-[#0fa76e]";
+    return "bg-[#f6e0f6] text-[#9d2a9e]";
   }
 
   if (event.status === "CANCELLED") {
@@ -1114,7 +1114,7 @@ export function EventsTab({
         />
 
         <div className="px-5 pb-24 md:px-8 md:pb-8">
-          {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+          {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
           <form
             onSubmit={saveEvent}
@@ -1129,7 +1129,7 @@ export function EventsTab({
 
             <div className="mt-4 grid gap-3">
               <input
-                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 placeholder="Event title"
                 value={eventForm.title}
                 onChange={(inputEvent) => setEventForm((current) => ({ ...current, title: inputEvent.target.value }))}
@@ -1140,7 +1140,7 @@ export function EventsTab({
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                 Category
                 <select
-                  className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                   value={eventForm.category}
                   onChange={(inputEvent) => setEventForm((current) => ({ ...current, category: inputEvent.target.value }))}
                   required
@@ -1156,7 +1156,7 @@ export function EventsTab({
                 </select>
               </label>
               <textarea
-                className="min-h-28 rounded-[18px] border border-black/8 p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="min-h-28 rounded-[18px] border border-black/8 p-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 placeholder="Description"
                 value={eventForm.description}
                 onChange={(inputEvent) => setEventForm((current) => ({ ...current, description: inputEvent.target.value }))}
@@ -1174,13 +1174,13 @@ export function EventsTab({
                     />
                   ) : (
                     <div className="px-4 text-sm font-medium text-[#888888]">
-                      <ImagePlus className="mx-auto mb-2 size-7 text-[#18E299]" aria-hidden="true" />
+                      <ImagePlus className="mx-auto mb-2 size-7 text-[#bd40be]" aria-hidden="true" />
                       Upload an event cover image
                     </div>
                   )}
                   {isUploadingCoverImage ? (
                     <div className="absolute inset-0 grid place-items-center bg-white/70">
-                      <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-hidden="true" />
+                      <LoaderCircle className="size-7 animate-spin text-[#bd40be]" aria-hidden="true" />
                     </div>
                   ) : null}
                 </div>
@@ -1217,7 +1217,7 @@ export function EventsTab({
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
-                  className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                   placeholder="Venue"
                   value={eventForm.venue}
                   onChange={(inputEvent) => setEventForm((current) => ({ ...current, venue: inputEvent.target.value }))}
@@ -1226,7 +1226,7 @@ export function EventsTab({
                   required
                 />
                 <select
-                  className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                   value={eventForm.state}
                   onChange={(inputEvent) =>
                     setEventForm((current) => ({
@@ -1248,7 +1248,7 @@ export function EventsTab({
                 </select>
               </div>
               <select
-                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 value={eventForm.city}
                 onChange={(inputEvent) => setEventForm((current) => ({ ...current, city: inputEvent.target.value }))}
                 disabled={!eventForm.state}
@@ -1267,7 +1267,7 @@ export function EventsTab({
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Starts
                   <input
-                    className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                     type="datetime-local"
                     value={eventForm.startsAt}
                     onChange={(inputEvent) => setEventForm((current) => ({ ...current, startsAt: inputEvent.target.value }))}
@@ -1277,7 +1277,7 @@ export function EventsTab({
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Ends
                   <input
-                    className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                     type="datetime-local"
                     value={eventForm.endsAt}
                     onChange={(inputEvent) => setEventForm((current) => ({ ...current, endsAt: inputEvent.target.value }))}
@@ -1292,7 +1292,7 @@ export function EventsTab({
                   </div>
                 ) : (
                   <select
-                    className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                     value={eventForm.status}
                     onChange={(inputEvent) => setEventForm((current) => ({ ...current, status: inputEvent.target.value as EventStatus }))}
                   >
@@ -1324,7 +1324,7 @@ export function EventsTab({
                           <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#888888]">
                             Price (₦)
                             <input
-                              className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                              className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                               min="0"
                               step="100"
                               type="number"
@@ -1347,7 +1347,7 @@ export function EventsTab({
                           <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#888888]">
                             Capacity
                             <input
-                              className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                              className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                               min="1"
                               step="1"
                               type="number"
@@ -1371,7 +1371,7 @@ export function EventsTab({
                           <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#888888]">
                             Max
                             <input
-                              className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                              className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                               min="1"
                               step="1"
                               type="number"
@@ -1478,7 +1478,7 @@ export function EventsTab({
               <label className="mt-4 grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                 Cancellation reason
                 <textarea
-                  className="min-h-24 rounded-2xl border border-black/8 px-4 py-3 text-sm font-medium normal-case leading-6 tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="min-h-24 rounded-2xl border border-black/8 px-4 py-3 text-sm font-medium normal-case leading-6 tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                   value={cancellationReason}
                   onChange={(inputEvent) => setCancellationReason(inputEvent.target.value.slice(0, EVENT_CANCELLATION_REASON_MAX_LENGTH))}
                   placeholder="Tell attendees why the event is being cancelled."
@@ -1565,7 +1565,7 @@ export function EventsTab({
             </button>
           </div>
 
-          {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+          {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
           {isLoadingEvents ? (
             <LoadingState label="Loading events" className="min-h-90 rounded-3xl border border-black/5" />
@@ -1635,7 +1635,7 @@ export function EventsTab({
           ) : (
             <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
               <div>
-                <Ticket className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+                <Ticket className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
                 <h2 className="mt-3 text-2xl font-semibold">
                   {adminEventListMode === "inactive" ? "No inactive events" : "No active events"}
                 </h2>
@@ -1660,7 +1660,7 @@ export function EventsTab({
         action={
           eventViewMode === "events" ? (
             <button
-              className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasEventLocationFilter ? "border-[#18E299] bg-[#d4fae8]" : "border-black/8 bg-white"
+              className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasEventLocationFilter ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"
                 }`}
               type="button"
               onClick={() => setIsEventFilterOpen(true)}
@@ -1668,7 +1668,7 @@ export function EventsTab({
             >
               <SlidersHorizontal className="size-4" aria-hidden="true" />
               {hasEventLocationFilter ? (
-                <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#18E299] text-[9px] font-semibold text-[#0d0d0d]">
+                <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#9d2a9e] text-[9px] font-semibold text-white">
                   {[eventFilterState, eventFilterCity].filter(Boolean).length}
                 </span>
               ) : null}
@@ -1710,7 +1710,7 @@ export function EventsTab({
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                 State
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                   value={eventFilterState}
                   onChange={(inputEvent) => {
                     setEventFilterState(inputEvent.target.value);
@@ -1728,7 +1728,7 @@ export function EventsTab({
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                 City
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299] disabled:bg-[#fafafa] disabled:text-[#999999]"
+                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be] disabled:bg-[#fafafa] disabled:text-[#999999]"
                   value={eventFilterCity}
                   onChange={(inputEvent) => setEventFilterCity(inputEvent.target.value)}
                   disabled={!eventFilterState}
@@ -1834,7 +1834,7 @@ export function EventsTab({
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Tier
                   <select
-                    className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299] disabled:bg-[#fafafa] disabled:text-[#999999]"
+                    className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be] disabled:bg-[#fafafa] disabled:text-[#999999]"
                     value={ticketType?.id ?? ""}
                     onChange={(inputEvent) => {
                       setSelectedTicketTypeIds((current) => ({ ...current, [ticketModalEvent.id]: inputEvent.target.value }));
@@ -1857,7 +1857,7 @@ export function EventsTab({
                 <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
                   Quantity
                   <select
-                    className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299] disabled:bg-[#fafafa] disabled:text-[#999999]"
+                    className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be] disabled:bg-[#fafafa] disabled:text-[#999999]"
                     value={selectedQuantity}
                     onChange={(inputEvent) =>
                       setBookingQuantities((current) => ({ ...current, [ticketModalEvent.id]: Number(inputEvent.target.value) }))
@@ -1920,7 +1920,7 @@ export function EventsTab({
               aria-pressed={!eventFilterCategory}
             >
               <span
-                className={`grid size-14 place-items-center rounded-full border ${eventFilterCategory ? "border-black/8 bg-white" : "border-[#18E299] bg-[#d4fae8]"}`}
+                className={`grid size-14 place-items-center rounded-full border ${eventFilterCategory ? "border-black/8 bg-white" : "border-[#bd40be] bg-[#f6e0f6]"}`}
               >
                 <Sparkles className="size-5" aria-hidden="true" />
               </span>
@@ -1940,7 +1940,7 @@ export function EventsTab({
                   aria-pressed={isActiveCategory}
                 >
                   <span
-                    className={`grid size-14 place-items-center rounded-full border ${isActiveCategory ? "border-[#18E299] bg-[#d4fae8]" : "border-black/8 bg-white"}`}
+                    className={`grid size-14 place-items-center rounded-full border ${isActiveCategory ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"}`}
                   >
                     <Icon className="size-5" aria-hidden="true" />
                   </span>
@@ -1951,7 +1951,7 @@ export function EventsTab({
           </div>
         </div>
 
-        {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingEvents ? (
           <LoadingState label="Loading events" className="min-h-90 rounded-3xl border border-black/5" />
@@ -1978,7 +1978,7 @@ export function EventsTab({
               return (
                 <article
                   key={event.id}
-                  className={`overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${isTicketCard ? "cursor-pointer transition hover:border-[#18E299]/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)]" : ""}`}
+                  className={`overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${isTicketCard ? "cursor-pointer transition hover:border-[#bd40be]/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)]" : ""}`}
                   role={isTicketCard ? "button" : undefined}
                   tabIndex={isTicketCard ? 0 : undefined}
                   onClick={isTicketCard ? () => router.push(`/events/${event.id}`) : undefined}
@@ -1993,7 +1993,7 @@ export function EventsTab({
                       : undefined
                   }
                 >
-                  <div className="relative h-44 bg-[#d4fae8] md:h-48">
+                  <div className="relative h-44 bg-[#f6e0f6] md:h-48">
                     <Image
                       src={event.coverImage || FALLBACK_EVENT_IMAGE}
                       alt={`${event.title} event`}
@@ -2033,7 +2033,7 @@ export function EventsTab({
                             <span
                               key={availableTicketType.id}
                               className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                isOwnedTier ? "bg-[#d4fae8] text-[#0b7a50]" : "bg-[#fafafa] text-[#666666]"
+                                isOwnedTier ? "bg-[#f6e0f6] text-[#7c1f7d]" : "bg-[#fafafa] text-[#666666]"
                               }`}
                             >
                               {normalizeTicketTierName(availableTicketType.name)} · {formatPrice(availableTicketType.priceKobo)}
@@ -2067,7 +2067,7 @@ export function EventsTab({
         ) : (
           <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>
-              <Ticket className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+              <Ticket className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">{emptyMemberTitle}</h2>
               <p className="mt-2 text-sm text-[#666666]">{emptyMemberDescription}</p>
             </div>

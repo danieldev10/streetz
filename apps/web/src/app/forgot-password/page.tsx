@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
           <label className="grid gap-2 text-sm font-medium">
             Email
             <input
-              className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -80,7 +80,7 @@ export default function ForgotPasswordPage() {
           {message ? <p className="rounded-2xl bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
 
           {resetUrl ? (
-            <Link className="rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]" href={resetUrl}>
+            <Link className="rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]" href={resetUrl}>
               Open development reset link
             </Link>
           ) : null}

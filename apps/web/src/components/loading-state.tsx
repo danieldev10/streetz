@@ -13,7 +13,7 @@ export function LoadingState({
 }) {
   return (
     <div className={`grid place-items-center ${className}`} role="status" aria-live="polite" aria-label={label}>
-      <LoaderCircle className={`${spinnerClassName} animate-spin text-[#18E299]`} aria-hidden="true" />
+      <LoaderCircle className={`${spinnerClassName} animate-spin text-[#bd40be]`} aria-hidden="true" />
       <span className="sr-only">{label}</span>
     </div>
   );

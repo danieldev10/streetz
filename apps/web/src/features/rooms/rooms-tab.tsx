@@ -126,7 +126,8 @@ function renderRoomMessageBody(
   body: string,
   members: RoomMember[],
   currentUserId: string | null,
-  onOpenMember: (member: RoomMember) => void
+  onOpenMember: (member: RoomMember) => void,
+  onDark = false
 ) {
   const mentionTargets = getUniqueRoomMembers(members)
     .map((member) => ({ member, token: `@${member.displayName.trim()}` }))
@@ -167,8 +168,10 @@ function renderRoomMessageBody(
       <button
         key={`mention-${match.member.id}-${key}`}
         type="button"
-        className={`inline bg-transparent p-0 font-semibold transition ${
-          isCurrentUser ? "text-[#08784f]" : "text-[#0fa76e] hover:text-[#08784f]"
+        className={`inline bg-transparent p-0 font-semibold underline underline-offset-2 transition ${
+          onDark
+            ? "text-white decoration-white/60 hover:text-white/80"
+            : `no-underline ${isCurrentUser ? "text-[#7c1f7d]" : "text-[#9d2a9e] hover:text-[#7c1f7d]"}`
         }`}
         onClick={() => onOpenMember(match.member)}
       >
@@ -213,15 +216,15 @@ function OpeningRoomShell({
           </div>
 
           <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
-            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
             {isAdmin ? "Moderator" : socketStatus === "connected" ? "Live" : "Connecting"}
           </div>
         </div>
 
-        {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         <div className="grid min-h-0 flex-1 place-items-center bg-[#fafafa] px-4 py-5">
-          <LoaderCircle className="size-7 animate-spin text-[#18E299]" aria-hidden="true" />
+          <LoaderCircle className="size-7 animate-spin text-[#bd40be]" aria-hidden="true" />
           <span className="sr-only">Loading room</span>
         </div>
 
@@ -232,7 +235,7 @@ function OpeningRoomShell({
         ) : (
           <div className="flex shrink-0 gap-3 border-t border-black/5 bg-white p-4">
             <div className="h-12 min-w-0 flex-1 rounded-full border border-black/8 bg-[#fafafa]" />
-            <div className="size-12 shrink-0 rounded-full bg-[#d4fae8]" />
+            <div className="size-12 shrink-0 rounded-full bg-[#f6e0f6]" />
           </div>
         )}
       </article>
@@ -277,7 +280,7 @@ function RoomMembersView({
           </div>
         </div>
 
-        {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
           {isLoading ? (
@@ -291,11 +294,11 @@ function RoomMembersView({
                   <button
                     key={member.id}
                     type="button"
-                    className="flex items-center gap-3 rounded-[24px] border border-black/5 bg-white p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition hover:border-[#18E299]/40"
+                    className="flex items-center gap-3 rounded-[24px] border border-black/5 bg-white p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/40"
                     onClick={() => onOpenMember(member)}
                     aria-label={`View ${member.displayName} profile`}
                   >
-                    <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                    <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
                       <CandidatePhoto candidate={member} variant="thumb" />
                     </div>
 
@@ -314,7 +317,7 @@ function RoomMembersView({
           ) : (
             <div className="grid h-full min-h-90 place-items-center text-center">
               <div>
-                <Users className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+                <Users className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
                 <h2 className="mt-3 text-2xl font-semibold">No members yet</h2>
                 <p className="mt-2 text-sm text-[#666666]">Members will appear here after they join.</p>
               </div>
@@ -1129,7 +1132,7 @@ export function RoomsTab({
         />
 
         <div className="px-5 pb-24 md:px-8 md:pb-8">
-          {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+          {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
           <form
             onSubmit={saveRoom}
@@ -1144,7 +1147,7 @@ export function RoomsTab({
 
             <div className="mt-4 grid gap-3">
               <input
-                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 placeholder="Room name"
                 value={roomForm.name}
                 onChange={(event) => setRoomForm((current) => ({ ...current, name: event.target.value }))}
@@ -1153,7 +1156,7 @@ export function RoomsTab({
                 required
               />
               <input
-                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 placeholder="Category"
                 value={roomForm.category}
                 onChange={(event) => setRoomForm((current) => ({ ...current, category: event.target.value }))}
@@ -1162,7 +1165,7 @@ export function RoomsTab({
                 required
               />
               <textarea
-                className="min-h-28 rounded-[18px] border border-black/8 p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                className="min-h-28 rounded-[18px] border border-black/8 p-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 placeholder="Description"
                 value={roomForm.description}
                 onChange={(event) => setRoomForm((current) => ({ ...current, description: event.target.value }))}
@@ -1268,12 +1271,12 @@ export function RoomsTab({
               ) : null}
 
               <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
-                <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+                <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
                 {isAdmin ? "Moderator" : socketStatus === "connected" ? "Live" : "Connecting"}
               </div>
             </div>
 
-            {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+            {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
             <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
               {isLoadingMessages ? (
@@ -1300,7 +1303,7 @@ export function RoomsTab({
                         {!isMine ? (
                           <button
                             type="button"
-                            className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[#d4fae8] text-[#0d0d0d] disabled:cursor-default"
+                            className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[#f6e0f6] text-[#0d0d0d] disabled:cursor-default"
                             onClick={() => {
                               if (author) {
                                 setViewedRoomProfile(author);
@@ -1317,14 +1320,14 @@ export function RoomsTab({
                           </button>
                         ) : null}
                         <div
-                          className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#18E299] text-[#0d0d0d]" : "rounded-bl-md bg-white text-[#0d0d0d]"
+                          className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#9d2a9e] text-white" : "rounded-bl-md bg-white text-[#0d0d0d]"
                             }`}
                         >
-                          {!isMine ? <p className="mb-1 text-xs font-semibold text-[#0fa76e]">{message.authorName}</p> : null}
+                          {!isMine ? <p className="mb-1 text-xs font-semibold text-[#9d2a9e]">{message.authorName}</p> : null}
                           <p className="whitespace-pre-wrap break-words">
-                            {renderRoomMessageBody(message.body, roomMembers, user?.id ?? null, setViewedRoomProfile)}
+                            {renderRoomMessageBody(message.body, roomMembers, user?.id ?? null, setViewedRoomProfile, isMine)}
                           </p>
-                          <p className={`mt-1 text-[11px] ${isMine ? "text-[#0d0d0d]/55" : "text-[#888888]"}`}>
+                          <p className={`mt-1 text-[11px] ${isMine ? "text-white/70" : "text-[#888888]"}`}>
                             {new Date(message.createdAt).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -1338,7 +1341,7 @@ export function RoomsTab({
               ) : (
                 <div className="grid h-full min-h-90 place-items-center text-center">
                   <div>
-                    <MessageCircle className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+                    <MessageCircle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
                     <h2 className="mt-3 text-2xl font-semibold">{isAdmin ? "Room is quiet" : "Start the room"}</h2>
                     <p className="mt-2 text-sm text-[#666666]">
                       {isAdmin ? "Member messages will appear here." : `Send the first message in ${selectedRoom.name}.`}
@@ -1365,13 +1368,13 @@ export function RoomsTab({
                           <button
                             key={member.id}
                             type="button"
-                            className={`flex w-full items-center gap-3 rounded-[18px] p-2 text-left transition ${isActiveMention ? "bg-[#d4fae8]" : "hover:bg-[#fafafa]"}`}
+                            className={`flex w-full items-center gap-3 rounded-[18px] p-2 text-left transition ${isActiveMention ? "bg-[#f6e0f6]" : "hover:bg-[#fafafa]"}`}
                             onMouseDown={(mouseEvent) => {
                               mouseEvent.preventDefault();
                               insertMention(member);
                             }}
                           >
-                            <div className="relative size-9 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                            <div className="relative size-9 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
                               <CandidatePhoto candidate={member} variant="thumb" />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -1385,7 +1388,7 @@ export function RoomsTab({
                   ) : null}
                   <input
                     ref={messageInputRef}
-                    className="h-12 w-full rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-12 w-full rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                     placeholder="Write to the room or tag @name"
                     value={messageBody}
                     onChange={(event) => {
@@ -1400,7 +1403,7 @@ export function RoomsTab({
                   />
                 </div>
                 <button
-                  className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#9d2a9e] text-white disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isSendingMessage || !messageBody.trim()}
                   aria-label="Send message"
                   title="Send"
@@ -1479,7 +1482,7 @@ export function RoomsTab({
           <div className="flex items-center gap-2">
             {!isGuest ? (
               <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
-                <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#18E299]" : "bg-[#c6c6c6]"}`} />
+                <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
                 {socketStatus === "connected" ? "Live" : "Connecting"}
               </div>
             ) : null}
@@ -1538,7 +1541,7 @@ export function RoomsTab({
           </div>
         ) : null}
 
-        {notice ? <p className="mb-4 rounded-2xl bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingRooms ? (
           <LoadingState label="Loading rooms" className="min-h-105 rounded-[28px] border border-black/5" />
@@ -1553,12 +1556,12 @@ export function RoomsTab({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-lg font-semibold">{room.name}</h2>
-                      <span className="rounded-full bg-[#d4fae8] px-2.5 py-1 text-xs font-medium text-[#0fa76e]">
+                      <span className="rounded-full bg-[#f6e0f6] px-2.5 py-1 text-xs font-medium text-[#9d2a9e]">
                         {room.category}
                       </span>
                       {isAdmin ? (
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${room.isActive ? "bg-[#d4fae8] text-[#0fa76e]" : "bg-[#fafafa] text-[#777777]"
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${room.isActive ? "bg-[#f6e0f6] text-[#9d2a9e]" : "bg-[#fafafa] text-[#777777]"
                             }`}
                         >
                           {room.isActive ? "Active" : "Inactive"}
@@ -1580,7 +1583,7 @@ export function RoomsTab({
                           <Pencil className="size-4" aria-hidden="true" />
                         </button>
                         <button
-                          className={`inline-flex size-10 items-center justify-center rounded-full border ${room.isActive ? "border-red-200 text-red-500 hover:bg-red-50" : "border-[#18E299] text-[#0b9f69] hover:bg-[#d4fae8]"}`}
+                          className={`inline-flex size-10 items-center justify-center rounded-full border ${room.isActive ? "border-red-200 text-red-500 hover:bg-red-50" : "border-[#bd40be] text-[#9d2a9e] hover:bg-[#f6e0f6]"}`}
                           type="button"
                           onClick={() => setPendingToggleRoom(room)}
                           aria-label={room.isActive ? `Deactivate ${room.name}` : `Activate ${room.name}`}
@@ -1613,7 +1616,7 @@ export function RoomsTab({
                     </span>
                   ) : null}
                   {!isAdmin && room.hasJoined && (room.unreadCount ?? 0) > 0 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#18E299] px-3 py-1 font-semibold text-[#0d0d0d]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#9d2a9e] px-3 py-1 font-semibold text-white">
                       {(room.unreadCount ?? 0) > 9 ? "9+" : room.unreadCount} new
                     </span>
                   ) : null}
@@ -1624,7 +1627,7 @@ export function RoomsTab({
         ) : (
           <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
-              <MessageCircle className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+              <MessageCircle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">
                 {isAdmin
                   ? viewMode === "inactive" ? "No inactive rooms" : "No active rooms"

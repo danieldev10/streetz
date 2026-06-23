@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { io } from "socket.io-client";
 import { AppBrand, AppNavButton, MobileHeader, adminTabs, bottomTabs, tabs } from "@/components/app/navigation";
 import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
-import type { ChatRoom, MatchThread, NotificationSummary, StreetzUser, TabKey } from "@/lib/types";
+import type { ChatRoom, MatchThread, NotificationSummary, ProfilePhoto, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
 
 type MemberAppDataCache = {
   matches: MatchThread[];
@@ -61,6 +61,7 @@ export function MemberApp({
   });
   const [cachedMatches, setCachedMatches] = useState<MatchThread[]>(() => getMemberAppDataCache(cacheKey).matches);
   const [cachedRooms, setCachedRooms] = useState<ChatRoom[]>(() => getMemberAppDataCache(cacheKey).rooms);
+  const [profilePhoto, setProfilePhoto] = useState<ProfilePhoto | undefined>(undefined);
 
   const refreshNotificationSummary = useCallback(async () => {
     try {
@@ -167,6 +168,32 @@ export function MemberApp({
   }, [refreshNotificationSummary]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfilePhoto() {
+      try {
+        const profile = await apiRequest<StreetzProfile>("/profiles/me", {
+          headers: authHeaders(token),
+        });
+
+        if (!cancelled) {
+          setProfilePhoto(profile.user.photos[0]);
+        }
+      } catch {
+        if (!cancelled) {
+          setProfilePhoto(undefined);
+        }
+      }
+    }
+
+    void loadProfilePhoto();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  useEffect(() => {
     const socket = io(SOCKET_URL, {
       auth: { token },
       transports: ["websocket", "polling"],
@@ -216,7 +243,7 @@ export function MemberApp({
         </aside>
 
         <section className="min-w-0 flex-1 pb-24 md:pb-0">
-          <MobileHeader user={user} onLogout={onLogout} />
+          <MobileHeader user={user} profilePhoto={profilePhoto} onLogout={onLogout} />
           {children(renderProps)}
         </section>
       </div>

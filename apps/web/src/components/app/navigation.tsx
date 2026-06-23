@@ -21,7 +21,9 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import type { StreetzUser, TabKey } from "@/lib/types";
+import type { ProfilePhoto, StreetzUser, TabKey } from "@/lib/types";
+import { BrandLogo } from "@/components/brand-logo";
+import { ProfilePhotoImage } from "@/components/profile-photo-image";
 
 export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "events", label: "Events", icon: Ticket },
@@ -55,7 +57,17 @@ export const tabRoutes: Record<TabKey, string> = {
   users: "/users",
 };
 
-function AccountMenu({ onLogout }: { onLogout: () => void }) {
+function AccountMenu({
+  onLogout,
+  trigger,
+  triggerClassName,
+  triggerTitle = "Menu",
+}: {
+  onLogout: () => void;
+  trigger?: ReactNode;
+  triggerClassName?: string;
+  triggerTitle?: string;
+}) {
   const closeTimerRef = useRef<number | null>(null);
   const openFrameRef = useRef<number | null>(null);
   const [isDrawerMounted, setIsDrawerMounted] = useState(false);
@@ -160,10 +172,7 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
         aria-label="Account menu"
       >
         <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-2xl font-semibold">crushclub</p>
-            <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Menu</p>
-          </div>
+          <BrandLogo size="sidebar" priority />
           <button
             type="button"
             className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
@@ -176,6 +185,26 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
         </div>
 
         <nav className="mt-8 grid gap-2">
+          <Link
+            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+            href="/profile"
+            onClick={closeMenu}
+            tabIndex={isOpen ? 0 : -1}
+          >
+            <UserRound className="size-4" aria-hidden="true" />
+            Profile
+          </Link>
+
+          <Link
+            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+            href="/blocked-accounts"
+            onClick={closeMenu}
+            tabIndex={isOpen ? 0 : -1}
+          >
+            <Ban className="size-4" aria-hidden="true" />
+            Blocked Accounts
+          </Link>
+
           <button
             type="button"
             className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-[#9a9a9a]"
@@ -202,33 +231,13 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
             <span className="rounded-full bg-[#f4f4f4] px-2 py-1 text-[11px] text-[#888888]">Soon</span>
           </button>
 
-          <Link
-            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
-            href="/profile"
-            onClick={closeMenu}
+          <button
+            type="button"
+            className="mt-3 inline-flex h-12 items-center gap-3 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
+            onClick={requestLogout}
             tabIndex={isOpen ? 0 : -1}
           >
-            <UserRound className="size-4" aria-hidden="true" />
-            Profile
-          </Link>
-
-          <Link
-            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
-            href="/blocked-accounts"
-            onClick={closeMenu}
-            tabIndex={isOpen ? 0 : -1}
-          >
-            <Ban className="size-4" aria-hidden="true" />
-            Blocked Accounts
-          </Link>
-
-            <button
-              type="button"
-              className="mt-3 inline-flex h-12 items-center gap-3 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
-              onClick={requestLogout}
-              tabIndex={isOpen ? 0 : -1}
-            >
-              <LogOut className="size-4" aria-hidden="true" />
+            <LogOut className="size-4" aria-hidden="true" />
             Logout
           </button>
         </nav>
@@ -284,12 +293,13 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
   return (
     <>
       <button
-        className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
+        type="button"
+        className={triggerClassName ?? "inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"}
         onClick={openMenu}
         aria-label="Open menu"
-        title="Menu"
+        title={triggerTitle}
       >
-        <Menu className="size-4" aria-hidden="true" />
+        {trigger ?? <Menu className="size-4" aria-hidden="true" />}
       </button>
 
       {isDrawerMounted && typeof document !== "undefined" ? createPortal(drawer, document.body) : null}
@@ -303,15 +313,15 @@ export function AppBrand({ user, onLogout }: { user: StreetzUser; onLogout: () =
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-2xl font-semibold">crushclub</p>
-          <p className="mt-1 text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{user.role}</p>
+          <BrandLogo size="sidebar" priority />
+          <p className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{user.role}</p>
         </div>
         <AccountMenu onLogout={onLogout} />
       </div>
       <div className="mt-5 rounded-[16px] border border-black/[0.05] bg-[#fafafa] p-4">
         <p className="text-sm font-medium">{user.displayName}</p>
         <p className="mt-1 truncate text-xs text-[#666666]">{user.email}</p>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#d4fae8] px-3 py-1 text-xs font-medium text-[#0fa76e]">
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#f6e0f6] px-3 py-1 text-xs font-medium text-[#9d2a9e]">
           <ShieldCheck className="size-3.5" aria-hidden="true" />
           Active
         </div>
@@ -320,15 +330,37 @@ export function AppBrand({ user, onLogout }: { user: StreetzUser; onLogout: () =
   );
 }
 
-export function MobileHeader({ user, onLogout }: { user: StreetzUser; onLogout: () => void }) {
+export function MobileHeader({
+  user,
+  profilePhoto,
+  onLogout,
+}: {
+  user: StreetzUser;
+  profilePhoto?: ProfilePhoto;
+  onLogout: () => void;
+}) {
   return (
     <header className="sticky top-0 z-10 border-b border-black/[0.05] bg-white/90 px-5 py-4 backdrop-blur md:hidden">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-2xl font-semibold">crushclub</p>
-          <p className="text-xs font-medium text-[#666666]">{user.displayName}</p>
+      <div className="grid grid-cols-[44px_1fr_44px] items-center">
+        <AccountMenu
+          onLogout={onLogout}
+          triggerClassName="inline-flex size-11 overflow-hidden rounded-full border border-black/[0.08] bg-[#fbf2fb] text-[#9d2a9e] shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          triggerTitle={user.displayName ? "Open " + user.displayName + "'s menu" : "Open menu"}
+          trigger={
+            <ProfilePhotoImage
+              photo={profilePhoto}
+              alt={user.displayName ? user.displayName + " profile photo" : "Profile photo"}
+              variant="thumb"
+              sizes="44px"
+              priority
+              iconSize="sm"
+            />
+          }
+        />
+        <div className="justify-self-center">
+          <BrandLogo size="header" priority />
         </div>
-        <AccountMenu onLogout={onLogout} />
+        <span className="size-11" aria-hidden="true" />
       </div>
     </header>
   );
@@ -355,7 +387,7 @@ export function AppNavButton({
   const badgeLabel = badgeCount > 99 ? "99+" : String(badgeCount);
   const badge =
     badgeCount > 0 ? (
-      <span className="absolute -right-2 -top-2 grid min-w-5 place-items-center rounded-full bg-[#18E299] px-1 text-[10px] font-semibold leading-5 text-[#0d0d0d] shadow-[0_1px_2px_rgba(0,0,0,0.12)]">
+      <span className="absolute -right-2 -top-2 grid min-w-5 place-items-center rounded-full bg-[#9d2a9e] px-1 text-[10px] font-semibold leading-5 text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)]">
         {badgeLabel}
       </span>
     ) : null;

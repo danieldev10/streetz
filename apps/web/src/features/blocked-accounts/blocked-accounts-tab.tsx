@@ -95,7 +95,7 @@ export function BlockedAccountsTab({
       />
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingBlockedAccounts ? (
           <LoadingState label="Loading blocked accounts" className="min-h-[420px] rounded-[28px] border border-black/[0.05]" />
@@ -106,7 +106,7 @@ export function BlockedAccountsTab({
                 key={account.id}
                 className="flex items-center gap-3 rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
               >
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-[#d4fae8]">
+                <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
                   <ProfilePhotoImage
                     photo={account.photos[0]}
                     alt={`${account.displayName} profile`}
@@ -136,7 +136,7 @@ export function BlockedAccountsTab({
         ) : (
           <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
             <div>
-              <ShieldOff className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+              <ShieldOff className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No blocked accounts</h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-[#666666]">Accounts you block will appear here.</p>
             </div>

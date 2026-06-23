@@ -675,7 +675,7 @@ export function DiscoveryTab({
       ) : null}
 
       <div className="px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] md:px-8 md:pb-8">
-        {notice ? <p className="mb-4 rounded-[16px] bg-[#d4fae8] p-3 text-sm font-medium text-[#0b7a50]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {!isLoading && shouldPromptForLocation ? (
           <div className="mb-4 rounded-[20px] border border-black/[0.06] bg-[#fafafa] p-4">
@@ -756,7 +756,7 @@ export function DiscoveryTab({
             <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] xl:max-w-[520px]">
               <div className="grid min-h-[520px] place-items-center p-6 text-center">
                 <div>
-                  <Heart className="mx-auto size-8 text-[#18E299]" aria-hidden="true" />
+                  <Heart className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
                   <h2 className="mt-3 text-2xl font-semibold">No other profiles yet</h2>
                   <p className="mt-2 text-sm leading-6 text-[#666666]">
                     Your profile is live for other members. You will see people here as more subscribed users go live.
@@ -822,7 +822,7 @@ export function DiscoveryTab({
             }}
           >
             <div className="flex items-start gap-3">
-              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#d4fae8] text-[#0fa76e]">
+              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#f6e0f6] text-[#9d2a9e]">
                 <Flag className="size-5" aria-hidden="true" />
               </div>
               <div className="min-w-0">
@@ -833,7 +833,7 @@ export function DiscoveryTab({
               </div>
             </div>
             <select
-              className="mt-4 h-11 w-full rounded-full border border-black/[0.08] bg-white px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              className="mt-4 h-11 w-full rounded-full border border-black/[0.08] bg-white px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
               value={reportReason}
               onChange={(event) => {
                 setReportReason(event.target.value);
@@ -850,7 +850,7 @@ export function DiscoveryTab({
               ))}
             </select>
             <textarea
-              className="mt-3 min-h-24 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              className="mt-3 min-h-24 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
               placeholder="Optional details"
               value={reportDetails}
               onChange={(event) => {
@@ -930,7 +930,7 @@ export function DiscoveryTab({
                 </div>
               </div>
               <input
-                className="mt-4 w-full accent-[#18E299] disabled:opacity-40"
+                className="mt-4 w-full accent-[#bd40be] disabled:opacity-40"
                 type="range"
                 min={MIN_DISCOVERY_DISTANCE_KM}
                 max={MAX_DISCOVERY_DISTANCE_KM}
@@ -958,7 +958,7 @@ export function DiscoveryTab({
                 <label className="flex flex-1 flex-col gap-1">
                   <span className="text-xs text-[#666666]">Min</span>
                   <input
-                    className="h-11 w-full rounded-full border border-black/[0.08] px-4 text-sm text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-11 w-full rounded-full border border-black/[0.08] px-4 text-sm text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                     type="number"
                     min={18}
                     max={100}
@@ -974,7 +974,7 @@ export function DiscoveryTab({
                 <label className="flex flex-1 flex-col gap-1">
                   <span className="text-xs text-[#666666]">Max</span>
                   <input
-                    className="h-11 w-full rounded-full border border-black/[0.08] px-4 text-sm text-[#0d0d0d] outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+                    className="h-11 w-full rounded-full border border-black/[0.08] px-4 text-sm text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                     type="number"
                     min={18}
                     max={100}
@@ -1092,7 +1092,7 @@ export function DiscoveryTab({
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
             <div className="flex items-start gap-3">
-              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#d4fae8] text-[#0fa76e]">
+              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#f6e0f6] text-[#9d2a9e]">
                 <MapPin className="size-5" aria-hidden="true" />
               </div>
               <div className="min-w-0">
@@ -1191,7 +1191,7 @@ function DiscoveryCandidateCard({
 
   return (
     <>
-      <div className="relative h-[clamp(320px,44svh,440px)] bg-[#d4fae8] md:aspect-[4/5] md:h-auto md:min-h-[440px]">
+      <div className="relative h-[clamp(320px,44svh,440px)] bg-[#f6e0f6] md:aspect-[4/5] md:h-auto md:min-h-[440px]">
         <CandidatePhoto candidate={candidate} priority={priority} />
         <div
           className={`absolute left-5 top-5 rounded-[14px] border-2 px-4 py-2 text-lg font-semibold uppercase tracking-[0.08em] transition-opacity ${swipeIntent === "PASS" ? "border-white bg-white/90 text-[#0d0d0d] opacity-100" : "border-white/60 text-white opacity-0"
@@ -1201,8 +1201,8 @@ function DiscoveryCandidateCard({
         </div>
         <div
           className={`absolute right-5 top-5 rounded-[14px] border-2 px-4 py-2 text-lg font-semibold uppercase tracking-[0.08em] transition-opacity ${swipeIntent === "LIKE"
-            ? "border-[#18E299] bg-[#18E299]/90 text-[#0d0d0d] opacity-100"
-            : "border-[#18E299]/60 text-[#18E299] opacity-0"
+            ? "border-[#bd40be] bg-[#9d2a9e]/90 text-white opacity-100"
+            : "border-[#bd40be]/60 text-[#bd40be] opacity-0"
             }`}
         >
           Like
@@ -1251,7 +1251,7 @@ function DiscoveryCandidateCard({
             <X className="size-5" aria-hidden="true" />
           </button>
           <button
-            className="inline-flex h-11 items-center justify-center rounded-full bg-[#18E299] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-[#9d2a9e] text-white disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onLike}
             onPointerDown={(event) => event.stopPropagation()}
             disabled={isActionDisabled}

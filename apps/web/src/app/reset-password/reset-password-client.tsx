@@ -93,7 +93,7 @@ export function ResetPasswordClient() {
           <label className="grid gap-2 text-sm font-medium">
             New password
             <input
-              className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -106,7 +106,7 @@ export function ResetPasswordClient() {
           <label className="grid gap-2 text-sm font-medium">
             Confirm password
             <input
-              className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#18E299] focus:ring-1 focus:ring-[#18E299]"
+              className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
               type="password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
