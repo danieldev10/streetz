@@ -124,7 +124,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setStatus("unauthenticated");
 
       if (options.redirect !== false) {
-        router.replace("/?next=/events");
+        router.replace("/?mode=login");
       }
     },
     [router]

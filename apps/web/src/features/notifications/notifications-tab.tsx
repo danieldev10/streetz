@@ -510,7 +510,7 @@ export function NotificationsTab({
                     <button
                       key={tab.id}
                       type="button"
-                      className={`whitespace-nowrap rounded-full px-2 py-2 text-[13px] font-medium transition ${isActive
+                      className={`whitespace-nowrap rounded-full px-1.5 py-2 text-[11px] font-medium leading-5 transition sm:px-2 sm:text-[13px] ${isActive
                         ? "bg-[#0d0d0d] text-white shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
                         : "text-[#666666] hover:text-[#0d0d0d]"
                         }`}
@@ -518,7 +518,7 @@ export function NotificationsTab({
                     >
                       {tab.label}
                       {tab.count > 0 ? (
-                        <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[#18E299] px-1.5 text-[11px] font-semibold leading-5 text-[#0d0d0d] shadow-[0_0_0_1px_rgba(13,13,13,0.05)]">
+                        <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-[#18E299] px-1 text-[10px] font-semibold leading-4 text-[#0d0d0d] shadow-[0_0_0_1px_rgba(13,13,13,0.05)] sm:min-w-5 sm:px-1.5 sm:text-[11px] sm:leading-5">
                           {tab.count}
                         </span>
                       ) : null}
