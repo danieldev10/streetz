@@ -454,7 +454,7 @@ export function NotificationsTab({
     { id: "likes", label: "Likes", count: tabCounts.likes },
     { id: "rooms", label: "Rooms", count: tabCounts.rooms },
     { id: "events", label: "Events", count: tabCounts.events },
-    { id: "notifications", label: "Notifications", count: tabCounts.notifications },
+    { id: "notifications", label: "Others", count: tabCounts.notifications },
   ];
   const emptyTabCopy: Record<NotificationTabKey, string> = {
     likes: "No likes, matches, or direct messages right now.",
