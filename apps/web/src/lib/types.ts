@@ -61,6 +61,7 @@ export type StreetzProfile = {
   maxDistanceKm: number;
   interests: string[];
   discoveryLive: boolean;
+  attendedEventCount: number;
   user: {
     id: string;
     displayName: string;
@@ -81,6 +82,7 @@ export type DiscoveryCandidate = {
   city: string | null;
   state: string | null;
   distanceKm?: number | null;
+  attendedEventCount: number;
   interests: string[];
   photos: ProfilePhoto[];
 };
@@ -135,7 +137,14 @@ export type RoomMember = DiscoveryCandidate & {
 
 export type EventStatus = "DRAFT" | "PUBLISHED" | "CANCELLED" | "COMPLETED";
 export type TicketStatus = "RESERVED" | "PAID" | "CHECKED_IN" | "CANCELLED" | "REFUNDED";
-export type PaymentPurpose = "SUBSCRIPTION" | "EVENT_TICKET" | "MEMBERSHIP_EVENT_TICKET";
+export type PaymentPurpose =
+  | "SUBSCRIPTION"
+  | "EVENT_TICKET"
+  | "MEMBERSHIP_EVENT_TICKET"
+  | "RAFFLE_TICKET"
+  | "MEMBERSHIP_RAFFLE_TICKET";
+
+export type RaffleStatus = "SCHEDULED" | "SELLING" | "SALES_CLOSED" | "DRAWN" | "CANCELLED";
 export type PaymentStatus = "PENDING" | "SUCCESS" | "FAILED" | "ABANDONED" | "REVERSED";
 
 export type StreetzEventTicketType = {
@@ -186,6 +195,67 @@ export type StreetzEvent = {
   userTickets?: StreetzEventTicket[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type RafflePrize = {
+  title: string;
+  description: string | null;
+  image: string | null;
+  category: string | null;
+  estimatedValueKobo: number | null;
+};
+
+export type RaffleWinner = {
+  entryId: string;
+  number: number;
+  userId: string;
+  displayName: string;
+  drawnAt: string | null;
+};
+
+export type RaffleDetails = {
+  status: RaffleStatus;
+  ticketPriceKobo: number;
+  salesStartsAt: string;
+  salesEndsAt: string;
+  drawsAt: string;
+  prize: RafflePrize;
+  ticketsSold: number;
+  yourEntryCount: number;
+  winner: RaffleWinner | null;
+  participantsCount?: number;
+  totalRevenueKobo?: number;
+};
+
+export type StreetzRaffle = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  coverImage: string | null;
+  status: EventStatus;
+  cancellationReason: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  raffle: RaffleDetails;
+};
+
+export type RaffleEntry = {
+  id: string;
+  number: number;
+  createdAt: string;
+};
+
+export type MyRaffleEntries = {
+  raffleId: string;
+  title: string;
+  prizeTitle: string;
+  drawsAt: string;
+  status: RaffleStatus;
+  count: number;
+  isWinner: boolean;
+  winningNumber: number | null;
+  entries: RaffleEntry[];
 };
 
 export type AdminMetrics = {
@@ -312,7 +382,9 @@ export type NotificationKind =
   | "EVENT_UPDATED"
   | "EVENT_CANCELLED"
   | "PAYMENT_FAILED"
-  | "SUBSCRIPTION_PAYMENT_SUCCESS";
+  | "SUBSCRIPTION_PAYMENT_SUCCESS"
+  | "RAFFLE_TICKETS_CONFIRMED"
+  | "RAFFLE_WON";
 
 export type NotificationFeedMatch = {
   id: string;
@@ -383,6 +455,16 @@ export type NotificationFeedTicket = {
   };
 };
 
+export type NotificationFeedRaffleWin = {
+  id: string;
+  raffleId: string;
+  title: string;
+  prizeTitle: string;
+  prizeImage: string | null;
+  winningNumber: number | null;
+  drawnAt: string;
+};
+
 export type NotificationFeedEventAlert = {
   id: string;
   kind: Extract<NotificationKind, "EVENT_REMINDER" | "EVENT_UPDATED" | "EVENT_CANCELLED">;
@@ -426,6 +508,7 @@ export type NotificationFeed = {
   rooms: NotificationFeedRoom[];
   events: NotificationFeedEvent[];
   tickets: NotificationFeedTicket[];
+  raffleWins: NotificationFeedRaffleWin[];
   eventAlerts: NotificationFeedEventAlert[];
   subscriptionAlerts: NotificationFeedSubscriptionAlert[];
   reportUpdates: NotificationFeedReportUpdate[];

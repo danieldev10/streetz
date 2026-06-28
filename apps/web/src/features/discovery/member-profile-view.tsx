@@ -2,7 +2,7 @@
 
 import type { FormEvent, ReactNode } from "react";
 import { useState } from "react";
-import { ArrowLeft, Ban, ChevronLeft, ChevronRight, Flag, HeartOff, LoaderCircle, MapPin, X } from "lucide-react";
+import { ArrowLeft, Ban, ChevronLeft, ChevronRight, Flag, HeartOff, LoaderCircle, MapPin, Ticket, X } from "lucide-react";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { formatDistanceKm } from "@/lib/location";
@@ -223,9 +223,21 @@ export function MemberProfileView({
               ) : null}
 
               <div className="absolute inset-x-0 bottom-0 z-[7] bg-gradient-to-t from-black/70 to-transparent p-5 text-white">
-                <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
-                  {formatConnectionStatus(candidate.connectionStatus)}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
+                    {formatConnectionStatus(candidate.connectionStatus)}
+                  </span>
+                  {candidate.attendedEventCount > 0 ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#0d0d0d]"
+                      aria-label={`${candidate.attendedEventCount} attended events`}
+                      title={`${candidate.attendedEventCount} attended events`}
+                    >
+                      <Ticket className="size-3.5" aria-hidden="true" />
+                      {candidate.attendedEventCount}
+                    </span>
+                  ) : null}
+                </div>
                 <h2 className="mt-3 text-3xl font-semibold">
                   {candidate.displayName}
                   {candidate.age ? `, ${candidate.age}` : ""}

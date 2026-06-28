@@ -5,6 +5,7 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthUser } from "../auth/types/auth-user";
 import { BookEventDto } from "../events/dto/book-event.dto";
+import { BuyRaffleTicketsDto } from "./dto/buy-raffle-tickets.dto";
 import { VerifySubscriptionPaymentDto } from "./dto/verify-subscription-payment.dto";
 import { PaymentsService } from "./payments.service";
 
@@ -61,6 +62,21 @@ export class PaymentsController {
   @Post("events/checkout/verify")
   verifyEventTicketCheckout(@CurrentUser() user: AuthUser, @Body() dto: VerifySubscriptionPaymentDto) {
     return this.paymentsService.verifyEventTicketCheckoutPayment(user.id, dto.reference);
+  }
+
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @UseGuards(JwtAuthGuard)
+  @Post("raffles/:eventId/checkout/initialize")
+  initializeRaffleCheckout(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string, @Body() dto: BuyRaffleTicketsDto) {
+    return this.paymentsService.initializeRaffleCheckout(user.id, eventId, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("raffles/checkout/verify")
+  verifyRaffleCheckout(@CurrentUser() user: AuthUser, @Body() dto: VerifySubscriptionPaymentDto) {
+    return this.paymentsService.verifyRaffleTicketPayment(user.id, dto.reference);
   }
 
   @Post("paystack/webhook")

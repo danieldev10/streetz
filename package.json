@@ -11,7 +11,8 @@
     "api:build": "npm --prefix apps/api run build",
     "api:lint": "npm --prefix apps/api run lint",
     "api:prisma:generate": "npm --prefix apps/api run prisma:generate",
-    "api:prisma:migrate": "npm --prefix apps/api run prisma:migrate"
+    "api:prisma:migrate": "npm --prefix apps/api run prisma:migrate",
+    "api:smoke:attendance": "npm --prefix apps/api run smoke:attendance --"
   },
   "engines": {
     "node": ">=22.13.0 <23",

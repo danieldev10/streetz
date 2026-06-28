@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, CheckCircle2, LoaderCircle, MapPin, Share2, Ticket } from "lucide-react";
 import { type AuthPromptKind } from "@/components/app/public-route";
 import { ScreenHeader } from "@/components/app/navigation";
+import { useToast } from "@/components/app/toast-provider";
 import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { consumePendingEventCheckoutNotice, savePendingEventCheckout } from "@/lib/pending-event-checkout";
@@ -151,6 +152,7 @@ export function EventTicketsTab({
   const [bookingQuantity, setBookingQuantity] = useState(1);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const ticketTypes = useMemo(() => (event ? getEventTicketTypes(event) : []), [event]);
   const selectedTicketType = event ? getSelectedTicketType(event, selectedTicketTypeId) : null;
@@ -235,10 +237,10 @@ export function EventTicketsTab({
       });
 
       if (result === "copied") {
-        setNotice(ticket ? "Ticket share link copied." : "Event link copied.");
+        showToast(ticket ? "Ticket share link copied." : "Event link copied.");
       }
     } catch {
-      setNotice("Could not copy link right now.");
+      showToast("Could not copy link right now.", { tone: "error" });
     }
   }
 

@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { AccountStatus, ConnectionStatus, MatchStatus, SubscriptionStatus } from "@prisma/client";
 import { calculateAge } from "../common/age";
+import { countCheckedInStandardEvents } from "../common/attendance";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
@@ -430,6 +431,11 @@ export class MessagesService {
   }
 
   private async formatCandidate(candidate: CandidateUser) {
+    const [photos, attendedEventCount] = await Promise.all([
+      this.storage.signPhotoUrls(candidate.photos),
+      countCheckedInStandardEvents(this.prisma, candidate.id)
+    ]);
+
     return {
       id: candidate.id,
       displayName: candidate.displayName,
@@ -439,8 +445,9 @@ export class MessagesService {
       connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
       state: candidate.profile?.state ?? null,
+      attendedEventCount,
       interests: candidate.profile?.interests ?? [],
-      photos: await this.storage.signPhotoUrls(candidate.photos)
+      photos
     };
   }
 

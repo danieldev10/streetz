@@ -2,6 +2,8 @@ import { BadGatewayException, BadRequestException, ForbiddenException, Injectabl
 import { ConfigService } from "@nestjs/config";
 import { randomBytes } from "crypto";
 import sharp = require("sharp");
+import { countCheckedInStandardEvents } from "../common/attendance";
+import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { PROFILE_PHOTO_UPLOAD_MAX_BYTES, formatUploadLimit } from "../storage/upload-limits";
@@ -68,7 +70,7 @@ export class ProfilesService {
     });
 
     if (profile) {
-      return this.withSignedProfilePhotos(profile);
+      return this.withAttendanceAndSignedProfilePhotos(profile);
     }
 
     const user = await this.prisma.user.findUnique({
@@ -87,7 +89,7 @@ export class ProfilesService {
       throw new NotFoundException("User not found.");
     }
 
-    return this.withSignedProfilePhotos({
+    return this.withAttendanceAndSignedProfilePhotos({
       id: "",
       userId,
       bio: null,
@@ -169,7 +171,9 @@ export class ProfilesService {
       });
     });
 
-    return this.withSignedProfilePhotos(profile);
+    await this.removeRoomMembershipsIfProfileIncomplete(userId);
+
+    return this.withAttendanceAndSignedProfilePhotos(profile);
   }
 
   async reverseGeocodeLocation(dto: ReverseGeocodeDto) {
@@ -309,6 +313,8 @@ export class ProfilesService {
     await this.prisma.profilePhoto.delete({
       where: { id: photoId }
     });
+
+    await this.removeRoomMembershipsIfProfileIncomplete(userId);
 
     await this.storage.deleteObjects([
       photo.objectKey,
@@ -482,6 +488,36 @@ export class ProfilesService {
     }
   }
 
+  private async removeRoomMembershipsIfProfileIncomplete(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        profile: {
+          select: {
+            bio: true,
+            birthDate: true,
+            connectionStatus: true,
+            city: true,
+            state: true,
+            interests: true
+          }
+        },
+        photos: {
+          select: { id: true },
+          take: 1
+        }
+      }
+    });
+
+    if (isProfileSetupComplete({ profile: user?.profile, photos: user?.photos ?? [] })) {
+      return;
+    }
+
+    await this.prisma.roomMembership.deleteMany({
+      where: { userId }
+    });
+  }
+
   private async createOptimizedPhotoVariants(objectKey: string) {
     const originalBuffer = await this.storage.getObjectBuffer(objectKey);
     const baseObjectKey = this.getVariantBaseObjectKey(objectKey);
@@ -577,6 +613,25 @@ export class ProfilesService {
         ...profile.user,
         photos: await this.storage.signPhotoUrls(profile.user.photos)
       }
+    };
+  }
+
+  private async withAttendanceAndSignedProfilePhotos<
+    T extends {
+      userId: string;
+      user: {
+        photos: Parameters<StorageService["signPhotoUrls"]>[0];
+      };
+    }
+  >(profile: T): Promise<T & { attendedEventCount: number }> {
+    const [signedProfile, attendedEventCount] = await Promise.all([
+      this.withSignedProfilePhotos(profile),
+      countCheckedInStandardEvents(this.prisma, profile.userId)
+    ]);
+
+    return {
+      ...signedProfile,
+      attendedEventCount
     };
   }
 }

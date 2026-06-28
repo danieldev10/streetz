@@ -85,6 +85,24 @@ enum EventStatus {
   COMPLETED
 }
 
+enum EventKind {
+  STANDARD
+  RAFFLE
+}
+
+enum RaffleStatus {
+  SCHEDULED
+  SELLING
+  SALES_CLOSED
+  DRAWN
+  CANCELLED
+}
+
+enum RaffleEntryStatus {
+  PENDING
+  PAID
+}
+
 enum TicketStatus {
   RESERVED
   PAID
@@ -97,6 +115,8 @@ enum PaymentPurpose {
   SUBSCRIPTION
   EVENT_TICKET
   MEMBERSHIP_EVENT_TICKET
+  RAFFLE_TICKET
+  MEMBERSHIP_RAFFLE_TICKET
 }
 
 enum PaymentStatus {
@@ -119,6 +139,8 @@ enum NotificationKind {
   EVENT_CANCELLED
   PAYMENT_FAILED
   SUBSCRIPTION_PAYMENT_SUCCESS
+  RAFFLE_TICKETS_CONFIRMED
+  RAFFLE_WON
 }
 
 enum FaceVerificationStatus {
@@ -168,6 +190,7 @@ model User {
   createdRooms       ChatRoom[]           @relation("RoomCreator")
   roomMemberships    RoomMembership[]
   tickets            Ticket[]
+  raffleEntries      RaffleEntry[]
   payments           Payment[]
   notificationSeens  NotificationSeen[]
   refreshTokens      RefreshToken[]
@@ -427,6 +450,7 @@ model Event {
   description        String?
   coverImage         String?
   category           String
+  kind               EventKind    @default(STANDARD)
   venue              String
   state              String?
   city               String
@@ -439,8 +463,10 @@ model Event {
   updatedAt          DateTime     @updatedAt
   ticketTypes        TicketType[]
   tickets            Ticket[]
+  raffleDraw         RaffleDraw?
 
   @@index([category, status, startsAt])
+  @@index([kind, status, startsAt])
 }
 
 model TicketType {
@@ -473,8 +499,56 @@ model Ticket {
   createdAt     DateTime     @default(now())
 
   @@index([eventId, status])
+  @@index([userId, status])
   @@index([status, reservedUntil])
   @@index([ticketTypeId, status, reservedUntil])
+}
+
+model RaffleDraw {
+  id                      String        @id @default(cuid())
+  eventId                 String        @unique
+  event                   Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticketPriceKobo         Int
+  salesStartsAt           DateTime
+  salesEndsAt             DateTime
+  drawsAt                 DateTime
+  prizeTitle              String
+  prizeDescription        String?
+  prizeImage              String?
+  prizeCategory           String?
+  prizeEstimatedValueKobo Int?
+  status                  RaffleStatus  @default(SCHEDULED)
+  nextEntryNumber         Int           @default(1)
+  winnerEntryId           String?       @unique
+  winnerUserId            String?
+  drawnAt                 DateTime?
+  drawnByAdminId          String?
+  drawSeed                String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  entries                 RaffleEntry[] @relation("RaffleDrawEntries")
+  winnerEntry             RaffleEntry?  @relation("RaffleDrawWinner", fields: [winnerEntryId], references: [id])
+
+  @@index([status, salesEndsAt])
+  @@index([status, drawsAt])
+}
+
+model RaffleEntry {
+  id           String            @id @default(cuid())
+  raffleDrawId String
+  raffleDraw   RaffleDraw        @relation("RaffleDrawEntries", fields: [raffleDrawId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentId    String
+  number       Int
+  status       RaffleEntryStatus @default(PENDING)
+  createdAt    DateTime          @default(now())
+  wonDraw      RaffleDraw?       @relation("RaffleDrawWinner")
+
+  @@unique([raffleDrawId, number])
+  @@index([raffleDrawId, status])
+  @@index([userId])
+  @@index([paymentId])
 }
 
 model Payment {

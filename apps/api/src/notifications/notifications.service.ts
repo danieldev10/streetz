@@ -8,11 +8,13 @@ import {
   NotificationKind,
   PaymentPurpose,
   PaymentStatus,
+  RaffleStatus,
   ReportStatus,
   SubscriptionStatus,
   UserRole
 } from "@prisma/client";
 import { calculateAge } from "../common/age";
+import { countCheckedInStandardEvents } from "../common/attendance";
 import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "../events/ticket-reservations";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
@@ -25,6 +27,7 @@ const FEED_ROOM_MESSAGES_LIMIT = 10;
 const FEED_ROOMS_LIMIT = 10;
 const FEED_EVENTS_LIMIT = 10;
 const FEED_TICKETS_LIMIT = 10;
+const FEED_RAFFLE_WINS_LIMIT = 10;
 const FEED_EVENT_ALERTS_LIMIT = 10;
 const FEED_REPORT_UPDATES_LIMIT = 10;
 const FEED_PAYMENT_ALERTS_LIMIT = 10;
@@ -159,6 +162,7 @@ export class NotificationsService {
       rooms,
       events,
       tickets,
+      raffleWins,
       eventAlerts,
       subscriptionAlerts,
       reportUpdates,
@@ -171,6 +175,7 @@ export class NotificationsService {
       this.getRecentRooms(userId, userCreatedAt),
       this.getUpcomingEvents(userId, userCreatedAt),
       this.getConfirmedTickets(userId),
+      this.getRaffleWins(userId),
       this.getEventAlerts(userId),
       this.getSubscriptionAlerts(userId),
       this.getReportUpdates(userId),
@@ -185,6 +190,7 @@ export class NotificationsService {
       rooms,
       events,
       tickets,
+      raffleWins,
       eventAlerts,
       subscriptionAlerts,
       reportUpdates,
@@ -561,6 +567,33 @@ export class NotificationsService {
     }));
   }
 
+  private async getRaffleWins(userId: string) {
+    const seenIds = await this.getSeenEntityIds(userId, NotificationKind.RAFFLE_WON);
+    const draws = await this.prisma.raffleDraw.findMany({
+      where: {
+        winnerUserId: userId,
+        status: RaffleStatus.DRAWN,
+        event: { id: { notIn: seenIds } }
+      },
+      include: {
+        event: { select: { id: true, title: true } },
+        winnerEntry: { select: { number: true } }
+      },
+      orderBy: { drawnAt: "desc" },
+      take: FEED_RAFFLE_WINS_LIMIT
+    });
+
+    return draws.map((draw) => ({
+      id: draw.event.id,
+      raffleId: draw.event.id,
+      title: draw.event.title,
+      prizeTitle: draw.prizeTitle,
+      prizeImage: draw.prizeImage,
+      winningNumber: draw.winnerEntry?.number ?? null,
+      drawnAt: (draw.drawnAt ?? new Date()).toISOString()
+    }));
+  }
+
   private async getEventAlerts(userId: string, limit = FEED_EVENT_ALERTS_LIMIT) {
     const now = new Date();
     const reminderWindow = new Date(now.getTime() + EVENT_REMINDER_HOURS * 60 * 60 * 1000);
@@ -753,6 +786,7 @@ export class NotificationsService {
       unseenRoomCount,
       unseenEventCount,
       unseenTicketCount,
+      unseenRaffleWinCount,
       unseenEventAlertCount,
       unseenSubscriptionCount,
       unseenReportUpdateCount,
@@ -763,6 +797,7 @@ export class NotificationsService {
       this.getUnseenRoomNotificationCount(userId, userCreatedAt),
       this.getUnseenEventNotificationCount(userId, userCreatedAt),
       this.getUnseenTicketNotificationCount(userId),
+      this.getUnseenRaffleWinCount(userId),
       this.getUnseenEventAlertCount(userId),
       this.getUnseenSubscriptionNotificationCount(userId),
       this.getUnseenReportUpdateCount(userId),
@@ -775,11 +810,16 @@ export class NotificationsService {
       unseenRoomCount +
       unseenEventCount +
       unseenTicketCount +
+      unseenRaffleWinCount +
       unseenEventAlertCount +
       unseenSubscriptionCount +
       unseenReportUpdateCount +
       unseenPaymentAlertCount
     );
+  }
+
+  private async getUnseenRaffleWinCount(userId: string) {
+    return (await this.getRaffleWins(userId)).length;
   }
 
   private async getPendingLikeCount(userId: string) {
@@ -1056,6 +1096,11 @@ export class NotificationsService {
   }
 
   private async formatCandidate(candidate: CandidateUser) {
+    const [photos, attendedEventCount] = await Promise.all([
+      this.storage.signPhotoUrls(candidate.photos),
+      countCheckedInStandardEvents(this.prisma, candidate.id)
+    ]);
+
     return {
       id: candidate.id,
       displayName: candidate.displayName,
@@ -1065,8 +1110,9 @@ export class NotificationsService {
       connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
       state: candidate.profile?.state ?? null,
+      attendedEventCount,
       interests: candidate.profile?.interests ?? [],
-      photos: await this.storage.signPhotoUrls(candidate.photos)
+      photos
     };
   }
 

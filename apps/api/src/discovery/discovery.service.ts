@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { AccountStatus, ConnectionStatus, DiscoveryAction, FaceVerificationStatus, Gender, MatchStatus, Prisma, ReportStatus, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
+import { countCheckedInStandardEvents } from "../common/attendance";
+import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
@@ -539,14 +541,10 @@ export class DiscoveryService {
 
     const profile = user?.profile;
     const connectionStatus = profile?.connectionStatus;
-    const isReady =
-      Boolean(profile?.bio?.trim()) &&
-      Boolean(profile?.birthDate) &&
-      Boolean(connectionStatus) &&
-      Boolean(profile?.city?.trim()) &&
-      Boolean(profile?.state?.trim()) &&
-      Boolean(profile?.interests.length) &&
-      Boolean(user?.photos.length);
+    const isReady = isProfileSetupComplete({
+      profile,
+      photos: user?.photos ?? []
+    });
 
     if (!profile || !isReady || !connectionStatus) {
       throw new ForbiddenException("Complete your profile setup before using discovery.");
@@ -715,6 +713,11 @@ export class DiscoveryService {
       sortOrder: number;
     }>;
   }, options: { distanceKm?: number | null } = {}) {
+    const [photos, attendedEventCount] = await Promise.all([
+      this.storage.signPhotoUrls(candidate.photos),
+      countCheckedInStandardEvents(this.prisma, candidate.id)
+    ]);
+
     return {
       id: candidate.id,
       displayName: candidate.displayName,
@@ -727,8 +730,9 @@ export class DiscoveryService {
       city: candidate.profile?.city ?? null,
       state: candidate.profile?.state ?? null,
       distanceKm: options.distanceKm === null || options.distanceKm === undefined ? null : Math.round(options.distanceKm * 10) / 10,
+      attendedEventCount,
       interests: candidate.profile?.interests ?? [],
-      photos: await this.storage.signPhotoUrls(candidate.photos)
+      photos
     };
   }
 

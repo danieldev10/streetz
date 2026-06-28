@@ -12,6 +12,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { ProfilesModule } from "./profiles/profiles.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { RafflesModule } from "./raffles/raffles.module";
 import { RoomsModule } from "./rooms/rooms.module";
 import { UsersModule } from "./users/users.module";
 import { VerificationModule } from "./verification/verification.module";
@@ -35,6 +36,7 @@ import { VerificationModule } from "./verification/verification.module";
     ProfilesModule,
     DiscoveryModule,
     EventsModule,
+    RafflesModule,
     MessagesModule,
     RoomsModule,
     AdminModule,

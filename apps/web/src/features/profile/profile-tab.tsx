@@ -2,7 +2,7 @@
 
 import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Camera, Heart, LoaderCircle, MapPin, Power, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, Camera, Heart, LoaderCircle, MapPin, Power, ShieldCheck, Ticket, Trash2, UserRound, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { useSession } from "@/components/app/session-provider";
@@ -119,6 +119,7 @@ export function ProfileTab({
   const safeActiveProfilePhotoIndex =
     activeProfilePhotoIndex < visibleProfilePhotos.length ? activeProfilePhotoIndex : 0;
   const activeProfilePhoto = visibleProfilePhotos[safeActiveProfilePhotoIndex] ?? profilePhoto;
+  const attendedEventCount = profile?.attendedEventCount ?? 0;
   const isUploadingPhoto = uploadingPhotoSlot !== null;
   const canDeleteProfilePhoto = visibleProfilePhotos.length > 1;
   const nextAvailablePhotoSlot = Math.min(visibleProfilePhotos.length, PROFILE_PHOTO_LIMIT - 1);
@@ -1024,8 +1025,20 @@ export function ProfileTab({
                     iconSize="lg"
                   />
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-5 text-white">
-                    <div className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
-                      {profileStatusLabel}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
+                        {profileStatusLabel}
+                      </span>
+                      {attendedEventCount > 0 ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#0d0d0d]"
+                          aria-label={`${attendedEventCount} attended events`}
+                          title={`${attendedEventCount} attended events`}
+                        >
+                          <Ticket className="size-3.5" aria-hidden="true" />
+                          {attendedEventCount}
+                        </span>
+                      ) : null}
                     </div>
                     <h2 className="mt-3 text-3xl font-semibold">
                       {profileDisplayName}
@@ -1063,8 +1076,20 @@ export function ProfileTab({
                       sizes="(max-width: 768px) 100vw, 520px"
                       iconSize="lg"
                     />
-                    <div className="absolute left-4 top-4 inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
-                      {profileStatusLabel}
+                    <div className="absolute left-4 top-4 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
+                        {profileStatusLabel}
+                      </span>
+                      {attendedEventCount > 0 ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#0d0d0d]"
+                          aria-label={`${attendedEventCount} attended events`}
+                          title={`${attendedEventCount} attended events`}
+                        >
+                          <Ticket className="size-3.5" aria-hidden="true" />
+                          {attendedEventCount}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 

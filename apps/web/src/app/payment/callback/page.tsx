@@ -26,7 +26,10 @@ function PaymentCallbackContent() {
     const savedToken = token ?? window.localStorage.getItem(TOKEN_KEY);
     const isCombinedEventTicketPayment = purpose === "membership-event-ticket";
     const isEventTicketPayment = purpose === "event-ticket" || isCombinedEventTicketPayment;
+    const isCombinedRafflePayment = purpose === "membership-raffle-ticket";
+    const isRafflePayment = purpose === "raffle-ticket" || isCombinedRafflePayment;
     const eventRedirectPath = eventId ? `/events/${eventId}` : "/events";
+    const raffleRedirectPath = eventId ? `/events/raffles/${eventId}` : "/events";
 
     if (!reference) {
       window.setTimeout(() => setMessage("Payment reference was not returned. Please try again."), 0);
@@ -46,7 +49,7 @@ function PaymentCallbackContent() {
       message?: string;
       subscriptionStatus?: "INACTIVE" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
       subscriptionEndsAt?: string | null;
-    }>(isCombinedEventTicketPayment ? "/payments/events/checkout/verify" : isEventTicketPayment ? "/payments/events/ticket/verify" : "/payments/subscription/verify", {
+    }>(isRafflePayment ? "/payments/raffles/checkout/verify" : isCombinedEventTicketPayment ? "/payments/events/checkout/verify" : isEventTicketPayment ? "/payments/events/ticket/verify" : "/payments/subscription/verify", {
       method: "POST",
       headers: authHeaders(savedToken),
       body: JSON.stringify({ reference }),
@@ -63,6 +66,18 @@ function PaymentCallbackContent() {
 
         if (isEventTicketPayment) {
           clearPendingEventCheckout();
+        }
+
+        if (isRafflePayment) {
+          if (response.refundRequired) {
+            setMessage(response.message ?? "Payment received, but this raffle is no longer accepting entries. Refunds are being processed and we will contact you by email.");
+            window.setTimeout(() => router.replace(raffleRedirectPath), 2400);
+            return;
+          }
+
+          setMessage("Raffle tickets confirmed. Good luck! Taking you back...");
+          window.setTimeout(() => router.replace(raffleRedirectPath), 900);
+          return;
         }
 
         if (isEventTicketPayment && response.refundRequired) {

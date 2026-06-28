@@ -3,7 +3,7 @@
 import type { CSSProperties, PointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { ConnectionStatus, Gender, Sexuality } from "@/lib/types";
-import { Ban, Eye, Flag, Heart, LoaderCircle, MapPin, RefreshCw, SlidersHorizontal, X } from "lucide-react";
+import { Ban, Eye, Flag, Heart, LoaderCircle, MapPin, RefreshCw, SlidersHorizontal, Ticket, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -1208,8 +1208,20 @@ function DiscoveryCandidateCard({
           Like
         </div>
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-4 text-white md:p-5">
-          <div className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
-            {formatConnectionStatus(candidate.connectionStatus)}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
+              {formatConnectionStatus(candidate.connectionStatus)}
+            </span>
+            {candidate.attendedEventCount > 0 ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#0d0d0d]"
+                aria-label={`${candidate.attendedEventCount} attended events`}
+                title={`${candidate.attendedEventCount} attended events`}
+              >
+                <Ticket className="size-3.5" aria-hidden="true" />
+                {candidate.attendedEventCount}
+              </span>
+            ) : null}
           </div>
           <h2 className="mt-2 text-2xl font-semibold md:mt-3 md:text-3xl">
             {candidate.displayName}

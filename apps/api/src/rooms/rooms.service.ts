@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { AccountStatus, ConnectionStatus, Gender, Prisma, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
+import { countCheckedInStandardEvents } from "../common/attendance";
+import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
@@ -130,6 +132,10 @@ export class RoomsService {
   async getActiveRooms(userId: string) {
     const user = await this.ensureMemberOrAdmin(userId);
 
+    if (user.role !== UserRole.ADMIN) {
+      await this.ensureRoomProfileReady(userId, "using rooms", { removeMemberships: true });
+    }
+
     const rooms = await this.prisma.chatRoom.findMany({
       where: { isActive: true },
       include: {
@@ -206,6 +212,8 @@ export class RoomsService {
     if (user.role === UserRole.ADMIN) {
       throw new ForbiddenException("Admins can view rooms but cannot join as members.");
     }
+
+    await this.ensureRoomProfileReady(userId, "joining rooms");
 
     try {
       await this.prisma.roomMembership.create({
@@ -397,6 +405,8 @@ export class RoomsService {
       throw new ForbiddenException("Join this room before opening the chat.");
     }
 
+    await this.ensureRoomProfileReady(userId, "using rooms", { removeMemberships: true });
+
     return user;
   }
 
@@ -450,6 +460,44 @@ export class RoomsService {
     return user;
   }
 
+  private async ensureRoomProfileReady(
+    userId: string,
+    action: "joining rooms" | "using rooms",
+    options: { removeMemberships?: boolean } = {}
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        profile: {
+          select: {
+            bio: true,
+            birthDate: true,
+            connectionStatus: true,
+            city: true,
+            state: true,
+            interests: true
+          }
+        },
+        photos: {
+          select: { id: true },
+          take: 1
+        }
+      }
+    });
+
+    if (isProfileSetupComplete({ profile: user?.profile, photos: user?.photos ?? [] })) {
+      return;
+    }
+
+    if (options.removeMemberships) {
+      await this.prisma.roomMembership.deleteMany({
+        where: { userId }
+      });
+    }
+
+    throw new ForbiddenException(`Complete your profile setup before ${action}.`);
+  }
+
   private cleanText(value: string) {
     return value.trim();
   }
@@ -495,6 +543,11 @@ export class RoomsService {
   }
 
   private async formatCandidate(candidate: CandidateUser) {
+    const [photos, attendedEventCount] = await Promise.all([
+      this.storage.signPhotoUrls(candidate.photos),
+      countCheckedInStandardEvents(this.prisma, candidate.id)
+    ]);
+
     return {
       id: candidate.id,
       displayName: candidate.displayName,
@@ -506,8 +559,9 @@ export class RoomsService {
       connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
       state: candidate.profile?.state ?? null,
+      attendedEventCount,
       interests: candidate.profile?.interests ?? [],
-      photos: await this.storage.signPhotoUrls(candidate.photos)
+      photos
     };
   }
 

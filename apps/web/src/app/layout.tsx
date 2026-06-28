@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SessionProvider } from "@/components/app/session-provider";
+import { ToastProvider } from "@/components/app/toast-provider";
 import "@aws-amplify/ui-react/styles.css";
 import "./globals.css";
 
@@ -44,7 +45,9 @@ export default function RootLayout({
         ))}
       </head>
       <body className="min-h-full flex flex-col">
-        <SessionProvider>{children}</SessionProvider>
+        <ToastProvider>
+          <SessionProvider>{children}</SessionProvider>
+        </ToastProvider>
       </body>
     </html>
   );

@@ -38,6 +38,12 @@ export class EventsController {
     return this.eventsService.getPublishedEvents(user.id);
   }
 
+  @Get("events/history")
+  @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
+  getEventHistory(@CurrentUser() user: AuthUser) {
+    return this.eventsService.getEventHistory(user.id);
+  }
+
   @Get("events/:eventId/tickets")
   @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
   getEventTickets(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string) {

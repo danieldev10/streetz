@@ -11,6 +11,7 @@ import {
   Drama,
   Dumbbell,
   Gamepad2,
+  Gift,
   Heart,
   ImagePlus,
   Laptop,
@@ -35,7 +36,9 @@ import {
 } from "lucide-react";
 import { type AuthPromptKind } from "@/components/app/public-route";
 import { ScreenHeader } from "@/components/app/navigation";
+import { useToast } from "@/components/app/toast-provider";
 import { LoadingState } from "@/components/loading-state";
+import { RafflesList } from "@/features/raffles/raffles-list";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { savePendingEventCheckout } from "@/lib/pending-event-checkout";
 import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
@@ -80,7 +83,7 @@ const eventStatusLabels: Record<EventStatus, string> = {
   COMPLETED: "Completed",
 };
 
-type EventViewMode = "tickets" | "events";
+type EventViewMode = "tickets" | "events" | "raffles" | "history";
 type AdminEventView = "list" | "form";
 type AdminEventMode = "list" | "create" | "edit";
 type AdminEventListMode = "active" | "inactive";
@@ -251,6 +254,16 @@ function getTicketTypeSummary(event: StreetzEvent) {
   }
 
   return ticketTypes.map((ticketType) => `${normalizeTicketTierName(ticketType.name)} ${formatPrice(ticketType.priceKobo)}`).join(" · ");
+}
+
+function getHistoryAttendanceLabel(event: StreetzEvent) {
+  return getUserTickets(event).some((ticket) => ticket.status === "CHECKED_IN") ? "Attended" : "Not checked in";
+}
+
+function getHistoryAttendanceClass(event: StreetzEvent) {
+  return getUserTickets(event).some((ticket) => ticket.status === "CHECKED_IN")
+    ? "bg-[#e7f8ef] text-[#126c43]"
+    : "bg-[#fafafa] text-[#666666]";
 }
 
 function getTotalTicketCapacity(event: StreetzEvent) {
@@ -439,6 +452,7 @@ export function EventsTab({
   const isGuest = !token || !user;
   const isAdmin = user?.role === "ADMIN";
   const [events, setEvents] = useState<StreetzEvent[]>([]);
+  const [historyEvents, setHistoryEvents] = useState<StreetzEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [eventViewMode, setEventViewMode] = useState<EventViewMode>("events");
   const viewModeInitializedRef = useRef(false);
@@ -461,10 +475,15 @@ export function EventsTab({
   const [cancellationReason, setCancellationReason] = useState("");
   const [isCancellingEvent, setIsCancellingEvent] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const orderedEvents = useMemo(
     () => [...events].sort((first, second) => Date.parse(first.startsAt) - Date.parse(second.startsAt)),
     [events]
+  );
+  const orderedHistoryEvents = useMemo(
+    () => [...historyEvents].sort((first, second) => Date.parse(second.startsAt) - Date.parse(first.startsAt)),
+    [historyEvents]
   );
   const adminActiveEvents = useMemo(() => orderedEvents.filter((event) => !isAdminInactiveEvent(event)), [orderedEvents]);
   const adminInactiveEvents = useMemo(() => orderedEvents.filter(isAdminInactiveEvent), [orderedEvents]);
@@ -487,8 +506,8 @@ export function EventsTab({
     [orderedEvents]
   );
   const memberEventsForMode = useMemo(
-    () => (isGuest ? exploreEvents : eventViewMode === "tickets" ? ticketEvents : exploreEvents),
-    [eventViewMode, exploreEvents, isGuest, ticketEvents]
+    () => (isGuest ? exploreEvents : eventViewMode === "tickets" ? ticketEvents : eventViewMode === "history" ? orderedHistoryEvents : exploreEvents),
+    [eventViewMode, exploreEvents, isGuest, orderedHistoryEvents, ticketEvents]
   );
   const memberCategoryOptions = useMemo(() => {
     const availableCategories = new Set(
@@ -538,16 +557,24 @@ export function EventsTab({
     ? hasEventCategoryFilter
       ? "No tickets found"
       : "No tickets yet"
-    : hasMemberFilter
-      ? "No events found"
-      : "No events yet";
+    : !isGuest && eventViewMode === "history"
+      ? hasEventCategoryFilter
+        ? "No history found"
+        : "No event history"
+      : hasMemberFilter
+        ? "No events found"
+        : "No events yet";
   const emptyMemberDescription = !isGuest && eventViewMode === "tickets"
     ? hasEventCategoryFilter
       ? "Try another category."
       : "Tickets you book or buy will appear here."
-    : hasMemberFilter
-      ? "Try another category, state, or city."
-      : "Events you have not booked yet will appear here.";
+    : !isGuest && eventViewMode === "history"
+      ? hasEventCategoryFilter
+        ? "Try another category."
+        : "Past ticketed events will appear here."
+      : hasMemberFilter
+        ? "Try another category, state, or city."
+        : "Events you have not booked yet will appear here.";
   const eventStateOptions = eventForm.state && !nigeriaStateNames.includes(eventForm.state)
     ? [...nigeriaStateNames, eventForm.state]
     : nigeriaStateNames;
@@ -571,18 +598,26 @@ export function EventsTab({
       const fetchProfile = !isGuest && !filterInitializedRef.current && !isAdmin;
       const eventsPath = isGuest ? "/public/events" : isAdmin ? "/admin/events" : "/events";
       const requestOptions = isGuest ? undefined : { headers: authHeaders(token as string) };
-      const [eventsResult, profileResult] = await Promise.all([
+      const historyRequest = !isGuest && !isAdmin
+        ? apiRequest<{ events: StreetzEvent[] }>("/events/history", { headers: authHeaders(token as string) })
+        : Promise.resolve({ events: [] });
+      const [eventsResult, historyResult, profileResult] = await Promise.all([
         apiRequest<{ events: StreetzEvent[] }>(eventsPath, requestOptions),
+        historyRequest,
         fetchProfile
           ? apiRequest<StreetzProfile | null>("/profiles/me", { headers: authHeaders(token as string) }).catch(() => null)
           : Promise.resolve(null)
       ]);
 
       setEvents(eventsResult.events);
+      setHistoryEvents(historyResult.events);
 
       if (!isAdmin && !isGuest && !viewModeInitializedRef.current) {
         viewModeInitializedRef.current = true;
-        setEventViewMode(eventsResult.events.some(hasConfirmedTicket) ? "tickets" : "events");
+        const hasCurrentTickets = eventsResult.events.some(hasConfirmedTicket);
+        const hasExploreEvents = eventsResult.events.some((event) => isMemberBookableEvent(event) && !hasConfirmedTicket(event));
+
+        setEventViewMode(hasCurrentTickets ? "tickets" : hasExploreEvents ? "events" : historyResult.events.length > 0 ? "history" : "events");
       }
 
       if (isGuest && !viewModeInitializedRef.current) {
@@ -983,10 +1018,10 @@ export function EventsTab({
       });
 
       if (result === "copied") {
-        setNotice("Event link copied.");
+        showToast("Event link copied.");
       }
     } catch {
-      setNotice("Could not copy event link right now.");
+      showToast("Could not copy event link right now.", { tone: "error" });
     }
   }
 
@@ -1528,6 +1563,14 @@ export function EventsTab({
           action={
             <div className="flex items-center gap-2">
               <button
+                className="inline-flex h-9 items-center gap-2 rounded-full border border-black/8 px-3 text-sm font-medium"
+                type="button"
+                onClick={() => router.push("/admin/raffles")}
+              >
+                <Gift className="size-3.5" aria-hidden="true" />
+                Raffles
+              </button>
+              <button
                 className="hidden h-9 items-center gap-2 rounded-full border border-black/8 px-3 text-sm font-medium md:inline-flex"
                 type="button"
                 onClick={() => loadEvents()}
@@ -1893,185 +1936,212 @@ export function EventsTab({
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
         {!isGuest ? (
-          <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
+          <div className="mb-4 grid grid-cols-4 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-md">
             <button
               type="button"
-              className={`rounded-full px-4 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+              className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
               onClick={() => setEventViewMode("tickets")}
             >
               Tickets
             </button>
             <button
               type="button"
-              className={`rounded-full px-4 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+              className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
               onClick={() => setEventViewMode("events")}
             >
               Events
             </button>
+            <button
+              type="button"
+              className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+              onClick={() => setEventViewMode("history")}
+            >
+              History
+            </button>
+            <button
+              type="button"
+              className={`rounded-full px-3 py-2 ${eventViewMode === "raffles" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+              onClick={() => setEventViewMode("raffles")}
+            >
+              Raffles
+            </button>
           </div>
         ) : null}
 
-        <div className="-mx-5 mb-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8">
-          <div className="flex min-w-max gap-5">
-            <button
-              type="button"
-              className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${eventFilterCategory ? "text-[#666666]" : "text-[#0d0d0d]"}`}
-              onClick={() => setEventFilterCategory("")}
-              aria-pressed={!eventFilterCategory}
-            >
-              <span
-                className={`grid size-14 place-items-center rounded-full border ${eventFilterCategory ? "border-black/8 bg-white" : "border-[#bd40be] bg-[#f6e0f6]"}`}
-              >
-                <Sparkles className="size-5" aria-hidden="true" />
-              </span>
-              All
-            </button>
-            {EVENT_CATEGORY_OPTIONS.map((category) => {
-              const Icon = eventCategoryIcons[category];
-              const isActiveCategory = eventFilterCategory === category;
-              const hasCategoryEvents = memberCategoryOptions.includes(category);
-
-              return (
+        {eventViewMode === "raffles" ? (
+          <RafflesList token={token ?? null} />
+        ) : (
+          <>
+            <div className="-mx-5 mb-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8">
+              <div className="flex min-w-max gap-5">
                 <button
-                  key={category}
                   type="button"
-                  className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${isActiveCategory ? "text-[#0d0d0d]" : "text-[#666666]"} ${hasCategoryEvents ? "" : "opacity-55"}`}
-                  onClick={() => setEventFilterCategory(category)}
-                  aria-pressed={isActiveCategory}
+                  className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${eventFilterCategory ? "text-[#666666]" : "text-[#0d0d0d]"}`}
+                  onClick={() => setEventFilterCategory("")}
+                  aria-pressed={!eventFilterCategory}
                 >
                   <span
-                    className={`grid size-14 place-items-center rounded-full border ${isActiveCategory ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"}`}
+                    className={`grid size-14 place-items-center rounded-full border ${eventFilterCategory ? "border-black/8 bg-white" : "border-[#bd40be] bg-[#f6e0f6]"}`}
                   >
-                    <Icon className="size-5" aria-hidden="true" />
+                    <Sparkles className="size-5" aria-hidden="true" />
                   </span>
-                  <span className="leading-tight">{category}</span>
+                  All
                 </button>
-              );
-            })}
-          </div>
-        </div>
+                {EVENT_CATEGORY_OPTIONS.map((category) => {
+                  const Icon = eventCategoryIcons[category];
+                  const isActiveCategory = eventFilterCategory === category;
+                  const hasCategoryEvents = memberCategoryOptions.includes(category);
 
-        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
-
-        {isLoadingEvents ? (
-          <LoadingState label="Loading events" className="min-h-90 rounded-3xl border border-black/5" />
-        ) : visibleMemberEvents.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {visibleMemberEvents.map((event) => {
-              const ticketTypes = getEventTicketTypes(event);
-              const ticketType = getSelectedTicketType(event, selectedTicketTypeIds[event.id]);
-              const ownedTicketTypeIds = getOwnedTicketTypeIds(event);
-              const isTicketCard = eventViewMode === "tickets";
-              const maxPurchaseQuantity = getMaxPurchaseQuantity(event, ticketType);
-              const canBookMore = maxPurchaseQuantity > 0;
-              const isSoldOut = Boolean(ticketType && ticketType.availableCount <= 0);
-              const isLimitReached = Boolean(ticketType && isMemberBookableEvent(event) && !isSoldOut && maxPurchaseQuantity <= 0);
-              const isBusy = activeEventId === event.id;
-              const getTicketsLabel = isSoldOut
-                ? "Sold out"
-                : isLimitReached
-                  ? "Ticket limit reached"
-                  : !isMemberBookableEvent(event)
-                    ? "Event unavailable"
-                    : "Get Tickets";
-
-              return (
-                <article
-                  key={event.id}
-                  className={`overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${isTicketCard ? "cursor-pointer transition hover:border-[#bd40be]/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)]" : ""}`}
-                  role={isTicketCard ? "button" : undefined}
-                  tabIndex={isTicketCard ? 0 : undefined}
-                  onClick={isTicketCard ? () => router.push(`/events/${event.id}`) : undefined}
-                  onKeyDown={
-                    isTicketCard
-                      ? (keyboardEvent) => {
-                        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
-                          keyboardEvent.preventDefault();
-                          router.push(`/events/${event.id}`);
-                        }
-                      }
-                      : undefined
-                  }
-                >
-                  <div className="relative h-44 bg-[#f6e0f6] md:h-48">
-                    <Image
-                      src={event.coverImage || FALLBACK_EVENT_IMAGE}
-                      alt={`${event.title} event`}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      className="object-cover"
-                    />
+                  return (
                     <button
-                      className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-white/90 text-[#0d0d0d] shadow-sm backdrop-blur transition hover:bg-white"
+                      key={category}
                       type="button"
-                      onClick={(clickEvent) => {
-                        clickEvent.stopPropagation();
-                        void shareEvent(event);
-                      }}
-                      aria-label={`Share ${event.title}`}
-                      title="Share event"
+                      className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${isActiveCategory ? "text-[#0d0d0d]" : "text-[#666666]"} ${hasCategoryEvents ? "" : "opacity-55"}`}
+                      onClick={() => setEventFilterCategory(category)}
+                      aria-pressed={isActiveCategory}
                     >
-                      <Share2 className="size-4" aria-hidden="true" />
+                      <span
+                        className={`grid size-14 place-items-center rounded-full border ${isActiveCategory ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"}`}
+                      >
+                        <Icon className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="leading-tight">{category}</span>
                     </button>
-                  </div>
-                  <div className="p-4">
-                    <h2 className="text-lg font-semibold leading-snug">{event.title}</h2>
-                    <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-[#666666]">
-                      <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                      <span>{formatEventLocation(event)}</span>
-                    </p>
-                    <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                      <CalendarDays className="size-4" aria-hidden="true" />
-                      {formatEventDate(event.startsAt)}
-                    </p>
-                    {isTicketCard && ticketTypes.length > 0 ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {ticketTypes.map((availableTicketType) => {
-                          const isOwnedTier = ownedTicketTypeIds.has(availableTicketType.id);
-
-                          return (
-                            <span
-                              key={availableTicketType.id}
-                              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                isOwnedTier ? "bg-[#f6e0f6] text-[#7c1f7d]" : "bg-[#fafafa] text-[#666666]"
-                              }`}
-                            >
-                              {normalizeTicketTierName(availableTicketType.name)} · {formatPrice(availableTicketType.priceKobo)}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                    <button
-                      className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                      type="button"
-                      disabled={!isTicketCard && (!ticketType || !canBookMore || isBusy)}
-                      onClick={(clickEvent) => {
-                        clickEvent.stopPropagation();
-                        if (isTicketCard) {
-                          router.push(`/events/${event.id}`);
-                          return;
-                        }
-
-                        setTicketModalEventId(event.id);
-                      }}
-                    >
-                      {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
-                      {isTicketCard ? "View tickets" : getTicketsLabel}
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
-            <div>
-              <Ticket className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
-              <h2 className="mt-3 text-2xl font-semibold">{emptyMemberTitle}</h2>
-              <p className="mt-2 text-sm text-[#666666]">{emptyMemberDescription}</p>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+
+            {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+
+            {isLoadingEvents ? (
+              <LoadingState label="Loading events" className="min-h-90 rounded-3xl border border-black/5" />
+            ) : visibleMemberEvents.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {visibleMemberEvents.map((event) => {
+                  const ticketTypes = getEventTicketTypes(event);
+                  const ticketType = getSelectedTicketType(event, selectedTicketTypeIds[event.id]);
+                  const ownedTicketTypeIds = getOwnedTicketTypeIds(event);
+                  const isTicketCard = eventViewMode === "tickets";
+                  const isHistoryCard = eventViewMode === "history";
+                  const isOwnedEventCard = isTicketCard || isHistoryCard;
+                  const maxPurchaseQuantity = getMaxPurchaseQuantity(event, ticketType);
+                  const canBookMore = maxPurchaseQuantity > 0;
+                  const isSoldOut = Boolean(ticketType && ticketType.availableCount <= 0);
+                  const isLimitReached = Boolean(ticketType && isMemberBookableEvent(event) && !isSoldOut && maxPurchaseQuantity <= 0);
+                  const isBusy = activeEventId === event.id;
+                  const getTicketsLabel = isSoldOut
+                    ? "Sold out"
+                    : isLimitReached
+                      ? "Ticket limit reached"
+                      : !isMemberBookableEvent(event)
+                        ? "Event unavailable"
+                        : "Get Tickets";
+
+                  return (
+                    <article
+                      key={event.id}
+                      className={`overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${isOwnedEventCard ? "cursor-pointer transition hover:border-[#bd40be]/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)]" : ""}`}
+                      role={isOwnedEventCard ? "button" : undefined}
+                      tabIndex={isOwnedEventCard ? 0 : undefined}
+                      onClick={isOwnedEventCard ? () => router.push(`/events/${event.id}`) : undefined}
+                      onKeyDown={
+                        isOwnedEventCard
+                          ? (keyboardEvent) => {
+                            if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+                              keyboardEvent.preventDefault();
+                              router.push(`/events/${event.id}`);
+                            }
+                          }
+                          : undefined
+                      }
+                    >
+                      <div className="relative h-44 bg-[#f6e0f6] md:h-48">
+                        <Image
+                          src={event.coverImage || FALLBACK_EVENT_IMAGE}
+                          alt={`${event.title} event`}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                          className="object-cover"
+                        />
+                        <button
+                          className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-white/90 text-[#0d0d0d] shadow-sm backdrop-blur transition hover:bg-white"
+                          type="button"
+                          onClick={(clickEvent) => {
+                            clickEvent.stopPropagation();
+                            void shareEvent(event);
+                          }}
+                          aria-label={`Share ${event.title}`}
+                          title="Share event"
+                        >
+                          <Share2 className="size-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                      <div className="p-4">
+                        <h2 className="text-lg font-semibold leading-snug">{event.title}</h2>
+                        <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-[#666666]">
+                          <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                          <span>{formatEventLocation(event)}</span>
+                        </p>
+                        <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                          <CalendarDays className="size-4" aria-hidden="true" />
+                          {formatEventDate(event.startsAt)}
+                        </p>
+                        {isOwnedEventCard && ticketTypes.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {isHistoryCard ? (
+                              <span className={`rounded-full px-3 py-1 text-xs font-medium ${getHistoryAttendanceClass(event)}`}>
+                                {getHistoryAttendanceLabel(event)}
+                              </span>
+                            ) : null}
+                            {ticketTypes.map((availableTicketType) => {
+                              const isOwnedTier = ownedTicketTypeIds.has(availableTicketType.id);
+
+                              return (
+                                <span
+                                  key={availableTicketType.id}
+                                  className={`rounded-full px-3 py-1 text-xs font-medium ${
+                                    isOwnedTier ? "bg-[#f6e0f6] text-[#7c1f7d]" : "bg-[#fafafa] text-[#666666]"
+                                  }`}
+                                >
+                                  {normalizeTicketTierName(availableTicketType.name)} · {formatPrice(availableTicketType.priceKobo)}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                        <button
+                          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          type="button"
+                          disabled={!isOwnedEventCard && (!ticketType || !canBookMore || isBusy)}
+                          onClick={(clickEvent) => {
+                            clickEvent.stopPropagation();
+                            if (isOwnedEventCard) {
+                              router.push(`/events/${event.id}`);
+                              return;
+                            }
+
+                            setTicketModalEventId(event.id);
+                          }}
+                        >
+                          {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
+                          {isHistoryCard ? "View details" : isTicketCard ? "View tickets" : getTicketsLabel}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
+                <div>
+                  <Ticket className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+                  <h2 className="mt-3 text-2xl font-semibold">{emptyMemberTitle}</h2>
+                  <p className="mt-2 text-sm text-[#666666]">{emptyMemberDescription}</p>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </section>

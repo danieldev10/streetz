@@ -181,8 +181,6 @@ export function formatConnectionStatus(status: ConnectionStatus | null | undefin
   return status ? connectionStatusLabels[status] : "crushclub member";
 }
 
-
-
 export function getProfileSetupIssuesFromForm(
   form: {
     bio: string;

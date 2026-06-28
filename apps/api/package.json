@@ -8,6 +8,7 @@
     "start": "node dist/src/main.js",
     "lint": "eslint \"src/**/*.ts\"",
     "media:backfill": "ts-node -r tsconfig-paths/register src/profiles/backfill-profile-photo-variants.ts",
+    "smoke:attendance": "ts-node -r tsconfig-paths/register src/events/create-attendance-smoke-data.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "node prisma-migrate-safe.mjs",
     "prisma:migrate:raw": "prisma migrate dev",

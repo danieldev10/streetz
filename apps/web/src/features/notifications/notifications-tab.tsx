@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
+  Gift,
   Heart,
   LoaderCircle,
   MapPin,
@@ -274,6 +275,9 @@ export function NotificationsTab({
         for (const ticket of currentFeed.tickets) {
           candidates.push({ kind: "TICKET_CONFIRMED", entityId: ticket.id });
         }
+        for (const win of currentFeed.raffleWins) {
+          candidates.push({ kind: "RAFFLE_WON", entityId: win.id });
+        }
       }
 
       if (tab === "notifications") {
@@ -433,7 +437,7 @@ export function NotificationsTab({
     ? {
       likes: feed.likes.length + feed.matches.filter((m) => !m.seen).length + feed.directMessages.length,
       rooms: feed.roomMessages.length + feed.rooms.length,
-      events: feed.eventAlerts.length + feed.tickets.length + feed.events.length,
+      events: feed.eventAlerts.length + feed.tickets.length + feed.events.length + feed.raffleWins.length,
       notifications: feed.subscriptionAlerts.length + feed.reportUpdates.length + feed.paymentAlerts.length,
     }
     : {
@@ -446,7 +450,7 @@ export function NotificationsTab({
     ? {
       likes: feed.likes.length > 0 || feed.matches.length > 0 || feed.directMessages.length > 0,
       rooms: feed.roomMessages.length > 0 || feed.rooms.length > 0,
-      events: feed.eventAlerts.length > 0 || feed.tickets.length > 0 || feed.events.length > 0,
+      events: feed.eventAlerts.length > 0 || feed.tickets.length > 0 || feed.events.length > 0 || feed.raffleWins.length > 0,
       notifications: feed.subscriptionAlerts.length > 0 || feed.reportUpdates.length > 0 || feed.paymentAlerts.length > 0,
     }
     : { likes: false, rooms: false, events: false, notifications: false };
@@ -753,6 +757,41 @@ export function NotificationsTab({
                             <div className="mt-1.5 flex items-center gap-1 text-[11px] text-[#999999]">
                               <Calendar className="size-3" aria-hidden="true" />
                               {formatEventDate(ticket.event.startsAt)}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeNotificationTab === "events" && feed.raffleWins.length > 0 ? (
+                  <div>
+                    <SectionHeader icon={Gift} label="Raffle wins" count={feed.raffleWins.length} />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {feed.raffleWins.map((win) => (
+                        <button
+                          key={win.id}
+                          type="button"
+                          className="group flex items-start gap-4 rounded-[20px] border border-[#0b7a50]/20 bg-[#d4fae8]/40 p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-[#0b7a50]/40 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          onClick={() => {
+                            void markFeedItemSeen({ kind: "RAFFLE_WON", entityId: win.id });
+                            router.push(`/events/raffles/${win.raffleId}`);
+                          }}
+                        >
+                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#0b7a50]/10">
+                            <Gift className="size-5 text-[#0b7a50]" aria-hidden="true" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-[#0d0d0d]">You won the raffle! 🎉</p>
+                            <p className="mt-0.5 truncate text-xs text-[#666666]">{win.prizeTitle}</p>
+                            <div className="mt-1.5 flex items-center gap-3 text-[11px] text-[#999999]">
+                              {win.winningNumber !== null ? (
+                                <span className="font-semibold text-[#0b7a50] tabular-nums">
+                                  #{String(win.winningNumber).padStart(5, "0")}
+                                </span>
+                              ) : null}
+                              <span>{timeAgo(win.drawnAt)}</span>
                             </div>
                           </div>
                         </button>

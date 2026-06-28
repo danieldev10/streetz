@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { EventStatus, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
+import { EventKind, EventStatus, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
@@ -56,6 +56,7 @@ export class EventsService {
 
   async getAdminEvents() {
     const events = await this.prisma.event.findMany({
+      where: { kind: EventKind.STANDARD },
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
         tickets: {
@@ -144,7 +145,7 @@ export class EventsService {
       }
     });
 
-    if (!event) {
+    if (!event || event.kind !== EventKind.STANDARD) {
       throw new NotFoundException("Event not found.");
     }
 
@@ -264,7 +265,7 @@ export class EventsService {
     const now = new Date();
 
     const events = await this.prisma.event.findMany({
-      where: this.getVisibleMemberEventWhere(userId, now),
+      where: this.getBookableEventWhere(now),
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
         tickets: {
@@ -279,6 +280,33 @@ export class EventsService {
         }
       },
       orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }]
+    });
+
+    return {
+      events: await Promise.all(events.map((event) => this.formatEvent(event, { includeUserTickets: true })))
+    };
+  }
+
+  async getEventHistory(userId: string) {
+    await this.ensureMemberOrAdmin(userId);
+    const now = new Date();
+
+    const events = await this.prisma.event.findMany({
+      where: this.getHistoricalMemberEventWhere(userId, now),
+      include: {
+        ticketTypes: { orderBy: { createdAt: "asc" } },
+        tickets: {
+          where: {
+            userId,
+            status: { in: CONFIRMED_TICKET_STATUSES }
+          },
+          include: {
+            ticketType: true
+          },
+          orderBy: { createdAt: "desc" }
+        }
+      },
+      orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }]
     });
 
     return {
@@ -650,6 +678,7 @@ export class EventsService {
 
   private getBookableEventWhere(now: Date): Prisma.EventWhereInput {
     return {
+      kind: EventKind.STANDARD,
       status: EventStatus.PUBLISHED,
       OR: [
         { endsAt: { gt: now } },
@@ -665,13 +694,29 @@ export class EventsService {
     return {
       OR: [
         this.getBookableEventWhere(now),
+        this.getHistoricalMemberEventWhere(userId, now)
+      ]
+    };
+  }
+
+  private getHistoricalMemberEventWhere(userId: string, now: Date): Prisma.EventWhereInput {
+    return {
+      kind: EventKind.STANDARD,
+      status: { in: [EventStatus.PUBLISHED, EventStatus.COMPLETED] },
+      tickets: {
+        some: {
+          userId,
+          status: { in: CONFIRMED_TICKET_STATUSES }
+        }
+      },
+      OR: [
+        { status: EventStatus.COMPLETED },
         {
-          tickets: {
-            some: {
-              userId,
-              status: { in: CONFIRMED_TICKET_STATUSES }
-            }
-          }
+          endsAt: { lte: now }
+        },
+        {
+          endsAt: null,
+          startsAt: { lte: now }
         }
       ]
     };

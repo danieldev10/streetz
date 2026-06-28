@@ -8,7 +8,18 @@ import {
   UnauthorizedException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EventStatus, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
+import {
+  EventKind,
+  EventStatus,
+  PaymentPurpose,
+  PaymentStatus,
+  Prisma,
+  RaffleEntryStatus,
+  RaffleStatus,
+  SubscriptionStatus,
+  TicketStatus,
+  UserRole
+} from "@prisma/client";
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import {
   CONFIRMED_TICKET_STATUSES,
@@ -19,6 +30,7 @@ import {
 } from "../events/ticket-reservations";
 import { BookEventDto } from "../events/dto/book-event.dto";
 import { EVENT_TICKET_TIER_NAMES } from "../events/dto/create-event.dto";
+import { BuyRaffleTicketsDto } from "./dto/buy-raffle-tickets.dto";
 import { PrismaService } from "../prisma/prisma.service";
 import { getAccountAccessBlock } from "../users/account-status";
 
@@ -26,6 +38,7 @@ const SUBSCRIPTION_AMOUNT_KOBO = 100_000;
 const SUBSCRIPTION_DAYS = 30;
 const RESERVATION_CLEANUP_INTERVAL_MS = 5 * 60_000;
 const REGULAR_TICKET_NAME = "Regular";
+const RAFFLE_MINT_TRANSACTION_TIMEOUT_MS = 20_000;
 
 type PaystackInitializeResponse = {
   status: boolean;
@@ -359,6 +372,331 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     return this.verifyAndActivateEventTicket(reference);
+  }
+
+  async initializeRaffleCheckout(userId: string, eventId: string, dto: BuyRaffleTicketsDto = {}) {
+    const user = await this.ensureTicketCheckoutUser(userId);
+    const now = new Date();
+    const event = await this.prisma.event.findFirst({
+      where: { id: eventId, kind: EventKind.RAFFLE, status: EventStatus.PUBLISHED },
+      include: { raffleDraw: true }
+    });
+
+    if (!event || !event.raffleDraw) {
+      throw new BadRequestException("Raffle is not available.");
+    }
+
+    const draw = event.raffleDraw;
+    this.assertRaffleSellable(draw, now);
+
+    const quantity = this.getRaffleQuantity(dto.quantity);
+    const membershipRequired = !this.hasActiveSubscription(user);
+    const raffleAmountKobo = draw.ticketPriceKobo * quantity;
+    const membershipAmountKobo = membershipRequired ? SUBSCRIPTION_AMOUNT_KOBO : 0;
+    const totalAmountKobo = raffleAmountKobo + membershipAmountKobo;
+    const purpose = membershipRequired ? PaymentPurpose.MEMBERSHIP_RAFFLE_TICKET : PaymentPurpose.RAFFLE_TICKET;
+    const purposeParam = membershipRequired ? "membership-raffle-ticket" : "raffle-ticket";
+    const reference = this.createReference(membershipRequired ? "STZJOIN" : "STZRAF");
+    const callbackUrl = `${this.config.getOrThrow<string>("WEB_APP_URL")}/payment/callback?purpose=${purposeParam}&eventId=${encodeURIComponent(eventId)}`;
+
+    const response = await this.callPaystack<PaystackInitializeResponse>("/transaction/initialize", {
+      method: "POST",
+      body: JSON.stringify({
+        amount: totalAmountKobo,
+        email: user.email,
+        currency: "NGN",
+        reference,
+        callback_url: callbackUrl,
+        metadata: {
+          userId,
+          eventId,
+          raffleDrawId: draw.id,
+          quantity,
+          raffleAmountKobo,
+          membershipAmountKobo,
+          purpose,
+          product: membershipRequired ? `${event.title} raffle + crushclub monthly membership` : `${event.title} raffle`
+        }
+      })
+    });
+
+    if (!response.status || !response.data?.authorization_url) {
+      throw new BadRequestException(response.message || "Unable to initialize Paystack transaction.");
+    }
+
+    await this.prisma.payment.create({
+      data: {
+        userId,
+        purpose,
+        amountKobo: totalAmountKobo,
+        providerReference: reference,
+        providerMetadata: {
+          accessCode: response.data.access_code,
+          eventId,
+          raffleDrawId: draw.id,
+          quantity,
+          raffleAmountKobo,
+          membershipAmountKobo
+        }
+      }
+    });
+
+    return {
+      authorizationUrl: response.data.authorization_url,
+      accessCode: response.data.access_code,
+      reference,
+      quantity,
+      raffleAmountKobo,
+      membershipAmountKobo,
+      totalAmountKobo
+    };
+  }
+
+  async verifyRaffleTicketPayment(userId: string, reference: string) {
+    const payment = await this.prisma.payment.findUnique({ where: { providerReference: reference } });
+
+    if (
+      !payment ||
+      payment.userId !== userId ||
+      (payment.purpose !== PaymentPurpose.RAFFLE_TICKET && payment.purpose !== PaymentPurpose.MEMBERSHIP_RAFFLE_TICKET)
+    ) {
+      throw new ForbiddenException("Payment reference is not valid for this user.");
+    }
+
+    return this.verifyAndActivateRaffleTickets(reference);
+  }
+
+  private async verifyAndActivateRaffleTickets(reference: string) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { providerReference: reference },
+      include: { user: true }
+    });
+
+    if (!payment) {
+      throw new BadRequestException("Payment record not found.");
+    }
+
+    const includesMembership = this.purposeIncludesMembership(payment.purpose);
+
+    if (payment.purpose !== PaymentPurpose.RAFFLE_TICKET && !includesMembership) {
+      throw new BadRequestException("Payment reference is not for a raffle ticket.");
+    }
+
+    const metadata = this.getProviderMetadata(payment.providerMetadata);
+    const raffleDrawId = typeof metadata.raffleDrawId === "string" ? metadata.raffleDrawId : null;
+    const quantity = typeof metadata.quantity === "number" ? metadata.quantity : null;
+
+    if (!raffleDrawId || !quantity) {
+      throw new BadRequestException("Raffle reference is missing from this payment.");
+    }
+
+    // Already processed (callback + webhook can both arrive): return the existing entries.
+    if (payment.status === PaymentStatus.SUCCESS) {
+      return this.buildRaffleResult(payment, includesMembership, metadata);
+    }
+
+    const response = await this.callPaystack<PaystackVerifyResponse>(`/transaction/verify/${reference}`, { method: "GET" });
+
+    if (!response.status || !response.data) {
+      throw new BadRequestException(response.message || "Unable to verify Paystack transaction.");
+    }
+
+    const paystackData = response.data;
+
+    if (paystackData.status !== "success") {
+      const mappedStatus = this.mapPaystackStatus(paystackData.status);
+      await this.prisma.payment.update({
+        where: { providerReference: reference },
+        data: { status: mappedStatus, providerMetadata: { ...metadata, paystack: paystackData } }
+      });
+
+      return { status: mappedStatus };
+    }
+
+    if (paystackData.amount !== payment.amountKobo || paystackData.currency !== "NGN") {
+      throw new BadRequestException("Verified payment amount or currency does not match this raffle.");
+    }
+
+    const now = new Date();
+    const draw = await this.prisma.raffleDraw.findUnique({
+      where: { id: raffleDrawId },
+      include: { event: true }
+    });
+    const sellable =
+      !!draw &&
+      draw.status !== RaffleStatus.DRAWN &&
+      draw.status !== RaffleStatus.CANCELLED &&
+      draw.event.status === EventStatus.PUBLISHED &&
+      now <= draw.salesEndsAt;
+
+    if (!sellable) {
+      // Paid, but the raffle is no longer accepting entries: record for manual refund, still grant membership if bundled.
+      const subscriptionUser = await this.prisma.$transaction(async (transaction) => {
+        await transaction.payment.update({
+          where: { providerReference: reference },
+          data: {
+            status: PaymentStatus.SUCCESS,
+            providerMetadata: {
+              ...metadata,
+              paystack: paystackData,
+              refundRequired: true,
+              refundReason: "Raffle is no longer accepting entries."
+            }
+          }
+        });
+
+        return this.activateMembershipIfNeeded(transaction, payment, now);
+      });
+
+      return {
+        status: PaymentStatus.SUCCESS,
+        refundRequired: true,
+        message:
+          "Payment received, but this raffle is no longer accepting entries. Refunds are being processed and we will contact you by email.",
+        subscriptionStatus: includesMembership ? subscriptionUser?.subscriptionStatus : undefined,
+        subscriptionEndsAt: includesMembership ? subscriptionUser?.subscriptionEndsAt : undefined
+      };
+    }
+
+    if (!draw) {
+      throw new BadRequestException("Raffle not found.");
+    }
+
+    await this.prisma.$transaction(
+      async (transaction) => {
+        // Serialize entry minting per raffle so ticket numbers stay sequential and gap-free.
+        await transaction.$queryRaw`SELECT id FROM "RaffleDraw" WHERE id = ${raffleDrawId} FOR UPDATE`;
+
+        const existingEntries = await transaction.raffleEntry.findMany({
+          where: { paymentId: payment.id },
+          select: { id: true },
+          take: 1
+        });
+
+        if (existingEntries.length > 0) {
+          return;
+        }
+
+        const fresh = await transaction.raffleDraw.findUniqueOrThrow({
+          where: { id: raffleDrawId },
+          select: { nextEntryNumber: true }
+        });
+        const startNumber = fresh.nextEntryNumber;
+
+        await transaction.raffleEntry.createMany({
+          data: Array.from({ length: quantity }, (_unused, index) => ({
+            raffleDrawId,
+            userId: payment.userId,
+            paymentId: payment.id,
+            number: startNumber + index,
+            status: RaffleEntryStatus.PAID
+          }))
+        });
+
+        await transaction.raffleDraw.update({
+          where: { id: raffleDrawId },
+          data: { nextEntryNumber: startNumber + quantity }
+        });
+      },
+      { timeout: RAFFLE_MINT_TRANSACTION_TIMEOUT_MS }
+    );
+
+    const subscriptionUser = await this.prisma.$transaction(
+      async (transaction) => {
+        await transaction.payment.update({
+          where: { providerReference: reference },
+          data: { status: PaymentStatus.SUCCESS, providerMetadata: { ...metadata, paystack: paystackData } }
+        });
+
+        return this.activateMembershipIfNeeded(transaction, payment, now);
+      },
+      { timeout: RAFFLE_MINT_TRANSACTION_TIMEOUT_MS }
+    );
+
+    const entries = await this.prisma.raffleEntry.findMany({
+      where: { paymentId: payment.id },
+      orderBy: { number: "asc" }
+    });
+
+    return {
+      status: PaymentStatus.SUCCESS,
+      raffle: { id: draw.event.id, title: draw.event.title, prizeTitle: draw.prizeTitle, drawsAt: draw.drawsAt },
+      entries: entries.map((entry) => this.formatRaffleEntry(entry)),
+      entryNumbers: entries.map((entry) => entry.number),
+      subscriptionStatus: includesMembership ? subscriptionUser?.subscriptionStatus : undefined,
+      subscriptionEndsAt: includesMembership ? subscriptionUser?.subscriptionEndsAt : undefined
+    };
+  }
+
+  private async buildRaffleResult(
+    payment: Prisma.PaymentGetPayload<{ include: { user: true } }>,
+    includesMembership: boolean,
+    metadata: Record<string, unknown>
+  ) {
+    const entries = await this.prisma.raffleEntry.findMany({
+      where: { paymentId: payment.id },
+      orderBy: { number: "asc" },
+      include: { raffleDraw: { include: { event: true } } }
+    });
+
+    if (entries.length === 0) {
+      return {
+        status: payment.status,
+        refundRequired: metadata.refundRequired === true,
+        message:
+          metadata.refundRequired === true
+            ? "Payment received, but this raffle is no longer accepting entries. Refunds are being processed and we will contact you by email."
+            : undefined,
+        subscriptionStatus: includesMembership ? payment.user.subscriptionStatus : undefined,
+        subscriptionEndsAt: includesMembership ? payment.user.subscriptionEndsAt : undefined
+      };
+    }
+
+    const draw = entries[0].raffleDraw;
+
+    return {
+      status: payment.status,
+      raffle: { id: draw.event.id, title: draw.event.title, prizeTitle: draw.prizeTitle, drawsAt: draw.drawsAt },
+      entries: entries.map((entry) => this.formatRaffleEntry(entry)),
+      entryNumbers: entries.map((entry) => entry.number),
+      subscriptionStatus: includesMembership ? payment.user.subscriptionStatus : undefined,
+      subscriptionEndsAt: includesMembership ? payment.user.subscriptionEndsAt : undefined
+    };
+  }
+
+  private formatRaffleEntry(entry: { id: string; number: number; status: RaffleEntryStatus; createdAt: Date }) {
+    return {
+      id: entry.id,
+      number: entry.number,
+      status: entry.status,
+      createdAt: entry.createdAt
+    };
+  }
+
+  private assertRaffleSellable(draw: { status: RaffleStatus; salesStartsAt: Date; salesEndsAt: Date }, now: Date) {
+    if (draw.status === RaffleStatus.DRAWN || draw.status === RaffleStatus.CANCELLED) {
+      throw new BadRequestException("This raffle is closed.");
+    }
+
+    if (now < draw.salesStartsAt) {
+      throw new BadRequestException("Raffle ticket sales have not opened yet.");
+    }
+
+    if (now > draw.salesEndsAt) {
+      throw new BadRequestException("Raffle ticket sales have closed.");
+    }
+  }
+
+  private getRaffleQuantity(quantity: number | undefined) {
+    if (quantity === undefined) {
+      return 1;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
+      throw new BadRequestException("Raffle ticket quantity must be between 1 and 100.");
+    }
+
+    return quantity;
   }
 
   async handlePaystackWebhook(signature: string | undefined, rawBody: Buffer | undefined, body: unknown) {
@@ -793,6 +1131,10 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       return this.verifyAndActivateEventTicket(reference);
     }
 
+    if (payment.purpose === PaymentPurpose.RAFFLE_TICKET || payment.purpose === PaymentPurpose.MEMBERSHIP_RAFFLE_TICKET) {
+      return this.verifyAndActivateRaffleTickets(reference);
+    }
+
     return this.verifyAndActivateSubscription(reference);
   }
 
@@ -1002,12 +1344,16 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     return subscriptionEndsAt;
   }
 
+  private purposeIncludesMembership(purpose: PaymentPurpose) {
+    return purpose === PaymentPurpose.MEMBERSHIP_EVENT_TICKET || purpose === PaymentPurpose.MEMBERSHIP_RAFFLE_TICKET;
+  }
+
   private activateMembershipIfNeeded(
     client: Prisma.TransactionClient,
     payment: { purpose: PaymentPurpose; userId: string; user: { subscriptionEndsAt: Date | null } },
     now: Date
   ) {
-    if (payment.purpose !== PaymentPurpose.MEMBERSHIP_EVENT_TICKET) {
+    if (!this.purposeIncludesMembership(payment.purpose)) {
       return null;
     }
 
@@ -1158,6 +1504,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
   private getBookableEventWhere(now: Date): Prisma.EventWhereInput {
     return {
+      kind: EventKind.STANDARD,
       status: EventStatus.PUBLISHED,
       OR: [
         { endsAt: { gt: now } },
