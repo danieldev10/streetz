@@ -455,7 +455,7 @@ export function EventsTab({
   const [events, setEvents] = useState<StreetzEvent[]>([]);
   const [historyEvents, setHistoryEvents] = useState<StreetzEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-  const [eventViewMode, setEventViewMode] = useState<EventViewMode>(isGuest ? "events" : "raffles");
+  const [eventViewMode, setEventViewMode] = useState<EventViewMode>("raffles");
   const filterInitializedRef = useRef(false);
   const [adminEventView, setAdminEventView] = useState<AdminEventView>(adminMode === "list" ? "list" : "form");
   const [editingEventId, setEditingEventId] = useState<string | null>(adminMode === "edit" ? adminEventId : null);
@@ -1922,15 +1922,15 @@ export function EventsTab({
       })() : null}
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        {!isGuest ? (
-          <div className="mb-4 grid grid-cols-4 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-md">
-            <button
-              type="button"
-              className={`rounded-full px-3 py-2 ${eventViewMode === "raffles" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-              onClick={() => setEventViewMode("raffles")}
-            >
-              Raffles
-            </button>
+        <div className={`mb-4 grid rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium ${isGuest ? "grid-cols-2 md:max-w-xs" : "grid-cols-4 md:max-w-md"}`}>
+          <button
+            type="button"
+            className={`rounded-full px-3 py-2 ${eventViewMode === "raffles" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+            onClick={() => setEventViewMode("raffles")}
+          >
+            Raffles
+          </button>
+          {!isGuest ? (
             <button
               type="button"
               className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
@@ -1938,13 +1938,15 @@ export function EventsTab({
             >
               Tickets
             </button>
-            <button
-              type="button"
-              className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-              onClick={() => setEventViewMode("events")}
-            >
-              Events
-            </button>
+          ) : null}
+          <button
+            type="button"
+            className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+            onClick={() => setEventViewMode("events")}
+          >
+            Events
+          </button>
+          {!isGuest ? (
             <button
               type="button"
               className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
@@ -1952,8 +1954,8 @@ export function EventsTab({
             >
               History
             </button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         {eventViewMode === "raffles" ? (
           <RafflesList token={token ?? null} />

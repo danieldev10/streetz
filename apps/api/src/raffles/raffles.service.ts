@@ -392,6 +392,35 @@ export class RafflesService {
     };
   }
 
+  async getPublicRaffle(eventId: string) {
+    const event = await this.prisma.event.findFirst({
+      where: {
+        id: eventId,
+        kind: EventKind.RAFFLE,
+        status: { in: [EventStatus.PUBLISHED, EventStatus.COMPLETED] }
+      },
+      include: raffleEventInclude
+    });
+
+    if (!event || !event.raffleDraw) {
+      throw new NotFoundException("Raffle not found.");
+    }
+
+    const counts = await this.getRaffleCounts(event.raffleDraw.id);
+    const raffle = this.formatRaffle(event, { counts });
+
+    // Winner identity stays members-only; guests see the winning number only.
+    return {
+      ...raffle,
+      raffle: {
+        ...raffle.raffle,
+        winner: raffle.raffle.winner
+          ? { ...raffle.raffle.winner, userId: null, displayName: null }
+          : null
+      }
+    };
+  }
+
   // ── internals ────────────────────────────────────────────────────────────
 
   private async requireRaffleEvent(eventId: string) {

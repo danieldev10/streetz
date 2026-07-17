@@ -208,8 +208,9 @@ export type RafflePrize = {
 export type RaffleWinner = {
   entryId: string;
   number: number;
-  userId: string;
-  displayName: string;
+  // Null on the public (guest) raffle payload, which redacts winner identity.
+  userId: string | null;
+  displayName: string | null;
   drawnAt: string | null;
 };
 

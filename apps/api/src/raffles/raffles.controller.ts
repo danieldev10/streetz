@@ -24,6 +24,12 @@ export class RafflesController {
     return this.rafflesService.getPublicRaffles();
   }
 
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get("public/raffles/:eventId")
+  getPublicRaffle(@Param("eventId") eventId: string) {
+    return this.rafflesService.getPublicRaffle(eventId);
+  }
+
   @Get("raffles")
   @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
   getRaffles(@CurrentUser() user: AuthUser) {

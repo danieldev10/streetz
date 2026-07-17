@@ -7,6 +7,7 @@ import { ArrowLeft, CalendarClock, Gift, LoaderCircle, Minus, Plus, Ticket, Trop
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { AuthPromptKind } from "@/components/app/public-route";
 import { LoadingState } from "@/components/loading-state";
+import { clearPendingRaffleCheckout, getPendingRaffleCheckout, savePendingRaffleCheckout } from "@/lib/pending-raffle-checkout";
 import type { MyRaffleEntries, StreetzRaffle, StreetzUser } from "@/lib/types";
 import { formatCountdown, formatRaffleDate, formatRafflePrice, getRaffleStatusLabel, getRaffleStatusTone } from "./raffle-format";
 
@@ -36,22 +37,25 @@ export function RaffleDetail({
     let cancelled = false;
 
     async function load() {
-      if (!token) {
-        setIsLoading(false);
-        return;
-      }
-
       setIsLoading(true);
       setError(null);
 
       try {
-        const [raffleResponse, entriesResponse] = await Promise.all([
-          apiRequest<StreetzRaffle>(`/raffles/${raffleId}`, { headers: authHeaders(token) }),
-          apiRequest<MyRaffleEntries>(`/raffles/${raffleId}/entries`, { headers: authHeaders(token) })
-        ]);
-        if (!cancelled) {
-          setRaffle(raffleResponse);
-          setMyEntries(entriesResponse);
+        if (token) {
+          const [raffleResponse, entriesResponse] = await Promise.all([
+            apiRequest<StreetzRaffle>(`/raffles/${raffleId}`, { headers: authHeaders(token) }),
+            apiRequest<MyRaffleEntries>(`/raffles/${raffleId}/entries`, { headers: authHeaders(token) })
+          ]);
+          if (!cancelled) {
+            setRaffle(raffleResponse);
+            setMyEntries(entriesResponse);
+          }
+        } else {
+          const raffleResponse = await apiRequest<StreetzRaffle>(`/public/raffles/${raffleId}`);
+          if (!cancelled) {
+            setRaffle(raffleResponse);
+            setMyEntries(null);
+          }
         }
       } catch (caught) {
         if (!cancelled) {
@@ -71,8 +75,28 @@ export function RaffleDetail({
     };
   }, [raffleId, token]);
 
+  useEffect(() => {
+    if (!token) {
+      return undefined;
+    }
+
+    const pending = getPendingRaffleCheckout();
+
+    if (!pending || pending.raffleId !== raffleId) {
+      return undefined;
+    }
+
+    clearPendingRaffleCheckout();
+    const timer = window.setTimeout(() => {
+      setQuantity(Math.min(MAX_TICKETS_PER_PURCHASE, pending.quantity));
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [raffleId, token]);
+
   async function buyTickets() {
     if (!token) {
+      savePendingRaffleCheckout({ raffleId, quantity });
       onAuthRequired("eventTicket");
       return;
     }
@@ -103,24 +127,6 @@ export function RaffleDetail({
       <div className="px-5 pb-24 pt-6 md:px-8 md:pb-8">
         <LoadingState label="Loading raffle" className="min-h-90 rounded-3xl border border-black/5" />
       </div>
-    );
-  }
-
-  if (!token) {
-    return (
-      <RaffleMessage
-        title="Members only"
-        body="Sign in with your crushclub membership to enter this raffle."
-        action={
-          <button
-            type="button"
-            className="inline-flex h-12 items-center justify-center rounded-full bg-[#0d0d0d] px-6 text-sm font-medium text-white"
-            onClick={() => onAuthRequired("eventTicket")}
-          >
-            Sign in
-          </button>
-        }
-      />
     );
   }
 
@@ -164,10 +170,10 @@ export function RaffleDetail({
             <p className="mt-3 text-sm leading-6 text-[#444444]">{details.prize.description}</p>
           ) : null}
 
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className={`mt-5 grid grid-cols-2 gap-3 ${token ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
             <Stat label="Per ticket" value={formatRafflePrice(details.ticketPriceKobo)} />
             <Stat label="Tickets sold" value={String(details.ticketsSold)} />
-            <Stat label="Your tickets" value={String(myEntries?.count ?? details.yourEntryCount)} />
+            {token ? <Stat label="Your tickets" value={String(myEntries?.count ?? details.yourEntryCount)} /> : null}
             <Stat label="Draw date" value={formatRaffleDate(details.drawsAt)} small />
           </div>
 
@@ -267,7 +273,7 @@ function WinnerPanel({ raffle, youWon, winningNumber }: { raffle: StreetzRaffle;
       {winner ? (
         <p className="mt-1 text-sm text-[#444444]">
           Winning ticket <span className="font-semibold">#{String(winner.number).padStart(5, "0")}</span>
-          {youWon ? null : ` · ${winner.displayName}`}
+          {youWon || !winner.displayName ? null : ` · ${winner.displayName}`}
         </p>
       ) : null}
       {youWon && winningNumber ? (
