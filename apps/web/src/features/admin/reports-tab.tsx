@@ -506,7 +506,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
         {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingReport ? (
-          <LoadingState label="Loading report" className="min-h-80 rounded-[28px] border border-black/5" />
+          <LoadingState label="Loading report" className="mx-auto min-h-80 max-w-3xl rounded-[28px] border border-black/5" />
         ) : report ? (
           <div className="mx-auto max-w-3xl">
             <article className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
@@ -607,7 +607,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
             </section>
           </div>
         ) : (
-          <div className="grid min-h-80 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
+          <div className="mx-auto grid min-h-80 max-w-3xl place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
               <AlertTriangle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Report not found</h2>

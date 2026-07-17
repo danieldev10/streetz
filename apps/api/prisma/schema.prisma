@@ -293,7 +293,10 @@ model ProfilePhoto {
   fullObjectKey  String?
   blurDataUrl    String?
   sortOrder      Int      @default(0)
+  slot           Int
   createdAt      DateTime @default(now())
+
+  @@unique([userId, slot])
 }
 
 model DiscoveryActionLog {

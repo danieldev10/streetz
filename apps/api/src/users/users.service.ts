@@ -209,6 +209,11 @@ export class UsersService {
         }
       });
 
+      await transaction.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now }
+      });
+
       const updatedUser = await transaction.user.update({
         where: { id: userId },
         data: {

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
+    "test": "npm run build && node --test test/*.test.js",
     "start": "node dist/src/main.js",
     "lint": "eslint \"src/**/*.ts\"",
     "media:backfill": "ts-node -r tsconfig-paths/register src/profiles/backfill-profile-photo-variants.ts",

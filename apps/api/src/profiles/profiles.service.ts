@@ -267,34 +267,59 @@ export class ProfilesService {
 
   async registerPhoto(userId: string, dto: CreateProfilePhotoDto) {
     this.ensureOwnObjectKey(userId, dto.objectKey);
-
-    const photoCount = await this.prisma.profilePhoto.count({
-      where: { userId }
-    });
-
-    if (photoCount >= MAX_PROFILE_PHOTOS) {
-      throw new BadRequestException(`You can add up to ${MAX_PROFILE_PHOTOS} profile photos.`);
-    }
-
     const variants = await this.createOptimizedPhotoVariants(dto.objectKey);
+    const generatedObjectKeys = [variants.thumbObjectKey, variants.cardObjectKey, variants.fullObjectKey];
 
-    const photo = await this.prisma.profilePhoto.create({
-      data: {
-        userId,
-        objectKey: dto.objectKey,
-        url: this.storage.buildPublicUrl(dto.objectKey),
-        thumbObjectKey: variants.thumbObjectKey,
-        thumbUrl: variants.thumbUrl,
-        cardObjectKey: variants.cardObjectKey,
-        cardUrl: variants.cardUrl,
-        fullObjectKey: variants.fullObjectKey,
-        fullUrl: variants.fullUrl,
-        blurDataUrl: variants.blurDataUrl,
-        sortOrder: dto.sortOrder ?? photoCount
+    try {
+      const photo = await this.prisma.$transaction(async (transaction) => {
+        await transaction.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+        const existingPhotos = await transaction.profilePhoto.findMany({
+          where: { userId },
+          select: { slot: true }
+        });
+        const occupiedSlots = new Set(existingPhotos.map((item) => item.slot));
+        const slot = Array.from({ length: MAX_PROFILE_PHOTOS }, (_unused, index) => index)
+          .find((candidate) => !occupiedSlots.has(candidate));
+
+        if (slot === undefined) {
+          throw new BadRequestException(`You can add up to ${MAX_PROFILE_PHOTOS} profile photos.`);
+        }
+
+        return transaction.profilePhoto.create({
+          data: {
+            userId,
+            objectKey: dto.objectKey,
+            url: this.storage.buildPublicUrl(dto.objectKey),
+            thumbObjectKey: variants.thumbObjectKey,
+            thumbUrl: variants.thumbUrl,
+            cardObjectKey: variants.cardObjectKey,
+            cardUrl: variants.cardUrl,
+            fullObjectKey: variants.fullObjectKey,
+            fullUrl: variants.fullUrl,
+            blurDataUrl: variants.blurDataUrl,
+            slot,
+            sortOrder: dto.sortOrder ?? slot
+          }
+        });
+      });
+
+      return this.storage.signPhotoUrl(photo);
+    } catch (error) {
+      const referencedVariants = await this.prisma.profilePhoto.count({
+        where: {
+          OR: [
+            { thumbObjectKey: variants.thumbObjectKey },
+            { cardObjectKey: variants.cardObjectKey },
+            { fullObjectKey: variants.fullObjectKey }
+          ]
+        }
+      }).catch(() => 1);
+
+      if (referencedVariants === 0) {
+        await this.storage.deleteObjects(generatedObjectKeys).catch(() => undefined);
       }
-    });
-
-    return this.storage.signPhotoUrl(photo);
+      throw error;
+    }
   }
 
   async deletePhoto(userId: string, photoId: string) {

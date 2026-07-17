@@ -98,7 +98,7 @@ export function BlockedAccountsTab({
         {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingBlockedAccounts ? (
-          <LoadingState label="Loading blocked accounts" className="min-h-[420px] rounded-[28px] border border-black/[0.05]" />
+          <LoadingState label="Loading blocked accounts" className="mx-auto min-h-[420px] max-w-2xl rounded-[28px] border border-black/[0.05]" />
         ) : blockedAccounts.length > 0 ? (
           <div className="mx-auto grid max-w-2xl gap-3">
             {blockedAccounts.map((account) => (
@@ -134,7 +134,7 @@ export function BlockedAccountsTab({
             ))}
           </div>
         ) : (
-          <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
+          <div className="mx-auto grid min-h-[420px] max-w-2xl place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
             <div>
               <ShieldOff className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No blocked accounts</h2>

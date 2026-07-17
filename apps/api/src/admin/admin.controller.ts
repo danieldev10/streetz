@@ -80,6 +80,10 @@ export class AdminController {
       accountStatus: response.report.reported.accountStatus
     });
 
+    if (response.report.reported.accountStatus !== "ACTIVE") {
+      this.notificationsGateway.disconnectUser(response.report.reported.id);
+    }
+
     return response;
   }
 }

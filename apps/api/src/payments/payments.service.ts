@@ -733,6 +733,14 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException("Payment record not found.");
     }
 
+    if (payment.status === PaymentStatus.SUCCESS) {
+      return {
+        status: PaymentStatus.SUCCESS,
+        subscriptionStatus: payment.user.subscriptionStatus,
+        subscriptionEndsAt: payment.user.subscriptionEndsAt
+      };
+    }
+
     if (paystackData.status !== "success") {
       const mappedStatus = this.mapPaystackStatus(paystackData.status);
 
@@ -755,29 +763,36 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException("Verified payment amount or currency does not match crushclub membership.");
     }
 
-    const now = new Date();
-    const activeUntil = payment.user.subscriptionEndsAt && payment.user.subscriptionEndsAt > now
-      ? payment.user.subscriptionEndsAt
-      : now;
-    const subscriptionEndsAt = new Date(activeUntil);
-    subscriptionEndsAt.setDate(subscriptionEndsAt.getDate() + SUBSCRIPTION_DAYS);
-
-    const [, user] = await this.prisma.$transaction([
-      this.prisma.payment.update({
+    const user = await this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Payment" WHERE "providerReference" = ${reference} FOR UPDATE`;
+      const currentPayment = await transaction.payment.findUniqueOrThrow({
         where: { providerReference: reference },
+        include: { user: true }
+      });
+
+      if (currentPayment.status === PaymentStatus.SUCCESS) {
+        return currentPayment.user;
+      }
+
+      const now = new Date();
+      const subscriptionEndsAt = this.getNextSubscriptionEndsAt(currentPayment.user, now);
+
+      await transaction.payment.update({
+        where: { id: currentPayment.id },
         data: {
           status: PaymentStatus.SUCCESS,
           providerMetadata: paystackData
         }
-      }),
-      this.prisma.user.update({
-        where: { id: payment.userId },
+      });
+
+      return transaction.user.update({
+        where: { id: currentPayment.userId },
         data: {
           subscriptionStatus: SubscriptionStatus.ACTIVE,
           subscriptionEndsAt
         }
-      })
-    ]);
+      });
+    });
 
     return {
       status: PaymentStatus.SUCCESS,

@@ -5,8 +5,7 @@ import { countCheckedInStandardEvents } from "../common/attendance";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
-
-const MESSAGE_HISTORY_LIMIT = 100;
+import { MessagePageDto } from "../common/dto/message-page.dto";
 
 type CandidateUser = {
   id: string;
@@ -133,8 +132,16 @@ export class MessagesService {
     };
   }
 
-  async getMessages(userId: string, matchId: string) {
+  async getMessages(userId: string, matchId: string, page: MessagePageDto = new MessagePageDto()) {
     await this.assertMatchParticipant(userId, matchId);
+
+    if (page.cursor) {
+      const cursorExists = await this.prisma.directMessage.count({ where: { id: page.cursor, matchId } });
+
+      if (cursorExists !== 1) {
+        throw new BadRequestException("Message cursor is not valid for this match.");
+      }
+    }
 
     const messages = await this.prisma.directMessage.findMany({
       where: { matchId },
@@ -146,15 +153,22 @@ export class MessagesService {
           }
         }
       },
-      orderBy: { createdAt: "desc" },
-      take: MESSAGE_HISTORY_LIMIT
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: page.limit + 1,
+      ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {})
     });
-    const orderedMessages = [...messages].reverse();
+    const hasMore = messages.length > page.limit;
+    const selectedMessages = hasMore ? messages.slice(0, page.limit) : messages;
+    const orderedMessages = [...selectedMessages].reverse();
 
-    await this.markMatchRead(userId, matchId);
+    if (!page.cursor) {
+      await this.markMatchRead(userId, matchId);
+    }
 
     return {
-      messages: orderedMessages.map((message) => this.formatMessage(message))
+      messages: orderedMessages.map((message) => this.formatMessage(message)),
+      hasMore,
+      nextCursor: hasMore ? selectedMessages.at(-1)?.id ?? null : null
     };
   }
 

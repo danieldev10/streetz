@@ -182,6 +182,21 @@ export class AuthService {
     const nextRefreshTokenHash = this.hashRefreshToken(nextRefreshToken);
 
     await this.prisma.$transaction(async (transaction) => {
+      const revokedToken = await transaction.refreshToken.updateMany({
+        where: {
+          id: storedToken.id,
+          revokedAt: null,
+          expiresAt: { gt: new Date() }
+        },
+        data: {
+          revokedAt: new Date()
+        }
+      });
+
+      if (revokedToken.count !== 1) {
+        throw new UnauthorizedException("Session has already been refreshed. Please log in again.");
+      }
+
       const createdToken = await transaction.refreshToken.create({
         data: {
           userId: storedToken.userId,
@@ -194,7 +209,6 @@ export class AuthService {
       await transaction.refreshToken.update({
         where: { id: storedToken.id },
         data: {
-          revokedAt: new Date(),
           replacedByTokenId: createdToken.id
         }
       });

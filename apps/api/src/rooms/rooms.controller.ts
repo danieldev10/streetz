@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@prisma/client";
@@ -8,6 +8,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/roles.decorator";
 import { AuthUser } from "../auth/types/auth-user";
+import { MessagePageDto } from "../common/dto/message-page.dto";
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { SendRoomMessageDto } from "./dto/send-room-message.dto";
 import { UpdateRoomDto } from "./dto/update-room.dto";
@@ -37,8 +38,8 @@ export class RoomsController {
 
   @Get("rooms/:roomId/messages")
   @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
-  getRoomMessages(@CurrentUser() user: AuthUser, @Param("roomId") roomId: string) {
-    return this.roomsService.getRoomMessages(user.id, roomId);
+  getRoomMessages(@CurrentUser() user: AuthUser, @Param("roomId") roomId: string, @Query() page: MessagePageDto) {
+    return this.roomsService.getRoomMessages(user.id, roomId, page);
   }
 
   @Get("rooms/:roomId/members")

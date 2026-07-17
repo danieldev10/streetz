@@ -731,7 +731,7 @@ export function MatchesTab({
         {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingMatches ? (
-          <LoadingState label="Loading matches" className="min-h-[420px] rounded-[28px] border border-black/[0.05]" />
+          <LoadingState label="Loading matches" className="mx-auto min-h-[420px] max-w-3xl rounded-[28px] border border-black/[0.05]" />
         ) : matches.length > 0 ? (
           <div className="mx-auto max-w-3xl">
 
@@ -793,7 +793,7 @@ export function MatchesTab({
             </div>
           </div>
         ) : (
-          <div className="grid min-h-[420px] place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
+          <div className="mx-auto grid min-h-[420px] max-w-3xl place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
             <div>
               <MessagesSquare className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No matches yet</h2>

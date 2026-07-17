@@ -492,9 +492,9 @@ export function NotificationsTab({
         ) : null}
 
         {isLoading && !feed ? (
-          <LoadingState label="Loading notifications" className="min-h-105 rounded-[28px] border border-black/5" />
+          <LoadingState label="Loading notifications" className="mx-auto min-h-105 max-w-3xl rounded-[28px] border border-black/5" />
         ) : feed && !hasSomeContent ? (
-          <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
+          <div className="mx-auto grid min-h-105 max-w-3xl place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
               <Bell className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Nothing new</h2>

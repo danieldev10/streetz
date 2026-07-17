@@ -337,6 +337,14 @@ export class AdminService {
         where: { userId: report.reportedId },
         data: { discoveryLive: dto.action === ModerationActionType.RESTORE }
       }),
+      ...(dto.action === ModerationActionType.RESTORE
+        ? []
+        : [
+            this.prisma.refreshToken.updateMany({
+              where: { userId: report.reportedId, revokedAt: null },
+              data: { revokedAt: now }
+            })
+          ]),
       this.prisma.moderationAction.create({
         data: {
           adminId,

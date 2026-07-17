@@ -6,10 +6,9 @@ import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
+import { MessagePageDto } from "../common/dto/message-page.dto";
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { UpdateRoomDto } from "./dto/update-room.dto";
-
-const ROOM_MESSAGE_HISTORY_LIMIT = 100;
 
 type RoomSource = {
   id: string;
@@ -157,8 +156,16 @@ export class RoomsService {
     };
   }
 
-  async getRoomMessages(userId: string, roomId: string) {
+  async getRoomMessages(userId: string, roomId: string, page: MessagePageDto = new MessagePageDto()) {
     await this.assertRoomParticipant(userId, roomId);
+
+    if (page.cursor) {
+      const cursorExists = await this.prisma.chatMessage.count({ where: { id: page.cursor, roomId, deletedAt: null } });
+
+      if (cursorExists !== 1) {
+        throw new BadRequestException("Message cursor is not valid for this room.");
+      }
+    }
 
     const messages = await this.prisma.chatMessage.findMany({
       where: {
@@ -168,15 +175,22 @@ export class RoomsService {
       include: {
         author: this.userInclude()
       },
-      orderBy: { createdAt: "desc" },
-      take: ROOM_MESSAGE_HISTORY_LIMIT
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: page.limit + 1,
+      ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {})
     });
-    const orderedMessages = [...messages].reverse();
+    const hasMore = messages.length > page.limit;
+    const selectedMessages = hasMore ? messages.slice(0, page.limit) : messages;
+    const orderedMessages = [...selectedMessages].reverse();
 
-    await this.markRoomRead(userId, roomId);
+    if (!page.cursor) {
+      await this.markRoomRead(userId, roomId);
+    }
 
     return {
-      messages: await Promise.all(orderedMessages.map((message) => this.formatMessage(message)))
+      messages: await Promise.all(orderedMessages.map((message) => this.formatMessage(message))),
+      hasMore,
+      nextCursor: hasMore ? selectedMessages.at(-1)?.id ?? null : null
     };
   }
 

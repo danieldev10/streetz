@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ActiveSubscriptionGuard } from "../auth/guards/active-subscription.guard";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { AuthUser } from "../auth/types/auth-user";
+import { MessagePageDto } from "../common/dto/message-page.dto";
 import { SendDirectMessageDto } from "./dto/send-direct-message.dto";
 import { MessagesGateway } from "./messages.gateway";
 import { MessagesService } from "./messages.service";
@@ -24,8 +25,8 @@ export class MessagesController {
   }
 
   @Get(":matchId/messages")
-  getMessages(@CurrentUser() user: AuthUser, @Param("matchId") matchId: string) {
-    return this.messagesService.getMessages(user.id, matchId);
+  getMessages(@CurrentUser() user: AuthUser, @Param("matchId") matchId: string, @Query() page: MessagePageDto) {
+    return this.messagesService.getMessages(user.id, matchId, page);
   }
 
   @Post(":matchId/unmatch")
