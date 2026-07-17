@@ -28,8 +28,33 @@ function isRouteAllowed(user: StreetzUser, activeTab: TabKey, adminOnly: boolean
 
 function LoadingShell() {
   return (
-    <main className="grid min-h-screen place-items-center bg-white px-4 text-[#0d0d0d]">
-      <LoadingState label="Loading" />
+    <main className="min-h-screen bg-white text-[#0d0d0d]">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-white px-4 py-5 md:block">
+          <div className="animate-pulse" aria-hidden="true">
+            <div className="size-16 rounded-2xl bg-black/5" />
+            <div className="mt-5 h-28 rounded-[16px] border border-black/[0.05] bg-[#fafafa]" />
+            <div className="mt-8 grid gap-2">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="h-11 rounded-full bg-black/[0.04]" />
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <section className="min-w-0 flex-1 pb-24 md:pb-0">
+          <div className="sticky top-0 z-10 border-b border-black/[0.05] bg-white/90 px-5 py-4 backdrop-blur md:hidden">
+            <div className="grid grid-cols-[44px_1fr_44px] items-center" aria-hidden="true">
+              <div className="size-11 animate-pulse rounded-full bg-black/5" />
+              <div className="justify-self-center">
+                <div className="size-14 animate-pulse rounded-2xl bg-black/5" />
+              </div>
+              <span className="size-11" />
+            </div>
+          </div>
+          <LoadingState label="Loading" className="min-h-[70vh]" />
+        </section>
+      </div>
     </main>
   );
 }

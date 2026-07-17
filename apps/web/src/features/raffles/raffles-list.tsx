@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Gift, Ticket, Trophy } from "lucide-react";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { StreetzRaffle } from "@/lib/types";
-import { LoadingState } from "@/components/loading-state";
+import { CardGridSkeleton } from "@/components/card-grid-skeleton";
 import { formatCountdown, formatRafflePrice, getRaffleStatusLabel, getRaffleStatusTone } from "./raffle-format";
 
 const RAFFLE_FALLBACK_IMAGE =
@@ -52,7 +52,7 @@ export function RafflesList({ token }: { token: string | null }) {
   }, [token, reloadKey]);
 
   if (isLoading) {
-    return <LoadingState label="Loading raffles" className="min-h-90 rounded-3xl border border-black/5" />;
+    return <CardGridSkeleton label="Loading raffles" imageClassName="aspect-16/10" />;
   }
 
   if (error) {

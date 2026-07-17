@@ -37,6 +37,7 @@ import {
 import { type AuthPromptKind } from "@/components/app/public-route";
 import { ScreenHeader } from "@/components/app/navigation";
 import { useToast } from "@/components/app/toast-provider";
+import { CardGridSkeleton } from "@/components/card-grid-skeleton";
 import { LoadingState } from "@/components/loading-state";
 import { RafflesList } from "@/features/raffles/raffles-list";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -454,8 +455,7 @@ export function EventsTab({
   const [events, setEvents] = useState<StreetzEvent[]>([]);
   const [historyEvents, setHistoryEvents] = useState<StreetzEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-  const [eventViewMode, setEventViewMode] = useState<EventViewMode>("events");
-  const viewModeInitializedRef = useRef(false);
+  const [eventViewMode, setEventViewMode] = useState<EventViewMode>(isGuest ? "events" : "raffles");
   const filterInitializedRef = useRef(false);
   const [adminEventView, setAdminEventView] = useState<AdminEventView>(adminMode === "list" ? "list" : "form");
   const [editingEventId, setEditingEventId] = useState<string | null>(adminMode === "edit" ? adminEventId : null);
@@ -611,19 +611,6 @@ export function EventsTab({
 
       setEvents(eventsResult.events);
       setHistoryEvents(historyResult.events);
-
-      if (!isAdmin && !isGuest && !viewModeInitializedRef.current) {
-        viewModeInitializedRef.current = true;
-        const hasCurrentTickets = eventsResult.events.some(hasConfirmedTicket);
-        const hasExploreEvents = eventsResult.events.some((event) => isMemberBookableEvent(event) && !hasConfirmedTicket(event));
-
-        setEventViewMode(hasCurrentTickets ? "tickets" : hasExploreEvents ? "events" : historyResult.events.length > 0 ? "history" : "events");
-      }
-
-      if (isGuest && !viewModeInitializedRef.current) {
-        viewModeInitializedRef.current = true;
-        setEventViewMode("events");
-      }
 
       if (!filterInitializedRef.current) {
         filterInitializedRef.current = true;
@@ -1939,6 +1926,13 @@ export function EventsTab({
           <div className="mb-4 grid grid-cols-4 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-md">
             <button
               type="button"
+              className={`rounded-full px-3 py-2 ${eventViewMode === "raffles" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+              onClick={() => setEventViewMode("raffles")}
+            >
+              Raffles
+            </button>
+            <button
+              type="button"
               className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
               onClick={() => setEventViewMode("tickets")}
             >
@@ -1957,13 +1951,6 @@ export function EventsTab({
               onClick={() => setEventViewMode("history")}
             >
               History
-            </button>
-            <button
-              type="button"
-              className={`rounded-full px-3 py-2 ${eventViewMode === "raffles" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-              onClick={() => setEventViewMode("raffles")}
-            >
-              Raffles
             </button>
           </div>
         ) : null}
@@ -2015,7 +2002,7 @@ export function EventsTab({
             {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
             {isLoadingEvents ? (
-              <LoadingState label="Loading events" className="min-h-90 rounded-3xl border border-black/5" />
+              <CardGridSkeleton label="Loading events" />
             ) : visibleMemberEvents.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {visibleMemberEvents.map((event) => {
