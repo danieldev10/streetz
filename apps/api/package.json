@@ -6,7 +6,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "test": "npm run build && node --test test/*.test.js",
-    "start": "npm run prisma:deploy && node dist/src/main.js",
+    "start": "node dist/src/main.js",
     "lint": "eslint \"src/**/*.ts\"",
     "media:backfill": "ts-node -r tsconfig-paths/register src/profiles/backfill-profile-photo-variants.ts",
     "smoke:attendance": "ts-node -r tsconfig-paths/register src/events/create-attendance-smoke-data.ts",

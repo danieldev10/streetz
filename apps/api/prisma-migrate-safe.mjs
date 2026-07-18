@@ -40,13 +40,10 @@ function run(cmd) {
 }
 
 // ── Step 1: generate migration (won't apply) ────────────────────────
-try {
-  run("npx prisma migrate dev --create-only");
-} catch {
-  // --create-only exits with 0 even if "no changes", but may also
-  // exit non-zero if there's nothing to do and user cancels the prompt.
-  // Either way we continue to deploy + reindex.
-}
+// Any failure here (including migration checksum drift) must abort. Continuing
+// would let `migrate deploy` report no pending migrations and falsely print a
+// successful result while the database schema remains incompatible.
+run("npx prisma migrate dev --create-only");
 
 // ── Step 2: patch any bare DROP INDEX in migration files ─────────────
 for (const entry of readdirSync(MIGRATIONS_DIR, { withFileTypes: true })) {

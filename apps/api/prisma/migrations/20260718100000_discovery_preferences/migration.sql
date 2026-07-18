@@ -1,8 +1,8 @@
 CREATE TYPE "DiscoveryGender" AS ENUM ('WOMAN', 'MAN', 'NON_BINARY');
 
-ALTER TABLE "User" ADD COLUMN "lastDiscoveryActiveAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
-UPDATE "User" SET "lastDiscoveryActiveAt" = "updatedAt";
-CREATE INDEX "User_lastDiscoveryActiveAt_idx" ON "User"("lastDiscoveryActiveAt");
+ALTER TABLE "User" ADD COLUMN "lastActiveAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+UPDATE "User" SET "lastActiveAt" = "updatedAt";
+CREATE INDEX "User_lastActiveAt_idx" ON "User"("lastActiveAt");
 
 ALTER TABLE "Profile"
 ADD COLUMN "discoveryGender" "DiscoveryGender",
