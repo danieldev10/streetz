@@ -2,7 +2,6 @@
 
 import type { CSSProperties, PointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
-import type { ConnectionStatus, Gender, Sexuality } from "@/lib/types";
 import { Ban, Eye, Flag, Heart, LoaderCircle, MapPin, RefreshCw, SlidersHorizontal, Ticket, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
@@ -30,11 +29,12 @@ import {
 } from "@/lib/location";
 import { getCandidatePhotoUrl } from "@/lib/media";
 import { normalizeLocationSuggestion } from "@/lib/nigeria-locations";
-import { connectionStatusOptions, formatConnectionStatus, formatSexuality, sexualityOptions } from "@/lib/profile";
+import { formatConnectionStatus } from "@/lib/profile";
 import { REPORT_DETAILS_MAX_LENGTH, REPORT_REASON_OPTIONS } from "@/lib/report-reasons";
-import type { DiscoveryActionName, DiscoveryCandidate, StreetzProfile } from "@/lib/types";
+import type { DiscoveryActionName, DiscoveryCandidate, DiscoveryPreference, StreetzProfile } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
+import { DiscoveryPreferencesForm } from "@/features/discovery/discovery-preferences-form";
 
 type DiscoveryLocationMeta = {
   hasCoordinates: boolean;
@@ -62,38 +62,12 @@ const LOCATION_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 type DiscoveryFilters = {
   minAge: number | null;
   maxAge: number | null;
-  gender: Gender[];
-  sexuality: Sexuality[];
-  lookingFor: ConnectionStatus[];
 };
 
-function getOppositeGenderForStraight(gender: Gender | null | undefined) {
-  if (gender === "WOMAN") {
-    return ["MAN" as const];
-  }
-
-  if (gender === "MAN") {
-    return ["WOMAN" as const];
-  }
-
-  return [];
-}
-
-function getDefaultDiscoveryFilters({
-  initialConnectionStatus = null,
-  initialGender = null,
-  initialSexuality = null,
-}: {
-  initialConnectionStatus?: ConnectionStatus | null;
-  initialGender?: Gender | null;
-  initialSexuality?: Sexuality | null;
-}): DiscoveryFilters {
+function getDefaultDiscoveryFilters(): DiscoveryFilters {
   return {
     minAge: null,
     maxAge: null,
-    gender: initialSexuality === "STRAIGHT" ? getOppositeGenderForStraight(initialGender) : [],
-    sexuality: initialSexuality && initialSexuality !== "PREFER_NOT_TO_SAY" ? [initialSexuality] : [],
-    lookingFor: initialConnectionStatus ? [initialConnectionStatus] : [],
   };
 }
 
@@ -105,21 +79,11 @@ type PendingDisplayLocation = {
 export function DiscoveryTab({
   token,
   onMatchCreated,
-  initialConnectionStatus,
-  initialGender,
-  initialSexuality,
 }: {
   token: string;
   onMatchCreated: () => void;
-  initialConnectionStatus: ConnectionStatus | null;
-  initialGender: Gender | null;
-  initialSexuality: Sexuality | null;
 }) {
-  const initialFilters = getDefaultDiscoveryFilters({
-    initialConnectionStatus,
-    initialGender,
-    initialSexuality,
-  });
+  const initialFilters = getDefaultDiscoveryFilters();
   const [candidates, setCandidates] = useState<DiscoveryCandidate[]>([]);
   const [viewedCandidate, setViewedCandidate] = useState<DiscoveryCandidate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -135,10 +99,12 @@ export function DiscoveryTab({
   const [reportError, setReportError] = useState<string | null>(null);
   const [locationMeta, setLocationMeta] = useState<DiscoveryLocationMeta>(defaultDiscoveryLocation);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
+  const [preferenceRequired, setPreferenceRequired] = useState(false);
+  const [discoveryPreference, setDiscoveryPreference] = useState<DiscoveryPreference | null>(null);
   const [draftMaxDistanceKm, setDraftMaxDistanceKm] = useState(DEFAULT_DISCOVERY_DISTANCE_KM);
   const [activeFilters, setActiveFilters] = useState<DiscoveryFilters>(() => initialFilters);
   const [draftFilters, setDraftFilters] = useState<DiscoveryFilters>(() => initialFilters);
-  const activeFiltersRef = useRef<DiscoveryFilters>(initialFilters);
   const [isSavingFilters, setIsSavingFilters] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [pendingDisplayLocation, setPendingDisplayLocation] = useState<PendingDisplayLocation | null>(null);
@@ -182,15 +148,7 @@ export function DiscoveryTab({
     }
 
     try {
-      const params = new URLSearchParams();
-      const filters = activeFiltersRef.current;
-      if (filters.minAge !== null) params.append("minAge", String(filters.minAge));
-      if (filters.maxAge !== null) params.append("maxAge", String(filters.maxAge));
-      for (const g of filters.gender) params.append("gender", g);
-      for (const s of filters.sexuality) params.append("sexuality", s);
-      for (const l of filters.lookingFor) params.append("lookingFor", l);
-      const qs = params.toString();
-      const candidatesResponse = await apiRequest<DiscoveryResponse>(`/discovery/candidates${qs ? `?${qs}` : ""}`, {
+      const candidatesResponse = await apiRequest<DiscoveryResponse>("/discovery/candidates", {
         headers: authHeaders(token),
       });
       const nextLocationMeta = candidatesResponse.location ?? defaultDiscoveryLocation;
@@ -246,7 +204,26 @@ export function DiscoveryTab({
         syncLocationMetaFromProfile(savedProfile);
       }
 
-      activeFiltersRef.current = draftFilters;
+      if (
+        discoveryPreference &&
+        draftFilters.minAge !== null &&
+        draftFilters.maxAge !== null &&
+        (draftFilters.minAge !== discoveryPreference.minAge || draftFilters.maxAge !== discoveryPreference.maxAge)
+      ) {
+        const savedPreference = await apiRequest<DiscoveryPreference>("/profiles/me/discovery-preferences", {
+          method: "PUT",
+          headers: authHeaders(token),
+          body: JSON.stringify({
+            discoveryGender: discoveryPreference.discoveryGender,
+            showGender: discoveryPreference.showGender,
+            interestedInGenders: discoveryPreference.interestedInGenders,
+            minAge: draftFilters.minAge,
+            maxAge: draftFilters.maxAge,
+          }),
+        });
+        setDiscoveryPreference(savedPreference);
+      }
+
       setActiveFilters(draftFilters);
       setIsFilterOpen(false);
       void loadDiscovery({ clearNotice: false });
@@ -332,16 +309,31 @@ export function DiscoveryTab({
   }
 
   useEffect(() => {
-    activeFiltersRef.current = activeFilters;
-  }, [activeFilters]);
-
-  useEffect(() => {
+    let cancelled = false;
     dismissedCandidateIdsRef.current = new Set();
-    const timer = window.setTimeout(() => {
-      void loadDiscovery();
-    }, 0);
+    void apiRequest<DiscoveryPreference>("/profiles/me/discovery-preferences", { headers: authHeaders(token) })
+      .then((preference) => {
+        if (cancelled) return;
+        setDiscoveryPreference(preference);
+        const filters = { minAge: preference.minAge, maxAge: preference.maxAge };
+        setActiveFilters(filters);
+        setDraftFilters(filters);
+        if (preference.needsConfirmation) {
+          setPreferenceRequired(true);
+          setIsPreferenceOpen(true);
+          setIsLoading(false);
+        } else {
+          void loadDiscovery();
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setNotice(getUserErrorMessage(error));
+          setIsLoading(false);
+        }
+      });
 
-    return () => window.clearTimeout(timer);
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -989,81 +981,16 @@ export function DiscoveryTab({
               </div>
             </div>
 
-            {/* Looking for */}
-            <div className="mt-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Looking for</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {connectionStatusOptions.map((option) => {
-                  const active = draftFilters.lookingFor.includes(option.value);
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition ${active ? "border-[#0d0d0d] bg-[#0d0d0d] text-white" : "border-black/[0.08] text-[#444444]"}`}
-                      onClick={() =>
-                        setDraftFilters((f) => ({
-                          ...f,
-                          lookingFor: active ? f.lookingFor.filter((v) => v !== option.value) : [...f.lookingFor, option.value],
-                        }))
-                      }
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Gender */}
-            <div className="mt-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Gender</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {(["WOMAN", "MAN", "NON_BINARY", "PREFER_NOT_TO_SAY"] as Gender[]).map((value) => {
-                  const label = value === "WOMAN" ? "Female" : value === "MAN" ? "Male" : value === "NON_BINARY" ? "Non-binary" : "Prefer not to say";
-                  const active = draftFilters.gender.includes(value);
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition ${active ? "border-[#0d0d0d] bg-[#0d0d0d] text-white" : "border-black/[0.08] text-[#444444]"}`}
-                      onClick={() =>
-                        setDraftFilters((f) => ({
-                          ...f,
-                          gender: active ? f.gender.filter((v) => v !== value) : [...f.gender, value],
-                        }))
-                      }
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Sexuality */}
-            <div className="mt-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Sexuality</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {sexualityOptions.filter((o) => o.value !== "PREFER_NOT_TO_SAY").map((option) => {
-                  const active = draftFilters.sexuality.includes(option.value);
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      className={`inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition ${active ? "border-[#0d0d0d] bg-[#0d0d0d] text-white" : "border-black/[0.08] text-[#444444]"}`}
-                      onClick={() =>
-                        setDraftFilters((f) => ({
-                          ...f,
-                          sexuality: active ? f.sexuality.filter((v) => v !== option.value) : [...f.sexuality, option.value],
-                        }))
-                      }
-                    >
-                      {formatSexuality(option.value)}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <button
+              className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d]"
+              type="button"
+              onClick={() => {
+                setIsFilterOpen(false);
+                setIsPreferenceOpen(true);
+              }}
+            >
+              Change who I’d like to meet
+            </button>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button
@@ -1086,6 +1013,24 @@ export function DiscoveryTab({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {isPreferenceOpen ? (
+        <DiscoveryPreferencesForm
+          token={token}
+          required={preferenceRequired}
+          onClose={() => setIsPreferenceOpen(false)}
+          onSaved={(preference) => {
+            setDiscoveryPreference(preference);
+            setPreferenceRequired(false);
+            setIsPreferenceOpen(false);
+            const filters = { minAge: preference.minAge, maxAge: preference.maxAge };
+            setActiveFilters(filters);
+            setDraftFilters(filters);
+            dismissedCandidateIdsRef.current = new Set();
+            void loadDiscovery();
+          }}
+        />
       ) : null}
 
       {pendingDisplayLocation ? (

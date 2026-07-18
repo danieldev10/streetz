@@ -7,6 +7,7 @@ import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { useSession } from "@/components/app/session-provider";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
+import { DiscoveryPreferencesForm } from "@/features/discovery/discovery-preferences-form";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import { PROFILE_PHOTO_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
@@ -94,6 +95,7 @@ export function ProfileTab({
   const [isSubmittingAccountAction, setIsSubmittingAccountAction] = useState(false);
   const [isDeactivateConfirmOpen, setIsDeactivateConfirmOpen] = useState(false);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [isDiscoveryPreferenceOpen, setIsDiscoveryPreferenceOpen] = useState(false);
   const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
   const [interestQuery, setInterestQuery] = useState("");
   const [profileForm, setProfileForm] = useState({
@@ -1180,6 +1182,14 @@ export function ProfileTab({
                 </article>
 
                 <div className="mt-5 grid gap-3">
+                  <button
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-black/[0.08] px-5 text-sm font-medium text-[#0d0d0d]"
+                    type="button"
+                    onClick={() => setIsDiscoveryPreferenceOpen(true)}
+                  >
+                    <Heart className="size-4" aria-hidden="true" />
+                    Discovery preferences
+                  </button>
                   {user.faceVerificationStatus === "VERIFIED" ? (
                     <div className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#f6e0f6] px-5 text-sm font-medium text-[#9d2a9e]">
                       <ShieldCheck className="size-4" aria-hidden="true" />
@@ -1304,7 +1314,18 @@ export function ProfileTab({
                       </div>
                     </section>
                   </div>
-                ) : null}
+      ) : null}
+
+      {isDiscoveryPreferenceOpen ? (
+        <DiscoveryPreferencesForm
+          token={token}
+          onClose={() => setIsDiscoveryPreferenceOpen(false)}
+          onSaved={() => {
+            setIsDiscoveryPreferenceOpen(false);
+            setNotice("Discovery preferences saved.");
+          }}
+        />
+      ) : null}
               </>
             )}
           </div>

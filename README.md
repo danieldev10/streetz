@@ -19,3 +19,16 @@ Cruschclub (formerly: Streetz) is a Nigerian-focused social membership platform 
 npm run web:dev
 npm run api:dev
 ```
+
+## Discovery
+
+Discovery uses explicit, mutually confirmed preferences rather than inferring compatibility from sexuality. Members privately choose a matching gender, who they want to meet, and an age range. The feed applies mutual gender and age eligibility, account and safety gates, the viewer's distance limit, a deterministic relevance score, and two exploration slots. Impressions are analytics-only; only explicit likes, passes, blocks, and matches exclude profiles.
+
+After pulling schema changes, apply migrations before starting the API:
+
+```bash
+npm run api:prisma:generate
+npm run api:prisma:migrate
+```
+
+Existing profiles receive conservative suggested preferences but must confirm them before using Discovery.

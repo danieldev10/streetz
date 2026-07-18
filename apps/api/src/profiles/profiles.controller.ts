@@ -8,6 +8,7 @@ import { CreateProfilePhotoDto } from "./dto/create-profile-photo.dto";
 import { PresignProfilePhotoDto } from "./dto/presign-profile-photo.dto";
 import { ReverseGeocodeDto } from "./dto/reverse-geocode.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { UpdateDiscoveryPreferenceDto } from "./dto/update-discovery-preference.dto";
 import { ProfilesService } from "./profiles.service";
 
 @ApiTags("profiles")
@@ -25,6 +26,16 @@ export class ProfilesController {
   @Put("me")
   updateMyProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
     return this.profilesService.updateMyProfile(user.id, dto);
+  }
+
+  @Get("me/discovery-preferences")
+  getDiscoveryPreferences(@CurrentUser() user: AuthUser) {
+    return this.profilesService.getDiscoveryPreferences(user.id);
+  }
+
+  @Put("me/discovery-preferences")
+  updateDiscoveryPreferences(@CurrentUser() user: AuthUser, @Body() dto: UpdateDiscoveryPreferenceDto) {
+    return this.profilesService.updateDiscoveryPreferences(user.id, dto);
   }
 
   @Post("location/reverse-geocode")

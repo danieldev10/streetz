@@ -198,6 +198,8 @@ export class UsersService {
           gender: null,
           sexuality: null,
           connectionStatus: null,
+          discoveryGender: null,
+          showGender: false,
           city: null,
           state: null,
           latitude: null,
@@ -207,6 +209,11 @@ export class UsersService {
           interests: [],
           discoveryLive: false
         }
+      });
+
+      await transaction.discoveryPreference.deleteMany({ where: { userId } });
+      await transaction.discoveryImpression.deleteMany({
+        where: { OR: [{ viewerId: userId }, { candidateId: userId }] }
       });
 
       await transaction.refreshToken.updateMany({

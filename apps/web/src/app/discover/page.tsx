@@ -88,9 +88,6 @@ function DiscoveryProfileGate({
         ].join(":")}
         token={token}
         onMatchCreated={onMatchCreated}
-        initialConnectionStatus={readyProfile?.connectionStatus ?? null}
-        initialGender={readyProfile?.gender ?? null}
-        initialSexuality={readyProfile?.sexuality ?? null}
       />
     );
   }

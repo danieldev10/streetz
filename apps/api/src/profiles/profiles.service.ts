@@ -11,6 +11,8 @@ import { CreateProfilePhotoDto } from "./dto/create-profile-photo.dto";
 import { PresignProfilePhotoDto } from "./dto/presign-profile-photo.dto";
 import { ReverseGeocodeDto } from "./dto/reverse-geocode.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { UpdateDiscoveryPreferenceDto } from "./dto/update-discovery-preference.dto";
+import { suggestInterestedInGenders, toDiscoveryGender } from "./discovery-preference-suggestions";
 
 const MAX_PROFILE_PHOTOS = 4;
 const PHOTO_UPLOAD_EXPIRES_SECONDS = 300;
@@ -110,6 +112,88 @@ export class ProfilesService {
       updatedAt: null,
       user
     });
+  }
+
+  async getDiscoveryPreferences(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        profile: { select: { gender: true, sexuality: true, discoveryGender: true, showGender: true } },
+        discoveryPreference: true
+      }
+    });
+
+    if (!user) {
+      throw new NotFoundException("User not found.");
+    }
+
+    const suggestedDiscoveryGender = user.profile?.discoveryGender ?? toDiscoveryGender(user.profile?.gender);
+    const suggestedInterestedInGenders = suggestInterestedInGenders(user.profile?.gender, user.profile?.sexuality);
+    const preference = user.discoveryPreference;
+
+    return {
+      discoveryGender: suggestedDiscoveryGender,
+      showGender: user.profile?.showGender ?? true,
+      interestedInGenders: preference?.interestedInGenders.length
+        ? preference.interestedInGenders
+        : suggestedInterestedInGenders,
+      minAge: preference?.minAge ?? 18,
+      maxAge: preference?.maxAge ?? 100,
+      confirmedAt: preference?.confirmedAt ?? null,
+      needsConfirmation:
+        !suggestedDiscoveryGender ||
+        !preference?.confirmedAt ||
+        preference.interestedInGenders.length === 0
+    };
+  }
+
+  async updateDiscoveryPreferences(userId: string, dto: UpdateDiscoveryPreferenceDto) {
+    if (dto.minAge > dto.maxAge) {
+      throw new BadRequestException("Minimum age cannot be greater than maximum age.");
+    }
+
+    const confirmedAt = new Date();
+    const preference = await this.prisma.$transaction(async (transaction) => {
+      await transaction.profile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          discoveryGender: dto.discoveryGender,
+          showGender: dto.showGender
+        },
+        update: {
+          discoveryGender: dto.discoveryGender,
+          showGender: dto.showGender
+        }
+      });
+
+      return transaction.discoveryPreference.upsert({
+        where: { userId },
+        create: {
+          userId,
+          interestedInGenders: dto.interestedInGenders,
+          minAge: dto.minAge,
+          maxAge: dto.maxAge,
+          confirmedAt
+        },
+        update: {
+          interestedInGenders: dto.interestedInGenders,
+          minAge: dto.minAge,
+          maxAge: dto.maxAge,
+          confirmedAt
+        }
+      });
+    });
+
+    return {
+      discoveryGender: dto.discoveryGender,
+      showGender: dto.showGender,
+      interestedInGenders: preference.interestedInGenders,
+      minAge: preference.minAge,
+      maxAge: preference.maxAge,
+      confirmedAt: preference.confirmedAt,
+      needsConfirmation: false
+    };
   }
 
   async updateMyProfile(userId: string, dto: UpdateProfileDto) {

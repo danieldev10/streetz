@@ -46,6 +46,7 @@ type CandidateUser = {
     bio: string | null;
     birthDate: Date | null;
     gender: Gender | null;
+    showGender: boolean;
     sexuality: Sexuality | null;
     connectionStatus: ConnectionStatus | null;
     city: string | null;
@@ -568,7 +569,7 @@ export class RoomsService {
       accountStatus: candidate.accountStatus,
       age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,
-      gender: candidate.profile?.gender ?? null,
+      gender: candidate.profile?.showGender === false ? null : candidate.profile?.gender ?? null,
       sexuality: candidate.profile?.sexuality ?? null,
       connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,

@@ -22,6 +22,7 @@ export type AuthResponse = {
 };
 
 export type Gender = "WOMAN" | "MAN" | "NON_BINARY" | "PREFER_NOT_TO_SAY";
+export type DiscoveryGender = "WOMAN" | "MAN" | "NON_BINARY";
 export type SubscriptionStatus = "INACTIVE" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
 export type Sexuality = "STRAIGHT" | "GAY" | "LESBIAN" | "BISEXUAL" | "PANSEXUAL" | "ASEXUAL" | "QUEER" | "PREFER_NOT_TO_SAY";
 export type ConnectionStatus = "MEET_NOW" | "FWB" | "JUST_FRIENDS" | "DATING";
@@ -68,6 +69,16 @@ export type StreetzProfile = {
     email: string;
     photos: ProfilePhoto[];
   };
+};
+
+export type DiscoveryPreference = {
+  discoveryGender: DiscoveryGender | null;
+  showGender: boolean;
+  interestedInGenders: DiscoveryGender[];
+  minAge: number;
+  maxAge: number;
+  confirmedAt: string | null;
+  needsConfirmation: boolean;
 };
 
 export type DiscoveryCandidate = {

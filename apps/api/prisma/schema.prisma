@@ -42,6 +42,12 @@ enum Gender {
   PREFER_NOT_TO_SAY
 }
 
+enum DiscoveryGender {
+  WOMAN
+  MAN
+  NON_BINARY
+}
+
 enum Sexuality {
   STRAIGHT
   GAY
@@ -174,6 +180,7 @@ model User {
   faceVerificationOverrideReason String?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
+  lastDiscoveryActiveAt DateTime          @default(now())
   profile            Profile?
   photos             ProfilePhoto[]
   discoveryActions   DiscoveryActionLog[] @relation("DiscoveryActor")
@@ -198,6 +205,11 @@ model User {
   faceVerificationAttempts FaceVerificationAttempt[]
   moderationActionsTaken    ModerationAction[] @relation("ModerationAdmin")
   moderationActionsReceived ModerationAction[] @relation("ModerationTarget")
+  discoveryPreference DiscoveryPreference?
+  discoveryImpressionsMade DiscoveryImpression[] @relation("DiscoveryImpressionViewer")
+  discoveryImpressionsReceived DiscoveryImpression[] @relation("DiscoveryImpressionCandidate")
+
+  @@index([lastDiscoveryActiveAt])
 }
 
 model FaceVerificationAttempt {
@@ -260,6 +272,8 @@ model Profile {
   bio                    String?
   birthDate              DateTime?
   gender                 Gender?
+  discoveryGender        DiscoveryGender?
+  showGender             Boolean           @default(true)
   sexuality              Sexuality?
   connectionStatus       ConnectionStatus?
   city                   String?
@@ -276,7 +290,39 @@ model Profile {
   updatedAt              DateTime          @updatedAt
 
   @@index([connectionStatus])
+  @@index([discoveryGender, birthDate])
   @@index([latitude, longitude])
+}
+
+model DiscoveryPreference {
+  id                  String            @id @default(cuid())
+  userId              String            @unique
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interestedInGenders DiscoveryGender[] @default([])
+  minAge              Int               @default(18)
+  maxAge              Int               @default(100)
+  confirmedAt         DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([confirmedAt])
+  @@index([interestedInGenders], type: Gin)
+}
+
+model DiscoveryImpression {
+  id          String   @id @default(cuid())
+  viewerId    String
+  candidateId String
+  viewer      User     @relation("DiscoveryImpressionViewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  candidate   User     @relation("DiscoveryImpressionCandidate", fields: [candidateId], references: [id], onDelete: Cascade)
+  shownAt     DateTime @default(now())
+  rank        Int
+  score       Float?
+  algorithm   String
+
+  @@index([viewerId, shownAt])
+  @@index([viewerId, candidateId, shownAt])
+  @@index([candidateId, shownAt])
 }
 
 model ProfilePhoto {
