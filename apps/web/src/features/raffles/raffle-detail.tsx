@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, CalendarClock, Gift, LoaderCircle, Minus, Plus, Ticket, Trophy } from "lucide-react";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 import type { AuthPromptKind } from "@/components/app/public-route";
 import { LoadingState } from "@/components/loading-state";
 import { clearPendingRaffleCheckout, getPendingRaffleCheckout, savePendingRaffleCheckout } from "@/lib/pending-raffle-checkout";
@@ -19,21 +21,30 @@ export function RaffleDetail({
   token,
   user,
   raffleId,
+  initialRaffle,
   onAuthRequired
 }: {
   token: string | null;
   user: StreetzUser | null;
   raffleId: string;
+  initialRaffle?: StreetzRaffle | null;
   onAuthRequired: (kind?: AuthPromptKind) => void;
 }) {
-  const [raffle, setRaffle] = useState<StreetzRaffle | null>(null);
+  const queryClient = useQueryClient();
+  const raffleScope = token ? "member" : "public";
+  const cachedInitialRaffle = initialRaffle ?? queryClient.getQueryData<StreetzRaffle>(queryKeys.raffle(raffleId, raffleScope));
+  const [raffle, setRaffle] = useState<StreetzRaffle | null>(cachedInitialRaffle ?? null);
   const [myEntries, setMyEntries] = useState<MyRaffleEntries | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(cachedInitialRaffle === undefined);
   const [isBuying, setIsBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!token && initialRaffle !== undefined) {
+      return;
+    }
+
     let cancelled = false;
 
     async function load() {
@@ -48,12 +59,14 @@ export function RaffleDetail({
           ]);
           if (!cancelled) {
             setRaffle(raffleResponse);
+            queryClient.setQueryData(queryKeys.raffle(raffleId, "member"), raffleResponse);
             setMyEntries(entriesResponse);
           }
         } else {
           const raffleResponse = await apiRequest<StreetzRaffle>(`/public/raffles/${raffleId}`);
           if (!cancelled) {
             setRaffle(raffleResponse);
+            queryClient.setQueryData(queryKeys.raffle(raffleId, "public"), raffleResponse);
             setMyEntries(null);
           }
         }
@@ -73,7 +86,13 @@ export function RaffleDetail({
     return () => {
       cancelled = true;
     };
-  }, [raffleId, token]);
+  }, [initialRaffle, queryClient, raffleId, token]);
+
+  useEffect(() => {
+    if (initialRaffle !== undefined && initialRaffle !== null) {
+      queryClient.setQueryData(queryKeys.raffle(raffleId, "public"), initialRaffle);
+    }
+  }, [initialRaffle, queryClient, raffleId]);
 
   useEffect(() => {
     if (!token) {

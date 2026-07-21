@@ -1,12 +1,14 @@
-"use client";
+import { EventsPageClient } from "@/features/events/events-page-client";
+import { publicApiRequest } from "@/lib/server-api";
+import type { StreetzEvent, StreetzRaffle } from "@/lib/types";
 
-import { PublicRoute } from "@/components/app/public-route";
-import { EventsTab } from "@/features/events/events-tab";
+export const dynamic = "force-dynamic";
 
-export default function EventsPage() {
-  return (
-    <PublicRoute activeTab="events">
-      {({ token, user, requestAuth }) => <EventsTab token={token} user={user} onAuthRequired={requestAuth} />}
-    </PublicRoute>
-  );
+export default async function EventsPage() {
+  const [eventsResponse, rafflesResponse] = await Promise.all([
+    publicApiRequest<{ events: StreetzEvent[] }>("/public/events"),
+    publicApiRequest<{ raffles: StreetzRaffle[] }>("/public/raffles", 60)
+  ]);
+
+  return <EventsPageClient initialEvents={eventsResponse?.events} initialRaffles={rafflesResponse?.raffles} />;
 }

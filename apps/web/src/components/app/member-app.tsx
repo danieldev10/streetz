@@ -2,27 +2,13 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import { io } from "socket.io-client";
 import { AppBrand, AppNavButton, MobileHeader, adminTabs, bottomTabs, tabs } from "@/components/app/navigation";
 import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 import type { ChatRoom, MatchThread, NotificationSummary, ProfilePhoto, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
-
-type MemberAppDataCache = {
-  matches: MatchThread[];
-  rooms: ChatRoom[];
-};
-
-const memberAppDataCache = new Map<string, MemberAppDataCache>();
-
-function getMemberAppDataCache(cacheKey: string): MemberAppDataCache {
-  return memberAppDataCache.get(cacheKey) ?? { matches: [], rooms: [] };
-}
-
-function updateMemberAppDataCache(cacheKey: string, update: Partial<MemberAppDataCache>) {
-  const current = getMemberAppDataCache(cacheKey);
-  memberAppDataCache.set(cacheKey, { ...current, ...update });
-}
 
 export type MemberAppRenderProps = {
   cachedMatches: MatchThread[];
@@ -50,18 +36,24 @@ export function MemberApp({
   children: (props: MemberAppRenderProps) => ReactNode;
 }) {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const visibleTabs = user.role === "ADMIN" ? adminTabs : tabs;
   const visibleBottomTabs = user.role === "ADMIN" ? adminTabs : bottomTabs;
-  const cacheKey = `${user.id}:${token}`;
   const [notificationSummary, setNotificationSummary] = useState<NotificationSummary>({
     matchesUnreadCount: 0,
     roomsUnreadCount: 0,
     notificationsUnreadCount: 0,
     totalUnreadCount: 0,
   });
-  const [cachedMatches, setCachedMatches] = useState<MatchThread[]>(() => getMemberAppDataCache(cacheKey).matches);
-  const [cachedRooms, setCachedRooms] = useState<ChatRoom[]>(() => getMemberAppDataCache(cacheKey).rooms);
-  const [profilePhoto, setProfilePhoto] = useState<ProfilePhoto | undefined>(undefined);
+  const [cachedMatches, setCachedMatches] = useState<MatchThread[]>(
+    () => queryClient.getQueryData<MatchThread[]>(queryKeys.matches(user.id)) ?? []
+  );
+  const [cachedRooms, setCachedRooms] = useState<ChatRoom[]>(
+    () => queryClient.getQueryData<ChatRoom[]>(queryKeys.rooms(user.id)) ?? []
+  );
+  const [profilePhoto, setProfilePhoto] = useState<ProfilePhoto | undefined>(
+    () => queryClient.getQueryData<StreetzProfile | null>(queryKeys.profile(user.id))?.user.photos[0]
+  );
 
   const refreshNotificationSummary = useCallback(async () => {
     try {
@@ -110,7 +102,7 @@ export function MemberApp({
   }
 
   function handleMatchesLoaded(matches: MatchThread[]) {
-    updateMemberAppDataCache(cacheKey, { matches });
+    queryClient.setQueryData(queryKeys.matches(user.id), matches);
     setCachedMatches(matches);
     updateNotificationSummary({
       matchesUnreadCount: matches.reduce((total, match) => total + (match.unreadCount ?? 0), 0),
@@ -134,7 +126,7 @@ export function MemberApp({
   }
 
   function handleRoomsLoaded(rooms: ChatRoom[]) {
-    updateMemberAppDataCache(cacheKey, { rooms });
+    queryClient.setQueryData(queryKeys.rooms(user.id), rooms);
     setCachedRooms(rooms);
     updateNotificationSummary({
       roomsUnreadCount: rooms.reduce((total, room) => total + (room.hasJoined ? room.unreadCount ?? 0 : 0), 0),
@@ -172,8 +164,12 @@ export function MemberApp({
 
     async function loadProfilePhoto() {
       try {
-        const profile = await apiRequest<StreetzProfile>("/profiles/me", {
-          headers: authHeaders(token),
+        const profile = await queryClient.fetchQuery({
+          queryKey: queryKeys.profile(user.id),
+          queryFn: () => apiRequest<StreetzProfile>("/profiles/me", {
+            headers: authHeaders(token)
+          }),
+          staleTime: 5 * 60_000
         });
 
         if (!cancelled) {
@@ -191,7 +187,7 @@ export function MemberApp({
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [queryClient, token, user.id]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, {

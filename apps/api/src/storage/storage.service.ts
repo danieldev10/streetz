@@ -122,6 +122,21 @@ export class StorageService {
       this.createDeliveryUrl(fullObjectKey, photo.fullUrl),
       this.createDeliveryUrl(photo.objectKey, photo.url)
     ]);
+
+    if (this.hasStableMediaBaseUrl()) {
+      return {
+        ...photo,
+        url: cardUrl ?? fullUrl ?? originalUrl ?? photo.url,
+        thumbUrl,
+        cardUrl,
+        fullUrl,
+        fallbackUrl: null,
+        thumbFallbackUrl: null,
+        cardFallbackUrl: null,
+        fullFallbackUrl: null
+      };
+    }
+
     const [thumbFallbackUrl, cardFallbackUrl, fullFallbackUrl, originalFallbackUrl] = await Promise.all([
       this.createSignedFallbackUrl(thumbObjectKey, thumbUrl),
       this.createSignedFallbackUrl(cardObjectKey, cardUrl),

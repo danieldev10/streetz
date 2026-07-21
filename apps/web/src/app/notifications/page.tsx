@@ -6,9 +6,10 @@ import { NotificationsTab } from "@/features/notifications/notifications-tab";
 export default function NotificationsPage() {
   return (
     <AuthenticatedRoute activeTab="notifications">
-      {({ token, onMatchCreated, onNotificationsChanged }) => (
+      {({ token, user, onMatchCreated, onNotificationsChanged }) => (
         <NotificationsTab
           token={token}
+          userId={user.id}
           onMatchCreated={onMatchCreated}
           onNotificationsChanged={onNotificationsChanged}
         />

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AUTH_REFRESHED_EVENT,
   TOKEN_KEY,
@@ -80,11 +81,16 @@ async function verifyToken(token: string, options: { force?: boolean } = {}) {
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<SessionStatus>(getInitialStatus);
   const [session, setSessionState] = useState<VerifiedSession | null>(() => cachedSession);
   const sessionRef = useRef<VerifiedSession | null>(cachedSession);
 
   const applySession = useCallback((token: string, user: StreetzUser) => {
+    if (sessionRef.current?.user.id && sessionRef.current.user.id !== user.id) {
+      queryClient.clear();
+    }
+
     const nextSession = {
       token,
       user,
@@ -103,13 +109,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setStatus("authenticated");
 
     return nextSession;
-  }, []);
+  }, [queryClient]);
 
   const clearSession = useCallback(
     (options: { redirect?: boolean; revoke?: boolean } = {}) => {
       cachedSession = null;
       pendingVerification = null;
       sessionRef.current = null;
+      queryClient.clear();
 
       if (typeof window !== "undefined") {
         if (options.revoke !== false) {
@@ -127,7 +134,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         router.replace("/?mode=login");
       }
     },
-    [router]
+    [queryClient, router]
   );
 
   const setSession = useCallback((token: string, user: StreetzUser) => {

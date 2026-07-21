@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { SessionProvider } from "@/components/app/session-provider";
 import { ToastProvider } from "@/components/app/toast-provider";
-import "@aws-amplify/ui-react/styles.css";
+import { QueryProvider } from "@/components/app/query-provider";
 import "./globals.css";
 
 function getOrigin(value: string | undefined) {
@@ -46,7 +46,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ToastProvider>
-          <SessionProvider>{children}</SessionProvider>
+          <QueryProvider>
+            <SessionProvider>{children}</SessionProvider>
+          </QueryProvider>
         </ToastProvider>
       </body>
     </html>

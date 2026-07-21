@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { AccountStatus, ConnectionStatus, DiscoveryAction, DiscoveryGender, FaceVerificationStatus, Gender, MatchStatus, Prisma, ReportStatus, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
-import { countCheckedInStandardEvents } from "../common/attendance";
+import { getCheckedInStandardEventCounts } from "../common/attendance";
 import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
@@ -180,10 +180,19 @@ export class DiscoveryService {
       `${userId}:${now.toISOString().slice(0, 10)}`,
       DISCOVERY_DECK_SIZE
     );
-    await this.recordImpressions(userId, deck, now);
+    const [attendanceByUserId] = await Promise.all([
+      getCheckedInStandardEventCounts(
+        this.prisma,
+        deck.map(({ candidate }) => candidate.id)
+      ),
+      this.recordImpressions(userId, deck, now)
+    ]);
 
     return {
-      candidates: await Promise.all(deck.map(({ candidate, distanceKm }) => this.formatCandidate(candidate, { distanceKm }))),
+      candidates: await Promise.all(deck.map(({ candidate, distanceKm }) => this.formatCandidate(candidate, {
+        distanceKm,
+        attendedEventCount: attendanceByUserId.get(candidate.id) ?? 0
+      }))),
       location: this.formatLocationMeta(currentProfile),
       algorithm: DISCOVERY_ALGORITHM
     };
@@ -293,10 +302,13 @@ export class DiscoveryService {
       }
     });
 
+    const otherUser = match.userAId === userId ? match.userB : match.userA;
+    const attendanceByUserId = await getCheckedInStandardEventCounts(this.prisma, [otherUser.id]);
+
     return {
       action,
       matched: true,
-      match: await this.formatMatch(match, userId)
+      match: await this.formatMatch(match, userId, attendanceByUserId.get(otherUser.id) ?? 0)
     };
   }
 
@@ -333,8 +345,14 @@ export class DiscoveryService {
       orderBy: { createdAt: "desc" }
     });
 
+    const otherUserIds = matches.map((match) => match.userAId === userId ? match.userBId : match.userAId);
+    const attendanceByUserId = await getCheckedInStandardEventCounts(this.prisma, otherUserIds);
+
     return {
-      matches: await Promise.all(matches.map((match) => this.formatMatch(match, userId)))
+      matches: await Promise.all(matches.map((match) => {
+        const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
+        return this.formatMatch(match, userId, attendanceByUserId.get(otherUserId) ?? 0);
+      }))
     };
   }
 
@@ -355,10 +373,17 @@ export class DiscoveryService {
       orderBy: { createdAt: "desc" }
     });
 
+    const attendanceByUserId = await getCheckedInStandardEventCounts(
+      this.prisma,
+      blocks.map((block) => block.blockedId)
+    );
+
     return {
       blockedUsers: await Promise.all(
         blocks.map(async (block) => ({
-          ...(await this.formatCandidate(block.blocked)),
+          ...(await this.formatCandidate(block.blocked, {
+            attendedEventCount: attendanceByUserId.get(block.blockedId) ?? 0
+          })),
           blockedAt: block.createdAt,
           blockReason: block.reason
         }))
@@ -845,11 +870,8 @@ export class DiscoveryService {
       fullObjectKey?: string | null;
       sortOrder: number;
     }>;
-  }, options: { distanceKm?: number | null } = {}) {
-    const [photos, attendedEventCount] = await Promise.all([
-      this.storage.signPhotoUrls(candidate.photos),
-      countCheckedInStandardEvents(this.prisma, candidate.id)
-    ]);
+  }, options: { distanceKm?: number | null; attendedEventCount: number }) {
+    const photos = await this.storage.signPhotoUrls(candidate.photos);
 
     return {
       id: candidate.id,
@@ -863,7 +885,7 @@ export class DiscoveryService {
       city: candidate.profile?.city ?? null,
       state: candidate.profile?.state ?? null,
       distanceKm: options.distanceKm === null || options.distanceKm === undefined ? null : Math.round(options.distanceKm * 10) / 10,
-      attendedEventCount,
+      attendedEventCount: options.attendedEventCount,
       interests: candidate.profile?.interests ?? [],
       photos
     };
@@ -879,7 +901,8 @@ export class DiscoveryService {
       userA: Parameters<DiscoveryService["formatCandidate"]>[0];
       userB: Parameters<DiscoveryService["formatCandidate"]>[0];
     },
-    currentUserId: string
+    currentUserId: string,
+    attendedEventCount: number
   ) {
     const otherUser = match.userAId === currentUserId ? match.userB : match.userA;
     const matchedConnectionStatus = match.userAId === currentUserId
@@ -890,7 +913,7 @@ export class DiscoveryService {
       id: match.id,
       createdAt: match.createdAt,
       matchedConnectionStatus: matchedConnectionStatus ?? otherUser.profile?.connectionStatus ?? null,
-      user: await this.formatCandidate(otherUser)
+      user: await this.formatCandidate(otherUser, { attendedEventCount })
     };
   }
 

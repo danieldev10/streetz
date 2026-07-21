@@ -136,18 +136,20 @@ export function EventTicketsTab({
   token,
   user,
   eventId,
+  initialEvent,
   onAuthRequired,
 }: {
   token?: string | null;
   user?: StreetzUser | null;
   eventId: string;
+  initialEvent?: StreetzEvent | null;
   onAuthRequired?: (kind?: AuthPromptKind) => void;
 }) {
   const router = useRouter();
   const isGuest = !token || !user;
   const isAdmin = user?.role === "ADMIN";
-  const [event, setEvent] = useState<StreetzEvent | null>(null);
-  const [isLoading, setIsLoading] = useState(!isAdmin);
+  const [event, setEvent] = useState<StreetzEvent | null>(initialEvent ?? null);
+  const [isLoading, setIsLoading] = useState(!isAdmin && initialEvent === undefined);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [bookingQuantity, setBookingQuantity] = useState(1);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string | null>(null);
@@ -213,12 +215,18 @@ export function EventTicketsTab({
       };
     }
 
+    if (isGuest && initialEvent !== undefined) {
+      return () => {
+        isCancelled = true;
+      };
+    }
+
     void loadEvent();
 
     return () => {
       isCancelled = true;
     };
-  }, [eventId, isAdmin, isGuest, token]);
+  }, [eventId, initialEvent, isAdmin, isGuest, token]);
 
   async function shareEvent(ticket?: StreetzEventTicket) {
     if (!event) {

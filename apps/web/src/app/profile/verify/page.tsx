@@ -1,5 +1,6 @@
 "use client";
 
+import "@aws-amplify/ui-react/styles.css";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Amplify } from "aws-amplify";

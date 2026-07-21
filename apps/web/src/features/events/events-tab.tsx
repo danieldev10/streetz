@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -45,7 +47,8 @@ import { savePendingEventCheckout } from "@/lib/pending-event-checkout";
 import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import { EVENT_IMAGE_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
-import type { EventStatus, StreetzEvent, StreetzEventTicketType, StreetzProfile, StreetzUser, TicketStatus } from "@/lib/types";
+import { queryKeys } from "@/lib/query-keys";
+import type { EventStatus, StreetzEvent, StreetzEventTicketType, StreetzProfile, StreetzRaffle, StreetzUser, TicketStatus } from "@/lib/types";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
@@ -75,6 +78,9 @@ const EVENT_VENUE_MAX_LENGTH = 120;
 const EVENT_IMAGE_FILE_NAME_MAX_LENGTH = 160;
 const EVENT_CANCELLATION_REASON_MAX_LENGTH = 500;
 const MAX_TICKETS_PER_PURCHASE = 20;
+const TicketCheckoutModal = dynamic(() =>
+  import("@/features/events/ticket-checkout-modal").then((module) => module.TicketCheckoutModal)
+);
 const creatableEventStatuses: EventStatus[] = ["DRAFT", "PUBLISHED"];
 const editableEventStatuses: EventStatus[] = ["DRAFT", "PUBLISHED"];
 const eventStatusLabels: Record<EventStatus, string> = {
@@ -441,20 +447,30 @@ export function EventsTab({
   user,
   adminMode = "list",
   adminEventId = null,
+  initialEvents,
+  initialRaffles,
   onAuthRequired,
 }: {
   token?: string | null;
   user?: StreetzUser | null;
   adminMode?: AdminEventMode;
   adminEventId?: string | null;
+  initialEvents?: StreetzEvent[];
+  initialRaffles?: StreetzRaffle[];
   onAuthRequired?: (kind?: AuthPromptKind) => void;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isGuest = !token || !user;
   const isAdmin = user?.role === "ADMIN";
-  const [events, setEvents] = useState<StreetzEvent[]>([]);
+  const eventCacheScope = isGuest ? "public" : "member";
+  const cachedInitialEvents = initialEvents ?? queryClient.getQueryData<StreetzEvent[]>(queryKeys.events(eventCacheScope));
+  const [events, setEvents] = useState<StreetzEvent[]>(
+    () => cachedInitialEvents ?? []
+  );
   const [historyEvents, setHistoryEvents] = useState<StreetzEvent[]>([]);
-  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(cachedInitialEvents === undefined);
+  const initialPublicEventsPendingRef = useRef(initialEvents !== undefined);
   const [eventViewMode, setEventViewMode] = useState<EventViewMode>("raffles");
   const filterInitializedRef = useRef(false);
   const [adminEventView, setAdminEventView] = useState<AdminEventView>(adminMode === "list" ? "list" : "form");
@@ -466,8 +482,6 @@ export function EventsTab({
   const [isEventFilterOpen, setIsEventFilterOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [ticketModalEventId, setTicketModalEventId] = useState<string | null>(null);
-  const [bookingQuantities, setBookingQuantities] = useState<Record<string, number>>({});
-  const [selectedTicketTypeIds, setSelectedTicketTypeIds] = useState<Record<string, string>>({});
   const [adminEventListMode, setAdminEventListMode] = useState<AdminEventListMode>("active");
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [isUploadingCoverImage, setIsUploadingCoverImage] = useState(false);
@@ -610,6 +624,7 @@ export function EventsTab({
       ]);
 
       setEvents(eventsResult.events);
+      queryClient.setQueryData(queryKeys.events(isGuest ? "public" : "member"), eventsResult.events);
       setHistoryEvents(historyResult.events);
 
       if (!filterInitializedRef.current) {
@@ -629,6 +644,24 @@ export function EventsTab({
   }
 
   useEffect(() => {
+    if (initialEvents !== undefined) {
+      queryClient.setQueryData(queryKeys.events("public"), initialEvents);
+    }
+  }, [initialEvents, queryClient]);
+
+  useEffect(() => {
+    if (!isAdmin && (initialEvents !== undefined || events.length > 0)) {
+      queryClient.setQueryData(queryKeys.events(eventCacheScope), events);
+    }
+  }, [eventCacheScope, events, initialEvents, isAdmin, queryClient]);
+
+  useEffect(() => {
+    if (isGuest && initialPublicEventsPendingRef.current) {
+      initialPublicEventsPendingRef.current = false;
+      return;
+    }
+
+    initialPublicEventsPendingRef.current = false;
     const timer = window.setTimeout(() => {
       void loadEvents();
     }, 0);
@@ -1048,7 +1081,6 @@ export function EventsTab({
           body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: ticketType.id }),
         });
         setEvents((current) => current.map((item) => (item.id === updatedEvent.id ? updatedEvent : item)));
-        setBookingQuantities((current) => ({ ...current, [event.id]: 1 }));
         setTicketModalEventId(null);
         setNotice(safeQuantity === 1 ? "Spot booked." : `${safeQuantity} spots booked.`);
         return;
@@ -1797,129 +1829,15 @@ export function EventsTab({
         </div>
       ) : null}
 
-      {ticketModalEvent ? (() => {
-        const ticketTypes = getEventTicketTypes(ticketModalEvent);
-        const ticketType = getSelectedTicketType(ticketModalEvent, selectedTicketTypeIds[ticketModalEvent.id]);
-        const maxPurchaseQuantity = ticketType
-          ? isGuest
-            ? Math.min(ticketType.availableCount, MAX_TICKETS_PER_PURCHASE)
-            : getMaxPurchaseQuantity(ticketModalEvent, ticketType)
-          : 0;
-        const selectedQuantity = maxPurchaseQuantity > 0
-          ? Math.min(Math.max(1, bookingQuantities[ticketModalEvent.id] ?? 1), maxPurchaseQuantity)
-          : 1;
-        const quantityOptions = maxPurchaseQuantity > 0
-          ? Array.from({ length: maxPurchaseQuantity }, (_, index) => index + 1)
-          : [1];
-        const isBusy = activeEventId === ticketModalEvent.id;
-        const isSoldOut = Boolean(ticketType && ticketType.availableCount <= 0);
-        const isLimitReached = Boolean(ticketType && isMemberBookableEvent(ticketModalEvent) && !isSoldOut && maxPurchaseQuantity <= 0);
-        const isPaidEvent = Boolean(ticketType && ticketType.priceKobo > 0);
-        const purchaseNoun = isPaidEvent ? "ticket" : "spot";
-        const purchaseNounPlural = isPaidEvent ? "tickets" : "spots";
-        const selectedNoun = selectedQuantity === 1 ? purchaseNoun : purchaseNounPlural;
-        const statusCopy = !ticketType
-          ? "No ticket tiers are available for this event."
-          : isSoldOut
-            ? "This tier is sold out."
-            : isLimitReached
-              ? "You have reached the ticket limit for this tier."
-              : !isMemberBookableEvent(ticketModalEvent)
-                ? "This event is unavailable."
-                : null;
-
-        return (
-          <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-4 backdrop-blur-sm sm:p-5">
-            <button
-              className="absolute inset-0"
-              type="button"
-              onClick={() => setTicketModalEventId(null)}
-              aria-label="Close ticket selector"
-            />
-            <section
-              className="relative w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="event-ticket-modal-title"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Tickets</p>
-                  <h2 id="event-ticket-modal-title" className="mt-1 truncate text-xl font-semibold text-[#0d0d0d]">
-                    {ticketModalEvent.title}
-                  </h2>
-                  <p className="mt-1 text-sm text-[#666666]">{formatEventDate(ticketModalEvent.startsAt)}</p>
-                </div>
-                <button
-                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
-                  type="button"
-                  onClick={() => setTicketModalEventId(null)}
-                  aria-label="Close ticket selector"
-                >
-                  <X className="size-4" aria-hidden="true" />
-                </button>
-              </div>
-
-              <div className="mt-5 grid gap-3">
-                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                  Tier
-                  <select
-                    className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be] disabled:bg-[#fafafa] disabled:text-[#999999]"
-                    value={ticketType?.id ?? ""}
-                    onChange={(inputEvent) => {
-                      setSelectedTicketTypeIds((current) => ({ ...current, [ticketModalEvent.id]: inputEvent.target.value }));
-                      setBookingQuantities((current) => ({ ...current, [ticketModalEvent.id]: 1 }));
-                    }}
-                    disabled={isBusy || ticketTypes.length <= 1}
-                  >
-                    {ticketTypes.length > 0 ? (
-                      ticketTypes.map((availableTicketType) => (
-                        <option key={availableTicketType.id} value={availableTicketType.id}>
-                          {normalizeTicketTierName(availableTicketType.name)} · {formatPrice(availableTicketType.priceKobo)}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="">No tickets available</option>
-                    )}
-                  </select>
-                </label>
-
-                <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
-                  Quantity
-                  <select
-                    className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be] disabled:bg-[#fafafa] disabled:text-[#999999]"
-                    value={selectedQuantity}
-                    onChange={(inputEvent) =>
-                      setBookingQuantities((current) => ({ ...current, [ticketModalEvent.id]: Number(inputEvent.target.value) }))
-                    }
-                    disabled={isBusy || maxPurchaseQuantity <= 0}
-                  >
-                    {quantityOptions.map((quantity) => (
-                      <option key={quantity} value={quantity}>
-                        {quantity} {quantity === 1 ? purchaseNoun : purchaseNounPlural}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              {statusCopy ? (
-                <p className="mt-4 rounded-2xl bg-[#fff4d9] p-3 text-sm font-medium text-[#9a6a12]">{statusCopy}</p>
-              ) : null}
-
-              <button
-                className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                disabled={!ticketType || maxPurchaseQuantity <= 0 || isBusy}
-                onClick={() => void bookEvent(ticketModalEvent, ticketType, selectedQuantity)}
-              >
-                {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
-                {isPaidEvent ? `Buy ${selectedQuantity} ${selectedNoun}` : `Book ${selectedQuantity} ${selectedNoun}`}
-              </button>
-            </section>
-          </div>
-        );
-      })() : null}
+      {ticketModalEvent ? (
+        <TicketCheckoutModal
+          event={ticketModalEvent}
+          isGuest={isGuest}
+          isBusy={activeEventId === ticketModalEvent.id}
+          onClose={() => setTicketModalEventId(null)}
+          onSubmit={(ticketType, quantity) => void bookEvent(ticketModalEvent, ticketType, quantity)}
+        />
+      ) : null}
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
         <div className={`mb-4 grid rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium ${isGuest ? "grid-cols-2 md:max-w-xs" : "grid-cols-4 md:max-w-md"}`}>
@@ -1958,7 +1876,7 @@ export function EventsTab({
         </div>
 
         {eventViewMode === "raffles" ? (
-          <RafflesList token={token ?? null} />
+          <RafflesList token={token ?? null} initialRaffles={initialRaffles} />
         ) : (
           <>
             <div className="-mx-5 mb-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8">
@@ -2009,7 +1927,7 @@ export function EventsTab({
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {visibleMemberEvents.map((event) => {
                   const ticketTypes = getEventTicketTypes(event);
-                  const ticketType = getSelectedTicketType(event, selectedTicketTypeIds[event.id]);
+                  const ticketType = getSelectedTicketType(event, undefined);
                   const ownedTicketTypeIds = getOwnedTicketTypeIds(event);
                   const isTicketCard = eventViewMode === "tickets";
                   const isHistoryCard = eventViewMode === "history";

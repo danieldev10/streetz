@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { AccountStatus, ConnectionStatus, Gender, Prisma, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
-import { countCheckedInStandardEvents } from "../common/attendance";
+import { getCheckedInStandardEventCounts } from "../common/attendance";
 import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
@@ -188,8 +188,15 @@ export class RoomsService {
       await this.markRoomRead(userId, roomId);
     }
 
+    const attendanceByUserId = await getCheckedInStandardEventCounts(
+      this.prisma,
+      orderedMessages.map((message) => message.authorId)
+    );
+
     return {
-      messages: await Promise.all(orderedMessages.map((message) => this.formatMessage(message))),
+      messages: await Promise.all(orderedMessages.map((message) =>
+        this.formatMessage(message, attendanceByUserId.get(message.authorId) ?? 0)
+      )),
       hasMore,
       nextCursor: hasMore ? selectedMessages.at(-1)?.id ?? null : null
     };
@@ -211,10 +218,18 @@ export class RoomsService {
       orderBy: { joinedAt: "asc" }
     });
 
+    const attendanceByUserId = await getCheckedInStandardEventCounts(
+      this.prisma,
+      memberships.map((membership) => membership.userId)
+    );
+
     return {
       members: await Promise.all(
         memberships.map(async (membership) => ({
-          ...(await this.formatCandidate(membership.user)),
+          ...(await this.formatCandidate(
+            membership.user,
+            attendanceByUserId.get(membership.userId) ?? 0
+          )),
           joinedAt: membership.joinedAt
         }))
       )
@@ -333,7 +348,8 @@ export class RoomsService {
 
     await this.markRoomRead(userId, roomId);
 
-    return this.formatMessage(message);
+    const attendanceByUserId = await getCheckedInStandardEventCounts(this.prisma, [message.authorId]);
+    return this.formatMessage(message, attendanceByUserId.get(message.authorId) ?? 0);
   }
 
   async getUnreadRoomMessageCount(userId: string) {
@@ -545,23 +561,20 @@ export class RoomsService {
     };
   }
 
-  private async formatMessage(message: RoomMessageSource) {
+  private async formatMessage(message: RoomMessageSource, attendedEventCount: number) {
     return {
       id: message.id,
       roomId: message.roomId,
       authorId: message.authorId,
       authorName: message.author.displayName,
-      author: await this.formatCandidate(message.author),
+      author: await this.formatCandidate(message.author, attendedEventCount),
       body: message.body,
       createdAt: message.createdAt
     };
   }
 
-  private async formatCandidate(candidate: CandidateUser) {
-    const [photos, attendedEventCount] = await Promise.all([
-      this.storage.signPhotoUrls(candidate.photos),
-      countCheckedInStandardEvents(this.prisma, candidate.id)
-    ]);
+  private async formatCandidate(candidate: CandidateUser, attendedEventCount: number) {
+    const photos = await this.storage.signPhotoUrls(candidate.photos);
 
     return {
       id: candidate.id,

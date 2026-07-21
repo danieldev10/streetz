@@ -1,55 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
 import { Gift, Ticket, Trophy } from "lucide-react";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { StreetzRaffle } from "@/lib/types";
+import { queryKeys } from "@/lib/query-keys";
 import { CardGridSkeleton } from "@/components/card-grid-skeleton";
 import { formatCountdown, formatRafflePrice, getRaffleStatusLabel, getRaffleStatusTone } from "./raffle-format";
 
 const RAFFLE_FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=900&q=80";
 
-export function RafflesList({ token }: { token: string | null }) {
-  const [raffles, setRaffles] = useState<StreetzRaffle[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function RafflesList({ token, initialRaffles }: { token: string | null; initialRaffles?: StreetzRaffle[] }) {
   const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const path = token ? "/raffles" : "/public/raffles";
-        const response = await apiRequest<{ raffles: StreetzRaffle[] }>(path, {
-          headers: token ? authHeaders(token) : undefined
-        });
-        if (!cancelled) {
-          setRaffles(response.raffles);
-        }
-      } catch (caught) {
-        if (!cancelled) {
-          setError(getUserErrorMessage(caught));
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token, reloadKey]);
+  const scope = token ? "member" : "public";
+  const query = useQuery({
+    queryKey: [...queryKeys.raffles(scope), reloadKey],
+    queryFn: async () => {
+      const path = token ? "/raffles" : "/public/raffles";
+      const response = await apiRequest<{ raffles: StreetzRaffle[] }>(path, {
+        headers: token ? authHeaders(token) : undefined
+      });
+      return response.raffles;
+    },
+    ...(scope === "public" && initialRaffles !== undefined ? { initialData: initialRaffles } : {}),
+    staleTime: scope === "public" ? 5 * 60_000 : 30_000
+  });
+  const raffles = query.data ?? [];
+  const isLoading = query.isPending;
+  const error = query.error ? getUserErrorMessage(query.error) : null;
 
   if (isLoading) {
     return <CardGridSkeleton label="Loading raffles" imageClassName="aspect-16/10" />;

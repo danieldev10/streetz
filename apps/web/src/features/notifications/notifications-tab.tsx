@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import type { LucideIcon } from "lucide-react";
@@ -27,6 +28,7 @@ import { LoadingState } from "@/components/loading-state";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 import { formatConnectionStatus } from "@/lib/profile";
 import type {
   DiscoveryActionName,
@@ -160,37 +162,43 @@ type NotificationTabKey = "likes" | "rooms" | "events" | "notifications";
 
 export function NotificationsTab({
   token,
+  userId,
   onMatchCreated,
   onNotificationsChanged,
 }: {
   token: string;
+  userId: string;
   onMatchCreated: () => void;
   onNotificationsChanged: () => void;
 }) {
   const router = useRouter();
-  const [feed, setFeed] = useState<NotificationFeed | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
   const [viewedLiker, setViewedLiker] = useState<NotificationFeedLike | null>(null);
   const [actionTargetId, setActionTargetId] = useState<string | null>(null);
   const [activeNotificationTab, setActiveNotificationTab] = useState<NotificationTabKey>("likes");
   const submittedSeenKeysRef = useRef<Set<string>>(new Set());
+  const { data: cachedFeed, error: feedError, isFetching: isLoading, refetch: refetchFeed } = useQuery({
+    queryKey: queryKeys.notifications(userId),
+    queryFn: () => apiRequest<NotificationFeed>("/notifications/feed", {
+      headers: authHeaders(token)
+    }),
+    staleTime: 10_000,
+    refetchInterval: 30_000
+  });
+  const feed = cachedFeed ?? null;
+  const queryErrorNotice = feedError ? getUserErrorMessage(feedError) : null;
+
+  const setFeed = useCallback((updater: NotificationFeed | ((current: NotificationFeed | null) => NotificationFeed | null)) => {
+    queryClient.setQueryData<NotificationFeed | null>(queryKeys.notifications(userId), (current) =>
+      typeof updater === "function" ? updater(current ?? null) : updater
+    );
+  }, [queryClient, userId]);
 
   const loadFeed = useCallback(async () => {
-    setIsLoading(true);
     setNotice(null);
-
-    try {
-      const response = await apiRequest<NotificationFeed>("/notifications/feed", {
-        headers: authHeaders(token),
-      });
-      setFeed(response);
-    } catch (error) {
-      setNotice(getUserErrorMessage(error));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token]);
+    await refetchFeed();
+  }, [refetchFeed]);
 
   async function handleLikeAction(liker: NotificationFeedLike, action: DiscoveryActionName) {
     if (actionTargetId) return;
@@ -341,14 +349,6 @@ export function NotificationsTab({
   );
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadFeed();
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [loadFeed]);
-
-  useEffect(() => {
     const socket = io(SOCKET_URL, {
       auth: { token },
       transports: ["websocket", "polling"],
@@ -487,8 +487,8 @@ export function NotificationsTab({
       />
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        {notice ? (
-          <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p>
+        {notice ?? queryErrorNotice ? (
+          <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice ?? queryErrorNotice}</p>
         ) : null}
 
         {isLoading && !feed ? (

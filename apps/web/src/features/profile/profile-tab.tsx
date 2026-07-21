@@ -2,6 +2,7 @@
 
 import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Camera, Heart, LoaderCircle, MapPin, Power, ShieldCheck, Ticket, Trash2, UserRound, X } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
@@ -9,6 +10,7 @@ import { useSession } from "@/components/app/session-provider";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { DiscoveryPreferencesForm } from "@/features/discovery/discovery-preferences-form";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import { PROFILE_PHOTO_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
 import { DEFAULT_DISCOVERY_DISTANCE_KM, getCurrentBrowserCoordinates, getLocationPermissionMessage, type ReverseGeocodeSuggestion } from "@/lib/location";
@@ -81,13 +83,16 @@ export function ProfileTab({
   onProfileReady?: (profile: StreetzProfile) => void;
 }) {
   const { updateSessionUser, logout } = useSession();
+  const queryClient = useQueryClient();
   const isSetupMode = mode === "setup";
-  const [profile, setProfile] = useState<StreetzProfile | null>(null);
+  const [profile, setProfile] = useState<StreetzProfile | null>(
+    () => queryClient.getQueryData<StreetzProfile | null>(queryKeys.profile(user.id)) ?? null
+  );
   const [profileView, setProfileView] = useState<"overview" | "edit" | "preview">(
     isSetupMode ? "edit" : "overview"
   );
   const [activeProfilePhotoIndex, setActiveProfilePhotoIndex] = useState(0);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(profile === null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [uploadingPhotoSlot, setUploadingPhotoSlot] = useState<number | null>(null);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
@@ -99,20 +104,20 @@ export function ProfileTab({
   const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
   const [interestQuery, setInterestQuery] = useState("");
   const [profileForm, setProfileForm] = useState({
-    displayName: user.displayName,
-    bio: "",
-    birthDate: "",
-    gender: "PREFER_NOT_TO_SAY" as Gender,
-    sexuality: "" as Sexuality | "",
-    connectionStatus: "" as ConnectionStatus | "",
-    city: "",
-    state: "",
-    latitude: null as number | null,
-    longitude: null as number | null,
-    locationAccuracyMeters: null as number | null,
-    locationUpdatedAt: null as string | null,
-    maxDistanceKm: DEFAULT_DISCOVERY_DISTANCE_KM,
-    interests: "",
+    displayName: profile?.user.displayName ?? user.displayName,
+    bio: profile?.bio ?? "",
+    birthDate: profile?.birthDate ? profile.birthDate.slice(0, 10) : "",
+    gender: profile?.gender ?? "PREFER_NOT_TO_SAY" as Gender,
+    sexuality: profile?.sexuality ?? "" as Sexuality | "",
+    connectionStatus: profile?.connectionStatus ?? "" as ConnectionStatus | "",
+    city: profile?.city ?? "",
+    state: profile?.state ?? "",
+    latitude: profile?.latitude ?? null as number | null,
+    longitude: profile?.longitude ?? null as number | null,
+    locationAccuracyMeters: profile?.locationAccuracyMeters ?? null as number | null,
+    locationUpdatedAt: profile?.locationUpdatedAt ?? null as string | null,
+    maxDistanceKm: profile?.maxDistanceKm ?? DEFAULT_DISCOVERY_DISTANCE_KM,
+    interests: profile?.interests.join(", ") ?? "",
   });
 
   const profilePhotos = profile?.user.photos ?? [];
@@ -167,9 +172,9 @@ export function ProfileTab({
   }
 
   async function loadProfile(
-    options: { clearNotice?: boolean; showLoading?: boolean; syncForm?: boolean } = {},
+    options: { clearNotice?: boolean; showLoading?: boolean; syncForm?: boolean; force?: boolean } = {},
   ) {
-    const { clearNotice = true, showLoading = true, syncForm = true } = options;
+    const { clearNotice = true, showLoading = true, syncForm = true, force = false } = options;
 
     if (showLoading) {
       setIsLoadingProfile(true);
@@ -180,8 +185,16 @@ export function ProfileTab({
     }
 
     try {
-      const profileResponse = await apiRequest<StreetzProfile | null>("/profiles/me", {
-        headers: authHeaders(token),
+      if (force) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.profile(user.id), exact: true });
+      }
+
+      const profileResponse = await queryClient.fetchQuery({
+        queryKey: queryKeys.profile(user.id),
+        queryFn: () => apiRequest<StreetzProfile | null>("/profiles/me", {
+          headers: authHeaders(token)
+        }),
+        staleTime: 5 * 60_000
       });
 
       setProfile(profileResponse);
@@ -213,7 +226,7 @@ export function ProfileTab({
 
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, user.id]);
 
   useEffect(() => {
     if (!setupNotice) {
@@ -352,6 +365,7 @@ export function ProfileTab({
       });
 
       setProfile(savedProfile);
+      queryClient.setQueryData(queryKeys.profile(user.id), savedProfile);
       syncProfileForm(savedProfile);
       updateSessionUser((currentUser) => ({
         ...currentUser,
@@ -371,7 +385,7 @@ export function ProfileTab({
 
       setProfileView("overview");
       setNotice("Profile saved.");
-      void loadProfile({ clearNotice: false, showLoading: false });
+      void loadProfile({ clearNotice: false, showLoading: false, force: true });
     } catch (error) {
       setNotice(getUserErrorMessage(error));
     } finally {
@@ -517,7 +531,7 @@ export function ProfileTab({
 
       setActiveProfilePhotoIndex(Math.min(sortOrder, PROFILE_PHOTO_LIMIT - 1));
       setNotice(isReplacingPhoto ? "Photo updated." : "Photo added to your profile.");
-      await loadProfile({ clearNotice: false, showLoading: false, syncForm: false });
+      await loadProfile({ clearNotice: false, showLoading: false, syncForm: false, force: true });
     } catch (error) {
       const message = getUserErrorMessage(error);
       setNotice(
@@ -562,7 +576,7 @@ export function ProfileTab({
         return currentIndex;
       });
       setNotice("Photo removed from your profile.");
-      await loadProfile({ clearNotice: false, showLoading: false, syncForm: false });
+      await loadProfile({ clearNotice: false, showLoading: false, syncForm: false, force: true });
     } catch (error) {
       setNotice(getUserErrorMessage(error));
     } finally {
