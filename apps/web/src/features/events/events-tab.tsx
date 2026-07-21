@@ -48,7 +48,7 @@ import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import { EVENT_IMAGE_UPLOAD_MAX_BYTES, prepareImageForUpload } from "@/lib/image-upload";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
 import { queryKeys } from "@/lib/query-keys";
-import type { EventStatus, StreetzEvent, StreetzEventTicketType, StreetzProfile, StreetzRaffle, StreetzUser, TicketStatus } from "@/lib/types";
+import type { EventBookingAccess, EventStatus, StreetzEvent, StreetzEventTicketType, StreetzProfile, StreetzRaffle, StreetzUser, TicketStatus } from "@/lib/types";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
@@ -68,7 +68,7 @@ const EVENT_CATEGORY_OPTIONS = [
   "Community",
 ] as const;
 const SUPPORTED_EVENT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["PAID", "CHECKED_IN"]);
+const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["CONFIRMED", "PAID", "CHECKED_IN"]);
 const EVENT_TITLE_MAX_LENGTH = 120;
 const EVENT_DESCRIPTION_MAX_LENGTH = 600;
 const EVENT_CATEGORY_MAX_LENGTH = 40;
@@ -113,6 +113,7 @@ type EventForm = {
   startsAt: string;
   endsAt: string;
   status: EventStatus;
+  bookingAccess: EventBookingAccess;
   ticketTiers: Record<EventTicketTierName, EventFormTicketTier>;
 };
 
@@ -134,6 +135,7 @@ const emptyEventForm: EventForm = {
   startsAt: "",
   endsAt: "",
   status: "DRAFT",
+  bookingAccess: "PUBLIC",
   ticketTiers: {
     Regular: {
       priceNaira: "",
@@ -169,12 +171,14 @@ const eventCategoryIcons: Record<EventCategoryName, LucideIcon> = {
 };
 
 function formatEventDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-NG", {
     weekday: "short",
     day: "numeric",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
+    timeZone: "Africa/Lagos",
   }).format(new Date(value));
 }
 
@@ -438,6 +442,7 @@ function getEventForm(event: StreetzEvent): EventForm {
     startsAt: toDateTimeLocal(event.startsAt),
     endsAt: toDateTimeLocal(event.endsAt),
     status: event.status,
+    bookingAccess: event.bookingAccess,
     ticketTiers,
   };
 }
@@ -471,7 +476,7 @@ export function EventsTab({
   const [historyEvents, setHistoryEvents] = useState<StreetzEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(cachedInitialEvents === undefined);
   const initialPublicEventsPendingRef = useRef(initialEvents !== undefined);
-  const [eventViewMode, setEventViewMode] = useState<EventViewMode>("raffles");
+  const [eventViewMode, setEventViewMode] = useState<EventViewMode>("events");
   const filterInitializedRef = useRef(false);
   const [adminEventView, setAdminEventView] = useState<AdminEventView>(adminMode === "list" ? "list" : "form");
   const [editingEventId, setEditingEventId] = useState<string | null>(adminMode === "edit" ? adminEventId : null);
@@ -996,6 +1001,7 @@ export function EventsTab({
       startsAt: new Date(startsAtTime).toISOString(),
       endsAt: endsAtTime !== null ? new Date(endsAtTime).toISOString() : undefined,
       status: eventForm.status,
+      bookingAccess: paidTicketTypes.length > 0 ? "MEMBERS_ONLY" : "PUBLIC",
       ticketTypes: ticketTypesPayload,
     };
 
@@ -1452,6 +1458,14 @@ export function EventsTab({
                   })}
                 </div>
               </div>
+              <div className="rounded-[20px] border border-black/8 p-4">
+                <span>
+                  <span className="block text-sm font-semibold text-[#0d0d0d]">Guest booking</span>
+                  <span className="mt-1 block text-xs leading-5 text-[#666666]">
+                    Free events automatically allow verified-email guest booking. Paid events remain members-only.
+                  </span>
+                </span>
+              </div>
             </div>
 
             <button
@@ -1843,6 +1857,13 @@ export function EventsTab({
         <div className={`mb-4 grid rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium ${isGuest ? "grid-cols-2 md:max-w-xs" : "grid-cols-4 md:max-w-md"}`}>
           <button
             type="button"
+            className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+            onClick={() => setEventViewMode("events")}
+          >
+            Events
+          </button>
+          <button
+            type="button"
             className={`rounded-full px-3 py-2 ${eventViewMode === "raffles" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
             onClick={() => setEventViewMode("raffles")}
           >
@@ -1857,13 +1878,6 @@ export function EventsTab({
               Tickets
             </button>
           ) : null}
-          <button
-            type="button"
-            className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-            onClick={() => setEventViewMode("events")}
-          >
-            Events
-          </button>
           {!isGuest ? (
             <button
               type="button"

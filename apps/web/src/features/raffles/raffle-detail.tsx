@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, CalendarClock, Gift, LoaderCircle, Minus, Plus, Ticket, Trophy } from "lucide-react";
+import { ArrowLeft, CalendarClock, Gift, LoaderCircle, Minus, Plus, Share2, Ticket, Trophy } from "lucide-react";
+import { useToast } from "@/components/app/toast-provider";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
+import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import type { AuthPromptKind } from "@/components/app/public-route";
 import { LoadingState } from "@/components/loading-state";
 import { clearPendingRaffleCheckout, getPendingRaffleCheckout, savePendingRaffleCheckout } from "@/lib/pending-raffle-checkout";
@@ -30,6 +32,7 @@ export function RaffleDetail({
   initialRaffle?: StreetzRaffle | null;
   onAuthRequired: (kind?: AuthPromptKind) => void;
 }) {
+  const { showToast } = useToast();
   const queryClient = useQueryClient();
   const raffleScope = token ? "member" : "public";
   const cachedInitialRaffle = initialRaffle ?? queryClient.getQueryData<StreetzRaffle>(queryKeys.raffle(raffleId, raffleScope));
@@ -141,6 +144,22 @@ export function RaffleDetail({
     }
   }
 
+  async function shareRaffle(currentRaffle: StreetzRaffle) {
+    try {
+      const result = await shareOrCopyLink({
+        title: currentRaffle.raffle.prize.title,
+        text: `Enter the ${currentRaffle.raffle.prize.title} raffle on Crushclub.`,
+        url: getAbsoluteAppUrl(`/events/raffles/${currentRaffle.id}`)
+      });
+
+      if (result === "copied") {
+        showToast("Raffle link copied.");
+      }
+    } catch {
+      showToast("Could not share this raffle right now.", { tone: "error" });
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="px-5 pb-24 pt-6 md:px-8 md:pb-8">
@@ -165,10 +184,20 @@ export function RaffleDetail({
 
   return (
     <div className="px-5 pb-28 pt-6 md:px-8 md:pb-10">
-      <Link href="/events" className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-[#666666] hover:text-[#0d0d0d]">
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        Back to events
-      </Link>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Link href="/events" className="inline-flex items-center gap-2 text-sm font-medium text-[#666666] hover:text-[#0d0d0d]">
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Back to events
+        </Link>
+        <button
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-black/8 bg-white px-4 text-sm font-medium text-[#0d0d0d]"
+          type="button"
+          onClick={() => void shareRaffle(raffle)}
+        >
+          <Share2 className="size-4" aria-hidden="true" />
+          Share
+        </button>
+      </div>
 
       <div className="overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
         <div className="relative aspect-16/10 bg-[#f6e0f6] md:aspect-21/9">

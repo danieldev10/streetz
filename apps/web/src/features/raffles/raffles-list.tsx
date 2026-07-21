@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
-import { Gift, Ticket, Trophy } from "lucide-react";
+import { Gift, Share2, Ticket, Trophy } from "lucide-react";
+import { useToast } from "@/components/app/toast-provider";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import type { StreetzRaffle } from "@/lib/types";
 import { queryKeys } from "@/lib/query-keys";
 import { CardGridSkeleton } from "@/components/card-grid-skeleton";
@@ -15,6 +17,7 @@ const RAFFLE_FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=900&q=80";
 
 export function RafflesList({ token, initialRaffles }: { token: string | null; initialRaffles?: StreetzRaffle[] }) {
+  const { showToast } = useToast();
   const [reloadKey, setReloadKey] = useState(0);
   const scope = token ? "member" : "public";
   const query = useQuery({
@@ -32,6 +35,22 @@ export function RafflesList({ token, initialRaffles }: { token: string | null; i
   const raffles = query.data ?? [];
   const isLoading = query.isPending;
   const error = query.error ? getUserErrorMessage(query.error) : null;
+
+  async function shareRaffle(raffle: StreetzRaffle) {
+    try {
+      const result = await shareOrCopyLink({
+        title: raffle.raffle.prize.title,
+        text: `Enter the ${raffle.raffle.prize.title} raffle on Crushclub.`,
+        url: getAbsoluteAppUrl(`/events/raffles/${raffle.id}`)
+      });
+
+      if (result === "copied") {
+        showToast("Raffle link copied.");
+      }
+    } catch {
+      showToast("Could not share this raffle right now.", { tone: "error" });
+    }
+  }
 
   if (isLoading) {
     return <CardGridSkeleton label="Loading raffles" imageClassName="aspect-16/10" />;
@@ -69,13 +88,13 @@ export function RafflesList({ token, initialRaffles }: { token: string | null; i
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {raffles.map((raffle) => (
-        <RaffleCard key={raffle.id} raffle={raffle} />
+        <RaffleCard key={raffle.id} raffle={raffle} onShare={() => void shareRaffle(raffle)} />
       ))}
     </div>
   );
 }
 
-function RaffleCard({ raffle }: { raffle: StreetzRaffle }) {
+function RaffleCard({ raffle, onShare }: { raffle: StreetzRaffle; onShare: () => void }) {
   const { raffle: details } = raffle;
   const image = details.prize.image || raffle.coverImage || RAFFLE_FALLBACK_IMAGE;
   const countdown =
@@ -87,9 +106,10 @@ function RaffleCard({ raffle }: { raffle: StreetzRaffle }) {
   const countdownLabel = details.status === "SCHEDULED" ? "Opens in" : "Closes in";
 
   return (
+    <article className="relative overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
     <Link
       href={`/events/raffles/${raffle.id}`}
-      className="group flex flex-col overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+      className="group flex h-full flex-col"
     >
       <div className="relative aspect-16/10 bg-[#f6e0f6]">
         <Image src={image} alt={details.prize.title} fill sizes="(max-width: 768px) 100vw, 400px" className="object-cover" />
@@ -129,5 +149,15 @@ function RaffleCard({ raffle }: { raffle: StreetzRaffle }) {
         </div>
       </div>
     </Link>
+      <button
+        className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-white/90 text-[#0d0d0d] shadow-sm backdrop-blur transition hover:bg-white"
+        type="button"
+        onClick={onShare}
+        aria-label={`Share ${details.prize.title} raffle`}
+        title="Share raffle"
+      >
+        <Share2 className="size-4" aria-hidden="true" />
+      </button>
+    </article>
   );
 }

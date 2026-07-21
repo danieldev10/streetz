@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { EventKind, EventStatus, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
+import { EventBookingAccess, EventKind, EventStatus, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
@@ -80,6 +80,7 @@ export class EventsService {
     this.assertCreatableEventStatus(dto.status ?? EventStatus.DRAFT);
 
     const ticketTypes = this.buildTicketTypeInputs(dto);
+    const bookingAccess = this.resolveBookingAccess(dto.bookingAccess, ticketTypes);
 
     const event = await this.prisma.event.create({
       data: {
@@ -94,6 +95,7 @@ export class EventsService {
         startsAt,
         endsAt,
         status: dto.status ?? EventStatus.DRAFT,
+        bookingAccess,
         ticketTypes: {
           create: ticketTypes
         }
@@ -159,6 +161,7 @@ export class EventsService {
       dto.capacity !== undefined ||
       dto.maxTicketsPerUser !== undefined;
     const ticketTypes = shouldSyncTicketTypes ? this.buildTicketTypeInputs(dto, event.ticketTypes) : null;
+    const bookingAccess = this.resolveBookingAccess(dto.bookingAccess, ticketTypes ?? event.ticketTypes, event.bookingAccess);
 
     if (dto.status !== undefined) {
       await this.assertEventStatusTransition(event, dto.status);
@@ -195,6 +198,7 @@ export class EventsService {
           ...(startsAt !== undefined ? { startsAt } : {}),
           ...(dto.endsAt !== undefined ? { endsAt } : {}),
           ...(dto.status !== undefined ? { status: dto.status } : {}),
+          ...((dto.bookingAccess !== undefined || ticketTypes !== null) ? { bookingAccess } : {}),
           ...(isCancellingEvent ? { cancellationReason, cancelledAt: new Date() } : {})
         },
         include: {
@@ -898,6 +902,23 @@ export class EventsService {
     return REGULAR_TICKET_NAME;
   }
 
+  private resolveBookingAccess(
+    requestedAccess: EventBookingAccess | undefined,
+    ticketTypes: Array<{ priceKobo: number }>,
+    _currentAccess?: EventBookingAccess
+  ) {
+    const hasPaidTickets = ticketTypes.some((ticketType) => ticketType.priceKobo > 0);
+    if (hasPaidTickets) {
+      if (requestedAccess === EventBookingAccess.PUBLIC) {
+        throw new BadRequestException("Guest booking is only available for free events.");
+      }
+
+      return EventBookingAccess.MEMBERS_ONLY;
+    }
+
+    return EventBookingAccess.PUBLIC;
+  }
+
   private async formatEvent(
     event: EventSource,
     options: { includeAdminCounts?: boolean; includeUserTickets?: boolean; ticketTypeCounts?: Map<string, TicketTypeCounts> }
@@ -939,6 +960,11 @@ export class EventsService {
       startsAt: event.startsAt,
       endsAt: event.endsAt,
       status: event.status,
+      // Free events are always guest-bookable. Deriving this for responses also
+      // repairs the experience for free events created before this invariant.
+      bookingAccess: formattedTicketTypes.every((ticketType) => ticketType.priceKobo <= 0)
+        ? EventBookingAccess.PUBLIC
+        : EventBookingAccess.MEMBERS_ONLY,
       cancellationReason: event.cancellationReason,
       cancelledAt: event.cancelledAt,
       ticketType,

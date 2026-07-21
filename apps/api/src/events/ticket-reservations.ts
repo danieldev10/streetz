@@ -1,7 +1,11 @@
 import { Prisma, TicketStatus } from "@prisma/client";
 
 export const DEFAULT_TICKET_RESERVATION_MINUTES = 15;
-export const CONFIRMED_TICKET_STATUSES: TicketStatus[] = [TicketStatus.PAID, TicketStatus.CHECKED_IN];
+export const CONFIRMED_TICKET_STATUSES: TicketStatus[] = [
+  TicketStatus.CONFIRMED,
+  TicketStatus.PAID,
+  TicketStatus.CHECKED_IN
+];
 
 export function getReservationExpiry(now = new Date(), minutes = DEFAULT_TICKET_RESERVATION_MINUTES) {
   return new Date(now.getTime() + minutes * 60_000);

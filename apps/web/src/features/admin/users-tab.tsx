@@ -289,7 +289,7 @@ function UserDetailView({
             items={user.tickets.map((t) => ({
               key: t.id,
               icon: Ticket,
-              iconCls: t.status === "PAID" || t.status === "CHECKED_IN" ? "text-[#bd40be]" : "text-[#888888]",
+              iconCls: t.status === "CONFIRMED" || t.status === "PAID" || t.status === "CHECKED_IN" ? "text-[#bd40be]" : "text-[#888888]",
               primary: t.eventTitle,
               secondary: `${t.code} · ${t.ticketTypeName} · ${formatNaira(t.priceKobo)} · ${t.status}`,
               time: t.createdAt,

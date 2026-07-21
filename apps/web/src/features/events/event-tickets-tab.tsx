@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, CheckCircle2, LoaderCircle, MapPin, Share2, Ticket } from "lucide-react";
@@ -12,21 +13,27 @@ import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { consumePendingEventCheckoutNotice, savePendingEventCheckout } from "@/lib/pending-event-checkout";
 import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import type { StreetzEvent, StreetzEventTicket, StreetzEventTicketType, StreetzUser, TicketStatus } from "@/lib/types";
+import type { GuestTicketBooking } from "@/features/events/ticket-checkout-modal";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
-const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["PAID", "CHECKED_IN"]);
+const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["CONFIRMED", "PAID", "CHECKED_IN"]);
 const MAX_TICKETS_PER_PURCHASE = 20;
 const EVENT_TICKET_TIER_NAMES = ["Regular", "VIP", "Tables"] as const;
 type EventTicketTierName = (typeof EVENT_TICKET_TIER_NAMES)[number];
+const TicketCheckoutModal = dynamic(() =>
+  import("@/features/events/ticket-checkout-modal").then((module) => module.TicketCheckoutModal)
+);
 
 function formatEventDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-NG", {
     weekday: "short",
     day: "numeric",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
+    timeZone: "Africa/Lagos",
   }).format(new Date(value));
 }
 
@@ -117,7 +124,7 @@ function getTicketState(ticket: StreetzEventTicket) {
     };
   }
 
-  if (ticket.status === "PAID") {
+  if (ticket.status === "PAID" || ticket.status === "CONFIRMED") {
     return {
       label: "Unused",
       tone: "bg-[#f6e0f6] text-[#7c1f7d]",
@@ -153,6 +160,7 @@ export function EventTicketsTab({
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [bookingQuantity, setBookingQuantity] = useState(1);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string | null>(null);
+  const [isGuestCheckoutOpen, setIsGuestCheckoutOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const { showToast } = useToast();
 
@@ -265,6 +273,11 @@ export function EventTicketsTab({
     }
 
     if (isGuest) {
+      if (selectedTicketType.priceKobo <= 0) {
+        setIsGuestCheckoutOpen(true);
+        return;
+      }
+
       savePendingEventCheckout({ eventId: event.id, ticketTypeId: selectedTicketType.id, quantity: safeQuantity });
       onAuthRequired?.("eventTicket");
       return;
@@ -308,8 +321,43 @@ export function EventTicketsTab({
     }
   }
 
+  function applyGuestBooking(booking: GuestTicketBooking) {
+    setEvent((current) => {
+      if (!current || current.id !== booking.event.id) {
+        return current;
+      }
+
+      const bookedCount = booking.tickets.length;
+      const updateTicketType = (ticketType: StreetzEventTicketType) => ticketType.id === booking.ticketType.id
+        ? {
+            ...ticketType,
+            soldCount: ticketType.soldCount + bookedCount,
+            availableCount: Math.max(0, ticketType.availableCount - bookedCount)
+          }
+        : ticketType;
+
+      return {
+        ...current,
+        ticketTypes: current.ticketTypes.map(updateTicketType),
+        ticketType: current.ticketType ? updateTicketType(current.ticketType) : null
+      };
+    });
+  }
+
   return (
     <section>
+      {isGuestCheckoutOpen && event ? (
+        <TicketCheckoutModal
+          event={event}
+          isGuest
+          isBusy={false}
+          initialTicketTypeId={selectedTicketType?.id}
+          initialQuantity={selectedQuantity}
+          onClose={() => setIsGuestCheckoutOpen(false)}
+          onSubmit={() => undefined}
+          onGuestBooked={applyGuestBooking}
+        />
+      ) : null}
       <ScreenHeader
         eyebrow={isGuest ? "Event" : "Tickets"}
         title=""

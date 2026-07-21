@@ -96,6 +96,11 @@ enum EventKind {
   RAFFLE
 }
 
+enum EventBookingAccess {
+  MEMBERS_ONLY
+  PUBLIC
+}
+
 enum RaffleStatus {
   SCHEDULED
   SELLING
@@ -111,6 +116,7 @@ enum RaffleEntryStatus {
 
 enum TicketStatus {
   RESERVED
+  CONFIRMED
   PAID
   CHECKED_IN
   CANCELLED
@@ -500,6 +506,7 @@ model Event {
   coverImage         String?
   category           String
   kind               EventKind    @default(STANDARD)
+  bookingAccess      EventBookingAccess @default(MEMBERS_ONLY)
   venue              String
   state              String?
   city               String
@@ -513,6 +520,8 @@ model Event {
   ticketTypes        TicketType[]
   tickets            Ticket[]
   raffleDraw         RaffleDraw?
+  guestTicketRequests GuestTicketRequest[]
+  guestTicketOrders   GuestTicketOrder[]
 
   @@index([category, status, startsAt])
   @@index([kind, status, startsAt])
@@ -529,6 +538,8 @@ model TicketType {
   soldCount           Int      @default(0)
   createdAt           DateTime @default(now())
   tickets             Ticket[]
+  guestTicketRequests GuestTicketRequest[]
+  guestTicketOrders   GuestTicketOrder[]
 
   @@unique([eventId, name])
 }
@@ -536,10 +547,12 @@ model TicketType {
 model Ticket {
   id           String       @id @default(cuid())
   eventId      String
-  userId       String
+  userId       String?
+  guestOrderId String?
   ticketTypeId String
   event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestOrder   GuestTicketOrder? @relation(fields: [guestOrderId], references: [id], onDelete: Cascade)
   ticketType   TicketType   @relation(fields: [ticketTypeId], references: [id])
   code         String       @unique
   status       TicketStatus @default(RESERVED)
@@ -549,8 +562,44 @@ model Ticket {
 
   @@index([eventId, status])
   @@index([userId, status])
+  @@index([guestOrderId, status])
   @@index([status, reservedUntil])
   @@index([ticketTypeId, status, reservedUntil])
+}
+
+model GuestTicketRequest {
+  id           String     @id @default(cuid())
+  eventId      String
+  ticketTypeId String
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticketType   TicketType @relation(fields: [ticketTypeId], references: [id], onDelete: Cascade)
+  email        String
+  displayName  String
+  quantity     Int
+  codeHash     String
+  attempts     Int        @default(0)
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@index([email, eventId, ticketTypeId, createdAt])
+  @@index([expiresAt, consumedAt])
+}
+
+model GuestTicketOrder {
+  id              String     @id @default(cuid())
+  eventId         String
+  ticketTypeId    String
+  event           Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticketType      TicketType @relation(fields: [ticketTypeId], references: [id], onDelete: Restrict)
+  email           String
+  displayName     String
+  manageTokenHash String     @unique
+  createdAt       DateTime   @default(now())
+  tickets         Ticket[]
+
+  @@index([email, eventId, ticketTypeId])
+  @@index([eventId, createdAt])
 }
 
 model RaffleDraw {

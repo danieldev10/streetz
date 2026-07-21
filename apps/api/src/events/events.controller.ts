@@ -9,16 +9,22 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/roles.decorator";
 import { AuthUser } from "../auth/types/auth-user";
 import { BookEventDto } from "./dto/book-event.dto";
+import { ConfirmGuestTicketDto } from "./dto/confirm-guest-ticket.dto";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { PresignEventImageDto } from "./dto/presign-event-image.dto";
+import { RequestGuestTicketDto } from "./dto/request-guest-ticket.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { EventsService } from "./events.service";
+import { GuestTicketsService } from "./guest-tickets.service";
 
 @ApiTags("events")
 @ApiBearerAuth()
 @Controller()
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly guestTicketsService: GuestTicketsService
+  ) {}
 
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   @Get("public/events")
@@ -30,6 +36,18 @@ export class EventsController {
   @Get("public/events/:eventId")
   getPublicEvent(@Param("eventId") eventId: string) {
     return this.eventsService.getPublicEvent(eventId);
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post("public/events/:eventId/guest-tickets/request")
+  requestGuestTicket(@Param("eventId") eventId: string, @Body() dto: RequestGuestTicketDto) {
+    return this.guestTicketsService.requestVerification(eventId, dto);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post("public/events/:eventId/guest-tickets/confirm")
+  confirmGuestTicket(@Param("eventId") eventId: string, @Body() dto: ConfirmGuestTicketDto) {
+    return this.guestTicketsService.confirmBooking(eventId, dto);
   }
 
   @Get("events")

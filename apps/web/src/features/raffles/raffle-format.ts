@@ -71,6 +71,7 @@ export function formatCountdown(targetIso: string, now = Date.now()) {
 export function formatRaffleDate(iso: string) {
   return new Intl.DateTimeFormat("en-NG", {
     dateStyle: "medium",
-    timeStyle: "short"
+    timeStyle: "short",
+    timeZone: "Africa/Lagos"
   }).format(new Date(iso));
 }

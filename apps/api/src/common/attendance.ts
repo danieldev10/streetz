@@ -37,6 +37,10 @@ export async function getCheckedInStandardEventCounts(client: AttendanceClient, 
   });
 
   for (const attendance of attendedEvents) {
+    if (!attendance.userId) {
+      continue;
+    }
+
     counts.set(attendance.userId, (counts.get(attendance.userId) ?? 0) + 1);
   }
 

@@ -147,7 +147,8 @@ export type RoomMember = DiscoveryCandidate & {
 };
 
 export type EventStatus = "DRAFT" | "PUBLISHED" | "CANCELLED" | "COMPLETED";
-export type TicketStatus = "RESERVED" | "PAID" | "CHECKED_IN" | "CANCELLED" | "REFUNDED";
+export type TicketStatus = "RESERVED" | "CONFIRMED" | "PAID" | "CHECKED_IN" | "CANCELLED" | "REFUNDED";
+export type EventBookingAccess = "MEMBERS_ONLY" | "PUBLIC";
 export type PaymentPurpose =
   | "SUBSCRIPTION"
   | "EVENT_TICKET"
@@ -195,6 +196,7 @@ export type StreetzEvent = {
   startsAt: string;
   endsAt: string | null;
   status: EventStatus;
+  bookingAccess: EventBookingAccess;
   cancellationReason: string | null;
   cancelledAt: string | null;
   ticketType: StreetzEventTicketType | null;

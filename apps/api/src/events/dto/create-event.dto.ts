@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { EventStatus } from "@prisma/client";
+import { EventBookingAccess, EventStatus } from "@prisma/client";
 import { Type } from "class-transformer";
 import {
   ArrayMaxSize,
@@ -113,6 +113,15 @@ export class CreateEventDto {
   @IsOptional()
   @IsEnum(EventStatus)
   status?: EventStatus;
+
+  @ApiPropertyOptional({
+    enum: EventBookingAccess,
+    example: EventBookingAccess.PUBLIC,
+    description: "PUBLIC allows verified-email guest booking and is only valid for free events."
+  })
+  @IsOptional()
+  @IsEnum(EventBookingAccess)
+  bookingAccess?: EventBookingAccess;
 
   @ApiPropertyOptional({ type: [EventTicketTierDto], description: "Regular, VIP, and Tables ticket tier settings." })
   @IsOptional()
