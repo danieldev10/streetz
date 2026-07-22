@@ -733,13 +733,30 @@ export class DiscoveryService {
       return transaction.$queryRaw<SpatialCandidateRow[]>(Prisma.sql`
         WITH origin AS (
           SELECT ST_SetSRID(ST_MakePoint(${profile.longitude}, ${profile.latitude}), 4326)::geography AS geog
+        ), nearby_profiles AS MATERIALIZED (
+          SELECT
+            candidate_profile."userId",
+            ST_Distance(candidate_profile."location", origin.geog) AS distance_meters
+          FROM origin
+          JOIN "Profile" AS candidate_profile ON TRUE
+          WHERE candidate_profile."bio" IS NOT NULL
+            AND candidate_profile."birthDate" IS NOT NULL
+            AND candidate_profile."birthDate" > ${minBirthDate}
+            AND candidate_profile."birthDate" <= ${maxBirthDate}
+            AND candidate_profile."discoveryGender" = ANY(ARRAY[${Prisma.join(profile.interestedInGenders)}]::"DiscoveryGender"[])
+            AND candidate_profile."city" IS NOT NULL
+            AND candidate_profile."state" IS NOT NULL
+            AND candidate_profile."connectionStatus" IS NOT NULL
+            AND candidate_profile."discoveryLive" = TRUE
+            AND cardinality(candidate_profile."interests") > 0
+            AND candidate_profile."location" IS NOT NULL
+            ${hasDistanceLimit ? Prisma.sql`AND ST_DWithin(candidate_profile."location", origin.geog, ${maxDistanceMeters})` : Prisma.sql``}
         )
         SELECT
           candidate."id",
-          (ST_Distance(candidate_profile."location", origin.geog) / 1000.0)::double precision AS "distanceKm"
-        FROM origin
-        JOIN "User" AS candidate ON TRUE
-        JOIN "Profile" AS candidate_profile ON candidate_profile."userId" = candidate."id"
+          (nearby_profiles.distance_meters / 1000.0)::double precision AS "distanceKm"
+        FROM nearby_profiles
+        JOIN "User" AS candidate ON candidate."id" = nearby_profiles."userId"
         JOIN "DiscoveryPreference" AS candidate_preference ON candidate_preference."userId" = candidate."id"
         WHERE candidate."id" NOT IN (${Prisma.join(excludedIdList)})
           AND candidate."accountStatus" = CAST(${AccountStatus.ACTIVE} AS "AccountStatus")
@@ -747,28 +764,16 @@ export class DiscoveryService {
           AND candidate."role" = CAST(${UserRole.USER} AS "UserRole")
           AND candidate."subscriptionStatus" = CAST(${SubscriptionStatus.ACTIVE} AS "SubscriptionStatus")
           AND candidate."subscriptionEndsAt" > ${now}
-          AND candidate_profile."bio" IS NOT NULL
-          AND candidate_profile."birthDate" IS NOT NULL
-          AND candidate_profile."birthDate" > ${minBirthDate}
-          AND candidate_profile."birthDate" <= ${maxBirthDate}
-          AND candidate_profile."discoveryGender" = ANY(ARRAY[${Prisma.join(profile.interestedInGenders)}]::"DiscoveryGender"[])
           AND candidate_preference."interestedInGenders" @> ARRAY[${profile.discoveryGender}::"DiscoveryGender"]
           AND candidate_preference."confirmedAt" IS NOT NULL
           AND candidate_preference."minAge" <= ${viewerAge}
           AND candidate_preference."maxAge" >= ${viewerAge}
-          AND candidate_profile."city" IS NOT NULL
-          AND candidate_profile."state" IS NOT NULL
-          AND candidate_profile."connectionStatus" IS NOT NULL
-          AND candidate_profile."discoveryLive" = TRUE
-          AND cardinality(candidate_profile."interests") > 0
-          AND candidate_profile."location" IS NOT NULL
           AND EXISTS (
             SELECT 1
             FROM "ProfilePhoto" AS photo
             WHERE photo."userId" = candidate."id"
           )
-          ${hasDistanceLimit ? Prisma.sql`AND ST_DWithin(candidate_profile."location", origin.geog, ${maxDistanceMeters})` : Prisma.sql``}
-        ORDER BY ST_Distance(candidate_profile."location", origin.geog) ASC, candidate."lastDiscoveryActiveAt" DESC
+        ORDER BY nearby_profiles.distance_meters ASC, candidate."lastDiscoveryActiveAt" DESC
         LIMIT ${DISCOVERY_POOL_SIZE}
       `);
     });

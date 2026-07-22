@@ -5,6 +5,8 @@ import type { StreetzEvent } from "@/lib/types";
 
 type EventPageProps = { params: Promise<{ eventId: string }> };
 
+export const revalidate = 60;
+
 export async function generateMetadata({ params }: EventPageProps): Promise<Metadata> {
   const { eventId } = await params;
   const event = await publicApiRequest<StreetzEvent>(`/public/events/${eventId}`);

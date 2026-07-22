@@ -531,30 +531,23 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
     if (!sellable) {
       // Paid, but the raffle is no longer accepting entries: record for manual refund, still grant membership if bundled.
-      const subscriptionUser = await this.prisma.$transaction(async (transaction) => {
-        await transaction.payment.update({
-          where: { providerReference: reference },
-          data: {
-            status: PaymentStatus.SUCCESS,
-            providerMetadata: {
-              ...metadata,
-              paystack: paystackData,
-              refundRequired: true,
-              refundReason: "Raffle is no longer accepting entries."
-            }
-          }
-        });
+      const settlement = await this.settleRefundRequired(
+        reference,
+        metadata,
+        paystackData,
+        "Raffle is no longer accepting entries.",
+        now
+      );
 
-        return this.activateMembershipIfNeeded(transaction, payment, now);
-      });
+      if (settlement.newlyProcessed) this.logRefundRequired(payment, "Raffle is no longer accepting entries.");
 
       return {
         status: PaymentStatus.SUCCESS,
         refundRequired: true,
         message:
           "Payment received, but this raffle is no longer accepting entries. Refunds are being processed and we will contact you by email.",
-        subscriptionStatus: includesMembership ? subscriptionUser?.subscriptionStatus : undefined,
-        subscriptionEndsAt: includesMembership ? subscriptionUser?.subscriptionEndsAt : undefined
+        subscriptionStatus: includesMembership ? settlement.subscriptionUser?.subscriptionStatus : undefined,
+        subscriptionEndsAt: includesMembership ? settlement.subscriptionUser?.subscriptionEndsAt : undefined
       };
     }
 
@@ -562,56 +555,106 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException("Raffle not found.");
     }
 
-    await this.prisma.$transaction(
+    const activation = await this.prisma.$transaction(
       async (transaction) => {
+        await transaction.$queryRaw`SELECT id FROM "Payment" WHERE "providerReference" = ${reference} FOR UPDATE`;
+        const currentPayment = await transaction.payment.findUniqueOrThrow({
+          where: { providerReference: reference },
+          include: { user: true }
+        });
+        const currentMetadata = this.getProviderMetadata(currentPayment.providerMetadata);
+
+        if (currentPayment.status === PaymentStatus.SUCCESS) {
+          return {
+            refundRequired: currentMetadata.refundRequired === true,
+            subscriptionUser: includesMembership ? currentPayment.user : null,
+            newlyProcessed: false
+          };
+        }
+
         // Serialize entry minting per raffle so ticket numbers stay sequential and gap-free.
         await transaction.$queryRaw`SELECT id FROM "RaffleDraw" WHERE id = ${raffleDrawId} FOR UPDATE`;
+        const fresh = await transaction.raffleDraw.findUniqueOrThrow({
+          where: { id: raffleDrawId },
+          include: { event: true }
+        });
+        const stillSellable =
+          fresh.status !== RaffleStatus.DRAWN &&
+          fresh.status !== RaffleStatus.CANCELLED &&
+          fresh.event.status === EventStatus.PUBLISHED &&
+          now <= fresh.salesEndsAt;
+
+        if (!stillSellable) {
+          await transaction.payment.update({
+            where: { id: currentPayment.id },
+            data: {
+              status: PaymentStatus.SUCCESS,
+              providerMetadata: {
+                ...currentMetadata,
+                paystack: paystackData,
+                refundRequired: true,
+                refundReason: "Raffle is no longer accepting entries."
+              }
+            }
+          });
+
+          return {
+            refundRequired: true,
+            subscriptionUser: await this.activateMembershipIfNeeded(transaction, currentPayment, now),
+            newlyProcessed: true
+          };
+        }
 
         const existingEntries = await transaction.raffleEntry.findMany({
-          where: { paymentId: payment.id },
+          where: { paymentId: currentPayment.id },
           select: { id: true },
           take: 1
         });
 
-        if (existingEntries.length > 0) {
-          return;
+        if (existingEntries.length === 0) {
+          const startNumber = fresh.nextEntryNumber;
+
+          await transaction.raffleEntry.createMany({
+            data: Array.from({ length: quantity }, (_unused, index) => ({
+              raffleDrawId,
+              userId: currentPayment.userId,
+              paymentId: currentPayment.id,
+              number: startNumber + index,
+              status: RaffleEntryStatus.PAID
+            }))
+          });
+
+          await transaction.raffleDraw.update({
+            where: { id: raffleDrawId },
+            data: { nextEntryNumber: startNumber + quantity }
+          });
         }
 
-        const fresh = await transaction.raffleDraw.findUniqueOrThrow({
-          where: { id: raffleDrawId },
-          select: { nextEntryNumber: true }
-        });
-        const startNumber = fresh.nextEntryNumber;
-
-        await transaction.raffleEntry.createMany({
-          data: Array.from({ length: quantity }, (_unused, index) => ({
-            raffleDrawId,
-            userId: payment.userId,
-            paymentId: payment.id,
-            number: startNumber + index,
-            status: RaffleEntryStatus.PAID
-          }))
-        });
-
-        await transaction.raffleDraw.update({
-          where: { id: raffleDrawId },
-          data: { nextEntryNumber: startNumber + quantity }
-        });
-      },
-      { timeout: RAFFLE_MINT_TRANSACTION_TIMEOUT_MS }
-    );
-
-    const subscriptionUser = await this.prisma.$transaction(
-      async (transaction) => {
         await transaction.payment.update({
-          where: { providerReference: reference },
-          data: { status: PaymentStatus.SUCCESS, providerMetadata: { ...metadata, paystack: paystackData } }
+          where: { id: currentPayment.id },
+          data: { status: PaymentStatus.SUCCESS, providerMetadata: { ...currentMetadata, paystack: paystackData } }
         });
 
-        return this.activateMembershipIfNeeded(transaction, payment, now);
+        return {
+          refundRequired: false,
+          subscriptionUser: await this.activateMembershipIfNeeded(transaction, currentPayment, now),
+          newlyProcessed: true
+        };
       },
       { timeout: RAFFLE_MINT_TRANSACTION_TIMEOUT_MS }
     );
+
+    if (activation.refundRequired) {
+      if (activation.newlyProcessed) this.logRefundRequired(payment, "Raffle is no longer accepting entries.");
+      return {
+        status: PaymentStatus.SUCCESS,
+        refundRequired: true,
+        message:
+          "Payment received, but this raffle is no longer accepting entries. Refunds are being processed and we will contact you by email.",
+        subscriptionStatus: includesMembership ? activation.subscriptionUser?.subscriptionStatus : undefined,
+        subscriptionEndsAt: includesMembership ? activation.subscriptionUser?.subscriptionEndsAt : undefined
+      };
+    }
 
     const entries = await this.prisma.raffleEntry.findMany({
       where: { paymentId: payment.id },
@@ -623,8 +666,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       raffle: { id: draw.event.id, title: draw.event.title, prizeTitle: draw.prizeTitle, drawsAt: draw.drawsAt },
       entries: entries.map((entry) => this.formatRaffleEntry(entry)),
       entryNumbers: entries.map((entry) => entry.number),
-      subscriptionStatus: includesMembership ? subscriptionUser?.subscriptionStatus : undefined,
-      subscriptionEndsAt: includesMembership ? subscriptionUser?.subscriptionEndsAt : undefined
+      subscriptionStatus: includesMembership ? activation.subscriptionUser?.subscriptionStatus : undefined,
+      subscriptionEndsAt: includesMembership ? activation.subscriptionUser?.subscriptionEndsAt : undefined
     };
   }
 
@@ -708,7 +751,16 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     const reference = event.data?.reference;
 
     if (reference && ["charge.success", "transaction.success", "transaction.successful"].includes(event.event ?? "")) {
-      await this.verifyPaymentReference(reference);
+      try {
+        await this.verifyPaymentReference(reference);
+      } catch (error) {
+        this.logger.error({
+          event: "payment_webhook_processing_failed",
+          providerReference: reference,
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
+        throw error;
+      }
     }
 
     return { received: true };
@@ -885,29 +937,22 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         throw new BadRequestException("Verified payment amount or currency does not match this event ticket.");
       }
 
-      const subscriptionUser = await this.prisma.$transaction(async (transaction) => {
-        await transaction.payment.update({
-          where: { providerReference: reference },
-          data: {
-            status: PaymentStatus.SUCCESS,
-            providerMetadata: {
-              ...metadata,
-              paystack: paystackData,
-              refundRequired: true,
-              refundReason: "Ticket reservation is no longer available."
-            }
-          }
-        });
+      const settlement = await this.settleRefundRequired(
+        reference,
+        metadata,
+        paystackData,
+        "Ticket reservation is no longer available.",
+        new Date()
+      );
 
-        return this.activateMembershipIfNeeded(transaction, payment, new Date());
-      });
+      if (settlement.newlyProcessed) this.logRefundRequired(payment, "Ticket reservation is no longer available.");
 
       return {
         status: PaymentStatus.SUCCESS,
         refundRequired: true,
         message: refundMessage,
-        subscriptionStatus: subscriptionUser?.subscriptionStatus,
-        subscriptionEndsAt: subscriptionUser?.subscriptionEndsAt
+        subscriptionStatus: settlement.subscriptionUser?.subscriptionStatus,
+        subscriptionEndsAt: settlement.subscriptionUser?.subscriptionEndsAt
       };
     }
 
@@ -962,70 +1007,113 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     const eventIsBookable = this.isBookableEvent(ticket.event, now);
 
     if (!eventIsBookable && !CONFIRMED_TICKET_STATUSES.includes(ticket.status)) {
-      const subscriptionUser = await this.prisma.$transaction(async (transaction) => {
-        await transaction.payment.update({
-          where: { providerReference: reference },
-          data: {
-            status: PaymentStatus.SUCCESS,
-            providerMetadata: {
-              ...metadata,
-              paystack: paystackData,
-              refundRequired: true,
-              refundReason: "Event is no longer available."
-            }
-          }
-        });
+      const settlement = await this.settleRefundRequired(
+        reference,
+        metadata,
+        paystackData,
+        "Event is no longer available.",
+        now,
+        ticketIds
+      );
 
-        await transaction.ticket.deleteMany({ where: { id: { in: ticketIds } } });
-
-        return this.activateMembershipIfNeeded(transaction, payment, now);
-      });
+      if (settlement.newlyProcessed) this.logRefundRequired(payment, "Event is no longer available.");
 
       return {
         status: PaymentStatus.SUCCESS,
         refundRequired: true,
         message: "Payment received, but this event is no longer available. Refunds are being processed and we will contact you by email.",
         ticket: this.formatTicket({ ...ticket, status: TicketStatus.CANCELLED }),
-        subscriptionStatus: subscriptionUser?.subscriptionStatus,
-        subscriptionEndsAt: subscriptionUser?.subscriptionEndsAt
+        subscriptionStatus: settlement.subscriptionUser?.subscriptionStatus,
+        subscriptionEndsAt: settlement.subscriptionUser?.subscriptionEndsAt
       };
     }
 
-    const reservationWasActive =
-      orderedTickets.every((item) => item.status === TicketStatus.RESERVED && item.reservedUntil !== null && item.reservedUntil > now);
-    const ticketQuantity = orderedTickets.filter((item) => !CONFIRMED_TICKET_STATUSES.includes(item.status)).length;
-
     const activation = await this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Payment" WHERE "providerReference" = ${reference} FOR UPDATE`;
+      const currentPayment = await transaction.payment.findUniqueOrThrow({
+        where: { providerReference: reference },
+        include: { user: true }
+      });
+      const currentMetadata = this.getProviderMetadata(currentPayment.providerMetadata);
+      const currentTickets = await transaction.ticket.findMany({
+        where: { id: { in: ticketIds } },
+        include: { ticketType: true, event: true }
+      });
+      const currentOrderedTickets = ticketIds
+        .map((ticketId) => currentTickets.find((item) => item.id === ticketId))
+        .filter((item): item is (typeof currentTickets)[number] => Boolean(item));
+
+      if (currentPayment.status === PaymentStatus.SUCCESS) {
+        return {
+          tickets: currentOrderedTickets,
+          expiredSoldOut: currentOrderedTickets.length === 0,
+          refundRequired: currentMetadata.refundRequired === true,
+          message: currentMetadata.refundRequired === true ? String(currentMetadata.refundReason ?? "Refund required.") : undefined,
+          subscriptionUser: includesMembership ? currentPayment.user : null,
+          newlyProcessed: false
+        };
+      }
+
       await this.lockTicketType(transaction, ticket.ticketTypeId);
+      const currentTicket = currentOrderedTickets[0];
+
+      if (!currentTicket || currentOrderedTickets.length !== ticketIds.length) {
+        await transaction.payment.update({
+          where: { id: currentPayment.id },
+          data: {
+            status: PaymentStatus.SUCCESS,
+            providerMetadata: {
+              ...currentMetadata,
+              paystack: paystackData,
+              refundRequired: true,
+              refundReason: "Ticket reservation is no longer available."
+            }
+          }
+        });
+
+        return {
+          tickets: [],
+          expiredSoldOut: true,
+          refundRequired: true,
+          message: "Payment received, but this ticket reservation is no longer available. Refunds are being processed and we will contact you by email.",
+          subscriptionUser: await this.activateMembershipIfNeeded(transaction, currentPayment, now),
+          newlyProcessed: true
+        };
+      }
+
+      const reservationWasActive = currentOrderedTickets.every(
+        (item) => item.status === TicketStatus.RESERVED && item.reservedUntil !== null && item.reservedUntil > now
+      );
+      const ticketQuantity = currentOrderedTickets.filter((item) => !CONFIRMED_TICKET_STATUSES.includes(item.status)).length;
 
       await transaction.payment.update({
         where: { providerReference: reference },
         data: {
           status: PaymentStatus.SUCCESS,
           providerMetadata: {
-            ...metadata,
+            ...currentMetadata,
             paystack: paystackData
           }
         }
       });
-      const subscriptionUser = await this.activateMembershipIfNeeded(transaction, payment, now);
+      const subscriptionUser = await this.activateMembershipIfNeeded(transaction, currentPayment, now);
 
       const userOwnedTickets = await transaction.ticket.count({
         where: {
           id: { notIn: ticketIds },
-          userId: ticket.userId,
-          eventId: ticket.eventId,
-          ticketTypeId: ticket.ticketTypeId,
+          userId: currentTicket.userId,
+          eventId: currentTicket.eventId,
+          ticketTypeId: currentTicket.ticketTypeId,
           status: { in: CONFIRMED_TICKET_STATUSES }
         }
       });
 
-      if (userOwnedTickets + ticketQuantity > ticket.ticketType.maxTicketsPerUser) {
+      if (userOwnedTickets + ticketQuantity > currentTicket.ticketType.maxTicketsPerUser) {
         await transaction.payment.update({
           where: { providerReference: reference },
           data: {
             providerMetadata: {
-              ...metadata,
+              ...currentMetadata,
               paystack: paystackData,
               refundRequired: true,
               refundReason: "Ticket purchase limit exceeded."
@@ -1039,24 +1127,25 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           expiredSoldOut: true,
           refundRequired: true,
           message: "Payment received, but this purchase would exceed the ticket limit for this ticket tier. Refunds are being processed and we will contact you by email.",
-          subscriptionUser
+          subscriptionUser,
+          newlyProcessed: true
         };
       }
 
       if (!reservationWasActive) {
         const activeTickets = await transaction.ticket.count({
           where: {
-            ticketTypeId: ticket.ticketTypeId,
+            ticketTypeId: currentTicket.ticketTypeId,
             ...getActiveTicketWhere(now)
           }
         });
 
-        if (activeTickets + ticketQuantity > ticket.ticketType.capacity) {
+        if (activeTickets + ticketQuantity > currentTicket.ticketType.capacity) {
           await transaction.payment.update({
             where: { providerReference: reference },
             data: {
               providerMetadata: {
-                ...metadata,
+                ...currentMetadata,
                 paystack: paystackData,
                 refundRequired: true,
                 refundReason: "Ticket reservation expired or event sold out."
@@ -1070,7 +1159,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
             expiredSoldOut: true,
             refundRequired: true,
             message: "Payment received, but the reservation expired and this event is now sold out. Refunds are being processed and we will contact you by email.",
-            subscriptionUser
+            subscriptionUser,
+            newlyProcessed: true
           };
         }
       }
@@ -1092,7 +1182,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
       if (ticketQuantity > 0) {
         await transaction.ticketType.update({
-          where: { id: ticket.ticketTypeId },
+          where: { id: currentTicket.ticketTypeId },
           data: { soldCount: { increment: ticketQuantity } }
         });
       }
@@ -1103,11 +1193,15 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           .filter((item): item is (typeof paidTickets)[number] => Boolean(item)),
         expiredSoldOut: false,
         refundRequired: false,
-        subscriptionUser
+        subscriptionUser,
+        newlyProcessed: true
       };
     });
 
     if (activation.refundRequired) {
+      if (activation.newlyProcessed) {
+        this.logRefundRequired(payment, activation.message ?? "Ticket activation could not be completed.");
+      }
       return {
         status: PaymentStatus.SUCCESS,
         refundRequired: true,
@@ -1228,22 +1322,20 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         }
       });
 
-      const [activeTickets, userOwnedTickets] = await Promise.all([
-        transaction.ticket.count({
-          where: {
-            ticketTypeId: ticketType.id,
-            ...getActiveTicketWhere(now)
-          }
-        }),
-        transaction.ticket.count({
-          where: {
-            userId,
-            eventId,
-            ticketTypeId: ticketType.id,
-            status: { in: CONFIRMED_TICKET_STATUSES }
-          }
-        })
-      ]);
+      const activeTickets = await transaction.ticket.count({
+        where: {
+          ticketTypeId: ticketType.id,
+          ...getActiveTicketWhere(now)
+        }
+      });
+      const userOwnedTickets = await transaction.ticket.count({
+        where: {
+          userId,
+          eventId,
+          ticketTypeId: ticketType.id,
+          status: { in: CONFIRMED_TICKET_STATUSES }
+        }
+      });
 
       this.assertTicketPurchaseAvailability({
         quantity,
@@ -1253,9 +1345,11 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         maxTicketsPerUser: ticketType.maxTicketsPerUser
       });
 
-      return Promise.all(
-        Array.from({ length: quantity }, () =>
-          transaction.ticket.create({
+      const reservedTickets = [];
+
+      for (let index = 0; index < quantity; index += 1) {
+        reservedTickets.push(
+          await transaction.ticket.create({
             data: {
               eventId,
               userId,
@@ -1265,8 +1359,10 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
               reservedUntil
             }
           })
-        )
-      );
+        );
+      }
+
+      return reservedTickets;
     });
     const ticketIds = tickets.map((ticket) => ticket.id);
     const primaryTicket = tickets[0];
@@ -1361,6 +1457,50 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
   private purposeIncludesMembership(purpose: PaymentPurpose) {
     return purpose === PaymentPurpose.MEMBERSHIP_EVENT_TICKET || purpose === PaymentPurpose.MEMBERSHIP_RAFFLE_TICKET;
+  }
+
+  private settleRefundRequired(
+    reference: string,
+    metadata: Record<string, unknown>,
+    paystackData: PaystackVerifyResponse["data"],
+    reason: string,
+    now: Date,
+    ticketIds: string[] = []
+  ) {
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Payment" WHERE "providerReference" = ${reference} FOR UPDATE`;
+      const currentPayment = await transaction.payment.findUniqueOrThrow({
+        where: { providerReference: reference },
+        include: { user: true }
+      });
+
+      if (currentPayment.status === PaymentStatus.SUCCESS) {
+        return {
+          newlyProcessed: false,
+          subscriptionUser: this.purposeIncludesMembership(currentPayment.purpose) ? currentPayment.user : null
+        };
+      }
+
+      await transaction.payment.update({
+        where: { id: currentPayment.id },
+        data: {
+          status: PaymentStatus.SUCCESS,
+          providerMetadata: {
+            ...metadata,
+            paystack: paystackData,
+            refundRequired: true,
+            refundReason: reason
+          }
+        }
+      });
+
+      if (ticketIds.length > 0) await transaction.ticket.deleteMany({ where: { id: { in: ticketIds } } });
+
+      return {
+        newlyProcessed: true,
+        subscriptionUser: await this.activateMembershipIfNeeded(transaction, currentPayment, now)
+      };
+    });
   }
 
   private activateMembershipIfNeeded(
@@ -1515,6 +1655,20 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
   private async lockTicketType(client: Prisma.TransactionClient, ticketTypeId: string) {
     await client.$queryRaw`SELECT id FROM "TicketType" WHERE id = ${ticketTypeId} FOR UPDATE`;
+  }
+
+  private logRefundRequired(
+    payment: { id: string; userId: string; purpose: PaymentPurpose; providerReference: string },
+    reason: string
+  ) {
+    this.logger.error({
+      event: "payment_refund_required",
+      paymentId: payment.id,
+      providerReference: payment.providerReference,
+      userId: payment.userId,
+      purpose: payment.purpose,
+      reason
+    });
   }
 
   private getBookableEventWhere(now: Date): Prisma.EventWhereInput {

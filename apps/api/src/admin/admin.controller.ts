@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@prisma/client";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -8,6 +9,7 @@ import { Roles } from "../auth/roles.decorator";
 import { AuthUser } from "../auth/types/auth-user";
 import { NotificationsGateway } from "../notifications/notifications.gateway";
 import { AdminService } from "./admin.service";
+import { CheckInTicketDto } from "./dto/check-in-ticket.dto";
 import { ModerateReportUserDto } from "./dto/moderate-report-user.dto";
 import { UpdateReportStatusDto } from "./dto/update-report-status.dto";
 
@@ -35,6 +37,12 @@ export class AdminController {
   @Get("users/:userId")
   getUserActivity(@Param("userId") userId: string) {
     return this.adminService.getUserActivity(userId);
+  }
+
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  @Post("events/:eventId/check-in")
+  checkInTicket(@Param("eventId") eventId: string, @Body() dto: CheckInTicketDto) {
+    return this.adminService.checkInTicket(eventId, dto.code);
   }
 
   @Get("reports")

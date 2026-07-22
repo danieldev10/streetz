@@ -113,7 +113,7 @@ export class GuestTicketsService {
 
     const manageToken = randomBytes(48).toString("base64url");
     const now = new Date();
-    const booking = await this.prisma.$transaction(async (transaction) => {
+    const bookingId = await this.prisma.$transaction(async (transaction) => {
       await transaction.$queryRaw`SELECT id FROM "TicketType" WHERE id = ${initialRequest.ticketTypeId} FOR UPDATE`;
 
       const request = await transaction.guestTicketRequest.findUnique({
@@ -140,22 +140,20 @@ export class GuestTicketsService {
       });
       if (existingOrder) throw this.existingBookingError();
 
-      const [activeTickets, guestOwnedTickets] = await Promise.all([
-        transaction.ticket.count({
-          where: {
-            ticketTypeId: request.ticketTypeId,
-            ...getActiveTicketWhere(now)
-          }
-        }),
-        transaction.ticket.count({
-          where: {
-            eventId: request.eventId,
-            ticketTypeId: request.ticketTypeId,
-            status: { in: CONFIRMED_TICKET_STATUSES },
-            guestOrder: { email: request.email }
-          }
-        })
-      ]);
+      const activeTickets = await transaction.ticket.count({
+        where: {
+          ticketTypeId: request.ticketTypeId,
+          ...getActiveTicketWhere(now)
+        }
+      });
+      const guestOwnedTickets = await transaction.ticket.count({
+        where: {
+          eventId: request.eventId,
+          ticketTypeId: request.ticketTypeId,
+          status: { in: CONFIRMED_TICKET_STATUSES },
+          guestOrder: { email: request.email }
+        }
+      });
 
       assertGuestTicketAvailability({
         quantity: request.quantity,
@@ -179,28 +177,25 @@ export class GuestTicketsService {
         throw this.invalidCodeError();
       }
 
-      const order = await transaction.guestTicketOrder.create({
+      const createdOrder = await transaction.guestTicketOrder.create({
         data: {
           eventId: request.eventId,
           ticketTypeId: request.ticketTypeId,
           email: request.email,
           displayName: request.displayName,
           manageTokenHash: this.hashManageToken(manageToken),
-          bookingKey: this.createBookingKey(request.eventId, request.email),
-          tickets: {
-            create: Array.from({ length: request.quantity }, () => ({
-              eventId: request.eventId,
-              ticketTypeId: request.ticketTypeId,
-              code: this.createTicketCode(),
-              status: TicketStatus.CONFIRMED
-            }))
-          }
-        },
-        include: {
-          event: true,
-          ticketType: true,
-          tickets: { orderBy: { createdAt: "asc" } }
+          bookingKey: this.createBookingKey(request.eventId, request.email)
         }
+      });
+
+      await transaction.ticket.createMany({
+        data: Array.from({ length: request.quantity }, () => ({
+          eventId: request.eventId,
+          guestOrderId: createdOrder.id,
+          ticketTypeId: request.ticketTypeId,
+          code: this.createTicketCode(),
+          status: TicketStatus.CONFIRMED
+        }))
       });
 
       await transaction.ticketType.update({
@@ -208,12 +203,20 @@ export class GuestTicketsService {
         data: { soldCount: { increment: request.quantity } }
       });
 
-      return order;
+      return createdOrder.id;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }).catch((error: unknown) => {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         throw this.existingBookingError();
       }
       throw error;
+    });
+    const booking = await this.prisma.guestTicketOrder.findUniqueOrThrow({
+      where: { id: bookingId },
+      include: {
+        event: true,
+        ticketType: true,
+        tickets: { orderBy: { createdAt: "asc" } }
+      }
     });
 
     const manageUrl = this.createManageUrl(booking.id, manageToken);

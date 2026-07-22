@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Header, Param, Post, Put, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@prisma/client";
@@ -19,12 +19,14 @@ export class RafflesController {
   constructor(private readonly rafflesService: RafflesService) {}
 
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Header("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60")
   @Get("public/raffles")
   getPublicRaffles() {
     return this.rafflesService.getPublicRaffles();
   }
 
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Header("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60")
   @Get("public/raffles/:eventId")
   getPublicRaffle(@Param("eventId") eventId: string) {
     return this.rafflesService.getPublicRaffle(eventId);

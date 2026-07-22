@@ -5,9 +5,11 @@ import type { StreetzRaffle } from "@/lib/types";
 
 type RafflePageProps = { params: Promise<{ raffleId: string }> };
 
+export const revalidate = 30;
+
 export async function generateMetadata({ params }: RafflePageProps): Promise<Metadata> {
   const { raffleId } = await params;
-  const raffle = await publicApiRequest<StreetzRaffle>(`/public/raffles/${raffleId}`, 60);
+  const raffle = await publicApiRequest<StreetzRaffle>(`/public/raffles/${raffleId}`, 30);
 
   if (!raffle) return { title: "Raffle unavailable | crushclub" };
 
@@ -35,7 +37,7 @@ export async function generateMetadata({ params }: RafflePageProps): Promise<Met
 
 export default async function RaffleDetailPage({ params }: RafflePageProps) {
   const { raffleId } = await params;
-  const raffle = await publicApiRequest<StreetzRaffle>(`/public/raffles/${raffleId}`, 60);
+  const raffle = await publicApiRequest<StreetzRaffle>(`/public/raffles/${raffleId}`, 30);
 
   return <RafflePageClient raffleId={raffleId} initialRaffle={raffle} />;
 }

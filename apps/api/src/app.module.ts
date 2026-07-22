@@ -1,6 +1,7 @@
-import { Module } from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD } from "@nestjs/core";
+import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
@@ -16,12 +17,16 @@ import { RafflesModule } from "./raffles/raffles.module";
 import { RoomsModule } from "./rooms/rooms.module";
 import { UsersModule } from "./users/users.module";
 import { VerificationModule } from "./verification/verification.module";
+import { validateEnvironment } from "./config/environment.validation";
+import { RequestLoggingMiddleware } from "./observability/request-logging.middleware";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true
+      isGlobal: true,
+      validate: validateEnvironment
     }),
+    SentryModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         ttl: 60_000,
@@ -45,9 +50,17 @@ import { VerificationModule } from "./verification/verification.module";
   ],
   providers: [
     {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter
+    },
+    {
       provide: APP_GUARD,
       useClass: ThrottlerGuard
     }
   ]
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestLoggingMiddleware).forRoutes("*");
+  }
+}

@@ -1,3 +1,4 @@
+import "./observability/instrument";
 import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
@@ -6,9 +7,13 @@ import compression = require("compression");
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { RedisIoAdapter } from "./realtime/redis-io.adapter";
+import { StructuredLogger } from "./observability/structured-logger";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+    ...(process.env.NODE_ENV === "production" ? { logger: new StructuredLogger() } : {})
+  });
   const config = app.get(ConfigService);
   const webAppUrl = config.getOrThrow<string>("WEB_APP_URL");
 

@@ -8,6 +8,7 @@ import {
   PaymentStatus,
   ReportStatus,
   SubscriptionStatus,
+  TicketStatus,
   UserRole
 } from "@prisma/client";
 import { calculateAge } from "../common/age";
@@ -80,6 +81,25 @@ type AdminReportForFormat = {
   };
 };
 
+type CheckInTicketRow = {
+  id: string;
+  code: string;
+  status: TicketStatus;
+  checkedInAt: Date | null;
+  eventId: string;
+  eventTitle: string;
+  eventStatus: EventStatus;
+  eventStartsAt: Date;
+  ticketTypeId: string;
+  ticketTypeName: string;
+  userId: string | null;
+  userDisplayName: string | null;
+  userEmail: string | null;
+  guestOrderId: string | null;
+  guestDisplayName: string | null;
+  guestEmail: string | null;
+};
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -87,6 +107,67 @@ export class AdminService {
     private readonly storage: StorageService,
     private readonly usersService: UsersService
   ) {}
+
+  async checkInTicket(eventId: string, rawCode: string) {
+    const code = rawCode.trim().toUpperCase();
+
+    return this.prisma.$transaction(async (transaction) => {
+      const [ticket] = await transaction.$queryRaw<CheckInTicketRow[]>`
+        SELECT
+          ticket.id,
+          ticket.code,
+          ticket.status,
+          ticket."checkedInAt",
+          event.id AS "eventId",
+          event.title AS "eventTitle",
+          event.status AS "eventStatus",
+          event."startsAt" AS "eventStartsAt",
+          ticket_type.id AS "ticketTypeId",
+          ticket_type.name AS "ticketTypeName",
+          member.id AS "userId",
+          member."displayName" AS "userDisplayName",
+          member.email AS "userEmail",
+          guest_order.id AS "guestOrderId",
+          guest_order."displayName" AS "guestDisplayName",
+          guest_order.email AS "guestEmail"
+        FROM "Ticket" ticket
+        JOIN "Event" event ON event.id = ticket."eventId"
+        JOIN "TicketType" ticket_type ON ticket_type.id = ticket."ticketTypeId"
+        LEFT JOIN "User" member ON member.id = ticket."userId"
+        LEFT JOIN "GuestTicketOrder" guest_order ON guest_order.id = ticket."guestOrderId"
+        WHERE ticket.code = ${code}
+        FOR UPDATE OF ticket
+      `;
+
+      if (!ticket || ticket.eventId !== eventId) {
+        throw new NotFoundException("Ticket not found for this event.");
+      }
+
+      if (ticket.eventStatus === EventStatus.CANCELLED) {
+        throw new BadRequestException("Tickets for a cancelled event cannot be checked in.");
+      }
+
+      if (ticket.status === TicketStatus.CHECKED_IN) {
+        return { ticket: this.formatCheckedInTicketRow(ticket), alreadyCheckedIn: true };
+      }
+
+      if (ticket.status !== TicketStatus.PAID && ticket.status !== TicketStatus.CONFIRMED) {
+        throw new BadRequestException("This ticket is not valid for check-in.");
+      }
+
+      const checkedInAt = new Date();
+      const checkedInTicket = await transaction.ticket.update({
+        where: { id: ticket.id },
+        data: { status: TicketStatus.CHECKED_IN, checkedInAt },
+        select: { status: true, checkedInAt: true }
+      });
+
+      return {
+        ticket: this.formatCheckedInTicketRow({ ...ticket, ...checkedInTicket }),
+        alreadyCheckedIn: false
+      };
+    });
+  }
 
   async getMetrics() {
     const now = new Date();
@@ -662,6 +743,29 @@ export class AdminService {
           revokedAt: s.revokedAt
         }))
       }
+    };
+  }
+
+  private formatCheckedInTicketRow(ticket: CheckInTicketRow) {
+    const holder = ticket.userId
+      ? { kind: "MEMBER" as const, id: ticket.userId, displayName: ticket.userDisplayName, email: ticket.userEmail }
+      : ticket.guestOrderId
+        ? { kind: "GUEST" as const, id: ticket.guestOrderId, displayName: ticket.guestDisplayName, email: ticket.guestEmail }
+        : null;
+
+    return {
+      id: ticket.id,
+      code: ticket.code,
+      status: ticket.status,
+      checkedInAt: ticket.checkedInAt,
+      event: {
+        id: ticket.eventId,
+        title: ticket.eventTitle,
+        status: ticket.eventStatus,
+        startsAt: ticket.eventStartsAt
+      },
+      ticketType: { id: ticket.ticketTypeId, name: ticket.ticketTypeName },
+      holder
     };
   }
 

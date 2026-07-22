@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Header, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@prisma/client";
@@ -27,12 +27,14 @@ export class EventsController {
   ) {}
 
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Header("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600")
   @Get("public/events")
   getPublicEvents() {
     return this.eventsService.getPublicEvents();
   }
 
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Header("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300")
   @Get("public/events/:eventId")
   getPublicEvent(@Param("eventId") eventId: string) {
     return this.eventsService.getPublicEvent(eventId);

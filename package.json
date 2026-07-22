@@ -12,7 +12,9 @@
     "api:lint": "npm --prefix apps/api run lint",
     "api:prisma:generate": "npm --prefix apps/api run prisma:generate",
     "api:prisma:migrate": "npm --prefix apps/api run prisma:migrate",
-    "api:smoke:attendance": "npm --prefix apps/api run smoke:attendance --"
+    "api:smoke:attendance": "npm --prefix apps/api run smoke:attendance --",
+    "measure:production": "node scripts/measure-production.mjs",
+    "smoke:production": "node scripts/production-smoke.mjs"
   },
   "engines": {
     "node": ">=22.13.0 <23",

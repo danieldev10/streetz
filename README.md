@@ -28,7 +28,9 @@ After pulling schema changes, apply migrations before starting the API:
 
 ```bash
 npm run api:prisma:generate
-npm run api:prisma:migrate
+npm --prefix apps/api run prisma:deploy
 ```
 
 Existing profiles receive conservative suggested preferences but must confirm them before using Discovery.
+
+Use `prisma:migrate` only while authoring a new migration against a disposable development database. Deployment, monitoring, smoke-test, and backup procedures are in [OPERATIONS.md](OPERATIONS.md).

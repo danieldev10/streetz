@@ -3,12 +3,14 @@
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
 import { ArrowLeft, CheckCheck, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
+import { queryKeys } from "@/lib/query-keys";
 import type { DirectMessage, DiscoveryCandidate, MatchThread, StreetzUser } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
@@ -72,6 +74,15 @@ type MatchUnmatchedEvent = {
 };
 
 const DIRECT_MESSAGE_MAX_LENGTH = 1000;
+const DIRECT_MESSAGE_CACHE_LIMIT = 100;
+
+function mergeCachedDirectMessages(current: DirectMessage[] | undefined, incoming: DirectMessage[]) {
+  const byId = new Map((current ?? []).map((message) => [message.id, message]));
+  for (const message of incoming) byId.set(message.id, message);
+  return [...byId.values()]
+    .sort((first, second) => getDirectMessageTime(first) - getDirectMessageTime(second))
+    .slice(-DIRECT_MESSAGE_CACHE_LIMIT);
+}
 
 function OpeningMatchShell({
   notice,
@@ -141,21 +152,24 @@ export function MatchesTab({
   onNotificationsChanged: () => void;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const initialCachedMessages = initialSelectedMatchId
+    ? queryClient.getQueryData<DirectMessage[]>(queryKeys.directMessages(user.id, initialSelectedMatchId))
+    : undefined;
   const [matches, setMatches] = useState<MatchThread[]>(initialMatches);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(initialSelectedMatchId);
   const [viewedMatchProfile, setViewedMatchProfile] = useState<DiscoveryCandidate | null>(null);
-  const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const [messages, setMessages] = useState<DirectMessage[]>(initialCachedMessages ?? []);
   const [messageBody, setMessageBody] = useState("");
   const [selectedGifUrl, setSelectedGifUrl] = useState<string | null>(null);
   const [matchSearch, setMatchSearch] = useState("");
   const [isLoadingMatches, setIsLoadingMatches] = useState(initialMatches.length === 0);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(Boolean(initialSelectedMatchId && initialCachedMessages === undefined));
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "offline">("connecting");
   const [notice, setNotice] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const selectedMatchIdRef = useRef<string | null>(selectedMatchId);
-  const directMessageIdsRef = useRef<Set<string>>(new Set());
   const messageScrollerRef = useRef<HTMLDivElement | null>(null);
   const onMatchesLoadedRef = useRef(onMatchesLoaded);
   const onNotificationsChangedRef = useRef(onNotificationsChanged);
@@ -227,7 +241,6 @@ export function MatchesTab({
     setSelectedMatchId(null);
     setViewedMatchProfile(null);
     setMessages([]);
-    directMessageIdsRef.current = new Set();
     setMessageBody("");
     setSelectedGifUrl(null);
     setNotice(null);
@@ -259,34 +272,60 @@ export function MatchesTab({
   }
 
   async function loadMessages(matchId: string) {
-    setIsLoadingMessages(true);
+    const queryKey = queryKeys.directMessages(user.id, matchId);
+    const cachedMessages = queryClient.getQueryData<DirectMessage[]>(queryKey);
+    const hasCachedMessages = cachedMessages !== undefined;
+
+    if (hasCachedMessages && selectedMatchIdRef.current === matchId) {
+      setMessages(cachedMessages);
+    }
+
+    setIsLoadingMessages(!hasCachedMessages);
+    setNotice(null);
 
     try {
-      const response = await apiRequest<{ messages: DirectMessage[] }>(`/matches/${matchId}/messages`, {
-        headers: authHeaders(token),
+      const nextMessages = await queryClient.fetchQuery({
+        queryKey,
+        queryFn: async () => {
+          const response = await apiRequest<{ messages: DirectMessage[] }>(`/matches/${matchId}/messages`, {
+            headers: authHeaders(token),
+          });
+          return mergeCachedDirectMessages(queryClient.getQueryData<DirectMessage[]>(queryKey), response.messages);
+        },
+        staleTime: 30_000,
       });
-      setMessages(response.messages);
-      directMessageIdsRef.current = new Set(response.messages.map((message) => message.id));
+
+      if (selectedMatchIdRef.current === matchId) {
+        setMessages(nextMessages);
+      }
       clearMatchUnread(matchId);
       onNotificationsChangedRef.current();
     } catch (error) {
-      setNotice(getUserErrorMessage(error));
+      if (!hasCachedMessages) setNotice(getUserErrorMessage(error));
     } finally {
-      setIsLoadingMessages(false);
+      if (selectedMatchIdRef.current === matchId) setIsLoadingMessages(false);
     }
   }
 
   function upsertMessage(message: DirectMessage, options: { appendToMessages?: boolean } = {}) {
     const { appendToMessages = true } = options;
-
-    if (appendToMessages) {
-      if (directMessageIdsRef.current.has(message.id)) {
-        return;
+    const queryKey = queryKeys.directMessages(user.id, message.matchId);
+    let isNewMessage = true;
+    const nextCachedMessages = queryClient.setQueryData<DirectMessage[]>(queryKey, (current) => {
+      if (current?.some((candidate) => candidate.id === message.id)) {
+        isNewMessage = false;
+        return current;
       }
+      return mergeCachedDirectMessages(current, [message]);
+    });
 
-      directMessageIdsRef.current.add(message.id);
-      setMessages((current) => [...current, message]);
+    if (appendToMessages && nextCachedMessages) {
+      setMessages(nextCachedMessages);
+    } else if (!appendToMessages) {
+      void queryClient.invalidateQueries({ queryKey, exact: true, refetchType: "none" });
     }
+
+    if (!isNewMessage) return;
 
     setMatches((current) => {
       const nextMatches = current.map((match) => {
@@ -322,10 +361,12 @@ export function MatchesTab({
     }
 
     const readMessageIds = new Set(receipt.messageIds);
-
-    setMessages((current) =>
-      current.map((message) => (readMessageIds.has(message.id) ? { ...message, readAt: receipt.readAt } : message))
+    const queryKey = queryKeys.directMessages(user.id, receipt.matchId);
+    const nextCachedMessages = queryClient.setQueryData<DirectMessage[]>(queryKey, (current) =>
+      current?.map((message) => (readMessageIds.has(message.id) ? { ...message, readAt: receipt.readAt } : message))
     );
+
+    if (receipt.matchId === selectedMatchIdRef.current && nextCachedMessages) setMessages(nextCachedMessages);
     setMatches((current) =>
       current.map((match) =>
         match.id === receipt.matchId && match.lastMessage && readMessageIds.has(match.lastMessage.id)
@@ -382,8 +423,8 @@ export function MatchesTab({
     router.push("/matches");
     setSelectedMatchId(null);
     setViewedMatchProfile(null);
+    queryClient.removeQueries({ queryKey: queryKeys.directMessages(user.id, match.id), exact: true });
     setMessages([]);
-    directMessageIdsRef.current = new Set();
     setMessageBody("");
     setSelectedGifUrl(null);
     setNotice("Match removed.");
@@ -426,13 +467,13 @@ export function MatchesTab({
     });
     socket.on("match:unmatched", (event: MatchUnmatchedEvent) => {
       setMatches((current) => current.filter((match) => match.id !== event.matchId));
+      queryClient.removeQueries({ queryKey: queryKeys.directMessages(user.id, event.matchId), exact: true });
 
       if (event.matchId === selectedMatchIdRef.current) {
         router.push("/matches");
         setSelectedMatchId(null);
         setViewedMatchProfile(null);
         setMessages([]);
-        directMessageIdsRef.current = new Set();
         setMessageBody("");
         setNotice(event.actorId === user.id ? "Match removed." : "This match is no longer available.");
       }
@@ -465,7 +506,6 @@ export function MatchesTab({
     if (!selectedMatchId) {
       const timer = window.setTimeout(() => {
         setMessages([]);
-        directMessageIdsRef.current = new Set();
       }, 0);
 
       return () => window.clearTimeout(timer);
