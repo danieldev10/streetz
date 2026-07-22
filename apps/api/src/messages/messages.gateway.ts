@@ -72,13 +72,12 @@ export class MessagesGateway implements OnGatewayConnection {
   @SubscribeMessage("direct-message:send")
   async sendMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() body: { matchId?: string; body?: string }
+    @MessageBody() body: { matchId?: string; body?: string; gifUrl?: string }
   ) {
     try {
       const user = this.requireUser(client);
       const matchId = this.requireMatchId(body?.matchId);
-      const messageBody = this.requireMessageBody(body?.body);
-      const message = await this.messagesService.createMessage(user.id, matchId, messageBody);
+      const message = await this.messagesService.createMessage(user.id, matchId, body?.body, body?.gifUrl);
 
       this.emitMessage(matchId, message);
       await this.emitNotificationChanged(matchId);
@@ -157,20 +156,6 @@ export class MessagesGateway implements OnGatewayConnection {
     }
 
     return matchId.trim();
-  }
-
-  private requireMessageBody(body: string | undefined) {
-    const trimmed = body?.trim();
-
-    if (!trimmed) {
-      throw new WsException("Message cannot be empty.");
-    }
-
-    if (trimmed.length > 1000) {
-      throw new WsException("Message is too long.");
-    }
-
-    return trimmed;
   }
 
   private errorResponse(error: unknown) {

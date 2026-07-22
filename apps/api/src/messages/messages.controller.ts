@@ -43,7 +43,7 @@ export class MessagesController {
     @Param("matchId") matchId: string,
     @Body() dto: SendDirectMessageDto
   ) {
-    const message = await this.messagesService.createMessage(user.id, matchId, dto.body);
+    const message = await this.messagesService.createMessage(user.id, matchId, dto.body, dto.gifUrl);
     this.messagesGateway.emitMessage(matchId, message);
     await this.messagesGateway.emitNotificationChanged(matchId);
 

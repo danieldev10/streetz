@@ -12,6 +12,8 @@ import { buildDatedMessageItems } from "@/lib/chat-dates";
 import type { DirectMessage, DiscoveryCandidate, MatchThread, StreetzUser } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
+import { ChatGif } from "@/components/chat/chat-gif";
+import { ChatMediaPicker } from "@/components/chat/chat-media-picker";
 
 function getMatchActivityTime(match: MatchThread) {
   return Date.parse(match.lastMessage?.createdAt ?? match.createdAt) || 0;
@@ -144,6 +146,7 @@ export function MatchesTab({
   const [viewedMatchProfile, setViewedMatchProfile] = useState<DiscoveryCandidate | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [messageBody, setMessageBody] = useState("");
+  const [selectedGifUrl, setSelectedGifUrl] = useState<string | null>(null);
   const [matchSearch, setMatchSearch] = useState("");
   const [isLoadingMatches, setIsLoadingMatches] = useState(initialMatches.length === 0);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -197,7 +200,7 @@ export function MatchesTab({
 
     if (match.lastMessage) {
       const prefix = match.lastMessage.senderId === user.id ? "You: " : "";
-      return `${prefix}${match.lastMessage.body}`;
+      return `${prefix}${match.lastMessage.body || (match.lastMessage.gifUrl ? "GIF" : "Message")}`;
     }
 
     return `Matched · ${match.user.city ?? "Nigeria"}`;
@@ -210,6 +213,7 @@ export function MatchesTab({
     setSelectedMatchId(matchId);
     setViewedMatchProfile(null);
     router.push(`/matches/${matchId}`);
+    setSelectedGifUrl(null);
 
     if (match) {
       onMatchOpened(match);
@@ -225,6 +229,7 @@ export function MatchesTab({
     setMessages([]);
     directMessageIdsRef.current = new Set();
     setMessageBody("");
+    setSelectedGifUrl(null);
     setNotice(null);
   }
 
@@ -380,6 +385,7 @@ export function MatchesTab({
     setMessages([]);
     directMessageIdsRef.current = new Set();
     setMessageBody("");
+    setSelectedGifUrl(null);
     setNotice("Match removed.");
     onNotificationsChangedRef.current();
   }
@@ -496,7 +502,7 @@ export function MatchesTab({
 
     const body = messageBody.trim();
 
-    if (!selectedMatchId || !body) {
+    if (!selectedMatchId || (!body && !selectedGifUrl)) {
       return;
     }
 
@@ -525,6 +531,7 @@ export function MatchesTab({
       {
         matchId: selectedMatchId,
         body,
+        gifUrl: selectedGifUrl,
       },
       (response: { ok?: boolean; message?: DirectMessage; error?: string }) => {
         setIsSendingMessage(false);
@@ -535,6 +542,7 @@ export function MatchesTab({
         }
 
         setMessageBody("");
+        setSelectedGifUrl(null);
         upsertMessage(response.message);
       }
     );
@@ -640,7 +648,8 @@ export function MatchesTab({
                         className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#9d2a9e] text-white" : "rounded-bl-md bg-white text-[#0d0d0d]"
                           }`}
                       >
-                        <p>{message.body}</p>
+                        {message.gifUrl ? <ChatGif url={message.gifUrl} /> : null}
+                        {message.body ? <p className={message.gifUrl ? "mt-2" : undefined}>{message.body}</p> : null}
                         <p
                           className={`mt-1 flex items-center gap-1 text-[11px] ${isMine ? "justify-end text-white/70" : "text-[#888888]"
                             }`}
@@ -687,7 +696,18 @@ export function MatchesTab({
               </p>
             </div>
           ) : (
-            <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-white p-4">
+            <form onSubmit={sendMessage} className="relative flex shrink-0 items-center gap-2 border-t border-black/[0.05] bg-white p-4">
+              {selectedGifUrl ? (
+                <div className="absolute bottom-full left-4 mb-2 flex items-center gap-2 rounded-2xl border border-black/8 bg-white p-2 shadow-lg">
+                  <ChatGif url={selectedGifUrl} alt="Selected GIF" />
+                  <button type="button" className="rounded-full px-2 py-1 text-xs font-semibold" onClick={() => setSelectedGifUrl(null)}>Remove</button>
+                </div>
+              ) : null}
+              <ChatMediaPicker
+                disabled={isSendingMessage}
+                onEmoji={(emoji) => setMessageBody((current) => `${current}${emoji}`)}
+                onGif={setSelectedGifUrl}
+              />
               <input
                 className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
                 placeholder="Write a message"
@@ -697,7 +717,7 @@ export function MatchesTab({
               />
               <button
                 className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#9d2a9e] text-white disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isSendingMessage || !messageBody.trim()}
+                disabled={isSendingMessage || (!messageBody.trim() && !selectedGifUrl)}
                 aria-label="Send message"
                 title="Send"
               >

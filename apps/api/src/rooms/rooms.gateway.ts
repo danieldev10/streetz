@@ -83,13 +83,12 @@ export class RoomsGateway implements OnGatewayConnection {
   @SubscribeMessage("room-message:send")
   async sendRoomMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() body: { roomId?: string; body?: string }
+    @MessageBody() body: { roomId?: string; body?: string; gifUrl?: string }
   ) {
     try {
       const user = this.requireUser(client);
       const roomId = this.requireRoomId(body?.roomId);
-      const messageBody = this.requireMessageBody(body?.body);
-      const message = await this.roomsService.createRoomMessage(user.id, roomId, messageBody);
+      const message = await this.roomsService.createRoomMessage(user.id, roomId, body?.body, body?.gifUrl);
 
       this.emitRoomMessage(roomId, message);
       await this.emitNotificationChanged(roomId);
@@ -134,20 +133,6 @@ export class RoomsGateway implements OnGatewayConnection {
     }
 
     return roomId.trim();
-  }
-
-  private requireMessageBody(body: string | undefined) {
-    const trimmed = body?.trim();
-
-    if (!trimmed) {
-      throw new WsException("Message cannot be empty.");
-    }
-
-    if (trimmed.length > 1000) {
-      throw new WsException("Message is too long.");
-    }
-
-    return trimmed;
   }
 
   private errorResponse(error: unknown) {

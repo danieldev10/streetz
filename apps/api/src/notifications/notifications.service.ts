@@ -75,6 +75,7 @@ type DirectMessageSource = {
   matchId: string;
   senderId: string;
   body: string;
+  gifUrl: string | null;
   readAt: Date | null;
   createdAt: Date;
   sender: {
@@ -88,6 +89,7 @@ type RoomMessageSource = {
   roomId: string;
   authorId: string;
   body: string;
+  gifUrl: string | null;
   createdAt: Date;
   author: {
     id: string;
@@ -1123,6 +1125,7 @@ export class NotificationsService {
       senderId: message.senderId,
       senderName: message.sender.displayName,
       body: message.body,
+      gifUrl: message.gifUrl,
       readAt: message.readAt?.toISOString() ?? null,
       createdAt: message.createdAt.toISOString()
     };
@@ -1135,6 +1138,7 @@ export class NotificationsService {
       authorId: message.authorId,
       authorName: message.author.displayName,
       body: message.body,
+      gifUrl: message.gifUrl,
       createdAt: message.createdAt.toISOString()
     };
   }

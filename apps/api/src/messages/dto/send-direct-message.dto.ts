@@ -1,10 +1,16 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, MaxLength, MinLength } from "class-validator";
+import { IsOptional, IsString, MaxLength } from "class-validator";
 
 export class SendDirectMessageDto {
   @ApiProperty({ example: "Hey, good to match with you." })
   @IsString()
-  @MinLength(1)
   @MaxLength(1000)
-  body: string;
+  @IsOptional()
+  body?: string;
+
+  @ApiProperty({ required: false, example: "https://media.giphy.com/media/example/giphy.gif" })
+  @IsString()
+  @MaxLength(500)
+  @IsOptional()
+  gifUrl?: string;
 }

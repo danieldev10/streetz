@@ -118,6 +118,7 @@ export type DirectMessage = {
   senderId: string;
   senderName: string;
   body: string;
+  gifUrl: string | null;
   readAt: string | null;
   createdAt: string;
 };
@@ -334,6 +335,7 @@ export type RoomMessage = {
   authorName: string;
   author?: DiscoveryCandidate;
   body: string;
+  gifUrl: string | null;
   createdAt: string;
 };
 

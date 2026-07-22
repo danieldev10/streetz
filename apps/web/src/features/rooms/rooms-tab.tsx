@@ -28,6 +28,8 @@ import { formatConnectionStatus } from "@/lib/profile";
 import type { ChatRoom, DiscoveryCandidate, RoomMember, RoomMessage, StreetzUser } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
+import { ChatGif } from "@/components/chat/chat-gif";
+import { ChatMediaPicker } from "@/components/chat/chat-media-picker";
 
 type RoomViewMode = "explore" | "joined" | "active" | "inactive";
 type AdminRoomView = "list" | "form";
@@ -367,6 +369,7 @@ export function RoomsTab({
   const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
   const [viewedRoomProfile, setViewedRoomProfile] = useState<DiscoveryCandidate | null>(null);
   const [messageBody, setMessageBody] = useState("");
+  const [selectedGifUrl, setSelectedGifUrl] = useState<string | null>(null);
   const [isLoadingRooms, setIsLoadingRooms] = useState(initialRooms.length === 0);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isLoadingRoomMembers, setIsLoadingRoomMembers] = useState(false);
@@ -537,6 +540,7 @@ export function RoomsTab({
     setRoomMembers([]);
     roomMessageIdsRef.current = new Set();
     setMessageBody("");
+    setSelectedGifUrl(null);
     setMessageCaretIndex(0);
     setActiveMentionIndex(0);
     setIsRoomMembersOpen(false);
@@ -578,6 +582,7 @@ export function RoomsTab({
     setRoomMembers([]);
     roomMessageIdsRef.current = new Set();
     setMessageBody("");
+    setSelectedGifUrl(null);
     setMessageCaretIndex(0);
     setActiveMentionIndex(0);
     setIsRoomMembersOpen(false);
@@ -668,6 +673,7 @@ export function RoomsTab({
       setMessages([]);
       roomMessageIdsRef.current = new Set();
       setMessageBody("");
+      setSelectedGifUrl(null);
       setMessageCaretIndex(0);
       setActiveMentionIndex(0);
       router.push(`/rooms/${pendingJoinRoom.id}`);
@@ -705,6 +711,7 @@ export function RoomsTab({
       setMessages([]);
       roomMessageIdsRef.current = new Set();
       setMessageBody("");
+      setSelectedGifUrl(null);
       setMessageCaretIndex(0);
       setActiveMentionIndex(0);
       setViewMode("joined");
@@ -1071,7 +1078,7 @@ export function RoomsTab({
 
     const body = messageBody.trim();
 
-    if (!selectedRoomId || !body) {
+    if (!selectedRoomId || (!body && !selectedGifUrl)) {
       return;
     }
 
@@ -1095,6 +1102,7 @@ export function RoomsTab({
       {
         roomId: selectedRoomId,
         body,
+        gifUrl: selectedGifUrl,
       },
       (response: { ok?: boolean; message?: RoomMessage; error?: string }) => {
         setIsSendingMessage(false);
@@ -1105,6 +1113,7 @@ export function RoomsTab({
         }
 
         setMessageBody("");
+        setSelectedGifUrl(null);
         setMessageCaretIndex(0);
         setActiveMentionIndex(0);
         upsertMessage(response.message);
@@ -1324,9 +1333,10 @@ export function RoomsTab({
                             }`}
                         >
                           {!isMine ? <p className="mb-1 text-xs font-semibold text-[#9d2a9e]">{message.authorName}</p> : null}
-                          <p className="whitespace-pre-wrap break-words">
+                          {message.gifUrl ? <ChatGif url={message.gifUrl} /> : null}
+                          {message.body ? <p className={`whitespace-pre-wrap break-words ${message.gifUrl ? "mt-2" : ""}`}>
                             {renderRoomMessageBody(message.body, roomMembers, user?.id ?? null, setViewedRoomProfile, isMine)}
-                          </p>
+                          </p> : null}
                           <p className={`mt-1 text-[11px] ${isMine ? "text-white/70" : "text-[#888888]"}`}>
                             {new Date(message.createdAt).toLocaleTimeString([], {
                               hour: "2-digit",
@@ -1356,7 +1366,18 @@ export function RoomsTab({
                 Moderator view only
               </div>
             ) : (
-              <form onSubmit={sendMessage} className="flex shrink-0 gap-3 border-t border-black/5 bg-white p-4">
+              <form onSubmit={sendMessage} className="relative flex shrink-0 items-center gap-2 border-t border-black/5 bg-white p-4">
+                {selectedGifUrl ? (
+                  <div className="absolute bottom-full left-4 mb-2 flex items-center gap-2 rounded-2xl border border-black/8 bg-white p-2 shadow-lg">
+                    <ChatGif url={selectedGifUrl} alt="Selected GIF" />
+                    <button type="button" className="rounded-full px-2 py-1 text-xs font-semibold" onClick={() => setSelectedGifUrl(null)}>Remove</button>
+                  </div>
+                ) : null}
+                <ChatMediaPicker
+                  disabled={isSendingMessage}
+                  onEmoji={(emoji) => setMessageBody((current) => `${current}${emoji}`)}
+                  onGif={setSelectedGifUrl}
+                />
                 <div className="relative min-w-0 flex-1">
                   {isMentionMenuOpen ? (
                     <div className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-y-auto rounded-[24px] border border-black/5 bg-white p-2 shadow-[0_16px_38px_rgba(0,0,0,0.14)]">
@@ -1404,7 +1425,7 @@ export function RoomsTab({
                 </div>
                 <button
                   className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#9d2a9e] text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isSendingMessage || !messageBody.trim()}
+                  disabled={isSendingMessage || (!messageBody.trim() && !selectedGifUrl)}
                   aria-label="Send message"
                   title="Send"
                 >

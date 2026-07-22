@@ -76,7 +76,7 @@ export class RoomsController {
     @Param("roomId") roomId: string,
     @Body() dto: SendRoomMessageDto
   ) {
-    const message = await this.roomsService.createRoomMessage(user.id, roomId, dto.body);
+    const message = await this.roomsService.createRoomMessage(user.id, roomId, dto.body, dto.gifUrl);
     this.roomsGateway.emitRoomMessage(roomId, message);
     await this.roomsGateway.emitNotificationChanged(roomId);
 

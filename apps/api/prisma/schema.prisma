@@ -387,6 +387,7 @@ model DirectMessage {
   match     Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
   sender    User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
   body      String
+  gifUrl    String?
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
@@ -479,6 +480,7 @@ model ChatMessage {
   room      ChatRoom  @relation(fields: [roomId], references: [id], onDelete: Cascade)
   author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   body      String
+  gifUrl    String?
   deletedAt DateTime?
   createdAt DateTime  @default(now())
 

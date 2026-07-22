@@ -4,6 +4,7 @@ import { calculateAge } from "../common/age";
 import { countCheckedInStandardEvents } from "../common/attendance";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
+import { normalizeMessageContent } from "../common/message-content";
 import { getAccountAccessBlock } from "../users/account-status";
 import { MessagePageDto } from "../common/dto/message-page.dto";
 
@@ -54,6 +55,7 @@ type FormattedDirectMessageSource = {
   matchId: string;
   senderId: string;
   body: string;
+  gifUrl: string | null;
   readAt: Date | null;
   createdAt: Date;
   sender?: {
@@ -172,14 +174,10 @@ export class MessagesService {
     };
   }
 
-  async createMessage(userId: string, matchId: string, rawBody: string) {
+  async createMessage(userId: string, matchId: string, rawBody?: string, rawGifUrl?: string) {
     await this.assertMatchParticipant(userId, matchId);
 
-    const body = rawBody.trim();
-
-    if (!body) {
-      throw new BadRequestException("Message cannot be empty.");
-    }
+    const { body, gifUrl } = normalizeMessageContent(rawBody, rawGifUrl);
 
     await this.assertMessageRecipientAvailable(userId, matchId);
 
@@ -187,7 +185,8 @@ export class MessagesService {
       data: {
         matchId,
         senderId: userId,
-        body
+        body,
+        gifUrl
       },
       include: {
         sender: {
@@ -472,6 +471,7 @@ export class MessagesService {
       senderId: message.senderId,
       senderName: message.sender?.displayName ?? "crushclub member",
       body: message.body,
+      gifUrl: message.gifUrl,
       readAt: message.readAt,
       createdAt: message.createdAt
     };

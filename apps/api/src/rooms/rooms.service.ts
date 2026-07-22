@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { AccountStatus, ConnectionStatus, Gender, Prisma, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
 import { getCheckedInStandardEventCounts } from "../common/attendance";
+import { normalizeMessageContent } from "../common/message-content";
 import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
@@ -34,6 +35,7 @@ type RoomMessageSource = {
   roomId: string;
   authorId: string;
   body: string;
+  gifUrl: string | null;
   createdAt: Date;
   author: CandidateUser;
 };
@@ -318,24 +320,21 @@ export class RoomsService {
     };
   }
 
-  async createRoomMessage(userId: string, roomId: string, rawBody: string) {
+  async createRoomMessage(userId: string, roomId: string, rawBody?: string, rawGifUrl?: string) {
     const user = await this.assertRoomParticipant(userId, roomId);
 
     if (user.role === UserRole.ADMIN) {
       throw new ForbiddenException("Admins can view rooms but cannot send room messages.");
     }
 
-    const body = rawBody.trim();
-
-    if (!body) {
-      throw new BadRequestException("Message cannot be empty.");
-    }
+    const { body, gifUrl } = normalizeMessageContent(rawBody, rawGifUrl);
 
     const message = await this.prisma.chatMessage.create({
       data: {
         roomId,
         authorId: userId,
-        body
+        body,
+        gifUrl
       },
       include: {
         author: this.userInclude()
@@ -569,6 +568,7 @@ export class RoomsService {
       authorName: message.author.displayName,
       author: await this.formatCandidate(message.author, attendedEventCount),
       body: message.body,
+      gifUrl: message.gifUrl,
       createdAt: message.createdAt
     };
   }
