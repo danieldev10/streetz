@@ -25,6 +25,7 @@ type GuestTicketConfirmationEmailInput = {
   startsAt: Date;
   ticketTier: string;
   ticketCodes: string[];
+  manageUrl: string;
 };
 
 @Injectable()
@@ -126,6 +127,9 @@ export class MailService {
       "Ticket codes:",
       ticketLines,
       "",
+      "View your tickets anytime:",
+      input.manageUrl,
+      "",
       "Keep this email and present each ticket code at the event."
     ].join("\n");
     const html = `
@@ -136,6 +140,7 @@ export class MailService {
         <p>${this.escapeHtml(formattedDate)}<br />${this.escapeHtml(input.venue)}</p>
         <p style="font-weight: 700; margin-bottom: 4px;">Ticket codes</p>
         <ul style="list-style: none; padding: 0;">${ticketHtml}</ul>
+        <p><a href="${this.escapeHtml(input.manageUrl)}" style="display: inline-block; background: #0d0d0d; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 999px; font-weight: 700;">View my tickets</a></p>
         <p>Keep this email and present each ticket code at the event.</p>
       </div>
     `;

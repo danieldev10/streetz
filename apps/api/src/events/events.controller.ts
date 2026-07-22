@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@prisma/client";
@@ -48,6 +48,12 @@ export class EventsController {
   @Post("public/events/:eventId/guest-tickets/confirm")
   confirmGuestTicket(@Param("eventId") eventId: string, @Body() dto: ConfirmGuestTicketDto) {
     return this.guestTicketsService.confirmBooking(eventId, dto);
+  }
+
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get("public/guest-ticket-orders/:orderId")
+  getManagedGuestTickets(@Param("orderId") orderId: string, @Query("token") token?: string) {
+    return this.guestTicketsService.getManagedBooking(orderId, token);
   }
 
   @Get("events")

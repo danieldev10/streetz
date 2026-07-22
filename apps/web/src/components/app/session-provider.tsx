@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { isPublicPersistableQuery } from "@/lib/public-query-persistence";
 import {
   AUTH_REFRESHED_EVENT,
   TOKEN_KEY,
@@ -88,7 +89,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const applySession = useCallback((token: string, user: StreetzUser) => {
     if (sessionRef.current?.user.id && sessionRef.current.user.id !== user.id) {
-      queryClient.clear();
+      queryClient.removeQueries({ predicate: (query) => !isPublicPersistableQuery(query.queryKey) });
     }
 
     const nextSession = {
@@ -116,7 +117,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       cachedSession = null;
       pendingVerification = null;
       sessionRef.current = null;
-      queryClient.clear();
+      queryClient.removeQueries({ predicate: (query) => !isPublicPersistableQuery(query.queryKey) });
 
       if (typeof window !== "undefined") {
         if (options.revoke !== false) {

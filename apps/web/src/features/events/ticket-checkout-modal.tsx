@@ -21,6 +21,7 @@ export type GuestTicketBooking = {
   email: string;
   displayName: string;
   emailSent: boolean;
+  manageUrl: string;
   event: {
     id: string;
     title: string;
@@ -216,6 +217,9 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
         <button className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white" type="button" onClick={onClose}>
           Done
         </button>
+        <a className="mt-2 inline-flex h-12 w-full items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium" href={guestBooking.manageUrl}>
+          View my tickets
+        </a>
       </ModalShell>
     );
   }

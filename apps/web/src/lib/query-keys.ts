@@ -5,5 +5,6 @@ export const queryKeys = {
   profile: (userId: string) => ["profile", userId] as const,
   matches: (userId: string) => ["matches", userId] as const,
   rooms: (userId: string) => ["rooms", userId] as const,
+  roomMessages: (userId: string, roomId: string) => ["rooms", userId, roomId, "messages"] as const,
   notifications: (userId: string) => ["notifications", userId] as const
 };

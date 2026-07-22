@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -34,6 +35,7 @@ export class GuestTicketsService {
     const event = await this.findPublicFreeEvent(eventId, dto.ticketTypeId);
     const ticketType = event.ticketTypes[0];
 
+    await this.assertNoExistingBooking(event.id, email);
     await this.assertCurrentAvailability(ticketType, event.id, email, dto.quantity);
 
     const requestId = randomUUID();
@@ -132,6 +134,12 @@ export class GuestTicketsService {
       }
 
       this.assertGuestBookableEvent(request.event, request.ticketType.priceKobo, now);
+      const existingOrder = await transaction.guestTicketOrder.findFirst({
+        where: { eventId: request.eventId, email: request.email },
+        select: { id: true }
+      });
+      if (existingOrder) throw this.existingBookingError();
+
       const [activeTickets, guestOwnedTickets] = await Promise.all([
         transaction.ticket.count({
           where: {
@@ -178,6 +186,7 @@ export class GuestTicketsService {
           email: request.email,
           displayName: request.displayName,
           manageTokenHash: this.hashManageToken(manageToken),
+          bookingKey: this.createBookingKey(request.eventId, request.email),
           tickets: {
             create: Array.from({ length: request.quantity }, () => ({
               eventId: request.eventId,
@@ -200,7 +209,14 @@ export class GuestTicketsService {
       });
 
       return order;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }).catch((error: unknown) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw this.existingBookingError();
+      }
+      throw error;
+    });
+
+    const manageUrl = this.createManageUrl(booking.id, manageToken);
 
     let emailSent = false;
     try {
@@ -211,7 +227,8 @@ export class GuestTicketsService {
         venue: [booking.event.venue, booking.event.city, booking.event.state].filter(Boolean).join(", "),
         startsAt: booking.event.startsAt,
         ticketTier: booking.ticketType.name,
-        ticketCodes: booking.tickets.map((ticket) => ticket.code)
+        ticketCodes: booking.tickets.map((ticket) => ticket.code),
+        manageUrl
       });
     } catch (error) {
       this.logger.error(`Guest ticket confirmation email failed for order ${booking.id}: ${this.errorMessage(error)}`);
@@ -222,6 +239,7 @@ export class GuestTicketsService {
       email: booking.email,
       displayName: booking.displayName,
       manageToken,
+      manageUrl,
       emailSent,
       event: {
         id: booking.event.id,
@@ -241,6 +259,41 @@ export class GuestTicketsService {
         id: ticket.id,
         code: ticket.code,
         status: ticket.status,
+        createdAt: ticket.createdAt
+      }))
+    };
+  }
+
+  async getManagedBooking(orderId: string, token: string | undefined) {
+    if (!token?.trim()) throw new NotFoundException("Ticket booking not found.");
+    const order = await this.prisma.guestTicketOrder.findUnique({
+      where: { id: orderId },
+      include: { event: true, ticketType: true, tickets: { orderBy: { createdAt: "asc" } } }
+    });
+    if (!order || !this.matchesManageToken(token, order.manageTokenHash)) {
+      throw new NotFoundException("Ticket booking not found.");
+    }
+
+    return {
+      orderId: order.id,
+      email: order.email,
+      displayName: order.displayName,
+      event: {
+        id: order.event.id,
+        title: order.event.title,
+        coverImage: order.event.coverImage,
+        venue: order.event.venue,
+        state: order.event.state,
+        city: order.event.city,
+        startsAt: order.event.startsAt,
+        endsAt: order.event.endsAt
+      },
+      ticketType: { id: order.ticketType.id, name: order.ticketType.name, priceKobo: order.ticketType.priceKobo },
+      tickets: order.tickets.map((ticket) => ({
+        id: ticket.id,
+        code: ticket.code,
+        status: ticket.status,
+        checkedInAt: ticket.checkedInAt,
         createdAt: ticket.createdAt
       }))
     };
@@ -301,6 +354,11 @@ export class GuestTicketsService {
     });
   }
 
+  private async assertNoExistingBooking(eventId: string, email: string) {
+    const existing = await this.prisma.guestTicketOrder.findFirst({ where: { eventId, email }, select: { id: true } });
+    if (existing) throw this.existingBookingError();
+  }
+
   private assertGuestBookableEvent(
     event: { kind: EventKind; status: EventStatus; startsAt: Date; endsAt: Date | null },
     priceKobo: number,
@@ -333,6 +391,25 @@ export class GuestTicketsService {
 
   private hashManageToken(token: string) {
     return createHmac("sha256", this.getSecret()).update(`manage:${token}`).digest("hex");
+  }
+
+  private matchesManageToken(token: string, storedHash: string) {
+    const expected = Buffer.from(storedHash, "hex");
+    const actual = Buffer.from(this.hashManageToken(token.trim()), "hex");
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+  }
+
+  private createBookingKey(eventId: string, email: string) {
+    return createHmac("sha256", this.getSecret()).update(`booking:${eventId}:${email}`).digest("hex");
+  }
+
+  private createManageUrl(orderId: string, token: string) {
+    const appUrl = this.config.getOrThrow<string>("WEB_APP_URL").replace(/\/+$/, "");
+    return `${appUrl}/guest-tickets/${encodeURIComponent(orderId)}?token=${encodeURIComponent(token)}`;
+  }
+
+  private existingBookingError() {
+    return new ConflictException("This email already has a booking for this event. Use the link in your confirmation email to view the tickets.");
   }
 
   private getSecret() {

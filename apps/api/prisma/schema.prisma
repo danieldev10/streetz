@@ -597,6 +597,7 @@ model GuestTicketOrder {
   email           String
   displayName     String
   manageTokenHash String     @unique
+  bookingKey      String?    @unique
   createdAt       DateTime   @default(now())
   tickets         Ticket[]
 

@@ -17,6 +17,7 @@ test("two guests competing for the final ticket cannot oversell", { skip: !conne
     },
     getOrThrow(key) {
       if (key === "JWT_ACCESS_SECRET") return "fallback-test-secret";
+      if (key === "WEB_APP_URL") return "http://localhost:3000";
       throw new Error(`Unexpected configuration key: ${key}`);
     }
   };
@@ -81,6 +82,22 @@ test("two guests competing for the final ticket cannot oversell", { skip: !conne
     assert.match(String(rejected[0].reason?.message), /sold out/i);
     assert.equal(ticketCount, 1);
     assert.equal(ticketType.soldCount, 1);
+
+    const successfulBooking = fulfilled[0].value;
+    await assert.rejects(
+      () => service.requestVerification(event.id, {
+        email: successfulBooking.email.toUpperCase(),
+        displayName: "Repeat Guest",
+        ticketTypeId: event.ticketTypes[0].id,
+        quantity: 1
+      }),
+      /already has a booking/i
+    );
+
+    const managedBooking = await service.getManagedBooking(successfulBooking.orderId, successfulBooking.manageToken);
+    assert.equal(managedBooking.orderId, successfulBooking.orderId);
+    assert.deepEqual(managedBooking.tickets.map((ticket) => ticket.code), successfulBooking.tickets.map((ticket) => ticket.code));
+    await assert.rejects(() => service.getManagedBooking(successfulBooking.orderId, "wrong-token"), /not found/i);
   } finally {
     await prisma.event.delete({ where: { id: event.id } });
     await Promise.all([prisma.$disconnect(), competingPrisma.$disconnect()]);

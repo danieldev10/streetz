@@ -3,6 +3,7 @@
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
 import {
   ArrowLeft,
@@ -24,6 +25,7 @@ import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
+import { queryKeys } from "@/lib/query-keys";
 import { formatConnectionStatus } from "@/lib/profile";
 import type { ChatRoom, DiscoveryCandidate, RoomMember, RoomMessage, StreetzUser } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
@@ -53,6 +55,15 @@ const ROOM_NAME_MAX_LENGTH = 80;
 const ROOM_CATEGORY_MAX_LENGTH = 80;
 const ROOM_DESCRIPTION_MAX_LENGTH = 280;
 const ROOM_MESSAGE_MAX_LENGTH = 1000;
+const ROOM_MESSAGE_CACHE_LIMIT = 100;
+
+function mergeCachedRoomMessages(current: RoomMessage[] | undefined, incoming: RoomMessage[]) {
+  const byId = new Map((current ?? []).map((message) => [message.id, message]));
+  for (const message of incoming) byId.set(message.id, message);
+  return [...byId.values()]
+    .sort((first, second) => getRoomMessageTime(first) - getRoomMessageTime(second))
+    .slice(-ROOM_MESSAGE_CACHE_LIMIT);
+}
 const MENTION_SUGGESTION_LIMIT = 5;
 
 function getRoomActivityTime(room: ChatRoom) {
@@ -355,8 +366,12 @@ export function RoomsTab({
   onAuthRequired?: (kind?: AuthPromptKind) => void;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isGuest = !token || !user;
   const isAdmin = user?.role === "ADMIN";
+  const initialCachedMessages = initialSelectedRoomId && user
+    ? queryClient.getQueryData<RoomMessage[]>(queryKeys.roomMessages(user.id, initialSelectedRoomId))
+    : undefined;
   const [rooms, setRooms] = useState<ChatRoom[]>(initialRooms);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialSelectedRoomId);
   const [pendingJoinRoom, setPendingJoinRoom] = useState<ChatRoom | null>(null);
@@ -365,18 +380,19 @@ export function RoomsTab({
   const [adminRoomView, setAdminRoomView] = useState<AdminRoomView>(adminMode === "list" ? "list" : "form");
   const [editingRoomId, setEditingRoomId] = useState<string | null>(adminMode === "edit" ? adminRoomId : null);
   const [roomForm, setRoomForm] = useState<RoomForm>(emptyRoomForm);
-  const [messages, setMessages] = useState<RoomMessage[]>([]);
+  const [messages, setMessages] = useState<RoomMessage[]>(initialCachedMessages ?? []);
   const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
   const [viewedRoomProfile, setViewedRoomProfile] = useState<DiscoveryCandidate | null>(null);
   const [messageBody, setMessageBody] = useState("");
   const [selectedGifUrl, setSelectedGifUrl] = useState<string | null>(null);
   const [isLoadingRooms, setIsLoadingRooms] = useState(initialRooms.length === 0);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(Boolean(initialSelectedRoomId && initialCachedMessages === undefined));
   const [isLoadingRoomMembers, setIsLoadingRoomMembers] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [isLeavingRoom, setIsLeavingRoom] = useState(false);
   const [isSavingRoom, setIsSavingRoom] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [openingRoomId, setOpeningRoomId] = useState<string | null>(null);
   const [pendingToggleRoom, setPendingToggleRoom] = useState<ChatRoom | null>(null);
   const [isTogglingRoom, setIsTogglingRoom] = useState(false);
   const [isRoomMembersOpen, setIsRoomMembersOpen] = useState(false);
@@ -386,7 +402,7 @@ export function RoomsTab({
   const [notice, setNotice] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const selectedRoomIdRef = useRef<string | null>(selectedRoomId);
-  const roomMessageIdsRef = useRef<Set<string>>(new Set());
+  const roomMessageIdsRef = useRef<Set<string>>(new Set((initialCachedMessages ?? []).map((message) => message.id)));
   const messageScrollerRef = useRef<HTMLDivElement | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
   const onRoomsLoadedRef = useRef(onRoomsLoaded ?? (() => undefined));
@@ -471,25 +487,44 @@ export function RoomsTab({
   }
 
   async function loadMessages(roomId: string) {
-    if (!token) {
+    if (!token || !user) {
       return;
     }
 
-    setIsLoadingMessages(true);
+    const queryKey = queryKeys.roomMessages(user.id, roomId);
+    const cachedMessages = queryClient.getQueryData<RoomMessage[]>(queryKey);
+    const hasCachedMessages = cachedMessages !== undefined;
+
+    if (hasCachedMessages && selectedRoomIdRef.current === roomId) {
+      setMessages(cachedMessages);
+      roomMessageIdsRef.current = new Set(cachedMessages.map((message) => message.id));
+    }
+
+    setIsLoadingMessages(!hasCachedMessages);
     setNotice(null);
 
     try {
-      const response = await apiRequest<{ messages: RoomMessage[] }>(`/rooms/${roomId}/messages`, {
-        headers: authHeaders(token as string),
+      const nextMessages = await queryClient.fetchQuery({
+        queryKey,
+        queryFn: async () => {
+          const response = await apiRequest<{ messages: RoomMessage[] }>(`/rooms/${roomId}/messages`, {
+            headers: authHeaders(token),
+          });
+          return mergeCachedRoomMessages(queryClient.getQueryData<RoomMessage[]>(queryKey), response.messages);
+        },
+        staleTime: 30_000
       });
-      setMessages(response.messages);
-      roomMessageIdsRef.current = new Set(response.messages.map((message) => message.id));
+
+      if (selectedRoomIdRef.current === roomId) {
+        setMessages(nextMessages);
+        roomMessageIdsRef.current = new Set(nextMessages.map((message) => message.id));
+      }
       clearRoomUnread(roomId);
       onNotificationsChangedRef.current();
     } catch (error) {
-      setNotice(getUserErrorMessage(error));
+      if (!hasCachedMessages) setNotice(getUserErrorMessage(error));
     } finally {
-      setIsLoadingMessages(false);
+      if (selectedRoomIdRef.current === roomId) setIsLoadingMessages(false);
     }
   }
 
@@ -535,17 +570,7 @@ export function RoomsTab({
       return;
     }
 
-    setSelectedRoomId(room.id);
-    setMessages([]);
-    setRoomMembers([]);
-    roomMessageIdsRef.current = new Set();
-    setMessageBody("");
-    setSelectedGifUrl(null);
-    setMessageCaretIndex(0);
-    setActiveMentionIndex(0);
-    setIsRoomMembersOpen(false);
-    setViewedRoomProfile(null);
-    setNotice(null);
+    setOpeningRoomId(room.id);
     router.push(`/rooms/${room.id}`);
 
     if (!isAdmin) {
@@ -592,15 +617,29 @@ export function RoomsTab({
 
   function upsertMessage(message: RoomMessage, options: { appendToMessages?: boolean } = {}) {
     const { appendToMessages = true } = options;
+    let isNewMessage = true;
 
-    if (appendToMessages) {
-      if (roomMessageIdsRef.current.has(message.id)) {
-        return;
+    if (user) {
+      const queryKey = queryKeys.roomMessages(user.id, message.roomId);
+      const nextCachedMessages = queryClient.setQueryData<RoomMessage[]>(queryKey, (current) => {
+        if (current?.some((candidate) => candidate.id === message.id)) {
+          isNewMessage = false;
+          return current;
+        }
+        return mergeCachedRoomMessages(current, [message]);
+      });
+
+      if (!appendToMessages) {
+        void queryClient.invalidateQueries({ queryKey, exact: true, refetchType: "none" });
       }
 
-      roomMessageIdsRef.current.add(message.id);
-      setMessages((current) => [...current, message]);
+      if (appendToMessages && nextCachedMessages) {
+        roomMessageIdsRef.current.add(message.id);
+        setMessages(nextCachedMessages);
+      }
     }
+
+    if (!isNewMessage) return;
 
     setRooms((current) => {
       const nextRooms = current.map((room) => {
@@ -669,13 +708,7 @@ export function RoomsTab({
       );
       setPendingJoinRoom(null);
       setViewMode("joined");
-      setSelectedRoomId(pendingJoinRoom.id);
-      setMessages([]);
-      roomMessageIdsRef.current = new Set();
-      setMessageBody("");
-      setSelectedGifUrl(null);
-      setMessageCaretIndex(0);
-      setActiveMentionIndex(0);
+      setOpeningRoomId(pendingJoinRoom.id);
       router.push(`/rooms/${pendingJoinRoom.id}`);
       void loadRooms({ clearNotice: false, showLoading: false });
     } catch (error) {
@@ -686,7 +719,7 @@ export function RoomsTab({
   }
 
   async function leaveSelectedRoom() {
-    if (!selectedRoom || isAdmin || !token) {
+    if (!selectedRoom || isAdmin || !token || !user) {
       return;
     }
 
@@ -708,6 +741,7 @@ export function RoomsTab({
         )
       );
       setSelectedRoomId(null);
+      queryClient.removeQueries({ queryKey: queryKeys.roomMessages(user.id, selectedRoom.id), exact: true });
       setMessages([]);
       roomMessageIdsRef.current = new Set();
       setMessageBody("");
@@ -1618,10 +1652,11 @@ export function RoomsTab({
                       className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
                       type="button"
                       onClick={() => (room.hasJoined || isAdmin ? openJoinedRoom(room) : requestJoinRoom(room))}
+                      disabled={openingRoomId !== null}
                       aria-label={`${room.hasJoined || isAdmin ? "Enter" : "Join"} ${room.name}`}
                       title={room.hasJoined || isAdmin ? "Enter room" : "Join room"}
                     >
-                      <ArrowRight className="size-4" aria-hidden="true" />
+                      {openingRoomId === room.id ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" aria-hidden="true" />}
                     </button>
                   </div>
                 </div>

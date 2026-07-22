@@ -3,12 +3,14 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, UserRound } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { formatProfileSetupIssues, getProfileSetupIssues, isProfileReadyForDiscovery } from "@/lib/profile";
 import type { StreetzProfile, StreetzUser } from "@/lib/types";
+import { queryKeys } from "@/lib/query-keys";
 
 export function RoomsProfileGate({
   token,
@@ -20,10 +22,14 @@ export function RoomsProfileGate({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const shouldCheckProfile = Boolean(token && user && user.role !== "ADMIN");
-  const [profileState, setProfileState] = useState<"checking" | "ready" | "required">(
-    shouldCheckProfile ? "checking" : "ready"
-  );
+  const [profileState, setProfileState] = useState<"checking" | "ready" | "required">(() => {
+    if (!shouldCheckProfile || !user) return "ready";
+    const cachedProfile = queryClient.getQueryData<StreetzProfile | null>(queryKeys.profile(user.id));
+    if (cachedProfile === undefined) return "checking";
+    return isProfileReadyForDiscovery(cachedProfile) ? "ready" : "required";
+  });
   const [profileIssues, setProfileIssues] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -38,12 +44,18 @@ export function RoomsProfileGate({
         return;
       }
 
-      setProfileState("checking");
+      const cachedProfile = queryClient.getQueryData<StreetzProfile | null>(queryKeys.profile(user.id));
+      const hasReadyProfile = isProfileReadyForDiscovery(cachedProfile);
+      if (!hasReadyProfile) setProfileState("checking");
       setNotice(null);
 
       try {
-        const profile = await apiRequest<StreetzProfile | null>("/profiles/me", {
-          headers: authHeaders(token),
+        const profile = await queryClient.fetchQuery({
+          queryKey: queryKeys.profile(user.id),
+          queryFn: () => apiRequest<StreetzProfile | null>("/profiles/me", {
+            headers: authHeaders(token),
+          }),
+          staleTime: 5 * 60_000
         });
 
         if (cancelled) {
@@ -74,7 +86,7 @@ export function RoomsProfileGate({
     return () => {
       cancelled = true;
     };
-  }, [token, user]);
+  }, [queryClient, token, user]);
 
   if (profileState === "ready") {
     return <>{children}</>;
