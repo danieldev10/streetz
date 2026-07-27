@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import { io } from "socket.io-client";
@@ -9,6 +9,13 @@ import { AppBrand, AppNavButton, MobileHeader, adminTabs, bottomTabs, tabs } fro
 import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ChatRoom, MatchThread, NotificationSummary, ProfilePhoto, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
+
+type NotificationChangedEvent = {
+  source?: string;
+  kind?: string;
+  roomId?: string;
+  unreadDelta?: number;
+};
 
 export type MemberAppRenderProps = {
   cachedMatches: MatchThread[];
@@ -54,6 +61,8 @@ export function MemberApp({
   const [profilePhoto, setProfilePhoto] = useState<ProfilePhoto | undefined>(
     () => queryClient.getQueryData<StreetzProfile | null>(queryKeys.profile(user.id))?.user.photos[0]
   );
+  const pathnameRef = useRef(pathname);
+  const summaryRefreshTimerRef = useRef<number | null>(null);
 
   const refreshNotificationSummary = useCallback(async () => {
     try {
@@ -66,6 +75,53 @@ export function MemberApp({
       // Badges are secondary; each tab still owns its visible fetch error state.
     }
   }, [token]);
+
+  const scheduleNotificationSummaryRefresh = useCallback(() => {
+    if (summaryRefreshTimerRef.current !== null) {
+      window.clearTimeout(summaryRefreshTimerRef.current);
+    }
+
+    summaryRefreshTimerRef.current = window.setTimeout(() => {
+      summaryRefreshTimerRef.current = null;
+      void refreshNotificationSummary();
+    }, 750);
+  }, [refreshNotificationSummary]);
+
+  const applyRoomMessageNotification = useCallback(
+    (event: NotificationChangedEvent) => {
+      const roomId = event.roomId;
+      const unreadDelta = Math.max(1, event.unreadDelta ?? 1);
+
+      if (!roomId || pathnameRef.current === `/rooms/${roomId}`) {
+        return;
+      }
+
+      setNotificationSummary((current) => {
+        const roomsUnreadCount = current.roomsUnreadCount + unreadDelta;
+
+        return {
+          ...current,
+          roomsUnreadCount,
+          totalUnreadCount: current.matchesUnreadCount + roomsUnreadCount + current.notificationsUnreadCount,
+        };
+      });
+
+      setCachedRooms((current) => {
+        const next = current.map((room) =>
+          room.id === roomId
+            ? {
+                ...room,
+                unreadCount: (room.unreadCount ?? 0) + unreadDelta,
+              }
+            : room
+        );
+
+        queryClient.setQueryData(queryKeys.rooms(user.id), next);
+        return next;
+      });
+    },
+    [queryClient, user.id]
+  );
 
   function updateNotificationSummary(update: Partial<Omit<NotificationSummary, "totalUnreadCount">>) {
     setNotificationSummary((current) => {
@@ -160,6 +216,18 @@ export function MemberApp({
   }, [refreshNotificationSummary]);
 
   useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  useEffect(() => {
+    return () => {
+      if (summaryRefreshTimerRef.current !== null) {
+        window.clearTimeout(summaryRefreshTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadProfilePhoto() {
@@ -195,14 +263,19 @@ export function MemberApp({
       transports: ["websocket", "polling"],
     });
 
-    socket.on("notifications:changed", () => {
-      void refreshNotificationSummary();
+    socket.on("notifications:changed", (event: NotificationChangedEvent = {}) => {
+      if (event.source === "rooms" && event.kind === "room-message") {
+        applyRoomMessageNotification(event);
+        return;
+      }
+
+      scheduleNotificationSummaryRefresh();
     });
 
     return () => {
       socket.disconnect();
     };
-  }, [refreshNotificationSummary, token]);
+  }, [applyRoomMessageNotification, scheduleNotificationSummaryRefresh, token]);
 
   useEffect(() => {
     window.scrollTo(0, 0);

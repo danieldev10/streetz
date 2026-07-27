@@ -378,6 +378,8 @@ model Match {
   readStates MatchReadState[]
 
   @@unique([userAId, userBId])
+  @@index([userAId, status])
+  @@index([userBId, status])
 }
 
 model DirectMessage {

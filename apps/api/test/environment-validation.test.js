@@ -44,3 +44,10 @@ test("development remains usable without production integrations", () => {
   const environment = { NODE_ENV: "development", WEB_APP_URL: "http://localhost:3000" };
   assert.equal(validateEnvironment(environment), environment);
 });
+
+test("database pool settings fail fast when they are unsafe or malformed", () => {
+  assert.throws(
+    () => validateEnvironment(productionEnvironment({ DB_POOL_MAX: "0", DB_STATEMENT_TIMEOUT_MS: "slow" })),
+    /DB_POOL_MAX.*DB_STATEMENT_TIMEOUT_MS/
+  );
+});

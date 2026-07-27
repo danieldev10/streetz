@@ -5,6 +5,7 @@ import {
   Activity,
   Banknote,
   CalendarDays,
+  Database,
   Flag,
   Heart,
   MessageCircle,
@@ -52,7 +53,7 @@ export function AdminDashboard({ token }: { token: string }) {
       return [];
     }
 
-    return [
+    const metricCards = [
       {
         label: "Members",
         value: formatNumber(metrics.members.total),
@@ -120,6 +121,31 @@ export function AdminDashboard({ token }: { token: string }) {
         icon: Flag,
       },
     ];
+
+    if (metrics.system) {
+      metricCards.push(
+        {
+          label: "Database pool",
+          value: `${metrics.system.databasePool.activeConnections}/${metrics.system.databasePool.maxConnections}`,
+          helper: `${metrics.system.databasePool.idleConnections} idle · ${metrics.system.databasePool.utilizationPercent}% in use`,
+          icon: Database,
+        },
+        {
+          label: "Database wait queue",
+          value: formatNumber(metrics.system.databasePool.waitingRequests),
+          helper: "Requests waiting for a connection",
+          icon: Activity,
+        },
+        {
+          label: "API memory",
+          value: `${Math.round(metrics.system.process.rssBytes / 1024 / 1024)} MB`,
+          helper: `${Math.round(metrics.system.process.heapUsedBytes / 1024 / 1024)} MB JavaScript heap used`,
+          icon: Activity,
+        }
+      );
+    }
+
+    return metricCards;
   }, [metrics]);
 
   const loadMetrics = useCallback(

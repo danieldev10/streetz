@@ -296,6 +296,24 @@ export type AdminMetrics = {
     total: number;
     open: number;
   };
+  system?: {
+    databasePool: {
+      maxConnections: number;
+      totalConnections: number;
+      activeConnections: number;
+      idleConnections: number;
+      waitingRequests: number;
+      utilizationPercent: number;
+      connectionTimeoutMs: number;
+      statementTimeoutMs: number;
+    };
+    process: {
+      uptimeSeconds: number;
+      rssBytes: number;
+      heapUsedBytes: number;
+      heapTotalBytes: number;
+    };
+  };
 };
 
 export type AdminReportUser = {

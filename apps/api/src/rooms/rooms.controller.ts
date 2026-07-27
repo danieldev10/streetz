@@ -58,7 +58,7 @@ export class RoomsController {
   @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
   async markRoomRead(@CurrentUser() user: AuthUser, @Param("roomId") roomId: string) {
     const result = await this.roomsService.markRoomRead(user.id, roomId);
-    await this.roomsGateway.emitNotificationChanged(roomId);
+    this.roomsGateway.emitRoomReadNotification(user.id, roomId);
 
     return result;
   }
@@ -78,7 +78,7 @@ export class RoomsController {
   ) {
     const message = await this.roomsService.createRoomMessage(user.id, roomId, dto.body, dto.gifUrl);
     this.roomsGateway.emitRoomMessage(roomId, message);
-    await this.roomsGateway.emitNotificationChanged(roomId);
+    await this.roomsGateway.emitRoomMessageNotification(roomId, user.id);
 
     return message;
   }
