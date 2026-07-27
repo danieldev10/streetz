@@ -20,6 +20,8 @@ type AuthenticatedSocket = Socket & {
   };
 };
 
+const NOTIFICATION_FANOUT_BATCH_SIZE = 500;
+
 @WebSocketGateway()
 export class RoomsGateway implements OnGatewayConnection {
   @WebSocketServer()
@@ -52,7 +54,7 @@ export class RoomsGateway implements OnGatewayConnection {
       await this.roomsService.assertRoomParticipant(user.id, roomId);
       await this.roomsService.markRoomRead(user.id, roomId);
       await client.join(this.roomsService.getSocketRoomName(roomId));
-      await this.emitNotificationChanged(roomId);
+      this.emitRoomReadNotification(user.id, roomId);
 
       return {
         ok: true,
@@ -91,7 +93,7 @@ export class RoomsGateway implements OnGatewayConnection {
       const message = await this.roomsService.createRoomMessage(user.id, roomId, body?.body, body?.gifUrl);
 
       this.emitRoomMessage(roomId, message);
-      await this.emitNotificationChanged(roomId);
+      await this.emitRoomMessageNotification(roomId, user.id);
 
       return {
         ok: true,
@@ -106,13 +108,27 @@ export class RoomsGateway implements OnGatewayConnection {
     this.server.to(this.roomsService.getSocketRoomName(roomId)).emit("room-message:new", message);
   }
 
-  async emitNotificationChanged(roomId: string) {
-    const memberUserIds = await this.roomsService.getRoomMemberUserIds(roomId);
+  emitRoomReadNotification(userId: string, roomId: string) {
+    this.server.to(getUserNotificationRoom(userId)).emit("notifications:changed", {
+      source: "rooms",
+      kind: "room-read",
+      roomId
+    });
+  }
 
-    for (const userId of memberUserIds) {
-      this.server.to(getUserNotificationRoom(userId)).emit("notifications:changed", {
+  async emitRoomMessageNotification(roomId: string, authorId: string) {
+    const memberUserIds = await this.roomsService.getRoomMemberUserIds(roomId, authorId);
+
+    for (let index = 0; index < memberUserIds.length; index += NOTIFICATION_FANOUT_BATCH_SIZE) {
+      const notificationRooms = memberUserIds
+        .slice(index, index + NOTIFICATION_FANOUT_BATCH_SIZE)
+        .map(getUserNotificationRoom);
+
+      this.server.to(notificationRooms).emit("notifications:changed", {
         source: "rooms",
-        roomId
+        kind: "room-message",
+        roomId,
+        unreadDelta: 1
       });
     }
   }

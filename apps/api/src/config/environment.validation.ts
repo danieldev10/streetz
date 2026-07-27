@@ -31,6 +31,26 @@ function isHttpUrl(value: string) {
   }
 }
 
+function validateInteger(
+  config: Record<string, unknown>,
+  key: string,
+  minimum: number,
+  maximum: number,
+  errors: string[]
+) {
+  const rawValue = read(config, key);
+
+  if (!rawValue) {
+    return;
+  }
+
+  const value = Number(rawValue);
+
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    errors.push(`${key} must be an integer between ${minimum} and ${maximum}`);
+  }
+}
+
 export function validateEnvironment(config: Record<string, unknown>) {
   const errors: string[] = [];
   const nodeEnv = read(config, "NODE_ENV") || "development";
@@ -46,6 +66,12 @@ export function validateEnvironment(config: Record<string, unknown>) {
   if (smtpPort && (!/^\d+$/.test(smtpPort) || Number(smtpPort) < 1 || Number(smtpPort) > 65_535)) {
     errors.push("SMTP_PORT must be a valid TCP port");
   }
+
+  validateInteger(config, "DB_POOL_MAX", 1, 50, errors);
+  validateInteger(config, "DB_POOL_CONNECTION_TIMEOUT_MS", 100, 60_000, errors);
+  validateInteger(config, "DB_POOL_IDLE_TIMEOUT_MS", 1_000, 600_000, errors);
+  validateInteger(config, "DB_POOL_MAX_LIFETIME_SECONDS", 60, 86_400, errors);
+  validateInteger(config, "DB_STATEMENT_TIMEOUT_MS", 1_000, 120_000, errors);
 
   const faceMode = read(config, "FACE_VERIFICATION_MODE") || "off";
   if (!["off", "observe", "prototype-pass", "enforce"].includes(faceMode)) {

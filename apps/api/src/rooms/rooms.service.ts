@@ -8,6 +8,10 @@ import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
 import { MessagePageDto } from "../common/dto/message-page.dto";
+import {
+  countUnreadRoomMessages,
+  getUnreadRoomMessageCountsByRoom
+} from "../notifications/unread-message-counts";
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { UpdateRoomDto } from "./dto/update-room.dto";
 
@@ -153,9 +157,20 @@ export class RoomsService {
       },
       orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }]
     });
+    const unreadCounts =
+      user.role === UserRole.ADMIN
+        ? new Map<string, number>()
+        : await getUnreadRoomMessageCountsByRoom(this.prisma, userId);
 
     return {
-      rooms: await Promise.all(rooms.map((room) => this.formatRoom(room, { includeMessageCount: user.role === UserRole.ADMIN })))
+      rooms: await Promise.all(
+        rooms.map((room) =>
+          this.formatRoom(room, {
+            includeMessageCount: user.role === UserRole.ADMIN,
+            unreadCount: unreadCounts.get(room.id) ?? 0
+          })
+        )
+      )
     };
   }
 
@@ -358,30 +373,15 @@ export class RoomsService {
       return 0;
     }
 
-    const memberships = await this.prisma.roomMembership.findMany({
-      where: {
-        userId,
-        room: {
-          isActive: true
-        }
-      },
-      select: {
-        roomId: true,
-        userId: true,
-        lastReadAt: true
-      }
-    });
-
-    const counts = await Promise.all(
-      memberships.map((membership) => this.countUnreadRoomMessages(membership.roomId, membership.userId, membership.lastReadAt))
-    );
-
-    return counts.reduce((total, count) => total + count, 0);
+    return countUnreadRoomMessages(this.prisma, userId);
   }
 
-  async getRoomMemberUserIds(roomId: string) {
+  async getRoomMemberUserIds(roomId: string, excludedUserId?: string) {
     const memberships = await this.prisma.roomMembership.findMany({
-      where: { roomId },
+      where: {
+        roomId,
+        ...(excludedUserId ? { userId: { not: excludedUserId } } : {})
+      },
       select: { userId: true }
     });
 
@@ -538,12 +538,11 @@ export class RoomsService {
     return trimmed ? trimmed : null;
   }
 
-  private async formatRoom(room: RoomSource, options: { includeMessageCount: boolean }) {
+  private async formatRoom(
+    room: RoomSource,
+    options: { includeMessageCount: boolean; unreadCount?: number }
+  ) {
     const membership = room.memberships?.[0];
-    const unreadCount =
-      membership?.userId && membership.lastReadAt
-        ? await this.countUnreadRoomMessages(room.id, membership.userId, membership.lastReadAt)
-        : 0;
 
     return {
       id: room.id,
@@ -553,7 +552,7 @@ export class RoomsService {
       isActive: room.isActive,
       memberCount: room._count?.memberships ?? 0,
       ...(options.includeMessageCount ? { messageCount: room._count?.messages ?? 0 } : {}),
-      ...(membership ? { unreadCount } : {}),
+      ...(membership ? { unreadCount: options.unreadCount ?? 0 } : {}),
       hasJoined: Boolean(room.memberships?.length),
       createdAt: room.createdAt,
       updatedAt: room.updatedAt
@@ -616,14 +615,4 @@ export class RoomsService {
     };
   }
 
-  private countUnreadRoomMessages(roomId: string, userId: string, lastReadAt: Date) {
-    return this.prisma.chatMessage.count({
-      where: {
-        roomId,
-        authorId: { not: userId },
-        deletedAt: null,
-        createdAt: { gt: lastReadAt }
-      }
-    });
-  }
 }

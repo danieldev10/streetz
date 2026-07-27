@@ -19,6 +19,12 @@ import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "../events/ticke
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { MarkNotificationsSeenDto } from "./dto/mark-notifications-seen.dto";
+import {
+  countUnreadDirectMessages,
+  countUnreadRoomMessages,
+  getUnreadDirectMessageCountsByMatch,
+  getUnreadRoomMessageCountsByRoom
+} from "./unread-message-counts";
 
 const FEED_LIKES_LIMIT = 20;
 const FEED_MATCHES_LIMIT = 10;
@@ -136,8 +142,8 @@ export class NotificationsService {
 
     const userCreatedAt = user?.createdAt ?? new Date(0);
     const [matchesUnreadCount, roomsUnreadCount, notificationsUnreadCount] = await Promise.all([
-      this.getUnreadDirectMessageCount(userId),
-      this.getUnreadRoomMessageCount(userId),
+      countUnreadDirectMessages(this.prisma, userId),
+      countUnreadRoomMessages(this.prisma, userId),
       this.getUnreadFeedNotificationCount(userId, userCreatedAt)
     ]);
 
@@ -317,39 +323,37 @@ export class NotificationsService {
   }
 
   private async getUnreadDirectMessageSummaries(userId: string) {
-    const matches = await this.prisma.match.findMany({
-      where: {
-        status: MatchStatus.ACTIVE,
-        OR: [{ userAId: userId }, { userBId: userId }]
-      },
-      include: {
-        userA: this.candidateInclude(1),
-        userB: this.candidateInclude(1),
-        messages: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          include: {
-            sender: {
-              select: {
-                id: true,
-                displayName: true
+    const [matches, unreadCounts] = await Promise.all([
+      this.prisma.match.findMany({
+        where: {
+          status: MatchStatus.ACTIVE,
+          OR: [{ userAId: userId }, { userBId: userId }]
+        },
+        include: {
+          userA: this.candidateInclude(1),
+          userB: this.candidateInclude(1),
+          messages: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            include: {
+              sender: {
+                select: {
+                  id: true,
+                  displayName: true
+                }
               }
             }
           }
         },
-        readStates: {
-          where: { userId },
-          select: { lastReadAt: true },
-          take: 1
-        }
-      },
-      orderBy: { createdAt: "desc" }
-    });
+        orderBy: { createdAt: "desc" }
+      }),
+      getUnreadDirectMessageCountsByMatch(this.prisma, userId)
+    ]);
 
     const summaries = await Promise.all(
       matches.map(async (match) => {
         const lastMessage = match.messages[0] ?? null;
-        const unreadCount = await this.countUnreadDirectMessages(match.id, userId, match.readStates[0]?.lastReadAt ?? null);
+        const unreadCount = unreadCounts.get(match.id) ?? 0;
 
         if (unreadCount === 0 || !lastMessage) {
           return null;
@@ -373,41 +377,44 @@ export class NotificationsService {
   }
 
   private async getUnreadRoomMessageSummaries(userId: string) {
-    const memberships = await this.prisma.roomMembership.findMany({
-      where: {
-        userId,
-        room: {
-          isActive: true
-        }
-      },
-      include: {
-        room: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            messages: {
-              where: { deletedAt: null },
-              orderBy: { createdAt: "desc" },
-              take: 1,
-              include: {
-                author: {
-                  select: {
-                    id: true,
-                    displayName: true
+    const [memberships, unreadCounts] = await Promise.all([
+      this.prisma.roomMembership.findMany({
+        where: {
+          userId,
+          room: {
+            isActive: true
+          }
+        },
+        include: {
+          room: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              messages: {
+                where: { deletedAt: null },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                include: {
+                  author: {
+                    select: {
+                      id: true,
+                      displayName: true
+                    }
                   }
                 }
               }
             }
           }
         }
-      }
-    });
+      }),
+      getUnreadRoomMessageCountsByRoom(this.prisma, userId)
+    ]);
 
     const summaries = await Promise.all(
       memberships.map(async (membership) => {
         const lastMessage = membership.room.messages[0] ?? null;
-        const unreadCount = await this.countUnreadRoomMessages(membership.roomId, userId, membership.lastReadAt);
+        const unreadCount = unreadCounts.get(membership.roomId) ?? 0;
 
         if (unreadCount === 0 || !lastMessage) {
           return null;
@@ -1016,71 +1023,6 @@ export class NotificationsService {
         id: { notIn: seenFailedPaymentIds },
         userId,
         status: { in: FAILED_PAYMENT_STATUSES }
-      }
-    });
-  }
-
-  private async getUnreadDirectMessageCount(userId: string) {
-    const matches = await this.prisma.match.findMany({
-      where: {
-        status: MatchStatus.ACTIVE,
-        OR: [{ userAId: userId }, { userBId: userId }]
-      },
-      select: {
-        id: true,
-        readStates: {
-          where: { userId },
-          select: { lastReadAt: true },
-          take: 1
-        }
-      }
-    });
-
-    const counts = await Promise.all(
-      matches.map((match) => this.countUnreadDirectMessages(match.id, userId, match.readStates[0]?.lastReadAt ?? null))
-    );
-
-    return counts.reduce((total, count) => total + count, 0);
-  }
-
-  private async getUnreadRoomMessageCount(userId: string) {
-    const memberships = await this.prisma.roomMembership.findMany({
-      where: {
-        userId,
-        room: {
-          isActive: true
-        }
-      },
-      select: {
-        roomId: true,
-        lastReadAt: true
-      }
-    });
-
-    const counts = await Promise.all(
-      memberships.map((membership) => this.countUnreadRoomMessages(membership.roomId, userId, membership.lastReadAt))
-    );
-
-    return counts.reduce((total, count) => total + count, 0);
-  }
-
-  private countUnreadDirectMessages(matchId: string, userId: string, lastReadAt: Date | null) {
-    return this.prisma.directMessage.count({
-      where: {
-        matchId,
-        senderId: { not: userId },
-        ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {})
-      }
-    });
-  }
-
-  private countUnreadRoomMessages(roomId: string, userId: string, lastReadAt: Date) {
-    return this.prisma.chatMessage.count({
-      where: {
-        roomId,
-        authorId: { not: userId },
-        deletedAt: null,
-        createdAt: { gt: lastReadAt }
       }
     });
   }

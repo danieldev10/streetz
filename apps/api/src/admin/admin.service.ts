@@ -241,6 +241,7 @@ export class AdminService {
         where: { status: ReportStatus.OPEN }
       })
     ]);
+    const memory = process.memoryUsage();
 
     return {
       members: {
@@ -264,6 +265,15 @@ export class AdminService {
       reports: {
         total: totalReports,
         open: openReports
+      },
+      system: {
+        databasePool: this.prisma.getPoolMetrics(),
+        process: {
+          uptimeSeconds: Math.round(process.uptime()),
+          rssBytes: memory.rss,
+          heapUsedBytes: memory.heapUsed,
+          heapTotalBytes: memory.heapTotal
+        }
       }
     };
   }

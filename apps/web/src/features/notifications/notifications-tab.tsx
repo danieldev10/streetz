@@ -353,12 +353,23 @@ export function NotificationsTab({
       auth: { token },
       transports: ["websocket", "polling"],
     });
+    let refreshTimer: number | null = null;
 
     socket.on("notifications:changed", () => {
-      void loadFeed();
+      if (refreshTimer !== null) {
+        window.clearTimeout(refreshTimer);
+      }
+
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
+        void loadFeed();
+      }, 750);
     });
 
     return () => {
+      if (refreshTimer !== null) {
+        window.clearTimeout(refreshTimer);
+      }
       socket.disconnect();
     };
   }, [loadFeed, token]);
