@@ -18,7 +18,7 @@ export function EventsPageClient({ initialEvents, initialRaffles }: {
   return (
     <PublicRoute activeTab="events">
       {({ token, user, requestAuth }) => token && user?.role === "ADMIN" ? (
-        <AdminEventsList token={token} user={user} />
+        <AdminEventsList token={token} />
       ) : (
         <MemberEventsTab
           token={token}

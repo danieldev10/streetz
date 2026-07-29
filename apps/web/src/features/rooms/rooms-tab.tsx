@@ -5,342 +5,34 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
-import {
-  ArrowLeft,
-  ArrowRight,
-  LoaderCircle,
-  LogOut,
-  MessageCircle,
-  Pencil,
-  Plus,
-  Power,
-  RefreshCw,
-  Save,
-  SendHorizontal,
-  Users,
-  X,
-} from "lucide-react";
 import { type AuthPromptKind } from "@/components/app/public-route";
-import { ScreenHeader } from "@/components/app/navigation";
-import { LoadingState } from "@/components/loading-state";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import { queryKeys } from "@/lib/query-keys";
-import { formatConnectionStatus } from "@/lib/profile";
 import type { ChatRoom, DiscoveryCandidate, RoomMember, RoomMessage, StreetzUser } from "@/lib/types";
-import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
-import { ChatGif } from "@/components/chat/chat-gif";
-import { ChatMediaPicker } from "@/components/chat/chat-media-picker";
-
-type RoomViewMode = "explore" | "joined" | "active" | "inactive";
-type AdminRoomView = "list" | "form";
-type AdminRoomMode = "list" | "create" | "edit";
-
-type RoomForm = {
-  name: string;
-  category: string;
-  description: string;
-  isActive: boolean;
-};
-
-const emptyRoomForm: RoomForm = {
-  name: "",
-  category: "",
-  description: "",
-  isActive: true,
-};
-
-const ROOM_NAME_MAX_LENGTH = 80;
-const ROOM_CATEGORY_MAX_LENGTH = 80;
-const ROOM_DESCRIPTION_MAX_LENGTH = 280;
-const ROOM_MESSAGE_MAX_LENGTH = 1000;
-const ROOM_MESSAGE_CACHE_LIMIT = 100;
-
-function mergeCachedRoomMessages(current: RoomMessage[] | undefined, incoming: RoomMessage[]) {
-  const byId = new Map((current ?? []).map((message) => [message.id, message]));
-  for (const message of incoming) byId.set(message.id, message);
-  return [...byId.values()]
-    .sort((first, second) => getRoomMessageTime(first) - getRoomMessageTime(second))
-    .slice(-ROOM_MESSAGE_CACHE_LIMIT);
-}
-const MENTION_SUGGESTION_LIMIT = 5;
-
-function getRoomActivityTime(room: ChatRoom) {
-  return Date.parse(room.updatedAt) || Date.parse(room.createdAt) || 0;
-}
-
-function getRoomMessageTime(message: RoomMessage) {
-  return Date.parse(message.createdAt) || 0;
-}
-
-function getRoomForm(room: ChatRoom): RoomForm {
-  return {
-    name: room.name,
-    category: room.category,
-    description: room.description ?? "",
-    isActive: room.isActive,
-  };
-}
-
-
-type MentionSearch = {
-  start: number;
-  end: number;
-  query: string;
-};
-
-function getMentionSearch(body: string, caretIndex: number | null | undefined): MentionSearch | null {
-  const end = Math.max(0, Math.min(caretIndex ?? body.length, body.length));
-  const textBeforeCaret = body.slice(0, end);
-  const mentionStart = textBeforeCaret.lastIndexOf("@");
-
-  if (mentionStart < 0) {
-    return null;
-  }
-
-  const beforeMention = mentionStart > 0 ? body[mentionStart - 1] : "";
-
-  if (beforeMention && !/\s/.test(beforeMention)) {
-    return null;
-  }
-
-  const query = body.slice(mentionStart + 1, end);
-
-  if (/\s/.test(query)) {
-    return null;
-  }
-
-  return {
-    start: mentionStart,
-    end,
-    query,
-  };
-}
-
-function isMentionBoundary(character: string | undefined) {
-  return !character || /[\s.,!?;:()[\]{}"']/u.test(character);
-}
-
-function getUniqueRoomMembers(members: RoomMember[]) {
-  const seenIds = new Set<string>();
-
-  return members.filter((member) => {
-    if (seenIds.has(member.id) || !member.displayName.trim()) {
-      return false;
-    }
-
-    seenIds.add(member.id);
-    return true;
-  });
-}
-
-function renderRoomMessageBody(
-  body: string,
-  members: RoomMember[],
-  currentUserId: string | null,
-  onOpenMember: (member: RoomMember) => void,
-  onDark = false
-) {
-  const mentionTargets = getUniqueRoomMembers(members)
-    .map((member) => ({ member, token: `@${member.displayName.trim()}` }))
-    .sort((first, second) => second.token.length - first.token.length);
-
-  if (mentionTargets.length === 0) {
-    return body;
-  }
-
-  const parts = [];
-  let index = 0;
-  let key = 0;
-
-  while (index < body.length) {
-    if (body[index] !== "@") {
-      const nextMentionIndex = body.indexOf("@", index + 1);
-      const nextIndex = nextMentionIndex === -1 ? body.length : nextMentionIndex;
-      parts.push(body.slice(index, nextIndex));
-      index = nextIndex;
-      continue;
-    }
-
-    const match = mentionTargets.find(({ token }) => {
-      const possibleMention = body.slice(index, index + token.length);
-
-      return possibleMention.toLocaleLowerCase() === token.toLocaleLowerCase() && isMentionBoundary(body[index + token.length]);
-    });
-
-    if (!match) {
-      parts.push(body[index]);
-      index += 1;
-      continue;
-    }
-
-    const isCurrentUser = match.member.id === currentUserId;
-
-    parts.push(
-      <button
-        key={`mention-${match.member.id}-${key}`}
-        type="button"
-        className={`inline bg-transparent p-0 font-semibold underline underline-offset-2 transition ${
-          onDark
-            ? "text-white decoration-white/60 hover:text-white/80"
-            : `no-underline ${isCurrentUser ? "text-[#7c1f7d]" : "text-[#9d2a9e] hover:text-[#7c1f7d]"}`
-        }`}
-        onClick={() => onOpenMember(match.member)}
-      >
-        {body.slice(index, index + match.token.length)}
-      </button>
-    );
-    key += 1;
-    index += match.token.length;
-  }
-
-  return parts;
-}
-
-function OpeningRoomShell({
-  isAdmin,
-  notice,
-  socketStatus,
-  onBack,
-}: {
-  isAdmin: boolean;
-  notice: string | null;
-  socketStatus: "connecting" | "connected" | "offline";
-  onBack: () => void;
-}) {
-  return (
-    <section className="px-0 md:px-8 md:py-8">
-      <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-180 md:rounded-[28px] md:border md:border-black/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
-          <button
-            type="button"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
-            onClick={onBack}
-            aria-label="Back to rooms"
-            title="Back"
-          >
-            <ArrowLeft className="size-4" aria-hidden="true" />
-          </button>
-
-          <div className="min-w-0 flex-1">
-            <div className="h-5 w-36 rounded-full bg-[#f0f0f0]" />
-            <div className="mt-2 h-3 w-24 rounded-full bg-[#f6f6f6]" />
-          </div>
-
-          <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
-            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
-            {isAdmin ? "Moderator" : socketStatus === "connected" ? "Live" : "Connecting"}
-          </div>
-        </div>
-
-        {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
-
-        <div className="grid min-h-0 flex-1 place-items-center bg-[#fafafa] px-4 py-5">
-          <LoaderCircle className="size-7 animate-spin text-[#bd40be]" aria-hidden="true" />
-          <span className="sr-only">Loading room</span>
-        </div>
-
-        {isAdmin ? (
-          <div className="shrink-0 border-t border-black/5 bg-white p-4 text-center text-sm font-medium text-[#666666]">
-            Moderator view only
-          </div>
-        ) : (
-          <div className="flex shrink-0 gap-3 border-t border-black/5 bg-white p-4">
-            <div className="h-12 min-w-0 flex-1 rounded-full border border-black/8 bg-[#fafafa]" />
-            <div className="size-12 shrink-0 rounded-full bg-[#f6e0f6]" />
-          </div>
-        )}
-      </article>
-    </section>
-  );
-}
-
-function RoomMembersView({
-  room,
-  members,
-  isLoading,
-  notice,
-  onBack,
-  onOpenMember,
-}: {
-  room: ChatRoom;
-  members: RoomMember[];
-  isLoading: boolean;
-  notice: string | null;
-  onBack: () => void;
-  onOpenMember: (member: RoomMember) => void;
-}) {
-  return (
-    <section className="px-0 md:px-8 md:py-8">
-      <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-180 md:rounded-[28px] md:border md:border-black/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
-          <button
-            type="button"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
-            onClick={onBack}
-            aria-label="Back to room chat"
-            title="Back"
-          >
-            <ArrowLeft className="size-4" aria-hidden="true" />
-          </button>
-
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-semibold">{room.name}</h1>
-            <p className="truncate text-sm text-[#666666]">
-              {room.memberCount} {room.memberCount === 1 ? "member" : "members"}
-            </p>
-          </div>
-        </div>
-
-        {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
-
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
-          {isLoading ? (
-            <LoadingState label="Loading room members" className="h-full min-h-90 rounded-[28px] border border-black/5 bg-white" />
-          ) : members.length > 0 ? (
-            <div className="grid gap-3">
-              {members.map((member) => {
-                const location = [member.city, member.state].filter(Boolean).join(", ") || "Nigeria";
-
-                return (
-                  <button
-                    key={member.id}
-                    type="button"
-                    className="flex items-center gap-3 rounded-[24px] border border-black/5 bg-white p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/40"
-                    onClick={() => onOpenMember(member)}
-                    aria-label={`View ${member.displayName} profile`}
-                  >
-                    <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
-                      <CandidatePhoto candidate={member} variant="thumb" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[#0d0d0d]">{member.displayName}</p>
-                      <p className="truncate text-xs font-medium text-[#666666]">
-                        {formatConnectionStatus(member.connectionStatus)} · {location}
-                      </p>
-                    </div>
-
-                    <ArrowRight className="size-4 shrink-0 text-[#888888]" aria-hidden="true" />
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="grid h-full min-h-90 place-items-center text-center">
-              <div>
-                <Users className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
-                <h2 className="mt-3 text-2xl font-semibold">No members yet</h2>
-                <p className="mt-2 text-sm text-[#666666]">Members will appear here after they join.</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </article>
-    </section>
-  );
-}
+import {
+  MENTION_SUGGESTION_LIMIT,
+  ROOM_CATEGORY_MAX_LENGTH,
+  ROOM_DESCRIPTION_MAX_LENGTH,
+  ROOM_MESSAGE_MAX_LENGTH,
+  ROOM_NAME_MAX_LENGTH,
+  emptyRoomForm,
+  getRoomActivityTime,
+  getRoomForm,
+  getRoomMessageTime,
+  mergeCachedRoomMessages,
+  type AdminRoomMode,
+  type AdminRoomView,
+  type RoomForm,
+  type RoomViewMode,
+} from "./room-model";
+import { getMentionSearch, getUniqueRoomMembers } from "./room-message-content";
+import { OpeningRoomShell } from "./opening-room-shell";
+import { RoomMembersView } from "./room-members-view";
+import { AdminRoomFormView } from "./admin-room-form-view";
+import { RoomThreadView } from "./room-thread-view";
+import { RoomsListView } from "./rooms-list-view";
 
 export function RoomsTab({
   token,
@@ -1157,83 +849,15 @@ export function RoomsTab({
 
   if (isAdmin && adminRoomView === "form") {
     return (
-      <section>
-        <ScreenHeader
-          eyebrow="Rooms"
-          title={editingRoomId ? "Edit room." : "Create room."}
-          leading={
-            <button
-              className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
-              type="button"
-              onClick={closeAdminRoomForm}
-              aria-label="Back to rooms"
-              title="Back"
-            >
-              <ArrowLeft className="size-4" aria-hidden="true" />
-            </button>
-          }
-        />
-
-        <div className="px-5 pb-24 md:px-8 md:pb-8">
-          {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
-
-          <form
-            onSubmit={saveRoom}
-            className="mx-auto max-w-2xl rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold">{editingRoomId ? "Edit room" : "Create room"}</h2>
-                <p className="mt-1 text-sm text-[#666666]">Admin-created spaces for member conversations</p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3">
-              <input
-                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
-                placeholder="Room name"
-                value={roomForm.name}
-                onChange={(event) => setRoomForm((current) => ({ ...current, name: event.target.value }))}
-                minLength={2}
-                maxLength={ROOM_NAME_MAX_LENGTH}
-                required
-              />
-              <input
-                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
-                placeholder="Category"
-                value={roomForm.category}
-                onChange={(event) => setRoomForm((current) => ({ ...current, category: event.target.value }))}
-                minLength={2}
-                maxLength={ROOM_CATEGORY_MAX_LENGTH}
-                required
-              />
-              <textarea
-                className="min-h-28 rounded-[18px] border border-black/8 p-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
-                placeholder="Description"
-                value={roomForm.description}
-                onChange={(event) => setRoomForm((current) => ({ ...current, description: event.target.value }))}
-                maxLength={ROOM_DESCRIPTION_MAX_LENGTH}
-              />
-              <label className="flex items-center justify-between gap-3 rounded-[18px] bg-[#fafafa] px-4 py-3 text-sm font-medium">
-                Active room
-                <input
-                  type="checkbox"
-                  checked={roomForm.isActive}
-                  onChange={(event) => setRoomForm((current) => ({ ...current, isActive: event.target.checked }))}
-                />
-              </label>
-            </div>
-
-            <button
-              className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={isSavingRoom}
-            >
-              {isSavingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
-              {editingRoomId ? "Save room" : "Create room"}
-            </button>
-          </form>
-        </div>
-      </section>
+      <AdminRoomFormView
+        editingRoomId={editingRoomId}
+        roomForm={roomForm}
+        notice={notice}
+        isSaving={isSavingRoom}
+        onBack={closeAdminRoomForm}
+        onSubmit={saveRoom}
+        onChange={(patch) => setRoomForm((current) => ({ ...current, ...patch }))}
+      />
     );
   }
 
@@ -1273,531 +897,72 @@ export function RoomsTab({
 
   if (selectedRoom) {
     return (
-      <>
-        <section className="px-0 md:px-8 md:py-8">
-          <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-180 md:rounded-[28px] md:border md:border-black/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-            <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
-              <button
-                type="button"
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
-                onClick={closeRoom}
-                aria-label="Back to rooms"
-                title="Back"
-              >
-                <ArrowLeft className="size-4" aria-hidden="true" />
-              </button>
-
-              <button
-                type="button"
-                className="min-w-0 flex-1 rounded-[18px] p-1 text-left transition hover:bg-[#fafafa]"
-                onClick={openRoomMembers}
-                aria-label={`View ${selectedRoom.name} members`}
-              >
-                <h1 className="truncate text-lg font-semibold">{selectedRoom.name}</h1>
-                <p className="truncate text-sm text-[#666666]">
-                  {selectedRoom.category} · {selectedRoom.memberCount} {selectedRoom.memberCount === 1 ? "member" : "members"}
-                </p>
-              </button>
-
-              {!isAdmin ? (
-                <button
-                  type="button"
-                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-sm font-medium md:h-10 md:w-auto md:gap-2 md:px-4"
-                  onClick={() => setIsLeaveConfirmOpen(true)}
-                  disabled={isLeavingRoom}
-                  aria-label={`Leave ${selectedRoom.name}`}
-                  title="Leave"
-                >
-                  {isLeavingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <LogOut className="size-4" aria-hidden="true" />}
-                  <span className="hidden md:inline">Leave</span>
-                </button>
-              ) : null}
-
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#fafafa] px-3 py-2 text-xs font-medium text-[#666666]">
-                <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
-                {isAdmin ? "Moderator" : socketStatus === "connected" ? "Live" : "Connecting"}
-              </div>
-            </div>
-
-            {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
-
-            <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
-              {isLoadingMessages ? (
-                <LoadingState label="Loading room messages" className="h-full min-h-90" />
-              ) : messages.length > 0 ? (
-                <div className="grid gap-3">
-                  {datedMessages.map((item) => {
-                    if (item.type === "date") {
-                      return (
-                        <div key={item.key} className="flex justify-center py-1">
-                          <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#777777] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-                            {item.label}
-                          </span>
-                        </div>
-                      );
-                    }
-
-                    const message = item.message;
-                    const isMine = message.authorId === user?.id;
-                    const author = message.author ?? roomMembers.find((member) => member.id === message.authorId) ?? null;
-
-                    return (
-                      <div key={item.key} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
-                        {!isMine ? (
-                          <button
-                            type="button"
-                            className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[#f6e0f6] text-[#0d0d0d] disabled:cursor-default"
-                            onClick={() => {
-                              if (author) {
-                                setViewedRoomProfile(author);
-                              }
-                            }}
-                            disabled={!author}
-                            aria-label={author ? `View ${author.displayName} profile` : `View ${message.authorName} profile`}
-                          >
-                            {author ? (
-                              <CandidatePhoto candidate={author} variant="thumb" />
-                            ) : (
-                              <Users className="size-4" aria-hidden="true" />
-                            )}
-                          </button>
-                        ) : null}
-                        <div
-                          className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#9d2a9e] text-white" : "rounded-bl-md bg-white text-[#0d0d0d]"
-                            }`}
-                        >
-                          {!isMine ? <p className="mb-1 text-xs font-semibold text-[#9d2a9e]">{message.authorName}</p> : null}
-                          {message.gifUrl ? <ChatGif url={message.gifUrl} /> : null}
-                          {message.body ? <p className={`whitespace-pre-wrap break-words ${message.gifUrl ? "mt-2" : ""}`}>
-                            {renderRoomMessageBody(message.body, roomMembers, user?.id ?? null, setViewedRoomProfile, isMine)}
-                          </p> : null}
-                          <p className={`mt-1 text-[11px] ${isMine ? "text-white/70" : "text-[#888888]"}`}>
-                            {new Date(message.createdAt).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="grid h-full min-h-90 place-items-center text-center">
-                  <div>
-                    <MessageCircle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
-                    <h2 className="mt-3 text-2xl font-semibold">{isAdmin ? "Room is quiet" : "Start the room"}</h2>
-                    <p className="mt-2 text-sm text-[#666666]">
-                      {isAdmin ? "Member messages will appear here." : `Send the first message in ${selectedRoom.name}.`}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {isAdmin ? (
-              <div className="shrink-0 border-t border-black/5 bg-white p-4 text-center text-sm font-medium text-[#666666]">
-                Moderator view only
-              </div>
-            ) : (
-              <form onSubmit={sendMessage} className="relative flex shrink-0 items-center gap-2 border-t border-black/5 bg-white p-4">
-                {selectedGifUrl ? (
-                  <div className="absolute bottom-full left-4 mb-2 flex items-center gap-2 rounded-2xl border border-black/8 bg-white p-2 shadow-lg">
-                    <ChatGif url={selectedGifUrl} alt="Selected GIF" />
-                    <button type="button" className="rounded-full px-2 py-1 text-xs font-semibold" onClick={() => setSelectedGifUrl(null)}>Remove</button>
-                  </div>
-                ) : null}
-                <ChatMediaPicker
-                  disabled={isSendingMessage}
-                  onEmoji={(emoji) => setMessageBody((current) => `${current}${emoji}`)}
-                  onGif={setSelectedGifUrl}
-                />
-                <div className="relative min-w-0 flex-1">
-                  {isMentionMenuOpen ? (
-                    <div className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-y-auto rounded-[24px] border border-black/5 bg-white p-2 shadow-[0_16px_38px_rgba(0,0,0,0.14)]">
-                      {mentionSuggestions.map((member, index) => {
-                        const location = [member.city, member.state].filter(Boolean).join(", ") || "Nigeria";
-                        const isActiveMention = index === activeMentionSuggestionIndex;
-
-                        return (
-                          <button
-                            key={member.id}
-                            type="button"
-                            className={`flex w-full items-center gap-3 rounded-[18px] p-2 text-left transition ${isActiveMention ? "bg-[#f6e0f6]" : "hover:bg-[#fafafa]"}`}
-                            onMouseDown={(mouseEvent) => {
-                              mouseEvent.preventDefault();
-                              insertMention(member);
-                            }}
-                          >
-                            <div className="relative size-9 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
-                              <CandidatePhoto candidate={member} variant="thumb" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-[#0d0d0d]">@{member.displayName}</p>
-                              <p className="truncate text-xs text-[#666666]">{location}</p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                  <input
-                    ref={messageInputRef}
-                    className="h-12 w-full rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
-                    placeholder="Write to the room or tag @name"
-                    value={messageBody}
-                    onChange={(event) => {
-                      setMessageBody(event.target.value);
-                      setActiveMentionIndex(0);
-                      syncMessageCaret(event.currentTarget);
-                    }}
-                    onKeyDown={handleMessageInputKeyDown}
-                    onClick={(event) => syncMessageCaret(event.currentTarget)}
-                    onSelect={(event) => syncMessageCaret(event.currentTarget)}
-                    maxLength={ROOM_MESSAGE_MAX_LENGTH}
-                  />
-                </div>
-                <button
-                  className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-[#9d2a9e] text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isSendingMessage || (!messageBody.trim() && !selectedGifUrl)}
-                  aria-label="Send message"
-                  title="Send"
-                >
-                  {isSendingMessage ? (
-                    <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <SendHorizontal className="size-4" aria-hidden="true" />
-                  )}
-                </button>
-              </form>
-            )}
-          </article>
-        </section>
-
-        {isLeaveConfirmOpen ? (
-          <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5">
-            <section
-              className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="leave-room-title"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 id="leave-room-title" className="text-xl font-semibold">
-                    Leave this room?
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-[#666666]">
-                    {selectedRoom.name} will move back to Explore. You can join again later.
-                  </p>
-                </div>
-                <button
-                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
-                  type="button"
-                  onClick={() => setIsLeaveConfirmOpen(false)}
-                  disabled={isLeavingRoom}
-                  aria-label="Close"
-                  title="Close"
-                >
-                  <X className="size-4" aria-hidden="true" />
-                </button>
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <button
-                  className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                  type="button"
-                  onClick={() => setIsLeaveConfirmOpen(false)}
-                  disabled={isLeavingRoom}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  type="button"
-                  onClick={leaveSelectedRoom}
-                  disabled={isLeavingRoom}
-                >
-                  {isLeavingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                  Leave
-                </button>
-              </div>
-            </section>
-          </div>
-        ) : null}
-      </>
+      <RoomThreadView
+        room={selectedRoom}
+        userId={user?.id ?? null}
+        isAdmin={isAdmin}
+        notice={notice}
+        socketStatus={socketStatus}
+        messages={messages}
+        datedMessages={datedMessages}
+        members={roomMembers}
+        mentionSuggestions={mentionSuggestions}
+        activeMentionSuggestionIndex={activeMentionSuggestionIndex}
+        isMentionMenuOpen={isMentionMenuOpen}
+        messageBody={messageBody}
+        selectedGifUrl={selectedGifUrl}
+        isLoadingMessages={isLoadingMessages}
+        isSendingMessage={isSendingMessage}
+        isLeavingRoom={isLeavingRoom}
+        isLeaveConfirmOpen={isLeaveConfirmOpen}
+        messageScrollerRef={messageScrollerRef}
+        messageInputRef={messageInputRef}
+        onBack={closeRoom}
+        onOpenMembers={openRoomMembers}
+        onOpenMember={setViewedRoomProfile}
+        onRequestLeave={() => setIsLeaveConfirmOpen(true)}
+        onCloseLeave={() => setIsLeaveConfirmOpen(false)}
+        onConfirmLeave={leaveSelectedRoom}
+        onSubmitMessage={sendMessage}
+        onMessageBodyChange={(value, input) => {
+          setMessageBody(value);
+          setActiveMentionIndex(0);
+          syncMessageCaret(input);
+        }}
+        onMessageInputKeyDown={handleMessageInputKeyDown}
+        onSyncMessageCaret={syncMessageCaret}
+        onInsertMention={insertMention}
+        onEmoji={(emoji) => setMessageBody((current) => `${current}${emoji}`)}
+        onGif={setSelectedGifUrl}
+        onRemoveGif={() => setSelectedGifUrl(null)}
+      />
     );
   }
 
   return (
-    <section>
-      <ScreenHeader
-        eyebrow="Rooms"
-        title={isAdmin ? "" : ""}
-        action={
-          <div className="flex items-center gap-2">
-            {!isGuest ? (
-              <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
-                <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
-                {socketStatus === "connected" ? "Live" : "Connecting"}
-              </div>
-            ) : null}
-            {isAdmin ? (
-              <button
-                className="inline-flex h-9 items-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
-                type="button"
-                onClick={startCreateRoom}
-              >
-                <Plus className="size-3.5" aria-hidden="true" />
-                Create Room
-              </button>
-            ) : null}
-          </div>
-        }
-      />
-
-      <div className="px-5 md:px-8">
-        {!isGuest ? (
-          <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
-            {isAdmin ? (
-            <>
-              <button
-                type="button"
-                className={`rounded-full px-4 py-2 ${viewMode === "active" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-                onClick={() => setViewMode("active")}
-              >
-                Active
-              </button>
-              <button
-                type="button"
-                className={`rounded-full px-4 py-2 ${viewMode === "inactive" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-                onClick={() => setViewMode("inactive")}
-              >
-                Inactive
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className={`rounded-full px-4 py-2 ${viewMode === "joined" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-                onClick={() => setViewMode("joined")}
-              >
-                Joined
-              </button>
-              <button
-                type="button"
-                className={`rounded-full px-4 py-2 ${viewMode === "explore" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
-                onClick={() => setViewMode("explore")}
-              >
-                Explore
-              </button>
-            </>
-            )}
-          </div>
-        ) : null}
-
-        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
-
-        {isLoadingRooms ? (
-          <LoadingState label="Loading rooms" className="min-h-105 rounded-[28px] border border-black/5" />
-        ) : visibleRooms.length > 0 ? (
-          <div className="grid gap-3">
-            {visibleRooms.map((room) => (
-              <article
-                key={room.id}
-                className={`rounded-3xl border p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${room.isActive ? "border-black/5 bg-white" : "border-black/[0.03] bg-[#fafafa] opacity-70"}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-semibold">{room.name}</h2>
-                      <span className="rounded-full bg-[#f6e0f6] px-2.5 py-1 text-xs font-medium text-[#9d2a9e]">
-                        {room.category}
-                      </span>
-                      {isAdmin ? (
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${room.isActive ? "bg-[#f6e0f6] text-[#9d2a9e]" : "bg-[#fafafa] text-[#777777]"
-                            }`}
-                        >
-                          {room.isActive ? "Active" : "Inactive"}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-sm text-[#666666]">{room.description || "Open member conversation."}</p>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    {isAdmin ? (
-                      <>
-                        <button
-                          className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
-                          type="button"
-                          onClick={() => startEditRoom(room)}
-                          aria-label={`Edit ${room.name}`}
-                          title="Edit"
-                        >
-                          <Pencil className="size-4" aria-hidden="true" />
-                        </button>
-                        <button
-                          className={`inline-flex size-10 items-center justify-center rounded-full border ${room.isActive ? "border-red-200 text-red-500 hover:bg-red-50" : "border-[#bd40be] text-[#9d2a9e] hover:bg-[#f6e0f6]"}`}
-                          type="button"
-                          onClick={() => setPendingToggleRoom(room)}
-                          aria-label={room.isActive ? `Deactivate ${room.name}` : `Activate ${room.name}`}
-                          title={room.isActive ? "Deactivate" : "Activate"}
-                        >
-                          <Power className="size-4" aria-hidden="true" />
-                        </button>
-                      </>
-                    ) : null}
-                    <button
-                      className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
-                      type="button"
-                      onClick={() => (room.hasJoined || isAdmin ? openJoinedRoom(room) : requestJoinRoom(room))}
-                      disabled={openingRoomId !== null}
-                      aria-label={`${room.hasJoined || isAdmin ? "Enter" : "Join"} ${room.name}`}
-                      title={room.hasJoined || isAdmin ? "Enter room" : "Join room"}
-                    >
-                      {openingRoomId === room.id ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" aria-hidden="true" />}
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#fafafa] px-3 py-1">
-                    <Users className="size-3.5" aria-hidden="true" />
-                    {room.memberCount} members
-                  </span>
-                  {isAdmin ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#fafafa] px-3 py-1">
-                      <MessageCircle className="size-3.5" aria-hidden="true" />
-                      {room.messageCount ?? 0} messages
-                    </span>
-                  ) : null}
-                  {!isAdmin && room.hasJoined && (room.unreadCount ?? 0) > 0 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#9d2a9e] px-3 py-1 font-semibold text-white">
-                      {(room.unreadCount ?? 0) > 9 ? "9+" : room.unreadCount} new
-                    </span>
-                  ) : null}
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
-            <div>
-              <MessageCircle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
-              <h2 className="mt-3 text-2xl font-semibold">
-                {isAdmin
-                  ? viewMode === "inactive" ? "No inactive rooms" : "No active rooms"
-                  : isGuest ? "No rooms yet" : viewMode === "joined" ? "No joined rooms yet" : "No rooms yet"}
-              </h2>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-[#666666]">
-                {isAdmin
-                  ? viewMode === "inactive" ? "Deactivated rooms will appear here." : "Create a room to get started."
-                  : isGuest
-                    ? "Active rooms will appear here once they are available."
-                    : viewMode === "joined"
-                      ? "Rooms you join from Explore will appear here."
-                      : "Admin-created rooms will appear here once they are active."}
-              </p>
-              <button
-                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 px-5 text-sm font-medium"
-                onClick={() => loadRooms()}
-              >
-                <RefreshCw className="size-4" aria-hidden="true" />
-                Refresh
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {pendingJoinRoom ? (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5">
-          <section className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold">Join this room?</h2>
-                <p className="mt-2 text-sm leading-6 text-[#666666]">{pendingJoinRoom.name}</p>
-              </div>
-              <button
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
-                type="button"
-                onClick={() => setPendingJoinRoom(null)}
-                aria-label="Close"
-                title="Close"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium"
-                type="button"
-                onClick={() => setPendingJoinRoom(null)}
-              >
-                No
-              </button>
-              <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                onClick={joinPendingRoom}
-                disabled={isJoiningRoom}
-              >
-                {isJoiningRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                Yes
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {pendingToggleRoom ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
-          <section className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-[#0d0d0d]">
-                  {pendingToggleRoom.isActive ? "Deactivate room?" : "Activate room?"}
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[#666666]">
-                  {pendingToggleRoom.isActive
-                    ? `"${pendingToggleRoom.name}" will be hidden from members and no new messages can be sent.`
-                    : `"${pendingToggleRoom.name}" will become visible to members again.`}
-                </p>
-              </div>
-              <button
-                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
-                type="button"
-                onClick={() => setPendingToggleRoom(null)}
-                disabled={isTogglingRoom}
-                aria-label="Close confirmation"
-                title="Close"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                onClick={() => setPendingToggleRoom(null)}
-                disabled={isTogglingRoom}
-              >
-                Cancel
-              </button>
-              <button
-                className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${pendingToggleRoom.isActive ? "bg-red-600 text-white" : "bg-[#0d0d0d] text-white"}`}
-                type="button"
-                onClick={() => void toggleRoom(pendingToggleRoom)}
-                disabled={isTogglingRoom}
-              >
-                {isTogglingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                {pendingToggleRoom.isActive ? "Deactivate" : "Activate"}
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-    </section>
+    <RoomsListView
+      isGuest={isGuest}
+      isAdmin={isAdmin}
+      socketStatus={socketStatus}
+      viewMode={viewMode}
+      visibleRooms={visibleRooms}
+      notice={notice}
+      isLoadingRooms={isLoadingRooms}
+      openingRoomId={openingRoomId}
+      pendingJoinRoom={pendingJoinRoom}
+      isJoiningRoom={isJoiningRoom}
+      pendingToggleRoom={pendingToggleRoom}
+      isTogglingRoom={isTogglingRoom}
+      onStartCreateRoom={startCreateRoom}
+      onViewModeChange={setViewMode}
+      onStartEditRoom={startEditRoom}
+      onOpenRoom={(room) => (room.hasJoined || isAdmin ? openJoinedRoom(room) : requestJoinRoom(room))}
+      onRefresh={() => void loadRooms()}
+      onCloseJoin={() => setPendingJoinRoom(null)}
+      onConfirmJoin={joinPendingRoom}
+      onRequestToggle={setPendingToggleRoom}
+      onCloseToggle={() => setPendingToggleRoom(null)}
+      onConfirmToggle={(room) => void toggleRoom(room)}
+    />
   );
 }

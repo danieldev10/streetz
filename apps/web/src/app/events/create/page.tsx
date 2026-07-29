@@ -12,7 +12,7 @@ const AdminEventForm = dynamic(
 export default function CreateEventPage() {
   return (
     <AuthenticatedRoute activeTab="events" adminOnly>
-      {({ token, user }) => <AdminEventForm token={token} user={user} mode="create" />}
+      {({ token }) => <AdminEventForm token={token} mode="create" />}
     </AuthenticatedRoute>
   );
 }
