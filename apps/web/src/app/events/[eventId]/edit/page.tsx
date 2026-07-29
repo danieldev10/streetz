@@ -15,7 +15,7 @@ export default function EditEventPage() {
 
   return (
     <AuthenticatedRoute activeTab="events" adminOnly>
-      {({ token, user }) => <AdminEventForm token={token} user={user} mode="edit" eventId={params.eventId} />}
+      {({ token }) => <AdminEventForm token={token} mode="edit" eventId={params.eventId} />}
     </AuthenticatedRoute>
   );
 }

@@ -2,7 +2,7 @@
 
 import type { CSSProperties, PointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Ban, Eye, Flag, Heart, LoaderCircle, MapPin, RefreshCw, SlidersHorizontal, Ticket, X } from "lucide-react";
+import { Heart, LoaderCircle, MapPin, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -19,62 +19,29 @@ import {
 } from "@/lib/discovery";
 import {
   DEFAULT_DISCOVERY_DISTANCE_KM,
-  DISCOVERY_DISTANCE_STEP_KM,
-  MAX_DISCOVERY_DISTANCE_KM,
-  MIN_DISCOVERY_DISTANCE_KM,
   type ReverseGeocodeSuggestion,
-  formatDistanceKm,
   getCurrentBrowserCoordinates,
   getLocationPermissionMessage,
 } from "@/lib/location";
 import { getCandidatePhotoUrl } from "@/lib/media";
-import { normalizeLocationSuggestion } from "@/lib/nigeria-locations";
-import { formatConnectionStatus } from "@/lib/profile";
 import { REPORT_DETAILS_MAX_LENGTH, REPORT_REASON_OPTIONS } from "@/lib/report-reasons";
 import type { DiscoveryActionName, DiscoveryCandidate, DiscoveryPreference, StreetzProfile } from "@/lib/types";
-import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
 import { DiscoveryPreferencesForm } from "@/features/discovery/discovery-preferences-form";
-
-type DiscoveryLocationMeta = {
-  hasCoordinates: boolean;
-  city: string | null;
-  state: string | null;
-  maxDistanceKm: number;
-  locationUpdatedAt: string | null;
-};
-
-type DiscoveryResponse = {
-  candidates: DiscoveryCandidate[];
-  location?: DiscoveryLocationMeta;
-};
-
-const defaultDiscoveryLocation: DiscoveryLocationMeta = {
-  hasCoordinates: false,
-  city: null,
-  state: null,
-  maxDistanceKm: DEFAULT_DISCOVERY_DISTANCE_KM,
-  locationUpdatedAt: null,
-};
-
-const LOCATION_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
-
-type DiscoveryFilters = {
-  minAge: number | null;
-  maxAge: number | null;
-};
-
-function getDefaultDiscoveryFilters(): DiscoveryFilters {
-  return {
-    minAge: null,
-    maxAge: null,
-  };
-}
-
-type PendingDisplayLocation = {
-  city: string;
-  state: string;
-};
+import {
+  defaultDiscoveryLocation,
+  getDefaultDiscoveryFilters,
+  getDisplayLocationSuggestion,
+  shouldRefreshDiscoveryLocation,
+  type DiscoveryFilters,
+  type DiscoveryLocationMeta,
+  type DiscoveryResponse,
+  type PendingDisplayLocation,
+} from "./discovery-model";
+import { DiscoveryCandidateCard } from "./discovery-candidate-card";
+import { DiscoveryFiltersDialog } from "./discovery-filters-dialog";
+import { BlockCandidateDialog, ReportCandidateDialog } from "./discovery-safety-dialogs";
+import { DisplayLocationDialog } from "./display-location-dialog";
 
 export function DiscoveryTab({
   token,
@@ -127,7 +94,6 @@ export function DiscoveryTab({
     transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0) rotate(${dragOffset.x / 18}deg)`,
     transition: isDraggingCard ? "none" : "transform 180ms ease",
   };
-  const isNoLimitDistance = locationMeta.maxDistanceKm === 0;
   const shouldPromptForLocation = shouldRefreshDiscoveryLocation(locationMeta);
   const locationPromptText = !locationMeta.hasCoordinates
     ? "Update your location to see nearby people."
@@ -768,251 +734,56 @@ export function DiscoveryTab({
       </div>
 
       {blockTarget ? (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
-            <div className="flex items-start gap-3">
-              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-red-50 text-red-600">
-                <Ban className="size-5" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-[#0d0d0d]">Block this profile?</h2>
-                <p className="mt-1 text-sm leading-6 text-[#666666]">
-                  You will stop seeing {blockTarget.displayName} in discovery.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                onClick={() => setBlockTarget(null)}
-                disabled={actionTargetId === blockTarget.id}
-              >
-                Cancel
-              </button>
-              <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                onClick={confirmBlockCandidate}
-                disabled={actionTargetId === blockTarget.id}
-              >
-                {actionTargetId === blockTarget.id ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                Block
-              </button>
-            </div>
-          </div>
-        </div>
+        <BlockCandidateDialog
+          candidate={blockTarget}
+          isSubmitting={actionTargetId === blockTarget.id}
+          onCancel={() => setBlockTarget(null)}
+          onConfirm={() => void confirmBlockCandidate()}
+        />
       ) : null}
 
       {reportTarget ? (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
-          <form
-            className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submitReportCandidate();
-            }}
-          >
-            <div className="flex items-start gap-3">
-              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#f6e0f6] text-[#9d2a9e]">
-                <Flag className="size-5" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-[#0d0d0d]">Report profile</h2>
-                <p className="mt-1 text-sm leading-6 text-[#666666]">
-                  Tell us what is wrong with this profile from {reportTarget.displayName}.
-                </p>
-              </div>
-            </div>
-            <select
-              className="mt-4 h-11 w-full rounded-full border border-black/[0.08] bg-white px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
-              value={reportReason}
-              onChange={(event) => {
-                setReportReason(event.target.value);
-                setReportError(null);
-              }}
-              required
-              disabled={actionTargetId === reportTarget.id}
-            >
-              <option value="">Choose a violation</option>
-              {REPORT_REASON_OPTIONS.map((reason) => (
-                <option key={reason} value={reason}>
-                  {reason}
-                </option>
-              ))}
-            </select>
-            <textarea
-              className="mt-3 min-h-24 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
-              placeholder="Optional details"
-              value={reportDetails}
-              onChange={(event) => {
-                setReportDetails(event.target.value);
-                setReportError(null);
-              }}
-              maxLength={REPORT_DETAILS_MAX_LENGTH}
-              disabled={actionTargetId === reportTarget.id}
-            />
-            {reportError ? <p className="mt-2 text-xs font-medium text-red-600">{reportError}</p> : null}
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                onClick={() => {
-                  setReportTarget(null);
-                  setReportReason("");
-                  setReportDetails("");
-                  setReportError(null);
-                }}
-                disabled={actionTargetId === reportTarget.id}
-              >
-                Cancel
-              </button>
-              <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                type="submit"
-                disabled={actionTargetId === reportTarget.id || !reportReason}
-              >
-                {actionTargetId === reportTarget.id ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                Send report
-              </button>
-            </div>
-          </form>
-        </div>
+        <ReportCandidateDialog
+          candidate={reportTarget}
+          details={reportDetails}
+          error={reportError}
+          isSubmitting={actionTargetId === reportTarget.id}
+          reason={reportReason}
+          onCancel={() => {
+            setReportTarget(null);
+            setReportReason("");
+            setReportDetails("");
+            setReportError(null);
+          }}
+          onDetailsChange={(details) => {
+            setReportDetails(details);
+            setReportError(null);
+          }}
+          onReasonChange={(reason) => {
+            setReportReason(reason);
+            setReportError(null);
+          }}
+          onSubmit={() => void submitReportCandidate()}
+        />
       ) : null}
 
       {isFilterOpen ? (
-        <div className="fixed inset-0 z-40 overflow-y-auto bg-black/35 px-5 backdrop-blur-sm" style={{ display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "max(24px, env(safe-area-inset-top))", paddingBottom: 24 }}>
-          <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-[#0d0d0d]">Discovery filters</h2>
-                <p className="mt-1 text-sm leading-6 text-[#666666]">
-                  {!locationMeta.hasCoordinates ? "GPS is off, so distances stay hidden." : isNoLimitDistance ? "Showing profiles from anywhere." : "Using GPS for nearby profiles."}
-                </p>
-              </div>
-              <button
-                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
-                type="button"
-                onClick={() => setIsFilterOpen(false)}
-                aria-label="Close filters"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-
-            {/* Distance */}
-            <div className="mt-5 rounded-[20px] border border-black/[0.06] bg-[#fafafa] p-4">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm font-semibold text-[#0d0d0d]">Maximum distance</span>
-                <div className="flex items-center gap-2">
-                  {draftMaxDistanceKm > 0 ? (
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0d0d0d]">
-                      {draftMaxDistanceKm} km
-                    </span>
-                  ) : null}
-                  <button
-                    type="button"
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${draftMaxDistanceKm === 0 ? "bg-[#0d0d0d] text-white" : "bg-white text-[#666666]"}`}
-                    onClick={() =>
-                      setDraftMaxDistanceKm(draftMaxDistanceKm === 0 ? DEFAULT_DISCOVERY_DISTANCE_KM : 0)
-                    }
-                  >
-                    No limit
-                  </button>
-                </div>
-              </div>
-              <input
-                className="mt-4 w-full accent-[#bd40be] disabled:opacity-40"
-                type="range"
-                min={MIN_DISCOVERY_DISTANCE_KM}
-                max={MAX_DISCOVERY_DISTANCE_KM}
-                step={DISCOVERY_DISTANCE_STEP_KM}
-                value={draftMaxDistanceKm === 0 ? MAX_DISCOVERY_DISTANCE_KM : draftMaxDistanceKm}
-                onChange={(event) => setDraftMaxDistanceKm(Number(event.target.value))}
-                disabled={draftMaxDistanceKm === 0}
-              />
-            </div>
-
-            <button
-              className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
-              type="button"
-              onClick={() => void saveCurrentLocation()}
-              disabled={isDetectingLocation || isSavingFilters}
-            >
-              {isDetectingLocation ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <MapPin className="size-4" aria-hidden="true" />}
-              {locationMeta.hasCoordinates ? "Update GPS location" : "Use GPS location"}
-            </button>
-
-            {/* Age range */}
-            <div className="mt-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Age range</p>
-              <div className="mt-2 flex items-center gap-3">
-                <label className="flex flex-1 flex-col gap-1">
-                  <span className="text-xs text-[#666666]">Min</span>
-                  <input
-                    className="h-11 w-full rounded-full border border-black/[0.08] px-4 text-sm text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
-                    type="number"
-                    min={18}
-                    max={100}
-                    placeholder="18"
-                    value={draftFilters.minAge ?? ""}
-                    onChange={(event) => {
-                      const val = event.target.value === "" ? null : Math.max(18, Math.min(100, Number(event.target.value)));
-                      setDraftFilters((f) => ({ ...f, minAge: val }));
-                    }}
-                  />
-                </label>
-                <span className="mt-5 text-sm text-[#888888]">–</span>
-                <label className="flex flex-1 flex-col gap-1">
-                  <span className="text-xs text-[#666666]">Max</span>
-                  <input
-                    className="h-11 w-full rounded-full border border-black/[0.08] px-4 text-sm text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
-                    type="number"
-                    min={18}
-                    max={100}
-                    placeholder="100"
-                    value={draftFilters.maxAge ?? ""}
-                    onChange={(event) => {
-                      const val = event.target.value === "" ? null : Math.max(18, Math.min(100, Number(event.target.value)));
-                      setDraftFilters((f) => ({ ...f, maxAge: val }));
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-
-            <button
-              className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d]"
-              type="button"
-              onClick={() => {
-                setIsFilterOpen(false);
-                setIsPreferenceOpen(true);
-              }}
-            >
-              Change who I’d like to meet
-            </button>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                onClick={() => setIsFilterOpen(false)}
-                disabled={isSavingFilters || isDetectingLocation}
-              >
-                Cancel
-              </button>
-              <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                onClick={() => void saveFilters()}
-                disabled={isSavingFilters || isDetectingLocation}
-              >
-                {isSavingFilters ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
+        <DiscoveryFiltersDialog
+          draftFilters={draftFilters}
+          draftMaxDistanceKm={draftMaxDistanceKm}
+          isDetectingLocation={isDetectingLocation}
+          isSaving={isSavingFilters}
+          location={locationMeta}
+          onApply={() => void saveFilters()}
+          onCancel={() => setIsFilterOpen(false)}
+          onChangeFilters={setDraftFilters}
+          onChangeMaxDistance={setDraftMaxDistanceKm}
+          onChangePreferences={() => {
+            setIsFilterOpen(false);
+            setIsPreferenceOpen(true);
+          }}
+          onUpdateLocation={() => void saveCurrentLocation()}
+        />
       ) : null}
 
       {isPreferenceOpen ? (
@@ -1034,211 +805,13 @@ export function DiscoveryTab({
       ) : null}
 
       {pendingDisplayLocation ? (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
-            <div className="flex items-start gap-3">
-              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[#f6e0f6] text-[#9d2a9e]">
-                <MapPin className="size-5" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-[#0d0d0d]">Update display location?</h2>
-                <p className="mt-1 text-sm leading-6 text-[#666666]">
-                  You seem to be in {pendingDisplayLocation.city}, {pendingDisplayLocation.state}.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                onClick={() => setPendingDisplayLocation(null)}
-                disabled={isSavingDisplayLocation}
-              >
-                Keep current
-              </button>
-              <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                onClick={() => void updateDisplayLocation()}
-                disabled={isSavingDisplayLocation}
-              >
-                {isSavingDisplayLocation ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                Update
-              </button>
-            </div>
-          </div>
-        </div>
+        <DisplayLocationDialog
+          isSaving={isSavingDisplayLocation}
+          location={pendingDisplayLocation}
+          onCancel={() => setPendingDisplayLocation(null)}
+          onConfirm={() => void updateDisplayLocation()}
+        />
       ) : null}
     </section>
-  );
-}
-
-function shouldRefreshDiscoveryLocation(location: DiscoveryLocationMeta) {
-  if (!location.hasCoordinates || !location.locationUpdatedAt) {
-    return true;
-  }
-
-  const updatedAt = new Date(location.locationUpdatedAt).getTime();
-
-  if (Number.isNaN(updatedAt)) {
-    return true;
-  }
-
-  return Date.now() - updatedAt > LOCATION_STALE_AFTER_MS;
-}
-
-function getDisplayLocationSuggestion(
-  suggestion: ReverseGeocodeSuggestion,
-  currentLocation: Pick<DiscoveryLocationMeta, "city" | "state">
-): PendingDisplayLocation | null {
-  const normalizedLocation = normalizeLocationSuggestion(suggestion);
-
-  if (!normalizedLocation.city || !normalizedLocation.state) {
-    return null;
-  }
-
-  const currentCity = currentLocation.city?.trim().toLowerCase() ?? "";
-  const currentState = currentLocation.state?.trim().toLowerCase() ?? "";
-  const suggestedCity = normalizedLocation.city.trim().toLowerCase();
-  const suggestedState = normalizedLocation.state.trim().toLowerCase();
-
-  if (currentCity === suggestedCity && currentState === suggestedState) {
-    return null;
-  }
-
-  return normalizedLocation;
-}
-
-function DiscoveryCandidateCard({
-  candidate,
-  isActionDisabled,
-  onBlock,
-  onLike,
-  onPass,
-  onReport,
-  onViewProfile,
-  priority,
-  swipeIntent,
-}: {
-  candidate: DiscoveryCandidate;
-  isActionDisabled: boolean;
-  onBlock: () => void;
-  onLike: () => void;
-  onPass: () => void;
-  onReport: () => void;
-  onViewProfile: () => void;
-  priority: boolean;
-  swipeIntent: DiscoveryActionName | null;
-}) {
-  const location = [candidate.city, candidate.state].filter(Boolean).join(", ") || "Nigeria";
-  const distance = formatDistanceKm(candidate.distanceKm);
-  const locationLabel = distance ? `${location} · ${distance}` : location;
-
-  return (
-    <>
-      <div className="relative h-[clamp(320px,44svh,440px)] bg-[#f6e0f6] md:aspect-[4/5] md:h-auto md:min-h-[440px]">
-        <CandidatePhoto candidate={candidate} priority={priority} />
-        <div
-          className={`absolute left-5 top-5 rounded-[14px] border-2 px-4 py-2 text-lg font-semibold uppercase tracking-[0.08em] transition-opacity ${swipeIntent === "PASS" ? "border-white bg-white/90 text-[#0d0d0d] opacity-100" : "border-white/60 text-white opacity-0"
-            }`}
-        >
-          Pass
-        </div>
-        <div
-          className={`absolute right-5 top-5 rounded-[14px] border-2 px-4 py-2 text-lg font-semibold uppercase tracking-[0.08em] transition-opacity ${swipeIntent === "LIKE"
-            ? "border-[#bd40be] bg-[#9d2a9e]/90 text-white opacity-100"
-            : "border-[#bd40be]/60 text-[#bd40be] opacity-0"
-            }`}
-        >
-          Like
-        </div>
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-4 text-white md:p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
-              {formatConnectionStatus(candidate.connectionStatus)}
-            </span>
-            {candidate.attendedEventCount > 0 ? (
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#0d0d0d]"
-                aria-label={`${candidate.attendedEventCount} attended events`}
-                title={`${candidate.attendedEventCount} attended events`}
-              >
-                <Ticket className="size-3.5" aria-hidden="true" />
-                {candidate.attendedEventCount}
-              </span>
-            ) : null}
-          </div>
-          <h2 className="mt-2 text-2xl font-semibold md:mt-3 md:text-3xl">
-            {candidate.displayName}
-            {candidate.age ? `, ${candidate.age}` : ""}
-          </h2>
-          <p className="mt-1 flex items-center gap-1 text-sm font-medium">
-            <MapPin className="size-4" aria-hidden="true" />
-            {locationLabel}
-          </p>
-        </div>
-      </div>
-      <div className="p-4">
-        {candidate.bio ? <p className="line-clamp-2 text-sm leading-6 text-[#444444]">{candidate.bio}</p> : null}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {candidate.interests.slice(0, 4).map((interest) => (
-            <span key={interest} className="rounded-full bg-[#fafafa] px-3 py-1 text-xs font-medium text-[#666666]">
-              {interest}
-            </span>
-          ))}
-        </div>
-        <button
-          className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
-          onClick={onViewProfile}
-          onPointerDown={(event) => event.stopPropagation()}
-          disabled={isActionDisabled}
-        >
-          <Eye className="size-4" aria-hidden="true" />
-          View Profile
-        </button>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <button
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={onPass}
-            onPointerDown={(event) => event.stopPropagation()}
-            disabled={isActionDisabled}
-            aria-label="Pass"
-            title="Pass"
-          >
-            <X className="size-5" aria-hidden="true" />
-          </button>
-          <button
-            className="inline-flex h-11 items-center justify-center rounded-full bg-[#9d2a9e] text-white disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={onLike}
-            onPointerDown={(event) => event.stopPropagation()}
-            disabled={isActionDisabled}
-            aria-label="Like"
-            title="Like"
-          >
-            <Heart className="size-5 fill-current" aria-hidden="true" />
-          </button>
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-3">
-          <button
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#fafafa] px-3 text-xs font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={onBlock}
-            onPointerDown={(event) => event.stopPropagation()}
-            disabled={isActionDisabled}
-          >
-            <Ban className="size-4" aria-hidden="true" />
-            Block
-          </button>
-          <button
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#fafafa] px-3 text-xs font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-60"
-            onClick={onReport}
-            onPointerDown={(event) => event.stopPropagation()}
-            disabled={isActionDisabled}
-          >
-            <Flag className="size-4" aria-hidden="true" />
-            Report
-          </button>
-        </div>
-      </div>
-    </>
   );
 }
