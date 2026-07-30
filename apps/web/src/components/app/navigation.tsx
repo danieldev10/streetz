@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   Ban,
   Bell,
+  ChevronDown,
   CreditCard,
   Flag,
   Heart,
   LogOut,
+  LifeBuoy,
   Menu,
   MessageCircle,
   MessagesSquare,
@@ -41,6 +43,7 @@ export const adminTabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> =
   { id: "events", label: "Events", icon: Ticket },
   { id: "reports", label: "Reports", icon: Flag },
   { id: "users", label: "Users", icon: UsersRound },
+  { id: "support", label: "Support", icon: LifeBuoy },
   { id: "admin", label: "Metrics", icon: ShieldCheck },
 ];
 
@@ -55,6 +58,7 @@ export const tabRoutes: Record<TabKey, string> = {
   admin: "/admin",
   reports: "/reports",
   users: "/users",
+  support: "/admin/support",
 };
 
 function AccountMenu({
@@ -70,9 +74,11 @@ function AccountMenu({
 }) {
   const closeTimerRef = useRef<number | null>(null);
   const openFrameRef = useRef<number | null>(null);
+  const supportMenuId = useId();
   const [isDrawerMounted, setIsDrawerMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isSupportExpanded, setIsSupportExpanded] = useState(false);
 
   const clearAnimationTimers = useCallback(() => {
     if (closeTimerRef.current !== null) {
@@ -97,6 +103,7 @@ function AccountMenu({
   const closeMenu = useCallback(() => {
     clearAnimationTimers();
     setIsOpen(false);
+    setIsSupportExpanded(false);
     closeTimerRef.current = window.setTimeout(() => {
       setIsDrawerMounted(false);
       closeTimerRef.current = null;
@@ -184,7 +191,7 @@ function AccountMenu({
           </button>
         </div>
 
-        <nav className="mt-8 grid gap-2">
+        <nav className="mt-8 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto">
           <Link
             className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
             href="/profile"
@@ -204,6 +211,53 @@ function AccountMenu({
             <Ban className="size-4" aria-hidden="true" />
             Blocked Accounts
           </Link>
+
+          <div>
+            <button
+              type="button"
+              className="flex h-12 w-full items-center justify-between rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+              onClick={() => setIsSupportExpanded((current) => !current)}
+              aria-expanded={isSupportExpanded}
+              aria-controls={supportMenuId}
+              tabIndex={isOpen ? 0 : -1}
+            >
+              <span className="inline-flex items-center gap-3">
+                <LifeBuoy className="size-4" aria-hidden="true" />
+                Support
+              </span>
+              <ChevronDown
+                className={`size-4 transition-transform ${isSupportExpanded ? "rotate-180" : ""}`}
+                aria-hidden="true"
+              />
+            </button>
+
+            <div
+              id={supportMenuId}
+              aria-hidden={!isSupportExpanded}
+              className={`grid overflow-hidden pl-8 transition-[grid-template-rows,opacity] duration-200 ${
+                isSupportExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              }`}
+            >
+              <div className="min-h-0">
+                {[
+                  { href: "/support", label: "General" },
+                  { href: "/support/requests", label: "Requests" },
+                  { href: "/support/faq", label: "FAQ" },
+                  { href: "/support/contact", label: "Contact Us" },
+                ].map((item) => (
+                  <Link
+                    key={item.href}
+                    className="flex h-10 items-center rounded-full px-4 text-sm text-[#666666] transition hover:bg-[#fafafa] hover:text-[#0d0d0d]"
+                    href={item.href}
+                    onClick={closeMenu}
+                    tabIndex={isOpen && isSupportExpanded ? 0 : -1}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
 
           <button
             type="button"

@@ -13,3 +13,4 @@ export * from "./types/navigation";
 export * from "./types/notifications";
 export * from "./types/payments";
 export * from "./types/profile";
+export * from "./types/support";

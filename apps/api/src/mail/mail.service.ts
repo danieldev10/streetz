@@ -28,6 +28,23 @@ type GuestTicketConfirmationEmailInput = {
   manageUrl: string;
 };
 
+type SupportRequestReceivedEmailInput = {
+  to: string;
+  displayName: string;
+  reference: string;
+  subject: string;
+  supportUrl: string;
+};
+
+type SupportReplyEmailInput = {
+  to: string;
+  displayName: string;
+  reference: string;
+  subject: string;
+  message: string;
+  supportUrl?: string | null;
+};
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -146,6 +163,60 @@ export class MailService {
     `;
 
     return this.sendEmail({ to: input.to, subject, text, html }, "guest ticket confirmation");
+  }
+
+  async sendSupportRequestReceivedEmail(input: SupportRequestReceivedEmailInput) {
+    const subject = `We received your support request ${input.reference}`;
+    const text = [
+      `Hi ${input.displayName},`,
+      "",
+      `We received your support request: ${input.subject}`,
+      `Reference: ${input.reference}`,
+      "",
+      "You can view the request and reply here:",
+      input.supportUrl,
+      "",
+      "Keep this email. If you submitted as a guest, the link is private and should not be shared."
+    ].join("\n");
+    const html = `
+      <div style="font-family: Arial, sans-serif; color: #111111; line-height: 1.6; max-width: 560px;">
+        <h1 style="font-size: 24px; margin: 0 0 16px;">We received your request</h1>
+        <p>Hi ${this.escapeHtml(input.displayName)},</p>
+        <p>Our support team has received <strong>${this.escapeHtml(input.subject)}</strong>.</p>
+        <p>Reference: <strong>${this.escapeHtml(input.reference)}</strong></p>
+        <p><a href="${this.escapeHtml(input.supportUrl)}" style="display: inline-block; background: #0d0d0d; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 999px; font-weight: 700;">View support request</a></p>
+        <p style="color: #666666;">Keep this email. If you submitted as a guest, the link is private and should not be shared.</p>
+      </div>
+    `;
+
+    return this.sendEmail({ to: input.to, subject, text, html }, "support request confirmation");
+  }
+
+  async sendSupportReplyEmail(input: SupportReplyEmailInput) {
+    const subject = `Update on ${input.reference}: ${input.subject}`;
+    const text = [
+      `Hi ${input.displayName},`,
+      "",
+      "Crushclub Support replied:",
+      input.message,
+      "",
+      input.supportUrl
+        ? `View the full conversation and reply:\n${input.supportUrl}`
+        : "Use the private link in your original support email to view the full conversation and reply."
+    ].join("\n");
+    const html = `
+      <div style="font-family: Arial, sans-serif; color: #111111; line-height: 1.6; max-width: 560px;">
+        <h1 style="font-size: 24px; margin: 0 0 16px;">Support replied</h1>
+        <p>Hi ${this.escapeHtml(input.displayName)},</p>
+        <p>There is an update on <strong>${this.escapeHtml(input.reference)}</strong>.</p>
+        <div style="background: #f6f6f6; border-radius: 16px; padding: 16px; white-space: pre-wrap;">${this.escapeHtml(input.message)}</div>
+        ${input.supportUrl
+          ? `<p><a href="${this.escapeHtml(input.supportUrl)}" style="display: inline-block; background: #0d0d0d; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 999px; font-weight: 700;">View conversation</a></p>`
+          : "<p>Use the private link in your original support email to view the full conversation and reply.</p>"}
+      </div>
+    `;
+
+    return this.sendEmail({ to: input.to, subject, text, html }, "support reply");
   }
 
   private async sendEmail(

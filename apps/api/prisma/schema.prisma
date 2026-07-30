@@ -167,6 +167,41 @@ enum FaceVerificationProvider {
   AWS_REKOGNITION
 }
 
+enum SupportRequestStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_USER
+  RESOLVED
+  CLOSED
+}
+
+enum SupportRequestCategory {
+  ACCOUNT_LOGIN
+  MEMBERSHIP_PAYMENT
+  EVENTS_TICKETS
+  GUEST_TICKETS
+  RAFFLES
+  PROFILE_VERIFICATION
+  DISCOVERY_PRIVACY
+  ROOMS_MESSAGES
+  SAFETY_REPORT
+  TECHNICAL
+  OTHER
+}
+
+enum SupportPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SupportMessageAuthorType {
+  USER
+  GUEST
+  ADMIN
+  SYSTEM
+}
+
 model User {
   id                 String               @id @default(cuid())
   email              String               @unique
@@ -214,8 +249,51 @@ model User {
   discoveryPreference DiscoveryPreference?
   discoveryImpressionsMade DiscoveryImpression[] @relation("DiscoveryImpressionViewer")
   discoveryImpressionsReceived DiscoveryImpression[] @relation("DiscoveryImpressionCandidate")
+  supportRequests SupportRequest[] @relation("SupportRequester")
+  supportMessages SupportMessage[] @relation("SupportMessageAuthor")
 
   @@index([lastDiscoveryActiveAt])
+}
+
+model SupportRequest {
+  id                   String                 @id @default(cuid())
+  reference            String                 @unique
+  userId               String?
+  user                 User?                  @relation("SupportRequester", fields: [userId], references: [id], onDelete: SetNull)
+  email                String
+  displayName          String
+  category             SupportRequestCategory
+  subject              String
+  status               SupportRequestStatus   @default(OPEN)
+  priority             SupportPriority        @default(NORMAL)
+  manageTokenHash      String                 @unique
+  manageTokenExpiresAt DateTime
+  currentPage          String?
+  userAgent            String?
+  appVersion           String?
+  lastMessageAt        DateTime               @default(now())
+  resolvedAt           DateTime?
+  closedAt             DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  messages             SupportMessage[]
+
+  @@index([userId, updatedAt])
+  @@index([status, priority, lastMessageAt])
+  @@index([email, createdAt])
+}
+
+model SupportMessage {
+  id           String                   @id @default(cuid())
+  requestId    String
+  request      SupportRequest           @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  authorType   SupportMessageAuthorType
+  authorUserId String?
+  authorUser   User?                    @relation("SupportMessageAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  body         String
+  createdAt    DateTime                 @default(now())
+
+  @@index([requestId, createdAt])
 }
 
 model FaceVerificationAttempt {
