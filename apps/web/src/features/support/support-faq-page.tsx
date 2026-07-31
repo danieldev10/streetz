@@ -5,7 +5,7 @@ import { SupportShell } from "./support-shell";
 
 export function SupportFaqPage() {
   return (
-    <SupportShell backHref="/support" backLabel="General" maxWidth="max-w-4xl">
+    <SupportShell maxWidth="max-w-4xl">
       <section>
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#777777]">
           Support centre
