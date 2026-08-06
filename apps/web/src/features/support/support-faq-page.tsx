@@ -7,14 +7,7 @@ export function SupportFaqPage() {
   return (
     <SupportShell maxWidth="max-w-4xl">
       <section>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#777777]">
-          Support centre
-        </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Frequently asked questions</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#666666]">
-          Quick answers for common account, event, ticket, discovery, and safety questions.
-        </p>
-
         <div className="mt-6 grid gap-3">
           {supportFaqs.map((faq) => (
             <details

@@ -69,10 +69,10 @@ export function SupportContactPage({
             isMember
               ? basePayload
               : {
-                  ...basePayload,
-                  displayName: form.displayName.trim(),
-                  email: form.email.trim(),
-                },
+                ...basePayload,
+                displayName: form.displayName.trim(),
+                email: form.email.trim(),
+              },
           ),
         },
       );
@@ -101,14 +101,7 @@ export function SupportContactPage({
   return (
     <SupportShell maxWidth="max-w-4xl">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#777777]">
-          Support centre
-        </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Contact us</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#666666]">
-          Tell us what happened once. You will receive a reference and a private place to continue
-          the conversation.
-        </p>
       </div>
 
       {form.category === "SAFETY_REPORT" ? (
@@ -127,13 +120,6 @@ export function SupportContactPage({
       ) : null}
 
       <section className="mt-6 rounded-[28px] border border-black/[0.07] bg-white p-5 md:p-7">
-        <h2 className="text-xl font-semibold">Send a support request</h2>
-        <p className="mt-2 text-sm leading-6 text-[#666666]">
-          {isMember
-            ? `We will use ${user?.email} and save this request to your account.`
-            : "We will email you a private link for viewing replies and continuing the conversation."}
-        </p>
-
         <form className="mt-6 grid gap-4" onSubmit={submitRequest}>
           {!isMember ? (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -222,11 +208,10 @@ export function SupportContactPage({
 
           {formMessage ? (
             <div
-              className={`rounded-[16px] p-4 text-sm ${
-                formMessage.tone === "success"
-                  ? "bg-emerald-50 text-emerald-800"
-                  : "bg-red-50 text-red-700"
-              }`}
+              className={`rounded-[16px] p-4 text-sm ${formMessage.tone === "success"
+                ? "bg-emerald-50 text-emerald-800"
+                : "bg-red-50 text-red-700"
+                }`}
               role={formMessage.tone === "error" ? "alert" : "status"}
             >
               <p>{formMessage.text}</p>

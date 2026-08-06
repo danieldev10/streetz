@@ -5,13 +5,12 @@ import { useEffect, useState } from "react";
 import { ChevronRight, LockKeyhole, Send } from "lucide-react";
 import { useSession } from "@/components/app/session-provider";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
-import type { SupportRequest, SupportRequestSummary } from "@/lib/types";
+import type { SupportRequestSummary } from "@/lib/types";
 import {
   getSupportCategoryLabel,
   supportStatusLabels,
 } from "./support-content";
 import { SupportShell } from "./support-shell";
-import { SupportThread } from "./support-thread";
 
 function formatListDate(value: string) {
   return new Intl.DateTimeFormat("en-NG", {
@@ -25,12 +24,8 @@ function formatListDate(value: string) {
 export function SupportRequestsPage() {
   const { status, token, user } = useSession();
   const [requests, setRequests] = useState<SupportRequestSummary[]>([]);
-  const [selectedRequest, setSelectedRequest] = useState<SupportRequest | null>(null);
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
-  const [isLoadingThread, setIsLoadingThread] = useState(false);
-  const [isReplying, setIsReplying] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
-  const [replyError, setReplyError] = useState<string | null>(null);
 
   const isMember = status === "authenticated" && Boolean(token && user);
 
@@ -58,76 +53,11 @@ export function SupportRequestsPage() {
     };
   }, [token, user]);
 
-  async function openRequest(requestId: string) {
-    if (!token) return;
-    setIsLoadingThread(true);
-    setRequestError(null);
-    try {
-      const request = await apiRequest<SupportRequest>(
-        `/support/requests/me/${requestId}`,
-        {
-          headers: authHeaders(token),
-        },
-      );
-      setSelectedRequest(request);
-    } catch (error) {
-      setRequestError(getUserErrorMessage(error));
-    } finally {
-      setIsLoadingThread(false);
-    }
-  }
-
-  async function replyToRequest(message: string) {
-    if (!token || !selectedRequest) return;
-    setIsReplying(true);
-    setReplyError(null);
-    try {
-      const request = await apiRequest<SupportRequest>(
-        `/support/requests/me/${selectedRequest.id}/messages`,
-        {
-          method: "POST",
-          headers: authHeaders(token),
-          body: JSON.stringify({ message }),
-        },
-      );
-      setSelectedRequest(request);
-      setRequests((current) =>
-        current.map((item) =>
-          item.id === request.id
-            ? {
-                ...item,
-                status: request.status,
-                lastMessageAt: request.lastMessageAt,
-                latestMessage: request.messages.at(-1)
-                  ? {
-                      body: request.messages.at(-1)!.body,
-                      createdAt: request.messages.at(-1)!.createdAt,
-                      authorType: request.messages.at(-1)!.authorType,
-                    }
-                  : null,
-              }
-            : item,
-        ),
-      );
-    } catch (error) {
-      setReplyError(getUserErrorMessage(error));
-      throw error;
-    } finally {
-      setIsReplying(false);
-    }
-  }
-
   return (
     <SupportShell maxWidth="max-w-4xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#777777]">
-            Support centre
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Requests</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#666666]">
-            View replies and continue your private conversations with the support team.
-          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Tickets</h1>
         </div>
         <Link
           className="inline-flex h-11 items-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-semibold text-white"
@@ -169,11 +99,6 @@ export function SupportRequestsPage() {
 
       {isMember ? (
         <section className="mt-6">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold">My support requests</h2>
-            <span className="text-sm text-[#777777]">{requests.length} total</span>
-          </div>
-
           {requestError ? (
             <p className="mt-4 rounded-2xl bg-red-50 p-4 text-sm text-red-700">
               {requestError}
@@ -188,11 +113,10 @@ export function SupportRequestsPage() {
           ) : (
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {requests.map((request) => (
-                <button
+                <Link
                   key={request.id}
                   className="flex items-center gap-4 rounded-[22px] border border-black/[0.07] bg-white p-4 text-left transition hover:border-black/20"
-                  type="button"
-                  onClick={() => void openRequest(request.id)}
+                  href={`/support/requests/${request.id}`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -213,24 +137,10 @@ export function SupportRequestsPage() {
                     className="size-4 shrink-0 text-[#999999]"
                     aria-hidden="true"
                   />
-                </button>
+                </Link>
               ))}
             </div>
           )}
-
-          {isLoadingThread ? (
-            <div className="mt-5 h-80 animate-pulse rounded-[24px] bg-black/5" />
-          ) : null}
-          {!isLoadingThread && selectedRequest ? (
-            <div className="mt-5">
-              <SupportThread
-                request={selectedRequest}
-                isReplying={isReplying}
-                error={replyError}
-                onReply={replyToRequest}
-              />
-            </div>
-          ) : null}
         </section>
       ) : null}
     </SupportShell>

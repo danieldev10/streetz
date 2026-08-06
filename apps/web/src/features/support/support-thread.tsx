@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { Send } from "lucide-react";
+import Link from "next/link";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { ArrowLeft, Send } from "lucide-react";
 import type { SupportRequest } from "@/lib/types";
 import { getSupportCategoryLabel, supportStatusLabels } from "./support-content";
 
@@ -26,14 +27,29 @@ export function SupportThread({
   isReplying,
   error,
   onReply,
+  backHref,
+  backLabel = "Back to requests",
+  variant = "card",
 }: {
   request: SupportRequest;
   isReplying: boolean;
   error?: string | null;
   onReply: (message: string) => Promise<void>;
+  backHref?: string;
+  backLabel?: string;
+  variant?: "card" | "conversation";
 }) {
   const [reply, setReply] = useState("");
+  const messageScrollerRef = useRef<HTMLDivElement>(null);
   const canReply = request.status !== "CLOSED";
+  const isConversation = variant === "conversation";
+
+  useEffect(() => {
+    const scroller = messageScrollerRef.current;
+    if (scroller) {
+      scroller.scrollTop = scroller.scrollHeight;
+    }
+  }, [request.messages]);
 
   async function submitReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,24 +60,47 @@ export function SupportThread({
   }
 
   return (
-    <section className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white">
-      <div className="border-b border-black/[0.06] p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#777777]">{request.reference}</span>
-          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(request.status)}`}>
-            {supportStatusLabels[request.status]}
-          </span>
-          {request.priority === "URGENT" ? (
-            <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">Urgent</span>
-          ) : null}
+    <section
+      className={
+        isConversation
+          ? "flex h-[calc(100dvh-168px)] flex-col overflow-hidden bg-white md:h-[720px] md:rounded-[28px] md:border md:border-black/[0.07]"
+          : "overflow-hidden rounded-[24px] border border-black/[0.07] bg-white"
+      }
+    >
+      <div className="flex shrink-0 items-start gap-3 border-b border-black/[0.06] p-5">
+        {backHref ? (
+          <Link
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
+            href={backHref}
+            aria-label={backLabel}
+            title={backLabel}
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Link>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#777777]">{request.reference}</span>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(request.status)}`}>
+              {supportStatusLabels[request.status]}
+            </span>
+            {request.priority === "URGENT" ? (
+              <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">Urgent</span>
+            ) : null}
+          </div>
+          <h1 className="mt-3 truncate text-xl font-semibold">{request.subject}</h1>
+          <p className="mt-1 text-sm text-[#777777]">
+            {getSupportCategoryLabel(request.category)} · Started {formatSupportDate(request.createdAt)}
+          </p>
         </div>
-        <h2 className="mt-3 text-xl font-semibold">{request.subject}</h2>
-        <p className="mt-1 text-sm text-[#777777]">
-          {getSupportCategoryLabel(request.category)} · Started {formatSupportDate(request.createdAt)}
-        </p>
       </div>
 
-      <div className="grid gap-4 bg-[#fafafa] p-5">
+      <div
+        ref={messageScrollerRef}
+        className={`grid gap-4 bg-[#fafafa] p-5 ${
+          isConversation ? "min-h-0 flex-1 content-start overflow-y-auto" : ""
+        }`}
+      >
         {request.messages.map((message) => {
           const fromSupport = message.authorType === "ADMIN" || message.authorType === "SYSTEM";
           return (
@@ -86,7 +125,7 @@ export function SupportThread({
       </div>
 
       {canReply ? (
-        <form className="border-t border-black/[0.06] p-4" onSubmit={submitReply}>
+        <form className="shrink-0 border-t border-black/[0.06] p-4" onSubmit={submitReply}>
           <label className="sr-only" htmlFor={`support-reply-${request.id}`}>Reply</label>
           <div className="flex items-end gap-2">
             <textarea
@@ -110,7 +149,7 @@ export function SupportThread({
           {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
         </form>
       ) : (
-        <p className="border-t border-black/[0.06] p-4 text-center text-sm text-[#777777]">
+        <p className="shrink-0 border-t border-black/[0.06] p-4 text-center text-sm text-[#777777]">
           This request is closed. Start a new request if you still need help.
         </p>
       )}

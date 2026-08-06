@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { GuestSupportRequestClient } from "@/features/support/guest-support-request-client";
+import { MemberSupportRequestClient } from "@/features/support/member-support-request-client";
 
 export const metadata: Metadata = {
   title: "Support request | Crushclub",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
   }
 };
 
-export default async function GuestSupportRequestPage({
+export default async function SupportRequestPage({
   params,
   searchParams,
 }: {
@@ -20,5 +21,9 @@ export default async function GuestSupportRequestPage({
   const [{ requestId }, query] = await Promise.all([params, searchParams]);
   const token = Array.isArray(query.token) ? query.token[0] : query.token;
 
-  return <GuestSupportRequestClient requestId={requestId} token={token ?? ""} />;
+  if (token !== undefined) {
+    return <GuestSupportRequestClient requestId={requestId} token={token} />;
+  }
+
+  return <MemberSupportRequestClient requestId={requestId} />;
 }
