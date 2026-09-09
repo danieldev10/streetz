@@ -8,7 +8,6 @@ import {
   NotificationKind,
   PaymentPurpose,
   PaymentStatus,
-  RaffleStatus,
   ReportStatus,
   SubscriptionStatus,
   UserRole
@@ -33,7 +32,6 @@ const FEED_ROOM_MESSAGES_LIMIT = 10;
 const FEED_ROOMS_LIMIT = 10;
 const FEED_EVENTS_LIMIT = 10;
 const FEED_TICKETS_LIMIT = 10;
-const FEED_RAFFLE_WINS_LIMIT = 10;
 const FEED_EVENT_ALERTS_LIMIT = 10;
 const FEED_REPORT_UPDATES_LIMIT = 10;
 const FEED_PAYMENT_ALERTS_LIMIT = 10;
@@ -170,7 +168,6 @@ export class NotificationsService {
       rooms,
       events,
       tickets,
-      raffleWins,
       eventAlerts,
       subscriptionAlerts,
       reportUpdates,
@@ -183,7 +180,6 @@ export class NotificationsService {
       this.getRecentRooms(userId, userCreatedAt),
       this.getUpcomingEvents(userId, userCreatedAt),
       this.getConfirmedTickets(userId),
-      this.getRaffleWins(userId),
       this.getEventAlerts(userId),
       this.getSubscriptionAlerts(userId),
       this.getReportUpdates(userId),
@@ -198,7 +194,6 @@ export class NotificationsService {
       rooms,
       events,
       tickets,
-      raffleWins,
       eventAlerts,
       subscriptionAlerts,
       reportUpdates,
@@ -576,33 +571,6 @@ export class NotificationsService {
     }));
   }
 
-  private async getRaffleWins(userId: string) {
-    const seenIds = await this.getSeenEntityIds(userId, NotificationKind.RAFFLE_WON);
-    const draws = await this.prisma.raffleDraw.findMany({
-      where: {
-        winnerUserId: userId,
-        status: RaffleStatus.DRAWN,
-        event: { id: { notIn: seenIds } }
-      },
-      include: {
-        event: { select: { id: true, title: true } },
-        winnerEntry: { select: { number: true } }
-      },
-      orderBy: { drawnAt: "desc" },
-      take: FEED_RAFFLE_WINS_LIMIT
-    });
-
-    return draws.map((draw) => ({
-      id: draw.event.id,
-      raffleId: draw.event.id,
-      title: draw.event.title,
-      prizeTitle: draw.prizeTitle,
-      prizeImage: draw.prizeImage,
-      winningNumber: draw.winnerEntry?.number ?? null,
-      drawnAt: (draw.drawnAt ?? new Date()).toISOString()
-    }));
-  }
-
   private async getEventAlerts(userId: string, limit = FEED_EVENT_ALERTS_LIMIT) {
     const now = new Date();
     const reminderWindow = new Date(now.getTime() + EVENT_REMINDER_HOURS * 60 * 60 * 1000);
@@ -795,7 +763,6 @@ export class NotificationsService {
       unseenRoomCount,
       unseenEventCount,
       unseenTicketCount,
-      unseenRaffleWinCount,
       unseenEventAlertCount,
       unseenSubscriptionCount,
       unseenReportUpdateCount,
@@ -806,7 +773,6 @@ export class NotificationsService {
       this.getUnseenRoomNotificationCount(userId, userCreatedAt),
       this.getUnseenEventNotificationCount(userId, userCreatedAt),
       this.getUnseenTicketNotificationCount(userId),
-      this.getUnseenRaffleWinCount(userId),
       this.getUnseenEventAlertCount(userId),
       this.getUnseenSubscriptionNotificationCount(userId),
       this.getUnseenReportUpdateCount(userId),
@@ -819,7 +785,6 @@ export class NotificationsService {
       unseenRoomCount +
       unseenEventCount +
       unseenTicketCount +
-      unseenRaffleWinCount +
       unseenEventAlertCount +
       unseenSubscriptionCount +
       unseenReportUpdateCount +
@@ -827,9 +792,6 @@ export class NotificationsService {
     );
   }
 
-  private async getUnseenRaffleWinCount(userId: string) {
-    return (await this.getRaffleWins(userId)).length;
-  }
 
   private async getPendingLikeCount(userId: string) {
     const context = await this.getPendingLikeQueryContext(userId);

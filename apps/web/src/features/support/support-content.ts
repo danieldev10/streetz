@@ -9,7 +9,6 @@ export const supportCategories: Array<{
   { id: "MEMBERSHIP_PAYMENT", label: "Membership & payment", description: "Subscriptions, charges or payment verification." },
   { id: "EVENTS_TICKETS", label: "Events & tickets", description: "Bookings, ticket codes, check-in or event changes." },
   { id: "GUEST_TICKETS", label: "Guest tickets", description: "Free guest bookings and private ticket links." },
-  { id: "RAFFLES", label: "Raffles", description: "Entries, payments, draws or prizes." },
   { id: "PROFILE_VERIFICATION", label: "Profile & verification", description: "Profile details, photos or face verification." },
   { id: "DISCOVERY_PRIVACY", label: "Discovery & privacy", description: "Who you see, preferences, blocks or privacy." },
   { id: "ROOMS_MESSAGES", label: "Rooms & messages", description: "Rooms, matches, chat delivery, GIFs or moderation." },

@@ -7,7 +7,7 @@ type PersistedQuery = { queryKey: QueryKey; data: unknown; updatedAt: number };
 type PersistedCache = { version: 1; savedAt: number; queries: PersistedQuery[] };
 
 export function isPublicPersistableQuery(queryKey: QueryKey) {
-  return (queryKey[0] === "events" || queryKey[0] === "raffles") && queryKey[1] === "public";
+  return queryKey[0] === "events" && queryKey[1] === "public";
 }
 
 export function restorePublicQueries(queryClient: QueryClient) {

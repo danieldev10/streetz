@@ -1,5 +1,5 @@
 import { NestFactory } from "@nestjs/core";
-import { AccountStatus, EventKind, EventStatus, TicketStatus, UserRole } from "@prisma/client";
+import { AccountStatus, EventStatus, TicketStatus, UserRole } from "@prisma/client";
 import { AppModule } from "../app.module";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -165,7 +165,6 @@ async function upsertSmokeEvent(prisma: PrismaService, event: SmokeEventSpec) {
       slug: event.slug,
       description: "Smoke data for checking attended-event trust markers.",
       category: "Smoke Test",
-      kind: EventKind.STANDARD,
       venue: "Crush Club Smoke Venue",
       state: "Lagos",
       city: "Lagos",
@@ -177,7 +176,6 @@ async function upsertSmokeEvent(prisma: PrismaService, event: SmokeEventSpec) {
       title: event.title,
       description: "Smoke data for checking attended-event trust markers.",
       category: "Smoke Test",
-      kind: EventKind.STANDARD,
       venue: "Crush Club Smoke Venue",
       state: "Lagos",
       city: "Lagos",

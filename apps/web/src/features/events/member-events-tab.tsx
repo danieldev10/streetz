@@ -39,13 +39,12 @@ import { EventHistory } from "@/features/events/event-history";
 import { MemberEventsList } from "@/features/events/member-events-list";
 import { PublicEventsList } from "@/features/events/public-events-list";
 import type { GuestTicketBooking } from "@/features/events/ticket-checkout-modal";
-import { RafflesList } from "@/features/raffles/raffles-list";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
 import { savePendingEventCheckout } from "@/lib/pending-event-checkout";
 import { queryKeys } from "@/lib/query-keys";
 import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
-import type { StreetzEvent, StreetzEventTicketType, StreetzProfile, StreetzRaffle, StreetzUser } from "@/lib/types";
+import type { StreetzEvent, StreetzEventTicketType, StreetzProfile, StreetzUser } from "@/lib/types";
 
 const TicketCheckoutModal = dynamic(() =>
   import("@/features/events/ticket-checkout-modal").then((module) => module.TicketCheckoutModal)
@@ -66,7 +65,7 @@ const eventCategoryIcons: Record<EventCategoryName, LucideIcon> = {
   Community: UsersRound,
 };
 
-type EventViewMode = "tickets" | "events" | "raffles" | "history";
+type EventViewMode = "tickets" | "events" | "history";
 
 function findEventStateForCity(city: string) {
   const normalizedCity = city.trim().toLowerCase();
@@ -84,11 +83,10 @@ function getEventState(event: Pick<StreetzEvent, "city" | "state">) {
   return event.state ?? findEventStateForCity(event.city) ?? "";
 }
 
-export function MemberEventsTab({ token, user, initialEvents, initialRaffles, onAuthRequired }: {
+export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: {
   token?: string | null;
   user?: StreetzUser | null;
   initialEvents?: StreetzEvent[];
-  initialRaffles?: StreetzRaffle[];
   onAuthRequired?: (kind?: AuthPromptKind) => void;
 }) {
   const router = useRouter();
@@ -470,17 +468,14 @@ export function MemberEventsTab({ token, user, initialEvents, initialRaffles, on
       ) : null}
 
       <div className="px-5 pb-24 md:px-8 md:pb-8">
-        <div className={`mb-4 grid rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium ${isGuest ? "grid-cols-2 md:max-w-xs" : "grid-cols-4 md:max-w-md"}`}>
-          <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("events")}>Events</button>
-          <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "raffles" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("raffles")}>Raffles</button>
-          {!isGuest ? <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("tickets")}>Tickets</button> : null}
-          {!isGuest ? <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("history")}>History</button> : null}
-        </div>
+        {!isGuest ? (
+          <div className="mb-4 grid grid-cols-3 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-md">
+            <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("events")}>Events</button>
+            <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("tickets")}>Tickets</button>
+            <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("history")}>History</button>
+          </div>
+        ) : null}
 
-        {eventViewMode === "raffles" ? (
-          <RafflesList token={token ?? null} initialRaffles={initialRaffles} />
-        ) : (
-          <>
             <div className="-mx-5 mb-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8">
               <div className="flex min-w-max gap-5">
                 <button
@@ -528,8 +523,6 @@ export function MemberEventsTab({ token, user, initialEvents, initialRaffles, on
             ) : (
               <MemberEventsList {...sharedListProps} mode={eventViewMode === "tickets" ? "tickets" : "explore"} />
             )}
-          </>
-        )}
       </div>
     </section>
   );

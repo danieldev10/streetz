@@ -4,16 +4,15 @@ import dynamic from "next/dynamic";
 import { PublicRoute } from "@/components/app/public-route";
 import { LoadingState } from "@/components/loading-state";
 import { MemberEventsTab } from "@/features/events/member-events-tab";
-import type { StreetzEvent, StreetzRaffle } from "@/lib/types";
+import type { StreetzEvent } from "@/lib/types";
 
 const AdminEventsList = dynamic(
   () => import("@/features/events/admin-events-list").then((module) => module.AdminEventsList),
   { loading: () => <LoadingState label="Loading event administration" className="min-h-[70vh]" /> }
 );
 
-export function EventsPageClient({ initialEvents, initialRaffles }: {
+export function EventsPageClient({ initialEvents }: {
   initialEvents?: StreetzEvent[];
-  initialRaffles?: StreetzRaffle[];
 }) {
   return (
     <PublicRoute activeTab="events">
@@ -24,7 +23,6 @@ export function EventsPageClient({ initialEvents, initialRaffles }: {
           token={token}
           user={user}
           initialEvents={initialEvents}
-          initialRaffles={initialRaffles}
           onAuthRequired={requestAuth}
         />
       )}

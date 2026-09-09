@@ -3,18 +3,14 @@ const { createHmac } = require("node:crypto");
 const { afterEach, test } = require("node:test");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const {
-  EventKind,
   EventStatus,
   PaymentPurpose,
   PaymentStatus,
   PrismaClient,
-  RaffleEntryStatus,
-  RaffleStatus,
   SubscriptionStatus,
   TicketStatus,
 } = require("@prisma/client");
 const { PaymentsService } = require("../dist/src/payments/payments.service.js");
-const { RafflesService } = require("../dist/src/raffles/raffles.service.js");
 const { AdminService } = require("../dist/src/admin/admin.service.js");
 
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -80,7 +76,6 @@ test("two buyers competing for the final event ticket cannot oversell", { skip: 
       title: `Capacity race ${unique}`,
       slug: `capacity-race-${unique}`,
       category: "Community",
-      kind: EventKind.STANDARD,
       venue: "Test venue",
       city: "Lagos",
       startsAt: new Date(Date.now() + 86_400_000),
@@ -130,7 +125,6 @@ test("callback and webhook cannot activate an event payment twice", { skip: !con
       title: `Paid event race ${unique}`,
       slug: `paid-event-race-${unique}`,
       category: "Community",
-      kind: EventKind.STANDARD,
       venue: "Test venue",
       city: "Lagos",
       startsAt: new Date(Date.now() + 86_400_000),
@@ -196,140 +190,6 @@ test("callback and webhook cannot activate an event payment twice", { skip: !con
   }
 });
 
-test("concurrent raffle verification mints one entry set and grants bundled membership once", { skip: !connectionString }, async () => {
-  const prisma = createClient();
-  const competingPrisma = createClient();
-  const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const user = await prisma.user.create({
-    data: { email: `raffle-race-${unique}@example.com`, displayName: "Raffle Race", passwordHash: "unused" },
-  });
-  const event = await prisma.event.create({
-    data: {
-      title: `Raffle race ${unique}`,
-      slug: `raffle-race-${unique}`,
-      category: "Raffle",
-      kind: EventKind.RAFFLE,
-      venue: "Online",
-      city: "Lagos",
-      startsAt: new Date(Date.now() + 172_800_000),
-      status: EventStatus.PUBLISHED,
-      raffleDraw: {
-        create: {
-          ticketPriceKobo: 1_000,
-          salesStartsAt: new Date(Date.now() - 60_000),
-          salesEndsAt: new Date(Date.now() + 86_400_000),
-          drawsAt: new Date(Date.now() + 172_800_000),
-          prizeTitle: "Test prize",
-          status: RaffleStatus.SELLING,
-        },
-      },
-    },
-    include: { raffleDraw: true },
-  });
-  const quantity = 3;
-  const reference = `STZJOIN-${unique}`;
-  const amountKobo = 100_000 + event.raffleDraw.ticketPriceKobo * quantity;
-  const payment = await prisma.payment.create({
-    data: {
-      userId: user.id,
-      purpose: PaymentPurpose.MEMBERSHIP_RAFFLE_TICKET,
-      amountKobo,
-      providerReference: reference,
-      providerMetadata: { eventId: event.id, raffleDrawId: event.raffleDraw.id, quantity },
-    },
-  });
-  mockSuccessfulPaystack(new Map([[reference, amountKobo]]));
-  const firstService = new PaymentsService(prisma, config());
-  const secondService = new PaymentsService(competingPrisma, config());
-
-  try {
-    await Promise.all([
-      firstService.verifyRaffleTicketPayment(user.id, reference),
-      secondService.verifyRaffleTicketPayment(user.id, reference),
-    ]);
-    const [entries, storedDraw, storedPayment, storedUser] = await Promise.all([
-      prisma.raffleEntry.findMany({ where: { paymentId: payment.id }, orderBy: { number: "asc" } }),
-      prisma.raffleDraw.findUniqueOrThrow({ where: { id: event.raffleDraw.id } }),
-      prisma.payment.findUniqueOrThrow({ where: { id: payment.id } }),
-      prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
-    ]);
-
-    assert.deepEqual(entries.map((entry) => entry.number), [1, 2, 3]);
-    assert.ok(entries.every((entry) => entry.status === RaffleEntryStatus.PAID));
-    assert.equal(storedDraw.nextEntryNumber, 4);
-    assert.equal(storedPayment.status, PaymentStatus.SUCCESS);
-    assert.equal(storedUser.subscriptionStatus, SubscriptionStatus.ACTIVE);
-    const grantedDays = (storedUser.subscriptionEndsAt.getTime() - Date.now()) / 86_400_000;
-    assert.ok(grantedDays > 29 && grantedDays < 31, `Expected one month, received ${grantedDays} days`);
-  } finally {
-    await prisma.event.delete({ where: { id: event.id } });
-    await prisma.user.delete({ where: { id: user.id } });
-    await Promise.all([prisma.$disconnect(), competingPrisma.$disconnect()]);
-  }
-});
-
-test("two concurrent raffle draws settle on one winner", { skip: !connectionString }, async () => {
-  const prisma = createClient();
-  const competingPrisma = createClient();
-  const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  const user = await prisma.user.create({
-    data: { email: `draw-race-${unique}@example.com`, displayName: "Draw Race", passwordHash: "unused" },
-  });
-  const event = await prisma.event.create({
-    data: {
-      title: `Draw race ${unique}`,
-      slug: `draw-race-${unique}`,
-      category: "Raffle",
-      kind: EventKind.RAFFLE,
-      venue: "Online",
-      city: "Lagos",
-      startsAt: new Date(Date.now() + 86_400_000),
-      status: EventStatus.PUBLISHED,
-      raffleDraw: {
-        create: {
-          ticketPriceKobo: 1_000,
-          salesStartsAt: new Date(Date.now() - 172_800_000),
-          salesEndsAt: new Date(Date.now() - 60_000),
-          drawsAt: new Date(Date.now() - 30_000),
-          prizeTitle: "Draw prize",
-          status: RaffleStatus.SALES_CLOSED,
-        },
-      },
-    },
-    include: { raffleDraw: true },
-  });
-  await prisma.raffleEntry.createMany({
-    data: [1, 2, 3].map((number) => ({
-      raffleDrawId: event.raffleDraw.id,
-      userId: user.id,
-      paymentId: `draw-payment-${unique}`,
-      number,
-      status: RaffleEntryStatus.PAID,
-    })),
-  });
-  const storage = { signPhotoUrl: async (photo) => photo };
-  const notifications = { emitUserChanged() {} };
-  const firstService = new RafflesService(prisma, storage, notifications);
-  const secondService = new RafflesService(competingPrisma, storage, notifications);
-
-  try {
-    const [first, second] = await Promise.all([
-      firstService.runDraw("admin-test", event.id),
-      secondService.runDraw("admin-test", event.id),
-    ]);
-    const storedDraw = await prisma.raffleDraw.findUniqueOrThrow({ where: { id: event.raffleDraw.id } });
-
-    assert.equal(storedDraw.status, RaffleStatus.DRAWN);
-    assert.ok(storedDraw.winnerEntryId);
-    assert.equal(first.raffle.winner.entryId, storedDraw.winnerEntryId);
-    assert.equal(second.raffle.winner.entryId, storedDraw.winnerEntryId);
-  } finally {
-    await prisma.event.delete({ where: { id: event.id } });
-    await prisma.user.delete({ where: { id: user.id } });
-    await Promise.all([prisma.$disconnect(), competingPrisma.$disconnect()]);
-  }
-});
-
 test("ticket check-in is concurrency-safe and idempotent", { skip: !connectionString }, async () => {
   const prisma = createClient();
   const competingPrisma = createClient();
@@ -342,7 +202,6 @@ test("ticket check-in is concurrency-safe and idempotent", { skip: !connectionSt
       title: `Check-in event ${unique}`,
       slug: `check-in-event-${unique}`,
       category: "Community",
-      kind: EventKind.STANDARD,
       venue: "Test venue",
       city: "Lagos",
       startsAt: new Date(Date.now() + 3_600_000),

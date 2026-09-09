@@ -1,6 +1,4 @@
 export const queryKeys = {
-  raffles: (scope: "public" | "member") => ["raffles", scope] as const,
-  raffle: (raffleId: string, scope: "public" | "member") => ["raffles", scope, raffleId] as const,
   events: (scope: "public" | "member") => ["events", scope] as const,
   profile: (userId: string) => ["profile", userId] as const,
   matches: (userId: string) => ["matches", userId] as const,

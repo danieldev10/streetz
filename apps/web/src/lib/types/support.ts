@@ -10,7 +10,6 @@ export type SupportRequestCategory =
   | "MEMBERSHIP_PAYMENT"
   | "EVENTS_TICKETS"
   | "GUEST_TICKETS"
-  | "RAFFLES"
   | "PROFILE_VERIFICATION"
   | "DISCOVERY_PRIVACY"
   | "ROOMS_MESSAGES"

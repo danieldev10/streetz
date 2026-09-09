@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { PrismaPg } = require("@prisma/adapter-pg");
-const { EventBookingAccess, EventKind, EventStatus, PrismaClient } = require("@prisma/client");
+const { EventBookingAccess, EventStatus, PrismaClient } = require("@prisma/client");
 const { GuestTicketsService } = require("../dist/src/events/guest-tickets.service.js");
 
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -33,7 +33,6 @@ test("two guests competing for the final ticket cannot oversell", { skip: !conne
       slug: `guest-race-${unique}`,
       description: "Concurrency test",
       category: "Community",
-      kind: EventKind.STANDARD,
       bookingAccess: EventBookingAccess.PUBLIC,
       venue: "Test venue",
       state: "Lagos",

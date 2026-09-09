@@ -1,4 +1,4 @@
-import { EventKind, TicketStatus, type Prisma } from "@prisma/client";
+import { TicketStatus, type Prisma } from "@prisma/client";
 
 type AttendanceClient = Pick<Prisma.TransactionClient, "ticket">;
 
@@ -7,8 +7,7 @@ export async function countCheckedInStandardEvents(client: AttendanceClient, use
     where: {
       userId,
       status: TicketStatus.CHECKED_IN,
-      checkedInAt: { not: null },
-      event: { kind: EventKind.STANDARD }
+      checkedInAt: { not: null }
     },
     distinct: ["eventId"],
     select: { eventId: true }
@@ -29,8 +28,7 @@ export async function getCheckedInStandardEventCounts(client: AttendanceClient, 
     where: {
       userId: { in: uniqueUserIds },
       status: TicketStatus.CHECKED_IN,
-      checkedInAt: { not: null },
-      event: { kind: EventKind.STANDARD }
+      checkedInAt: { not: null }
     },
     distinct: ["userId", "eventId"],
     select: { userId: true, eventId: true }

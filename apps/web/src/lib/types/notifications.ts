@@ -26,9 +26,7 @@ export type NotificationKind =
   | "EVENT_UPDATED"
   | "EVENT_CANCELLED"
   | "PAYMENT_FAILED"
-  | "SUBSCRIPTION_PAYMENT_SUCCESS"
-  | "RAFFLE_TICKETS_CONFIRMED"
-  | "RAFFLE_WON";
+  | "SUBSCRIPTION_PAYMENT_SUCCESS";
 
 export type NotificationFeedMatch = {
   id: string;
@@ -99,16 +97,6 @@ export type NotificationFeedTicket = {
   };
 };
 
-export type NotificationFeedRaffleWin = {
-  id: string;
-  raffleId: string;
-  title: string;
-  prizeTitle: string;
-  prizeImage: string | null;
-  winningNumber: number | null;
-  drawnAt: string;
-};
-
 export type NotificationFeedEventAlert = {
   id: string;
   kind: Extract<NotificationKind, "EVENT_REMINDER" | "EVENT_UPDATED" | "EVENT_CANCELLED">;
@@ -152,7 +140,6 @@ export type NotificationFeed = {
   rooms: NotificationFeedRoom[];
   events: NotificationFeedEvent[];
   tickets: NotificationFeedTicket[];
-  raffleWins: NotificationFeedRaffleWin[];
   eventAlerts: NotificationFeedEventAlert[];
   subscriptionAlerts: NotificationFeedSubscriptionAlert[];
   reportUpdates: NotificationFeedReportUpdate[];

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Gift, Pencil, Plus, RefreshCw, Ticket } from "lucide-react";
+import { CalendarDays, Pencil, Plus, RefreshCw, Ticket } from "lucide-react";
 import { ScreenHeader } from "@/components/app/navigation";
 import { LoadingState } from "@/components/loading-state";
 import {
@@ -73,14 +73,6 @@ export function AdminEventsList({ token }: { token: string }) {
         title=""
         action={
           <div className="flex items-center gap-2">
-            <button
-              className="inline-flex h-9 items-center gap-2 rounded-full border border-black/8 px-3 text-sm font-medium"
-              type="button"
-              onClick={() => router.push("/admin/raffles")}
-            >
-              <Gift className="size-3.5" aria-hidden="true" />
-              Raffles
-            </button>
             <button
               className="hidden h-9 items-center gap-2 rounded-full border border-black/8 px-3 text-sm font-medium md:inline-flex"
               type="button"

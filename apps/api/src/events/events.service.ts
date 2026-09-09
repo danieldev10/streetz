@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { EventBookingAccess, EventKind, EventStatus, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
+import { EventBookingAccess, EventStatus, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
@@ -56,7 +56,6 @@ export class EventsService {
 
   async getAdminEvents() {
     const events = await this.prisma.event.findMany({
-      where: { kind: EventKind.STANDARD },
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
         tickets: {
@@ -147,7 +146,7 @@ export class EventsService {
       }
     });
 
-    if (!event || event.kind !== EventKind.STANDARD) {
+    if (!event) {
       throw new NotFoundException("Event not found.");
     }
 
@@ -682,7 +681,6 @@ export class EventsService {
 
   private getBookableEventWhere(now: Date): Prisma.EventWhereInput {
     return {
-      kind: EventKind.STANDARD,
       status: EventStatus.PUBLISHED,
       OR: [
         { endsAt: { gt: now } },
@@ -705,7 +703,6 @@ export class EventsService {
 
   private getHistoricalMemberEventWhere(userId: string, now: Date): Prisma.EventWhereInput {
     return {
-      kind: EventKind.STANDARD,
       status: { in: [EventStatus.PUBLISHED, EventStatus.COMPLETED] },
       tickets: {
         some: {

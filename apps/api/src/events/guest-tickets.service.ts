@@ -7,7 +7,7 @@ import {
   ServiceUnavailableException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EventKind, EventStatus, Prisma, TicketStatus } from "@prisma/client";
+import { EventStatus, Prisma, TicketStatus } from "@prisma/client";
 import { createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "crypto";
 import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -307,7 +307,6 @@ export class GuestTicketsService {
     const event = await this.prisma.event.findFirst({
       where: {
         id: eventId,
-        kind: EventKind.STANDARD,
         status: EventStatus.PUBLISHED,
         OR: [
           { endsAt: { gt: now } },
@@ -363,13 +362,12 @@ export class GuestTicketsService {
   }
 
   private assertGuestBookableEvent(
-    event: { kind: EventKind; status: EventStatus; startsAt: Date; endsAt: Date | null },
+    event: { status: EventStatus; startsAt: Date; endsAt: Date | null },
     priceKobo: number,
     now: Date
   ) {
     const endTime = event.endsAt ?? event.startsAt;
     if (
-      event.kind !== EventKind.STANDARD ||
       event.status !== EventStatus.PUBLISHED ||
       endTime <= now ||
       priceKobo > 0

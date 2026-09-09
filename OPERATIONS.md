@@ -61,7 +61,7 @@ The API never includes secrets or request bodies in request logs. Sentry is conf
 
 Checked on 22 July 2026: the production path is Vercel → Railway for `/api`, verified by Railway response headers through the Vercel rewrite. Public HTML and JSON negotiate Brotli/gzip. Tiny responses such as health JSON remain uncompressed, which is expected.
 
-Public event data is shared-cacheable for five minutes, event details for one minute, and raffle data for 30 seconds. The `/events` HTML uses 60-second ISR. Authenticated, payment, ticket, moderation, chat, and discovery responses remain private and uncached.
+Public event data is shared-cacheable for five minutes and event details for one minute. The `/events` HTML uses 60-second ISR. Authenticated, payment, ticket, moderation, chat, and discovery responses remain private and uncached.
 
 ## Payment and ticket release smoke test
 
@@ -69,12 +69,10 @@ Use Paystack test mode and a production-like staging deployment. Never run this 
 
 1. Buy the final available paid event ticket from two accounts concurrently. Exactly one reservation must succeed and `soldCount` must equal capacity.
 2. Trigger callback and signed webhook verification for the same reference concurrently. The payment and ticket must activate once and `soldCount` must increment once.
-3. Buy multiple raffle entries, deliver verification twice concurrently, and confirm one gap-free entry set and one membership grant.
-4. Run the same raffle draw concurrently from two admin sessions. Both responses must identify the same persisted winner.
-5. Let a paid reservation expire before verification. Confirm `refundRequired=true`, a `payment_refund_required` alert, no ticket oversell, and the documented support/refund response.
-6. Create a public free event. Request a guest booking, confirm the emailed code, open the management link, and scan/check in one ticket.
-7. Try the same normalized guest email again for that event. It must be rejected.
-8. Verify a wrong or modified guest management token returns not found and reveals no booking data.
+3. Let a paid reservation expire before verification. Confirm `refundRequired=true`, a `payment_refund_required` alert, no ticket oversell, and the documented support/refund response.
+4. Create a public free event. Request a guest booking, confirm the emailed code, open the management link, and scan/check in one ticket.
+5. Try the same normalized guest email again for that event. It must be rejected.
+6. Verify a wrong or modified guest management token returns not found and reveals no booking data.
 
 Ticket scanning uses the admin-only, rate-limited endpoint below. Repeating the same request returns `alreadyCheckedIn: true` without changing the original check-in time.
 
@@ -86,7 +84,7 @@ Content-Type: application/json
 {"code":"STZTIX-..."}
 ```
 
-The automated PostgreSQL integration suite covers steps 1–4, guest capacity/token behavior, and concurrent idempotent check-in:
+The automated PostgreSQL integration suite covers payment and ticket concurrency, guest capacity/token behavior, and concurrent idempotent check-in:
 
 ```bash
 TEST_DATABASE_URL='postgresql://USER@localhost:5432/streetz_integration_test?schema=public' npm --prefix apps/api test
@@ -98,7 +96,6 @@ The read-only baseline taken on 22 July 2026, before deploying the caching chang
 
 - `/events`: 437 ms median TTFB, 45.6 KB decoded HTML;
 - `/api/public/events`: 832 ms median TTFB, 1.9 KB decoded JSON;
-- `/api/public/raffles`: 1,586 ms median TTFB, 1.8 KB decoded JSON;
 - initial `/events` assets: 861 KB decoded (805 KB JavaScript and 56 KB CSS).
 
 All sizeable responses negotiated Brotli. The public API responses still reported `max-age=0` on that deployment, so rerun `npm run measure:production` after release and confirm the new shared-cache directives and warm-cache latency. Browser LCP/INP must be collected separately with a real browser or Vercel Speed Insights; the repository script deliberately measures network timing and payloads only.

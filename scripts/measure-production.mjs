@@ -28,7 +28,7 @@ function median(values) {
   return ordered[Math.floor(ordered.length / 2)];
 }
 
-const paths = ["/events", "/api/public/events", "/api/public/raffles", "/api/health"];
+const paths = ["/events", "/api/public/events", "/api/health"];
 const report = [];
 
 for (const path of paths) {
