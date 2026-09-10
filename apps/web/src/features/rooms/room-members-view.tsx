@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, Users } from "lucide-react";
-import { LoadingState } from "@/components/loading-state";
+import { ListSkeleton } from "@/components/skeletons";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { formatConnectionStatus } from "@/lib/profile";
 import type { ChatRoom, RoomMember } from "@/lib/types";
@@ -45,7 +45,7 @@ export function RoomMembersView({
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
           {isLoading ? (
-            <LoadingState label="Loading room members" className="h-full min-h-90 rounded-[28px] border border-black/5 bg-white" />
+            <ListSkeleton label="Loading room members" rows={6} className="grid gap-3 p-4" hasAction={false} rowClassName="rounded-3xl border border-black/5 bg-white p-3" />
           ) : members.length > 0 ? (
             <div className="grid gap-3">
               {members.map((member) => {

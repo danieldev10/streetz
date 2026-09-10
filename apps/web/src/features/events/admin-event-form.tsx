@@ -4,9 +4,8 @@ import { useRouter } from "next/navigation";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { ScreenHeader } from "@/components/app/navigation";
 import { useToast } from "@/components/app/toast-provider";
-import { LoadingState } from "@/components/loading-state";
+import { FormSkeleton } from "@/components/skeletons";
 import { AdminEventCancellationModal } from "@/features/events/admin-event-cancellation-modal";
 import { AdminEventEditor } from "@/features/events/admin-event-editor";
 import {
@@ -227,10 +226,8 @@ export function AdminEventForm({ token, mode, eventId }: {
 
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Events"
-        title=""
-        leading={
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 flex items-center">
           <button
             className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
             type="button"
@@ -240,10 +237,8 @@ export function AdminEventForm({ token, mode, eventId }: {
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </button>
-        }
-      />
+        </div>
 
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
         {notice ? (
           <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">
             {notice}
@@ -251,7 +246,7 @@ export function AdminEventForm({ token, mode, eventId }: {
         ) : null}
 
         {isLoadingEvent ? (
-          <LoadingState label="Loading event" className="min-h-90 rounded-3xl border border-black/5" />
+          <FormSkeleton label="Loading event" fields={6} />
         ) : isEditing && !editingEvent ? (
           <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>

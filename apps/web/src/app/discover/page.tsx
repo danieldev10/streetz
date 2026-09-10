@@ -2,38 +2,85 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Heart, ShieldCheck, UserRound } from "lucide-react";
 import { AuthenticatedRoute } from "@/components/app/authenticated-route";
-import { LoadingState } from "@/components/loading-state";
-import { ScreenHeader } from "@/components/app/navigation";
+import { DiscoveryLoadingView } from "@/features/discovery/discovery-loading-view";
 import { DiscoveryTab } from "@/features/discovery/discovery-tab";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { formatProfileSetupIssues, getProfileSetupIssues, isProfileReadyForDiscovery } from "@/lib/profile";
-import type { FaceVerificationState, StreetzProfile } from "@/lib/types";
+import { queryKeys } from "@/lib/query-keys";
+import type { FaceVerificationState, StreetzProfile, StreetzUser } from "@/lib/types";
+
+type GateState = "checking" | "ready" | "required" | "verificationRequired";
+
+type ResolvedGate = {
+  state: GateState;
+  profile: StreetzProfile | null;
+  issues: string[];
+};
+
+/**
+ * Works out the gate state from whatever is already cached. Returns null when a
+ * request is still needed, so a warm cache renders the tab without a loading pass.
+ */
+function resolveFromCache(
+  profile: StreetzProfile | null | undefined,
+  verification: FaceVerificationState | undefined
+): ResolvedGate | null {
+  if (profile === undefined) {
+    return null;
+  }
+
+  if (!isProfileReadyForDiscovery(profile)) {
+    return { state: "required", profile: null, issues: getProfileSetupIssues(profile) };
+  }
+
+  if (verification === undefined) {
+    return null;
+  }
+
+  return {
+    state: verification.required && verification.status !== "VERIFIED" ? "verificationRequired" : "ready",
+    profile,
+    issues: [],
+  };
+}
 
 function DiscoveryProfileGate({
   token,
+  user,
   onMatchCreated,
 }: {
   token: string;
+  user: StreetzUser;
   onMatchCreated: () => void;
 }) {
   const router = useRouter();
-  const [profileState, setProfileState] = useState<"checking" | "ready" | "required" | "verificationRequired">("checking");
-  const [readyProfile, setReadyProfile] = useState<StreetzProfile | null>(null);
-  const [profileIssues, setProfileIssues] = useState<string[]>([]);
+  const queryClient = useQueryClient();
+  const initial = resolveFromCache(
+    queryClient.getQueryData<StreetzProfile | null>(queryKeys.profile(user.id)),
+    queryClient.getQueryData<FaceVerificationState>(queryKeys.verification(user.id))
+  );
+  const [profileState, setProfileState] = useState<GateState>(initial?.state ?? "checking");
+  const [readyProfile, setReadyProfile] = useState<StreetzProfile | null>(initial?.profile ?? null);
+  const [profileIssues, setProfileIssues] = useState<string[]>(initial?.issues ?? []);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function checkProfile() {
-      setProfileState("checking");
       setNotice(null);
 
       try {
-        const profile = await apiRequest<StreetzProfile | null>("/profiles/me", {
-          headers: authHeaders(token),
+        // Shares MemberApp's query key, so the two mounts dedupe into one request.
+        const profile = await queryClient.fetchQuery({
+          queryKey: queryKeys.profile(user.id),
+          queryFn: () => apiRequest<StreetzProfile | null>("/profiles/me", {
+            headers: authHeaders(token),
+          }),
+          staleTime: 5 * 60_000,
         });
 
         if (cancelled) {
@@ -41,8 +88,12 @@ function DiscoveryProfileGate({
         }
 
         if (isProfileReadyForDiscovery(profile)) {
-          const verification = await apiRequest<FaceVerificationState>("/verification/me", {
-            headers: authHeaders(token),
+          const verification = await queryClient.fetchQuery({
+            queryKey: queryKeys.verification(user.id),
+            queryFn: () => apiRequest<FaceVerificationState>("/verification/me", {
+              headers: authHeaders(token),
+            }),
+            staleTime: 5 * 60_000,
           });
 
           if (cancelled) {
@@ -75,7 +126,7 @@ function DiscoveryProfileGate({
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [queryClient, token, user.id]);
 
   if (profileState === "ready") {
     return (
@@ -92,14 +143,14 @@ function DiscoveryProfileGate({
     );
   }
 
+  if (profileState === "checking") {
+    return <DiscoveryLoadingView label="Checking profile" />;
+  }
+
   return (
     <section>
-      <ScreenHeader eyebrow="Discovery" title="" />
-
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
-        {profileState === "checking" ? (
-          <LoadingState label="Checking profile" className="min-h-90 rounded-[28px] border border-black/[0.05] bg-white p-6" />
-        ) : profileState === "verificationRequired" ? (
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        {profileState === "verificationRequired" ? (
           <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-white p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
             <div className="max-w-xs">
               <div className="mx-auto grid size-14 place-items-center rounded-full bg-[#f6e0f6] text-[#9d2a9e]">
@@ -150,7 +201,9 @@ function DiscoveryProfileGate({
 export default function DiscoverPage() {
   return (
     <AuthenticatedRoute activeTab="discovery">
-      {({ token, onMatchCreated }) => <DiscoveryProfileGate token={token} onMatchCreated={onMatchCreated} />}
+      {({ token, user, onMatchCreated }) => (
+        <DiscoveryProfileGate token={token} user={user} onMatchCreated={onMatchCreated} />
+      )}
     </AuthenticatedRoute>
   );
 }

@@ -11,6 +11,7 @@ import { buildDatedMessageItems } from "@/lib/chat-dates";
 import { queryKeys } from "@/lib/query-keys";
 import type { ChatRoom, DiscoveryCandidate, RoomMember, RoomMessage, StreetzUser } from "@/lib/types";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
+import { useChatAutoScroll } from "@/lib/use-chat-autoscroll";
 import {
   MENTION_SUGGESTION_LIMIT,
   ROOM_CATEGORY_MAX_LENGTH,
@@ -109,11 +110,19 @@ export function RoomsTab({
     [messages]
   );
   const datedMessages = useMemo(() => buildDatedMessageItems(displayedMessages), [displayedMessages]);
-  const latestDisplayedMessageId = displayedMessages[displayedMessages.length - 1]?.id ?? null;
+  const latestDisplayedMessage = displayedMessages[displayedMessages.length - 1] ?? null;
+  const latestDisplayedMessageId = latestDisplayedMessage?.id ?? null;
   const orderedRooms = useMemo(
     () => [...rooms].sort((first, second) => getRoomActivityTime(second) - getRoomActivityTime(first)),
     [rooms]
   );
+  const { hasNewMessages, handleScroll, scrollToBottom } = useChatAutoScroll({
+    scrollerRef: messageScrollerRef,
+    threadId: selectedRoomId,
+    latestMessageId: latestDisplayedMessageId,
+    isOwnLatestMessage: Boolean(latestDisplayedMessage && latestDisplayedMessage.authorId === user?.id),
+    isLoading: isLoadingMessages,
+  });
   const joinedRooms = orderedRooms.filter((room) => room.hasJoined);
   const exploreRooms = orderedRooms.filter((room) => !room.hasJoined);
   const activeRooms = orderedRooms.filter((room) => room.isActive);
@@ -706,21 +715,6 @@ export function RoomsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoomId, selectedRoom?.hasJoined, isAdmin]);
 
-  useEffect(() => {
-    if (!selectedRoomId || isLoadingMessages) {
-      return undefined;
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      const scroller = messageScrollerRef.current;
-
-      if (scroller) {
-        scroller.scrollTop = scroller.scrollHeight;
-      }
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [selectedRoomId, latestDisplayedMessageId, isLoadingMessages]);
 
   function syncMessageCaret(input: HTMLInputElement) {
     setMessageCaretIndex(input.selectionStart ?? input.value.length);
@@ -917,6 +911,9 @@ export function RoomsTab({
         isLeaveConfirmOpen={isLeaveConfirmOpen}
         messageScrollerRef={messageScrollerRef}
         messageInputRef={messageInputRef}
+        hasNewMessages={hasNewMessages}
+        onMessagesScroll={handleScroll}
+        onJumpToLatest={() => scrollToBottom("smooth")}
         onBack={closeRoom}
         onOpenMembers={openRoomMembers}
         onOpenMember={setViewedRoomProfile}

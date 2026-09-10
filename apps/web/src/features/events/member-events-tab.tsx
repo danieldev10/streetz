@@ -23,7 +23,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { AuthPromptKind } from "@/components/app/public-route";
-import { ScreenHeader } from "@/components/app/navigation";
 import { useToast } from "@/components/app/toast-provider";
 import { CardGridSkeleton } from "@/components/card-grid-skeleton";
 import {
@@ -373,26 +372,6 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
 
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Events"
-        title=""
-        action={eventViewMode === "events" ? (
-          <button
-            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasEventLocationFilter ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"}`}
-            type="button"
-            onClick={() => setIsEventFilterOpen(true)}
-            aria-label="Filter events"
-          >
-            <SlidersHorizontal className="size-4" aria-hidden="true" />
-            {hasEventLocationFilter ? (
-              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#9d2a9e] text-[9px] font-semibold text-white">
-                {[eventFilterState, eventFilterCity].filter(Boolean).length}
-              </span>
-            ) : null}
-          </button>
-        ) : undefined}
-      />
-
       {isEventFilterOpen ? (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-4 backdrop-blur-sm sm:p-5">
           <button className="absolute inset-0" type="button" onClick={() => setIsEventFilterOpen(false)} aria-label="Close filters" />
@@ -467,62 +446,79 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
         />
       ) : null}
 
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
-        {!isGuest ? (
-          <div className="mb-4 grid grid-cols-3 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-md">
-            <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("events")}>Events</button>
-            <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("tickets")}>Tickets</button>
-            <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("history")}>History</button>
-          </div>
-        ) : null}
-
-            <div className="-mx-5 mb-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8">
-              <div className="flex min-w-max gap-5">
-                <button
-                  type="button"
-                  className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${eventFilterCategory ? "text-[#666666]" : "text-[#0d0d0d]"}`}
-                  onClick={() => setEventFilterCategory("")}
-                  aria-pressed={!eventFilterCategory}
-                >
-                  <span className={`grid size-14 place-items-center rounded-full border ${eventFilterCategory ? "border-black/8 bg-white" : "border-[#bd40be] bg-[#f6e0f6]"}`}>
-                    <Sparkles className="size-5" aria-hidden="true" />
-                  </span>
-                  All
-                </button>
-                {EVENT_CATEGORY_OPTIONS.map((category) => {
-                  const Icon = eventCategoryIcons[category];
-                  const isActiveCategory = eventFilterCategory === category;
-                  const hasCategoryEvents = memberCategoryOptions.includes(category);
-
-                  return (
-                    <button
-                      key={category}
-                      type="button"
-                      className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${isActiveCategory ? "text-[#0d0d0d]" : "text-[#666666]"} ${hasCategoryEvents ? "" : "opacity-55"}`}
-                      onClick={() => setEventFilterCategory(category)}
-                      aria-pressed={isActiveCategory}
-                    >
-                      <span className={`grid size-14 place-items-center rounded-full border ${isActiveCategory ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"}`}>
-                        <Icon className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="leading-tight">{category}</span>
-                    </button>
-                  );
-                })}
-              </div>
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 flex items-center gap-3">
+          {!isGuest ? (
+            <div className="grid flex-1 grid-cols-3 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-md">
+              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("events")}>Events</button>
+              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("tickets")}>Tickets</button>
+              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("history")}>History</button>
             </div>
+          ) : null}
+          {eventViewMode === "events" ? (
+            <button
+              className={`relative ml-auto inline-flex size-10 shrink-0 items-center justify-center rounded-full border text-[#0d0d0d] ${hasEventLocationFilter ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"}`}
+              type="button"
+              onClick={() => setIsEventFilterOpen(true)}
+              aria-label="Filter events"
+            >
+              <SlidersHorizontal className="size-4" aria-hidden="true" />
+              {hasEventLocationFilter ? (
+                <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#9d2a9e] text-[9px] font-semibold text-white">
+                  {[eventFilterState, eventFilterCity].filter(Boolean).length}
+                </span>
+              ) : null}
+            </button>
+          ) : null}
+        </div>
 
-            {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        <div className="-mx-5 mb-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8">
+          <div className="flex min-w-max gap-5">
+            <button
+              type="button"
+              className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${eventFilterCategory ? "text-[#666666]" : "text-[#0d0d0d]"}`}
+              onClick={() => setEventFilterCategory("")}
+              aria-pressed={!eventFilterCategory}
+            >
+              <span className={`grid size-14 place-items-center rounded-full border ${eventFilterCategory ? "border-black/8 bg-white" : "border-[#bd40be] bg-[#f6e0f6]"}`}>
+                <Sparkles className="size-5" aria-hidden="true" />
+              </span>
+              All
+            </button>
+            {EVENT_CATEGORY_OPTIONS.map((category) => {
+              const Icon = eventCategoryIcons[category];
+              const isActiveCategory = eventFilterCategory === category;
+              const hasCategoryEvents = memberCategoryOptions.includes(category);
 
-            {isLoadingEvents ? (
-              <CardGridSkeleton label="Loading events" />
-            ) : isGuest ? (
-              <PublicEventsList {...sharedListProps} />
-            ) : eventViewMode === "history" ? (
-              <EventHistory {...sharedListProps} />
-            ) : (
-              <MemberEventsList {...sharedListProps} mode={eventViewMode === "tickets" ? "tickets" : "explore"} />
-            )}
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${isActiveCategory ? "text-[#0d0d0d]" : "text-[#666666]"} ${hasCategoryEvents ? "" : "opacity-55"}`}
+                  onClick={() => setEventFilterCategory(category)}
+                  aria-pressed={isActiveCategory}
+                >
+                  <span className={`grid size-14 place-items-center rounded-full border ${isActiveCategory ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"}`}>
+                    <Icon className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="leading-tight">{category}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+
+        {isLoadingEvents ? (
+          <CardGridSkeleton label="Loading events" hasTicketChips={eventViewMode !== "events"} />
+        ) : isGuest ? (
+          <PublicEventsList {...sharedListProps} />
+        ) : eventViewMode === "history" ? (
+          <EventHistory {...sharedListProps} />
+        ) : (
+          <MemberEventsList {...sharedListProps} mode={eventViewMode === "tickets" ? "tickets" : "explore"} />
+        )}
       </div>
     </section>
   );

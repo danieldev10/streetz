@@ -3,8 +3,7 @@
 import type { CSSProperties, PointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Heart, LoaderCircle, MapPin, RefreshCw, SlidersHorizontal } from "lucide-react";
-import { ScreenHeader } from "@/components/app/navigation";
-import { LoadingState } from "@/components/loading-state";
+import { DiscoveryCardSkeleton } from "@/components/skeletons";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import {
   DISCOVERY_DECK_SIZE,
@@ -602,10 +601,19 @@ export function DiscoveryTab({
 
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Discovery"
-        title=""
-        action={
+      {matchNotice ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`pointer-events-none fixed inset-x-4 top-[calc(env(safe-area-inset-top)+16px)] z-50 mx-auto max-w-sm rounded-[24px] border border-white/10 bg-[#0d0d0d] px-5 py-4 text-white shadow-[0_18px_60px_rgba(0,0,0,0.24)] ${matchNoticePhase === "leaving" ? "match-notice-leaving" : "match-notice-entering"}`}
+        >
+          <p className="text-sm font-semibold">Match with {matchNotice.name}.</p>
+          <p className="mt-1 text-xs leading-5 text-white/70">Go to the Matches tab to get in touch.</p>
+        </div>
+      ) : null}
+
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 flex items-center justify-end">
           <button
             className="relative inline-flex h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium"
             type="button"
@@ -618,21 +626,8 @@ export function DiscoveryTab({
             <SlidersHorizontal className="size-4" aria-hidden="true" />
             Filters
           </button>
-        }
-      />
-
-      {matchNotice ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`pointer-events-none fixed inset-x-4 top-[calc(env(safe-area-inset-top)+16px)] z-50 mx-auto max-w-sm rounded-[24px] border border-white/10 bg-[#0d0d0d] px-5 py-4 text-white shadow-[0_18px_60px_rgba(0,0,0,0.24)] ${matchNoticePhase === "leaving" ? "match-notice-leaving" : "match-notice-entering"}`}
-        >
-          <p className="text-sm font-semibold">Match with {matchNotice.name}.</p>
-          <p className="mt-1 text-xs leading-5 text-white/70">Go to the Matches tab to get in touch.</p>
         </div>
-      ) : null}
 
-      <div className="px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] md:px-8 md:pb-8">
         {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {!isLoading && shouldPromptForLocation ? (
@@ -658,7 +653,7 @@ export function DiscoveryTab({
         <div className="grid gap-5 xl:grid-cols-[minmax(360px,520px)_1fr]">
           {isLoading ? (
             <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] xl:max-w-[520px]">
-              <LoadingState label="Loading discovery" className="min-h-[520px] p-6" />
+              <DiscoveryCardSkeleton label="Loading discovery" />
             </article>
           ) : renderedCandidates.length > 0 ? (
             <div className="relative xl:max-w-[520px]">

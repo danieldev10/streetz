@@ -2,13 +2,19 @@
 
 import dynamic from "next/dynamic";
 import { PublicRoute } from "@/components/app/public-route";
-import { LoadingState } from "@/components/loading-state";
+import { ListSkeleton } from "@/components/skeletons";
 import { MemberEventsTab } from "@/features/events/member-events-tab";
 import type { StreetzEvent } from "@/lib/types";
 
 const AdminEventsList = dynamic(
   () => import("@/features/events/admin-events-list").then((module) => module.AdminEventsList),
-  { loading: () => <LoadingState label="Loading event administration" className="min-h-[70vh]" /> }
+  {
+    loading: () => (
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <ListSkeleton label="Loading event administration" hasAvatar={false} />
+      </div>
+    ),
+  }
 );
 
 export function EventsPageClient({ initialEvents }: {

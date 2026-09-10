@@ -1,6 +1,5 @@
 import type { FormEventHandler } from "react";
 import { ArrowLeft, LoaderCircle, Save } from "lucide-react";
-import { ScreenHeader } from "@/components/app/navigation";
 import {
   ROOM_CATEGORY_MAX_LENGTH,
   ROOM_DESCRIPTION_MAX_LENGTH,
@@ -27,12 +26,10 @@ export function AdminRoomFormView({
 }) {
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Rooms"
-        title={editingRoomId ? "Edit room." : "Create room."}
-        leading={
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 flex items-center gap-3">
           <button
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
             type="button"
             onClick={onBack}
             aria-label="Back to rooms"
@@ -40,10 +37,11 @@ export function AdminRoomFormView({
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </button>
-        }
-      />
+          <h1 className="min-w-0 truncate text-xl font-semibold text-[#0d0d0d]">
+            {editingRoomId ? "Edit room." : "Create room."}
+          </h1>
+        </div>
 
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
         {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         <form

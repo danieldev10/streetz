@@ -5,6 +5,7 @@ import type {
   RefObject,
 } from "react";
 import {
+  ArrowDown,
   ArrowLeft,
   LoaderCircle,
   LogOut,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import { ChatGif } from "@/components/chat/chat-gif";
 import { ChatMediaPicker } from "@/components/chat/chat-media-picker";
-import { LoadingState } from "@/components/loading-state";
+import { MessageThreadSkeleton } from "@/components/skeletons";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import type { DatedMessageItem } from "@/lib/chat-dates";
 import type { ChatRoom, DiscoveryCandidate, RoomMember, RoomMessage } from "@/lib/types";
@@ -42,6 +43,9 @@ export function RoomThreadView({
   isLeaveConfirmOpen,
   messageScrollerRef,
   messageInputRef,
+  hasNewMessages,
+  onMessagesScroll,
+  onJumpToLatest,
   onBack,
   onOpenMembers,
   onOpenMember,
@@ -76,6 +80,9 @@ export function RoomThreadView({
   isLeaveConfirmOpen: boolean;
   messageScrollerRef: RefObject<HTMLDivElement | null>;
   messageInputRef: RefObject<HTMLInputElement | null>;
+  hasNewMessages: boolean;
+  onMessagesScroll: () => void;
+  onJumpToLatest: () => void;
   onBack: () => void;
   onOpenMembers: () => void;
   onOpenMember: (member: DiscoveryCandidate) => void;
@@ -140,83 +147,96 @@ export function RoomThreadView({
 
           {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
-          <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
-            {isLoadingMessages ? (
-              <LoadingState label="Loading room messages" className="h-full min-h-90" />
-            ) : messages.length > 0 ? (
-              <div className="grid gap-3">
-                {datedMessages.map((item) => {
-                  if (item.type === "date") {
+          <div className="relative min-h-0 flex-1">
+            {hasNewMessages ? (
+              <button
+                type="button"
+                className="absolute bottom-4 left-1/2 z-10 inline-flex h-10 -translate-x-1/2 items-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+                onClick={onJumpToLatest}
+              >
+                <ArrowDown className="size-4" aria-hidden="true" />
+                New messages
+              </button>
+            ) : null}
+
+            <div ref={messageScrollerRef} onScroll={onMessagesScroll} className="h-full overflow-y-auto bg-[#fafafa] px-4 py-5">
+              {isLoadingMessages ? (
+                <MessageThreadSkeleton label="Loading room messages" className="h-full" />
+              ) : messages.length > 0 ? (
+                <div className="grid gap-3">
+                  {datedMessages.map((item) => {
+                    if (item.type === "date") {
+                      return (
+                        <div key={item.key} className="flex justify-center py-1">
+                          <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#777777] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                            {item.label}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    const message = item.message;
+                    const isMine = message.authorId === userId;
+                    const author = message.author ?? members.find((member) => member.id === message.authorId) ?? null;
+
                     return (
-                      <div key={item.key} className="flex justify-center py-1">
-                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#777777] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-                          {item.label}
-                        </span>
+                      <div key={item.key} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
+                        {!isMine ? (
+                          <button
+                            type="button"
+                            className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[#f6e0f6] text-[#0d0d0d] disabled:cursor-default"
+                            onClick={() => {
+                              if (author) {
+                                onOpenMember(author);
+                              }
+                            }}
+                            disabled={!author}
+                            aria-label={author ? `View ${author.displayName} profile` : `View ${message.authorName} profile`}
+                          >
+                            {author ? (
+                              <CandidatePhoto candidate={author} variant="thumb" />
+                            ) : (
+                              <Users className="size-4" aria-hidden="true" />
+                            )}
+                          </button>
+                        ) : null}
+                        <div
+                          className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${
+                            isMine
+                              ? "rounded-br-md bg-[#9d2a9e] text-white"
+                              : "rounded-bl-md bg-white text-[#0d0d0d]"
+                          }`}
+                        >
+                          {!isMine ? <p className="mb-1 text-xs font-semibold text-[#9d2a9e]">{message.authorName}</p> : null}
+                          {message.gifUrl ? <ChatGif url={message.gifUrl} /> : null}
+                          {message.body ? (
+                            <p className={`whitespace-pre-wrap break-words ${message.gifUrl ? "mt-2" : ""}`}>
+                              {renderRoomMessageBody(message.body, members, userId, onOpenMember, isMine)}
+                            </p>
+                          ) : null}
+                          <p className={`mt-1 text-[11px] ${isMine ? "text-white/70" : "text-[#888888]"}`}>
+                            {new Date(message.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
                       </div>
                     );
-                  }
-
-                  const message = item.message;
-                  const isMine = message.authorId === userId;
-                  const author = message.author ?? members.find((member) => member.id === message.authorId) ?? null;
-
-                  return (
-                    <div key={item.key} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
-                      {!isMine ? (
-                        <button
-                          type="button"
-                          className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-[#f6e0f6] text-[#0d0d0d] disabled:cursor-default"
-                          onClick={() => {
-                            if (author) {
-                              onOpenMember(author);
-                            }
-                          }}
-                          disabled={!author}
-                          aria-label={author ? `View ${author.displayName} profile` : `View ${message.authorName} profile`}
-                        >
-                          {author ? (
-                            <CandidatePhoto candidate={author} variant="thumb" />
-                          ) : (
-                            <Users className="size-4" aria-hidden="true" />
-                          )}
-                        </button>
-                      ) : null}
-                      <div
-                        className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${
-                          isMine
-                            ? "rounded-br-md bg-[#9d2a9e] text-white"
-                            : "rounded-bl-md bg-white text-[#0d0d0d]"
-                        }`}
-                      >
-                        {!isMine ? <p className="mb-1 text-xs font-semibold text-[#9d2a9e]">{message.authorName}</p> : null}
-                        {message.gifUrl ? <ChatGif url={message.gifUrl} /> : null}
-                        {message.body ? (
-                          <p className={`whitespace-pre-wrap break-words ${message.gifUrl ? "mt-2" : ""}`}>
-                            {renderRoomMessageBody(message.body, members, userId, onOpenMember, isMine)}
-                          </p>
-                        ) : null}
-                        <p className={`mt-1 text-[11px] ${isMine ? "text-white/70" : "text-[#888888]"}`}>
-                          {new Date(message.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="grid h-full min-h-90 place-items-center text-center">
-                <div>
-                  <MessageCircle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
-                  <h2 className="mt-3 text-2xl font-semibold">{isAdmin ? "Room is quiet" : "Start the room"}</h2>
-                  <p className="mt-2 text-sm text-[#666666]">
-                    {isAdmin ? "Member messages will appear here." : `Send the first message in ${room.name}.`}
-                  </p>
+                  })}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="grid h-full min-h-90 place-items-center text-center">
+                  <div>
+                    <MessageCircle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+                    <h2 className="mt-3 text-2xl font-semibold">{isAdmin ? "Room is quiet" : "Start the room"}</h2>
+                    <p className="mt-2 text-sm text-[#666666]">
+                      {isAdmin ? "Member messages will appear here." : `Send the first message in ${room.name}.`}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {isAdmin ? (

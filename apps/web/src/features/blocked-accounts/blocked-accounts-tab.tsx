@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { LoaderCircle, RefreshCw, ShieldOff, Unlock } from "lucide-react";
-import { ScreenHeader } from "@/components/app/navigation";
-import { LoadingState } from "@/components/loading-state";
+import { ListSkeleton } from "@/components/skeletons";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { BlockedAccount } from "@/lib/types";
@@ -78,12 +77,10 @@ export function BlockedAccountsTab({
 
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Blocked accounts"
-        title=""
-        action={
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 hidden items-center justify-end md:flex">
           <button
-            className="hidden h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium md:inline-flex"
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium"
             type="button"
             onClick={() => void loadBlockedAccounts()}
             disabled={isLoadingBlockedAccounts}
@@ -91,14 +88,16 @@ export function BlockedAccountsTab({
             {isLoadingBlockedAccounts ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="size-4" aria-hidden="true" />}
             Refresh
           </button>
-        }
-      />
+        </div>
 
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
         {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingBlockedAccounts ? (
-          <LoadingState label="Loading blocked accounts" className="mx-auto min-h-[420px] max-w-2xl rounded-[28px] border border-black/[0.05]" />
+          <ListSkeleton
+            label="Loading blocked accounts"
+            className="mx-auto grid max-w-2xl gap-3"
+            rowClassName="rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+          />
         ) : blockedAccounts.length > 0 ? (
           <div className="mx-auto grid max-w-2xl gap-3">
             {blockedAccounts.map((account) => (

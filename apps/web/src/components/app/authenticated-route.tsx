@@ -5,7 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AccountStatusShell, PaywallShell } from "@/components/app/auth-shells";
 import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
-import { LoadingState } from "@/components/loading-state";
+import { CardGridSkeleton } from "@/components/card-grid-skeleton";
+import { ListSkeleton, StatGridSkeleton } from "@/components/skeletons";
+import { DiscoveryLoadingView } from "@/features/discovery/discovery-loading-view";
+import { RoomsLoadingView } from "@/features/rooms/rooms-loading-view";
 import { useSession } from "@/components/app/session-provider";
 import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/lib/api";
 import type { StreetzUser, TabKey } from "@/lib/types";
@@ -26,13 +29,40 @@ function isRouteAllowed(user: StreetzUser, activeTab: TabKey, adminOnly: boolean
   return activeTab !== "admin" && activeTab !== "reports" && activeTab !== "users";
 }
 
-function LoadingShell() {
+/** Stands in for the tab that is about to render, so the shell hands over without a jump. */
+function TabContentSkeleton({ activeTab }: { activeTab: TabKey }) {
+  // Discovery and Rooms sit behind a profile gate, so they share their loading
+  // view with that gate and the tab itself to keep one continuous skeleton.
+  if (activeTab === "discovery") {
+    return <DiscoveryLoadingView />;
+  }
+
+  if (activeTab === "rooms") {
+    return <RoomsLoadingView />;
+  }
+
+  return (
+    <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+      {activeTab === "events" ? (
+        <CardGridSkeleton label="Loading events" />
+      ) : activeTab === "admin" ? (
+        <StatGridSkeleton label="Loading metrics" />
+      ) : (
+        <ListSkeleton label="Loading" hasAction={false} />
+      )}
+    </div>
+  );
+}
+
+function LoadingShell({ activeTab }: { activeTab: TabKey }) {
   return (
     <main className="min-h-screen bg-white text-[#0d0d0d]">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-white px-4 py-5 md:block">
           <div className="animate-pulse" aria-hidden="true">
             <div className="size-16 rounded-2xl bg-black/5" />
+            {/* Matches the role caption AppBrand renders under the logo. */}
+            <div className="mt-2 h-4 w-16 rounded-full bg-black/5" />
             <div className="mt-5 h-28 rounded-[16px] border border-black/[0.05] bg-[#fafafa]" />
             <div className="mt-8 grid gap-2">
               {Array.from({ length: 6 }, (_, index) => (
@@ -42,7 +72,7 @@ function LoadingShell() {
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1 pb-24 md:pb-0">
+        <section className="min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
           <div className="sticky top-0 z-10 border-b border-black/[0.05] bg-white/90 px-5 py-4 backdrop-blur md:hidden">
             <div className="grid grid-cols-[44px_1fr_44px] items-center" aria-hidden="true">
               <div className="size-11 animate-pulse rounded-full bg-black/5" />
@@ -52,7 +82,7 @@ function LoadingShell() {
               <span className="size-11" />
             </div>
           </div>
-          <LoadingState label="Loading" className="min-h-[70vh]" />
+          <TabContentSkeleton activeTab={activeTab} />
         </section>
       </div>
     </main>
@@ -155,11 +185,11 @@ export function AuthenticatedRoute({
   }
 
   if (status === "checking") {
-    return <LoadingShell />;
+    return <LoadingShell activeTab={activeTab} />;
   }
 
   if (!user || !token) {
-    return <LoadingShell />;
+    return <LoadingShell activeTab={activeTab} />;
   }
 
   if (user.accountStatus !== "ACTIVE") {
@@ -187,7 +217,7 @@ export function AuthenticatedRoute({
   }
 
   if (!isAllowed) {
-    return <LoadingShell />;
+    return <LoadingShell activeTab={activeTab} />;
   }
 
   return (

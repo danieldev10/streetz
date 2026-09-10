@@ -19,8 +19,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { ScreenHeader } from "@/components/app/navigation";
-import { LoadingState } from "@/components/loading-state";
+import { DetailSkeleton, ListSkeleton } from "@/components/skeletons";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { REPORT_REASON_OPTIONS } from "@/lib/report-reasons";
@@ -243,27 +242,6 @@ export function ReportsTab({ token }: { token: string }) {
 
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Reports"
-        title=""
-        action={
-          <button
-            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasActiveReportFilter ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"
-              }`}
-            type="button"
-            onClick={() => setIsReportFilterOpen(true)}
-            aria-label="Filter reports"
-          >
-            <SlidersHorizontal className="size-4" aria-hidden="true" />
-            {hasActiveReportFilter ? (
-              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#9d2a9e] text-[9px] font-semibold text-white">
-                {activeFilterCount}
-              </span>
-            ) : null}
-          </button>
-        }
-      />
-
       {isReportFilterOpen ? (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-4 backdrop-blur-sm sm:p-5">
           <button
@@ -348,11 +326,35 @@ export function ReportsTab({ token }: { token: string }) {
         </div>
       ) : null}
 
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 flex items-center justify-end">
+          <button
+            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasActiveReportFilter ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"
+              }`}
+            type="button"
+            onClick={() => setIsReportFilterOpen(true)}
+            aria-label="Filter reports"
+          >
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+            {hasActiveReportFilter ? (
+              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#9d2a9e] text-[9px] font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
+
         {notice ? <p className="rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingReports ? (
-          <LoadingState label="Loading reports" className={`${notice ? "mt-4" : ""} min-h-64 rounded-[28px] border border-black/5`} />
+          <ListSkeleton
+            label="Loading reports"
+            rows={5}
+            className={`${notice ? "mt-4" : ""} divide-y divide-black/[0.04] overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}
+            rowClassName="px-4 py-3"
+            hasAvatar={false}
+            hasAction={false}
+          />
         ) : visibleReports.length > 0 ? (
           <div className={`${notice ? "mt-4" : ""} overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
             {visibleReports.map((report) => (
@@ -477,10 +479,8 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
 
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Report details"
-        title=""
-        leading={
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <Link
             className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-white text-[#0d0d0d]"
             href="/reports"
@@ -489,8 +489,6 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Link>
-        }
-        action={
           <button
             className="hidden h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium md:inline-flex"
             type="button"
@@ -499,14 +497,12 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
             <RefreshCw className="size-4" aria-hidden="true" />
             Refresh
           </button>
-        }
-      />
+        </div>
 
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
         {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingReport ? (
-          <LoadingState label="Loading report" className="mx-auto min-h-80 max-w-3xl rounded-[28px] border border-black/5" />
+          <DetailSkeleton label="Loading report" />
         ) : report ? (
           <div className="mx-auto max-w-3xl">
             <article className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">

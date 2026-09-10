@@ -5,9 +5,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
-import { ArrowLeft, CheckCheck, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
-import { ScreenHeader } from "@/components/app/navigation";
-import { LoadingState } from "@/components/loading-state";
+import { ArrowDown, ArrowLeft, CheckCheck, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
+import { ListSkeleton, MessageThreadSkeleton } from "@/components/skeletons";
+import { useChatAutoScroll } from "@/lib/use-chat-autoscroll";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import { queryKeys } from "@/lib/query-keys";
@@ -182,7 +182,15 @@ export function MatchesTab({
     [messages]
   );
   const datedMessages = useMemo(() => buildDatedMessageItems(displayedMessages), [displayedMessages]);
-  const latestDisplayedMessageId = displayedMessages[displayedMessages.length - 1]?.id ?? null;
+  const latestDisplayedMessage = displayedMessages[displayedMessages.length - 1] ?? null;
+  const latestDisplayedMessageId = latestDisplayedMessage?.id ?? null;
+  const { hasNewMessages, handleScroll, scrollToBottom } = useChatAutoScroll({
+    scrollerRef: messageScrollerRef,
+    threadId: selectedMatchId,
+    latestMessageId: latestDisplayedMessageId,
+    isOwnLatestMessage: Boolean(latestDisplayedMessage && latestDisplayedMessage.senderId === user.id),
+    isLoading: isLoadingMessages,
+  });
   const filteredMatches = useMemo(() => {
     const query = matchSearch.trim().toLowerCase();
 
@@ -521,22 +529,6 @@ export function MatchesTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMatchId]);
 
-  useEffect(() => {
-    if (!selectedMatchId || isLoadingMessages) {
-      return undefined;
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      const scroller = messageScrollerRef.current;
-
-      if (scroller) {
-        scroller.scrollTop = scroller.scrollHeight;
-      }
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [selectedMatchId, latestDisplayedMessageId, isLoadingMessages]);
-
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -653,80 +645,93 @@ export function MatchesTab({
 
           {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
-          <div ref={messageScrollerRef} className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
-            {isLoadingMessages ? (
-              <LoadingState label="Loading messages" className="h-full min-h-[360px]" />
-            ) : messages.length > 0 ? (
-              <div className="grid gap-3">
-                {datedMessages.map((item) => {
-                  if (item.type === "date") {
+          <div className="relative min-h-0 flex-1">
+            {hasNewMessages ? (
+              <button
+                type="button"
+                className="absolute bottom-4 left-1/2 z-10 inline-flex h-10 -translate-x-1/2 items-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+                onClick={() => scrollToBottom("smooth")}
+              >
+                <ArrowDown className="size-4" aria-hidden="true" />
+                New messages
+              </button>
+            ) : null}
+
+            <div ref={messageScrollerRef} onScroll={handleScroll} className="h-full overflow-y-auto bg-[#fafafa] px-4 py-5">
+              {isLoadingMessages ? (
+                <MessageThreadSkeleton label="Loading messages" className="h-full" />
+              ) : messages.length > 0 ? (
+                <div className="grid gap-3">
+                  {datedMessages.map((item) => {
+                    if (item.type === "date") {
+                      return (
+                        <div key={item.key} className="flex justify-center py-1">
+                          <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#777777] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                            {item.label}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    const message = item.message;
+                    const isMine = message.senderId === user.id;
+
                     return (
-                      <div key={item.key} className="flex justify-center py-1">
-                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-[#777777] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-                          {item.label}
-                        </span>
-                      </div>
-                    );
-                  }
-
-                  const message = item.message;
-                  const isMine = message.senderId === user.id;
-
-                  return (
-                    <div key={item.key} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
-                      {!isMine ? (
-                        <button
-                          type="button"
-                          className="relative size-7 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]"
-                          onClick={() => setViewedMatchProfile(selectedMatch.user)}
-                          aria-label={`View ${selectedMatch.user.displayName} profile`}
-                        >
-                          <CandidatePhoto candidate={selectedMatch.user} variant="thumb" />
-                        </button>
-                      ) : null}
-                      <div
-                        className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#9d2a9e] text-white" : "rounded-bl-md bg-white text-[#0d0d0d]"
-                          }`}
-                      >
-                        {message.gifUrl ? <ChatGif url={message.gifUrl} /> : null}
-                        {message.body ? <p className={message.gifUrl ? "mt-2" : undefined}>{message.body}</p> : null}
-                        <p
-                          className={`mt-1 flex items-center gap-1 text-[11px] ${isMine ? "justify-end text-white/70" : "text-[#888888]"
+                      <div key={item.key} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
+                        {!isMine ? (
+                          <button
+                            type="button"
+                            className="relative size-7 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]"
+                            onClick={() => setViewedMatchProfile(selectedMatch.user)}
+                            aria-label={`View ${selectedMatch.user.displayName} profile`}
+                          >
+                            <CandidatePhoto candidate={selectedMatch.user} variant="thumb" />
+                          </button>
+                        ) : null}
+                        <div
+                          className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-[#9d2a9e] text-white" : "rounded-bl-md bg-white text-[#0d0d0d]"
                             }`}
                         >
-                          <span>
-                            {new Date(message.createdAt).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                          {isMine ? (
-                            <span
-                              className="inline-flex"
-                              aria-label={message.readAt ? "Read" : "Delivered"}
-                              title={message.readAt ? "Read" : "Delivered"}
-                            >
-                              <CheckCheck
-                                className={`size-3.5 ${message.readAt ? "text-white" : "text-white/50"}`}
-                                aria-hidden="true"
-                              />
+                          {message.gifUrl ? <ChatGif url={message.gifUrl} /> : null}
+                          {message.body ? <p className={message.gifUrl ? "mt-2" : undefined}>{message.body}</p> : null}
+                          <p
+                            className={`mt-1 flex items-center gap-1 text-[11px] ${isMine ? "justify-end text-white/70" : "text-[#888888]"
+                              }`}
+                          >
+                            <span>
+                              {new Date(message.createdAt).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
                             </span>
-                          ) : null}
-                        </p>
+                            {isMine ? (
+                              <span
+                                className="inline-flex"
+                                aria-label={message.readAt ? "Read" : "Delivered"}
+                                title={message.readAt ? "Read" : "Delivered"}
+                              >
+                                <CheckCheck
+                                  className={`size-3.5 ${message.readAt ? "text-white" : "text-white/50"}`}
+                                  aria-hidden="true"
+                                />
+                              </span>
+                            ) : null}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="grid h-full min-h-[360px] place-items-center text-center">
-                <div>
-                  <MessageCircle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
-                  <h2 className="mt-3 text-2xl font-semibold">Start the chat</h2>
-                  <p className="mt-2 text-sm text-[#666666]">Send the first message to {selectedMatch.user.displayName}.</p>
+                    );
+                  })}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="grid h-full min-h-[360px] place-items-center text-center">
+                  <div>
+                    <MessageCircle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+                    <h2 className="mt-3 text-2xl font-semibold">Start the chat</h2>
+                    <p className="mt-2 text-sm text-[#666666]">Send the first message to {selectedMatch.user.displayName}.</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {selectedMatchUnavailableLabel ? (
@@ -776,22 +781,19 @@ export function MatchesTab({
 
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Matches"
-        title=""
-        action={
-          <div className="hidden items-center gap-2 rounded-full border border-black/[0.08] px-4 py-2 text-sm font-medium md:inline-flex">
+
+      <div className="px-5 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 hidden items-center justify-end md:flex">
+          <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] px-4 py-2 text-sm font-medium">
             <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
             {socketStatus === "connected" ? "Live" : "Connecting"}
           </div>
-        }
-      />
+        </div>
 
-      <div className="px-5 md:px-8">
         {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingMatches ? (
-          <LoadingState label="Loading matches" className="mx-auto min-h-[420px] max-w-3xl rounded-[28px] border border-black/[0.05]" />
+          <ListSkeleton label="Loading matches" className="mx-auto grid max-w-3xl gap-3" hasAction={false} />
         ) : matches.length > 0 ? (
           <div className="mx-auto max-w-3xl">
 

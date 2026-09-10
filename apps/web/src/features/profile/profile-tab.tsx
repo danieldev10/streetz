@@ -4,8 +4,7 @@ import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { ScreenHeader } from "@/components/app/navigation";
-import { LoadingState } from "@/components/loading-state";
+import { MediaDetailSkeleton } from "@/components/skeletons";
 import { useSession } from "@/components/app/session-provider";
 import { DiscoveryPreferencesForm } from "@/features/discovery/discovery-preferences-form";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -584,46 +583,34 @@ export function ProfileTab({
 
   return (
     <section>
-      {profileView === "overview" && !isSetupMode ? (
-        <ScreenHeader
-          eyebrow="Profile"
-          title=""
-          action={
-            <div className="hidden items-center rounded-full bg-[#f6e0f6] px-4 py-2 text-sm font-medium text-[#9d2a9e] md:inline-flex">
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        {profileView === "overview" && !isSetupMode ? (
+          <div className="mb-4 hidden items-center justify-end md:flex">
+            <div className="inline-flex items-center rounded-full bg-[#f6e0f6] px-4 py-2 text-sm font-medium text-[#9d2a9e]">
               Discoverable
             </div>
-          }
-        />
-      ) : profileView === "preview" && !isSetupMode ? null : (
-        <>
-          {!isSetupMode ? (
-            <div className="px-5 pt-5 md:px-8 md:pt-8">
-              <button
-                className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#0d0d0d]"
-                onClick={closeProfileEditor}
-                aria-label="Back to profile"
-                title="Back"
-              >
-                <ArrowLeft className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-          ) : null}
-          <ScreenHeader
-            eyebrow={isSetupMode ? "Profile setup" : "Profile"}
-            title={
-              isSetupMode
-                ? ""
-                : ""
-            }
-          />
-        </>
-      )}
+          </div>
+        ) : profileView !== "preview" && !isSetupMode ? (
+          <div className="mb-4 flex items-center">
+            <button
+              className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#0d0d0d]"
+              onClick={closeProfileEditor}
+              aria-label="Back to profile"
+              title="Back"
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
 
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
         {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingProfile ? (
-          <LoadingState label="Loading profile" className="min-h-[420px] rounded-[28px] border border-black/[0.05]" />
+          <MediaDetailSkeleton
+            label="Loading profile"
+            className="mx-auto max-w-[520px] overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+            mediaClassName="aspect-[1.05] min-h-80"
+          />
         ) : (
           <div className={profileView === "edit" ? "mx-auto max-w-2xl" : "mx-auto max-w-[520px]"}>
             {profileView === "edit" ? (

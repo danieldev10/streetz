@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import type { ProfilePhoto, StreetzUser, TabKey } from "@/lib/types";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { BrandLogo } from "@/components/brand-logo";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 
@@ -47,6 +48,10 @@ export const adminTabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> =
   { id: "admin", label: "Metrics", icon: ShieldCheck },
 ];
 
+// Six columns leave ~57px each on a 375px screen, so Support moves to the
+// account drawer and the mobile bar keeps the same five-slot density as members.
+export const adminBottomTabs = adminTabs.filter((tab) => tab.id !== "support");
+
 export const tabRoutes: Record<TabKey, string> = {
   discovery: "/discover",
   matches: "/matches",
@@ -63,17 +68,21 @@ export const tabRoutes: Record<TabKey, string> = {
 
 function AccountMenu({
   onLogout,
+  isAdmin = false,
   trigger,
   triggerClassName,
   triggerTitle = "Menu",
 }: {
   onLogout: () => void;
+  isAdmin?: boolean;
   trigger?: ReactNode;
   triggerClassName?: string;
   triggerTitle?: string;
 }) {
   const closeTimerRef = useRef<number | null>(null);
   const openFrameRef = useRef<number | null>(null);
+  const drawerRef = useRef<HTMLElement | null>(null);
+  const logoutDialogRef = useRef<HTMLElement | null>(null);
   const supportMenuId = useId();
   const [isDrawerMounted, setIsDrawerMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -117,6 +126,9 @@ function AccountMenu({
   useEffect(() => {
     return clearAnimationTimers;
   }, [clearAnimationTimers]);
+
+  useDialogFocus(isOpen, drawerRef);
+  useDialogFocus(isLogoutConfirmOpen, logoutDialogRef);
 
   useEffect(() => {
     if (!isOpen && !isLogoutConfirmOpen) {
@@ -171,6 +183,7 @@ function AccountMenu({
       />
 
       <aside
+        ref={drawerRef}
         className={`absolute left-0 top-0 flex h-full w-[min(84vw,320px)] flex-col border-r border-black/[0.05] bg-[#ffffff] p-5 opacity-100 shadow-[8px_0_24px_rgba(0,0,0,0.08)] transition-transform duration-200 ease-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -192,72 +205,90 @@ function AccountMenu({
         </div>
 
         <nav className="mt-8 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto">
-          <Link
-            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
-            href="/profile"
-            onClick={closeMenu}
-            tabIndex={isOpen ? 0 : -1}
-          >
-            <UserRound className="size-4" aria-hidden="true" />
-            Profile
-          </Link>
+          {/* Admins cannot enter /profile or /blocked-accounts, so those links are
+              member-only rather than dead ends that bounce back to /admin. */}
+          {!isAdmin ? (
+            <>
+              <Link
+                className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+                href="/profile"
+                onClick={closeMenu}
+                tabIndex={isOpen ? 0 : -1}
+              >
+                <UserRound className="size-4" aria-hidden="true" />
+                Profile
+              </Link>
 
-          <Link
-            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
-            href="/blocked-accounts"
-            onClick={closeMenu}
-            tabIndex={isOpen ? 0 : -1}
-          >
-            <Ban className="size-4" aria-hidden="true" />
-            Blocked Accounts
-          </Link>
+              <Link
+                className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+                href="/blocked-accounts"
+                onClick={closeMenu}
+                tabIndex={isOpen ? 0 : -1}
+              >
+                <Ban className="size-4" aria-hidden="true" />
+                Blocked Accounts
+              </Link>
+            </>
+          ) : null}
 
-          <div>
-            <button
-              type="button"
-              className="flex h-12 w-full items-center justify-between rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
-              onClick={() => setIsSupportExpanded((current) => !current)}
-              aria-expanded={isSupportExpanded}
-              aria-controls={supportMenuId}
+          {isAdmin ? (
+            <Link
+              className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+              href="/admin/support"
+              onClick={closeMenu}
               tabIndex={isOpen ? 0 : -1}
             >
-              <span className="inline-flex items-center gap-3">
-                <LifeBuoy className="size-4" aria-hidden="true" />
-                Support
-              </span>
-              <ChevronDown
-                className={`size-4 transition-transform ${isSupportExpanded ? "rotate-180" : ""}`}
-                aria-hidden="true"
-              />
-            </button>
+              <LifeBuoy className="size-4" aria-hidden="true" />
+              Support
+            </Link>
+          ) : (
+            <div>
+              <button
+                type="button"
+                className="flex h-12 w-full items-center justify-between rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+                onClick={() => setIsSupportExpanded((current) => !current)}
+                aria-expanded={isSupportExpanded}
+                aria-controls={supportMenuId}
+                tabIndex={isOpen ? 0 : -1}
+              >
+                <span className="inline-flex items-center gap-3">
+                  <LifeBuoy className="size-4" aria-hidden="true" />
+                  Support
+                </span>
+                <ChevronDown
+                  className={`size-4 transition-transform ${isSupportExpanded ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                />
+              </button>
 
-            <div
-              id={supportMenuId}
-              aria-hidden={!isSupportExpanded}
-              className={`grid overflow-hidden pl-8 transition-[grid-template-rows,opacity] duration-200 ${
-                isSupportExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-              }`}
-            >
-              <div className="min-h-0">
-                {[
-                  { href: "/support", label: "General" },
-                  { href: "/support/requests", label: "Requests" },
-                  { href: "/support/faq", label: "FAQ" },
-                  { href: "/support/contact", label: "Contact Us" },
-                ].map((item) => (
-                  <Link
-                    key={item.href}
-                    className="flex h-10 items-center rounded-full px-4 text-sm text-[#666666] transition hover:bg-[#fafafa] hover:text-[#0d0d0d]"
-                    href={item.href}
-                    onClick={closeMenu}
-                    tabIndex={isOpen && isSupportExpanded ? 0 : -1}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+              <div
+                id={supportMenuId}
+                aria-hidden={!isSupportExpanded}
+                className={`grid overflow-hidden pl-8 transition-[grid-template-rows,opacity] duration-200 ${
+                  isSupportExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                }`}
+              >
+                <div className="min-h-0">
+                  {[
+                    { href: "/support", label: "General" },
+                    { href: "/support/requests", label: "Requests" },
+                    { href: "/support/faq", label: "FAQ" },
+                    { href: "/support/contact", label: "Contact Us" },
+                  ].map((item) => (
+                    <Link
+                      key={item.href}
+                      className="flex h-10 items-center rounded-full px-4 text-sm text-[#666666] transition hover:bg-[#fafafa] hover:text-[#0d0d0d]"
+                      href={item.href}
+                      onClick={closeMenu}
+                      tabIndex={isOpen && isSupportExpanded ? 0 : -1}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <button
             type="button"
@@ -300,9 +331,17 @@ function AccountMenu({
   );
 
   const logoutConfirmModal = (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-black/35 px-5" role="presentation">
+    <div className="fixed inset-0 z-[60] grid place-items-center px-5">
+      {/* Dismissible backdrop, matching the drawer's click-outside behaviour. */}
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/35"
+        onClick={closeLogoutConfirm}
+        aria-label="Close"
+      />
       <section
-        className="w-full max-w-sm rounded-[24px] bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
+        ref={logoutDialogRef}
+        className="relative w-full max-w-sm rounded-[24px] bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="logout-confirm-title"
@@ -370,7 +409,7 @@ export function AppBrand({ user, onLogout }: { user: StreetzUser; onLogout: () =
           <BrandLogo size="sidebar" priority />
           <p className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{user.role}</p>
         </div>
-        <AccountMenu onLogout={onLogout} />
+        <AccountMenu onLogout={onLogout} isAdmin={user.role === "ADMIN"} />
       </div>
       <div className="mt-5 rounded-[16px] border border-black/[0.05] bg-[#fafafa] p-4">
         <p className="text-sm font-medium">{user.displayName}</p>
@@ -398,6 +437,7 @@ export function MobileHeader({
       <div className="grid grid-cols-[44px_1fr_44px] items-center">
         <AccountMenu
           onLogout={onLogout}
+          isAdmin={user.role === "ADMIN"}
           triggerClassName="inline-flex size-11 overflow-hidden rounded-full border border-black/[0.08] bg-[#fbf2fb] text-[#9d2a9e] shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
           triggerTitle={user.displayName ? "Open " + user.displayName + "'s menu" : "Open menu"}
           trigger={
@@ -478,30 +518,5 @@ export function AppNavButton({
         <span className="text-xs">{tab.label}</span>
       </span>
     </Link>
-  );
-}
-
-export function ScreenHeader({
-  eyebrow,
-  title,
-  leading,
-  action,
-}: {
-  eyebrow: string;
-  title: string;
-  leading?: ReactNode;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-5 pb-4 pt-6 md:px-8 md:pt-8">
-      <div className="flex min-w-0 items-center gap-3">
-        {leading ? <div className="shrink-0">{leading}</div> : null}
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{eyebrow}</p>
-          <h1 className="mt-1 text-3xl font-semibold leading-tight text-[#0d0d0d] md:text-5xl">{title}</h1>
-        </div>
-      </div>
-      {action}
-    </div>
   );
 }

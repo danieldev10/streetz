@@ -24,8 +24,11 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Comfortable touch target for controls. Anchors only qualify when they are laid
+   out as controls -- a plain text link keeps its line box instead of gaining
+   dead space below it. */
 button,
-a {
+a:where([class~="flex"], [class~="inline-flex"], [class~="grid"], [class~="inline-grid"]) {
   min-height: 40px;
 }
 

@@ -152,7 +152,7 @@ export function MemberProfileView({
 
   return (
     <section className="pt-5 md:pt-8">
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
+      <div className="px-5 pb-8 md:px-8">
         <div className="mx-auto max-w-[560px]">
           <button
             className="mb-4 inline-flex h-10 items-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 text-sm font-medium text-[#0d0d0d] shadow-[0_2px_4px_rgba(0,0,0,0.04)]"

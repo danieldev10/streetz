@@ -15,8 +15,7 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
-import { ScreenHeader } from "@/components/app/navigation";
-import { LoadingState } from "@/components/loading-state";
+import { StatGridSkeleton } from "@/components/skeletons";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { AdminMetrics } from "@/lib/types";
 
@@ -184,26 +183,22 @@ export function AdminDashboard({ token }: { token: string }) {
 
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Metrics"
-        title=""
-        action={
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 hidden items-center justify-end md:flex">
           <button
-            className="hidden h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium md:inline-flex"
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium"
             type="button"
             onClick={() => void loadMetrics()}
           >
             <RefreshCw className="size-4" aria-hidden="true" />
             Refresh
           </button>
-        }
-      />
+        </div>
 
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
         {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingMetrics ? (
-          <LoadingState label="Loading metrics" className="min-h-105 rounded-[28px] border border-black/5" />
+          <StatGridSkeleton label="Loading metrics" />
         ) : metrics ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {cards.map((card) => (

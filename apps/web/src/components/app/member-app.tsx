@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import { io } from "socket.io-client";
-import { AppBrand, AppNavButton, MobileHeader, adminTabs, bottomTabs, tabs } from "@/components/app/navigation";
+import { AppBrand, AppNavButton, MobileHeader, adminBottomTabs, adminTabs, bottomTabs, tabs } from "@/components/app/navigation";
 import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ChatRoom, MatchThread, NotificationSummary, ProfilePhoto, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
@@ -45,7 +45,7 @@ export function MemberApp({
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const visibleTabs = user.role === "ADMIN" ? adminTabs : tabs;
-  const visibleBottomTabs = user.role === "ADMIN" ? adminTabs : bottomTabs;
+  const visibleBottomTabs = user.role === "ADMIN" ? adminBottomTabs : bottomTabs;
   const [notificationSummary, setNotificationSummary] = useState<NotificationSummary>({
     matchesUnreadCount: 0,
     roomsUnreadCount: 0,
@@ -277,10 +277,6 @@ export function MemberApp({
     };
   }, [applyRoomMessageNotification, scheduleNotificationSummaryRefresh, token]);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [activeTab, pathname]);
-
   const renderProps: MemberAppRenderProps = {
     cachedMatches,
     cachedRooms,
@@ -311,7 +307,7 @@ export function MemberApp({
           </nav>
         </aside>
 
-        <section className="min-w-0 flex-1 pb-24 md:pb-0">
+        <section className="min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
           <MobileHeader user={user} profilePhoto={profilePhoto} onLogout={onLogout} />
           {children(renderProps)}
         </section>

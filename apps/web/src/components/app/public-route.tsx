@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { LogIn, Menu, X } from "lucide-react";
+import { LogIn, X } from "lucide-react";
 import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
 import { bottomTabs, tabRoutes, tabs } from "@/components/app/navigation";
 import { BrandLogo } from "@/components/brand-logo";
@@ -181,22 +181,24 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
           </nav>
         </aside>
 
-        <section className="min-w-0 flex-1 pb-24 md:pb-0">
+        <section className="min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+          {/* Mirrors MobileHeader's grid so the logo stays centred and the header
+              keeps the same height when a viewer logs in or out. */}
           <header className="sticky top-0 z-10 border-b border-black/[0.05] bg-white/90 px-5 py-4 backdrop-blur md:hidden">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <BrandLogo size="header" priority />
-                <p className="mt-1 text-xs font-medium text-[#666666]">Explore</p>
-              </div>
+            <div className="grid grid-cols-[44px_1fr_44px] items-center">
               <button
                 type="button"
-                className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
+                className="inline-flex size-11 items-center justify-center rounded-full border border-black/[0.08] bg-[#fbf2fb] text-[#9d2a9e] shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
                 onClick={() => onRequestAuth("account")}
                 aria-label="Open account options"
                 title="Account"
               >
-                <Menu className="size-4" aria-hidden="true" />
+                <LogIn className="size-4" aria-hidden="true" />
               </button>
+              <div className="justify-self-center">
+                <BrandLogo size="header" priority />
+              </div>
+              <span className="size-11" aria-hidden="true" />
             </div>
           </header>
           {children}

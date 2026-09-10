@@ -9,8 +9,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { ScreenHeader } from "@/components/app/navigation";
-import { LoadingState } from "@/components/loading-state";
+import { ListSkeleton } from "@/components/skeletons";
 import type { ChatRoom } from "@/lib/types";
 import type { RoomViewMode } from "./room-model";
 
@@ -63,32 +62,26 @@ export function RoomsListView({
 }) {
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Rooms"
-        title=""
-        action={
-          <div className="flex items-center gap-2">
-            {!isGuest ? (
-              <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
-                <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
-                {socketStatus === "connected" ? "Live" : "Connecting"}
-              </div>
-            ) : null}
-            {isAdmin ? (
-              <button
-                className="inline-flex h-9 items-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
-                type="button"
-                onClick={onStartCreateRoom}
-              >
-                <Plus className="size-3.5" aria-hidden="true" />
-                Create Room
-              </button>
-            ) : null}
-          </div>
-        }
-      />
+      <div className="px-5 pt-6 md:px-8 md:pt-8">
+        <div className={`mb-4 items-center justify-end gap-2 ${isAdmin ? "flex" : "hidden md:flex"}`}>
+          {!isGuest ? (
+            <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
+              <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
+              {socketStatus === "connected" ? "Live" : "Connecting"}
+            </div>
+          ) : null}
+          {isAdmin ? (
+            <button
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
+              type="button"
+              onClick={onStartCreateRoom}
+            >
+              <Plus className="size-3.5" aria-hidden="true" />
+              Create Room
+            </button>
+          ) : null}
+        </div>
 
-      <div className="px-5 md:px-8">
         {!isGuest ? (
           <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
             {isAdmin ? (
@@ -132,7 +125,7 @@ export function RoomsListView({
         {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoadingRooms ? (
-          <LoadingState label="Loading rooms" className="min-h-105 rounded-[28px] border border-black/5" />
+          <ListSkeleton label="Loading rooms" hasAvatar={false} />
         ) : visibleRooms.length > 0 ? (
           <div className="grid gap-3">
             {visibleRooms.map((room) => (

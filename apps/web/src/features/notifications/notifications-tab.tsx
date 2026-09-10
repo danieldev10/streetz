@@ -22,8 +22,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { ScreenHeader } from "@/components/app/navigation";
-import { LoadingState } from "@/components/loading-state";
+import { ListSkeleton } from "@/components/skeletons";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -477,10 +476,8 @@ export function NotificationsTab({
 
   return (
     <section>
-      <ScreenHeader
-        eyebrow="Alerts"
-        title=""
-        action={
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 flex items-center justify-end">
           <button
             className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-[#666666] transition hover:text-[#0d0d0d]"
             onClick={() => void loadFeed()}
@@ -490,16 +487,19 @@ export function NotificationsTab({
           >
             <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" />
           </button>
-        }
-      />
+        </div>
 
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
         {notice ?? queryErrorNotice ? (
           <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice ?? queryErrorNotice}</p>
         ) : null}
 
         {isLoading && !feed ? (
-          <LoadingState label="Loading notifications" className="mx-auto min-h-105 max-w-3xl rounded-[28px] border border-black/5" />
+          <ListSkeleton
+            label="Loading notifications"
+            rows={5}
+            className="mx-auto grid max-w-3xl gap-3"
+            hasAction={false}
+          />
         ) : feed && !hasSomeContent ? (
           <div className="mx-auto grid min-h-105 max-w-3xl place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>

@@ -6,9 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, CheckCircle2, LoaderCircle, MapPin, Share2, Ticket } from "lucide-react";
 import { type AuthPromptKind } from "@/components/app/public-route";
-import { ScreenHeader } from "@/components/app/navigation";
 import { useToast } from "@/components/app/toast-provider";
-import { LoadingState } from "@/components/loading-state";
+import { MediaDetailSkeleton } from "@/components/skeletons";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { consumePendingEventCheckoutNotice, savePendingEventCheckout } from "@/lib/pending-event-checkout";
 import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
@@ -358,10 +357,8 @@ export function EventTicketsTab({
           onGuestBooked={applyGuestBooking}
         />
       ) : null}
-      <ScreenHeader
-        eyebrow={isGuest ? "Event" : "Tickets"}
-        title=""
-        action={
+      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+        <div className="mb-4 flex items-center">
           <button
             className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
             type="button"
@@ -371,10 +368,8 @@ export function EventTicketsTab({
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </button>
-        }
-      />
+        </div>
 
-      <div className="px-5 pb-24 md:px-8 md:pb-8">
         {isAdmin ? (
           <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">
             Admins manage events from the admin event page.
@@ -383,7 +378,7 @@ export function EventTicketsTab({
         {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
 
         {isLoading ? (
-          <LoadingState label="Loading tickets" className="min-h-90 rounded-3xl border border-black/5" />
+          <MediaDetailSkeleton label="Loading tickets" />
         ) : event ? (
           (() => {
             const isPaidEvent = Boolean(selectedTicketType && selectedTicketType.priceKobo > 0);
