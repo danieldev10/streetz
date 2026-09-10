@@ -36,10 +36,10 @@ const reportStatusLabels: Record<ReportStatus | "ALL", string> = {
 };
 
 const reportStatusClasses: Record<ReportStatus, string> = {
-  OPEN: "bg-[#fff2d9] text-[#9a5b00]",
-  REVIEWED: "bg-[#e8f1ff] text-[#2867c7]",
-  DISMISSED: "bg-[#f4f4f4] text-[#666666]",
-  ACTIONED: "bg-[#f6e0f6] text-[#7c1f7d]",
+  OPEN: "bg-warning-tint text-warning",
+  REVIEWED: "bg-info-tint text-info",
+  DISMISSED: "bg-surface-shade text-ink-600",
+  ACTIONED: "bg-brand-tint text-brand-deep",
 };
 
 type ReportModerationAction = Extract<ModerationActionType, "SUSPEND" | "BAN" | "RESTORE" | "DELETE">;
@@ -242,6 +242,7 @@ export function ReportsTab({ token }: { token: string }) {
 
   return (
     <section>
+      <h1 className="sr-only">Reports</h1>
       {isReportFilterOpen ? (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-4 backdrop-blur-sm sm:p-5">
           <button
@@ -251,18 +252,18 @@ export function ReportsTab({ token }: { token: string }) {
             aria-label="Close filters"
           />
           <div
-            className="relative w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
+            className="relative w-full max-w-sm rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
             role="dialog"
             aria-modal="true"
             aria-label="Report filters"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Filters</p>
-                <h2 className="mt-1 text-xl font-semibold text-[#0d0d0d]">Reports</h2>
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">Filters</p>
+                <h2 className="mt-1 text-xl font-semibold text-ink">Reports</h2>
               </div>
               <button
-                className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
+                className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-ink"
                 type="button"
                 onClick={() => setIsReportFilterOpen(false)}
                 aria-label="Close filters"
@@ -272,10 +273,10 @@ export function ReportsTab({ token }: { token: string }) {
             </div>
 
             <div className="mt-5 grid gap-3">
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 Status
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+                  className="h-12 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   value={reportFilter}
                   onChange={(event) => setReportFilter(event.target.value as ReportStatus | "ALL")}
                 >
@@ -286,10 +287,10 @@ export function ReportsTab({ token }: { token: string }) {
                   ))}
                 </select>
               </label>
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 Violation
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+                  className="h-12 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   value={reasonFilter}
                   onChange={(event) => setReasonFilter(event.target.value)}
                 >
@@ -304,7 +305,7 @@ export function ReportsTab({ token }: { token: string }) {
 
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button
-                className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-50"
                 type="button"
                 onClick={() => {
                   setReportFilter("OPEN");
@@ -315,7 +316,7 @@ export function ReportsTab({ token }: { token: string }) {
                 Clear
               </button>
               <button
-                className="inline-flex h-12 items-center justify-center rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
+                className="inline-flex h-12 items-center justify-center rounded-full bg-ink px-4 text-sm font-medium text-white"
                 type="button"
                 onClick={() => setIsReportFilterOpen(false)}
               >
@@ -329,7 +330,7 @@ export function ReportsTab({ token }: { token: string }) {
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center justify-end">
           <button
-            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-[#0d0d0d] ${hasActiveReportFilter ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"
+            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-ink ${hasActiveReportFilter ? "border-brand bg-brand-tint" : "border-black/8 bg-surface"
               }`}
             type="button"
             onClick={() => setIsReportFilterOpen(true)}
@@ -337,26 +338,26 @@ export function ReportsTab({ token }: { token: string }) {
           >
             <SlidersHorizontal className="size-4" aria-hidden="true" />
             {hasActiveReportFilter ? (
-              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#9d2a9e] text-[9px] font-semibold text-white">
+              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-strong text-[9px] font-semibold text-white">
                 {activeFilterCount}
               </span>
             ) : null}
           </button>
         </div>
 
-        {notice ? <p className="rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        {notice ? <p className="rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {isLoadingReports ? (
           <ListSkeleton
             label="Loading reports"
             rows={5}
-            className={`${notice ? "mt-4" : ""} divide-y divide-black/[0.04] overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}
+            className={`${notice ? "mt-4" : ""} divide-y divide-black/[0.04] overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}
             rowClassName="px-4 py-3"
             hasAvatar={false}
             hasAction={false}
           />
         ) : visibleReports.length > 0 ? (
-          <div className={`${notice ? "mt-4" : ""} overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
+          <div className={`${notice ? "mt-4" : ""} overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
             {visibleReports.map((report) => (
               <ReportListItem key={report.id} report={report} />
             ))}
@@ -364,9 +365,9 @@ export function ReportsTab({ token }: { token: string }) {
         ) : (
           <div className={`${notice ? "mt-4" : ""} grid min-h-64 place-items-center rounded-[28px] border border-black/5 p-6 text-center`}>
             <div>
-              <AlertTriangle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+              <AlertTriangle className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h3 className="mt-3 text-2xl font-semibold">No reports here</h3>
-              <p className="mt-2 text-sm text-[#666666]">Reports matching these filters will appear here.</p>
+              <p className="mt-2 text-sm text-ink-600">Reports matching these filters will appear here.</p>
             </div>
           </div>
         )}
@@ -479,10 +480,11 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
 
   return (
     <section>
+      {!report ? <h1 className="sr-only">Report details</h1> : null}
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center justify-between gap-3">
           <Link
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-white text-[#0d0d0d]"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-surface text-ink"
             href="/reports"
             aria-label="Back to reports"
             title="Back"
@@ -499,23 +501,23 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
           </button>
         </div>
 
-        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {isLoadingReport ? (
           <DetailSkeleton label="Loading report" />
         ) : report ? (
           <div className="mx-auto max-w-3xl">
-            <article className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+            <article className="rounded-[28px] border border-black/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`rounded-full px-3 py-1 text-xs font-medium ${getReportStatusClass(report.status)}`}>
                       {getReportStatusLabel(report.status)}
                     </span>
-                    <span className="text-xs font-medium text-[#9a9a9a]">{formatDateTime(report.createdAt)}</span>
+                    <span className="text-xs font-medium text-ink-300">{formatDateTime(report.createdAt)}</span>
                   </div>
-                  <h2 className="mt-3 text-2xl font-semibold leading-tight text-[#0d0d0d]">{report.reason}</h2>
-                  {report.details ? <p className="mt-3 text-sm leading-6 text-[#444444]">{report.details}</p> : null}
+                  <h1 className="mt-3 text-2xl font-semibold leading-tight text-ink">{report.reason}</h1>
+                  {report.details ? <p className="mt-3 text-sm leading-6 text-ink-700">{report.details}</p> : null}
                 </div>
               </div>
             </article>
@@ -526,26 +528,26 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
               onSelectProfile={setSelectedProfileUser}
             />
 
-            <section className="mt-4 rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+            <section className="mt-4 rounded-[28px] border border-black/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
               <div>
-                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Admin decisions</p>
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">Admin decisions</p>
               </div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-[1fr_140px]">
-                <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                   Reason
                   <input
-                    className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+                    className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                     value={moderationReason}
                     onChange={(event) => setModerationReason(event.target.value)}
                     maxLength={500}
                     placeholder="Optional admin note"
                   />
                 </label>
-                <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                   Days
                   <input
-                    className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+                    className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                     type="number"
                     min={1}
                     max={365}
@@ -605,9 +607,9 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
         ) : (
           <div className="mx-auto grid min-h-80 max-w-3xl place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
-              <AlertTriangle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+              <AlertTriangle className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Report not found</h2>
-              <p className="mt-2 text-sm text-[#666666]">This report may have been removed.</p>
+              <p className="mt-2 text-sm text-ink-600">This report may have been removed.</p>
               <Link
                 className="mt-5 inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium"
                 href="/reports"
@@ -640,7 +642,7 @@ function ReportListItem({ report }: { report: AdminReport }) {
 
   return (
     <Link
-      className="group flex items-center gap-3 border-b border-black/5 px-4 py-4 text-left transition last:border-b-0 hover:bg-[#fafafa]"
+      className="group flex items-center gap-3 border-b border-black/5 px-4 py-4 text-left transition last:border-b-0 hover:bg-surface-muted"
       href={`/reports/${report.id}`}
     >
       <div className="min-w-0 flex-1">
@@ -648,25 +650,25 @@ function ReportListItem({ report }: { report: AdminReport }) {
           <span className={`rounded-full px-3 py-1 text-xs font-medium ${getReportStatusClass(report.status)}`}>
             {getReportStatusLabel(report.status)}
           </span>
-          <span className="text-xs font-medium text-[#9a9a9a]">{formatDateTime(report.createdAt)}</span>
+          <span className="text-xs font-medium text-ink-300">{formatDateTime(report.createdAt)}</span>
         </div>
-        <h3 className="mt-3 truncate text-lg font-semibold text-[#0d0d0d]">{report.reason}</h3>
-        {detailsPreview ? <p className="mt-1 truncate text-sm text-[#666666]">{detailsPreview}</p> : null}
-        <div className="mt-3 grid gap-1.5 text-xs text-[#666666]">
+        <h3 className="mt-3 truncate text-lg font-semibold text-ink">{report.reason}</h3>
+        {detailsPreview ? <p className="mt-1 truncate text-sm text-ink-600">{detailsPreview}</p> : null}
+        <div className="mt-3 grid gap-1.5 text-xs text-ink-600">
           <p className="truncate">
-            <span className="font-medium text-[#999999]">Reporter</span>{" "}
-            <span className="font-medium text-[#0d0d0d]">{report.reporter.displayName}</span>
+            <span className="font-medium text-ink-300">Reporter</span>{" "}
+            <span className="font-medium text-ink">{report.reporter.displayName}</span>
           </p>
           <p className="truncate">
-            <span className="font-medium text-[#999999]">Reported</span>{" "}
-            <span className="font-medium text-[#0d0d0d]">{report.reported.displayName}</span>
-            <span className="ml-2 rounded-full bg-[#fafafa] px-2 py-0.5 text-[11px] font-medium text-[#777777]">
+            <span className="font-medium text-ink-300">Reported</span>{" "}
+            <span className="font-medium text-ink">{report.reported.displayName}</span>
+            <span className="ml-2 rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-medium text-ink-500">
               {report.reported.accountStatus}
             </span>
           </p>
         </div>
       </div>
-      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#777777] transition group-hover:border-[#bd40be] group-hover:text-[#0d0d0d]">
+      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink-500 transition group-hover:border-brand group-hover:text-ink">
         <ChevronRight className="size-4" aria-hidden="true" />
       </span>
     </Link>
@@ -683,14 +685,14 @@ function ReportAccountsCard({
   onSelectProfile: (user: AdminReportUser) => void;
 }) {
   return (
-    <section className="mt-4 rounded-[28px] border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+    <section className="mt-4 rounded-[28px] border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
       <div className="flex items-center gap-3">
         <ReportAccountButton
           user={reporter}
           label="Reporter"
           onClick={() => onSelectProfile(reporter)}
         />
-        <ArrowRight className="size-4 shrink-0 text-[#b0b0b0]" aria-hidden="true" />
+        <ArrowRight className="size-4 shrink-0 text-ink-200" aria-hidden="true" />
         <ReportAccountButton
           user={reported}
           label="Reported"
@@ -712,12 +714,12 @@ function ReportAccountButton({
 }) {
   return (
     <button
-      className="flex min-w-0 flex-1 items-center gap-3 rounded-[20px] p-2 text-left transition hover:bg-[#fafafa] focus:outline-none focus:ring-2 focus:ring-[#bd40be]"
+      className="flex min-w-0 flex-1 items-center gap-3 rounded-[20px] p-2 text-left transition hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-brand"
       type="button"
       onClick={onClick}
       aria-label={`View ${label.toLowerCase()} profile: ${user.displayName}`}
     >
-      <span className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
+      <span className="relative size-12 shrink-0 overflow-hidden rounded-full bg-brand-tint">
         <ProfilePhotoImage
           photo={user.photos[0]}
           alt={`${user.displayName} profile`}
@@ -727,7 +729,7 @@ function ReportAccountButton({
         />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-[#0d0d0d]">{user.displayName}</span>
+        <span className="block truncate text-sm font-semibold text-ink">{user.displayName}</span>
       </span>
     </button>
   );
@@ -738,8 +740,8 @@ function AdminProfileModal({ user, onClose }: { user: AdminReportUser; onClose: 
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
-      <section className="max-h-[86dvh] w-full max-w-sm overflow-hidden rounded-[28px] bg-white shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
-        <div className="relative aspect-[1.08] min-h-65 bg-[#f6e0f6]">
+      <section className="max-h-[86dvh] w-full max-w-sm overflow-hidden rounded-[28px] bg-surface shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+        <div className="relative aspect-[1.08] min-h-65 bg-brand-tint">
           <ProfilePhotoImage
             photo={primaryPhoto}
             alt={`${user.displayName} profile`}
@@ -749,7 +751,7 @@ function AdminProfileModal({ user, onClose }: { user: AdminReportUser; onClose: 
             priority
           />
           <button
-            className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-full bg-white/90 text-[#0d0d0d] shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+            className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-full bg-surface/90 text-ink shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
             type="button"
             onClick={onClose}
             aria-label="Close profile"
@@ -770,8 +772,8 @@ function AdminProfileModal({ user, onClose }: { user: AdminReportUser; onClose: 
         </div>
 
         <div className="max-h-[calc(86dvh-260px)] overflow-y-auto p-5">
-          <div className="flex items-center gap-2 rounded-[18px] bg-[#fafafa] p-3 text-sm text-[#444444]">
-            <Mail className="size-4 shrink-0 text-[#bd40be]" aria-hidden="true" />
+          <div className="flex items-center gap-2 rounded-[18px] bg-surface-muted p-3 text-sm text-ink-700">
+            <Mail className="size-4 shrink-0 text-brand" aria-hidden="true" />
             <span className="min-w-0 truncate">{user.email}</span>
           </div>
 
@@ -785,16 +787,16 @@ function AdminProfileModal({ user, onClose }: { user: AdminReportUser; onClose: 
           </div>
 
           <div className="mt-4">
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Interests</p>
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">Interests</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {user.interests.length > 0 ? (
                 user.interests.slice(0, 12).map((interest) => (
-                  <span key={interest} className="rounded-full bg-[#fafafa] px-3 py-1 text-xs font-medium text-[#666666]">
+                  <span key={interest} className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium text-ink-600">
                     {interest}
                   </span>
                 ))
               ) : (
-                <span className="text-sm text-[#777777]">No interests added yet.</span>
+                <span className="text-sm text-ink-500">No interests added yet.</span>
               )}
             </div>
           </div>
@@ -807,8 +809,8 @@ function AdminProfileModal({ user, onClose }: { user: AdminReportUser; onClose: 
 function ProfileField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{label}</p>
-      <p className="mt-1 text-sm leading-6 text-[#444444]">{value}</p>
+      <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">{label}</p>
+      <p className="mt-1 text-sm leading-6 text-ink-700">{value}</p>
     </div>
   );
 }
@@ -828,10 +830,10 @@ function ActionButton({
 }) {
   const className =
     tone === "solidDanger"
-      ? "bg-red-600 text-white"
+      ? "bg-danger text-white"
       : tone === "danger"
-        ? "border border-red-200 bg-white text-red-600"
-        : "border border-black/[0.08] bg-white text-[#0d0d0d]";
+        ? "border border-danger-border bg-surface text-danger"
+        : "border border-black/[0.08] bg-surface text-ink";
 
   return (
     <button
@@ -861,14 +863,14 @@ function ConfirmationModal({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
-      <section className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+      <section className="w-full max-w-sm rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0d0d0d]">{action.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-[#666666]">{action.body}</p>
+            <h2 className="text-lg font-semibold text-ink">{action.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-ink-600">{action.body}</p>
           </div>
           <button
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink"
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
@@ -881,7 +883,7 @@ function ConfirmationModal({
 
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
@@ -889,7 +891,7 @@ function ConfirmationModal({
             Cancel
           </button>
           <button
-            className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${isDanger ? "bg-red-600 text-white" : "bg-[#0d0d0d] text-white"
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${isDanger ? "bg-danger text-white" : "bg-ink text-white"
               }`}
             type="button"
             onClick={onConfirm}

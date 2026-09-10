@@ -28,9 +28,9 @@ function formatDate(value: string) {
 }
 
 function priorityClass(priority: SupportPriority) {
-  if (priority === "URGENT") return "bg-red-50 text-red-700";
-  if (priority === "HIGH") return "bg-amber-50 text-amber-800";
-  return "bg-black/5 text-[#666666]";
+  if (priority === "URGENT") return "bg-danger-tint text-danger";
+  if (priority === "HIGH") return "bg-warning-tint text-warning";
+  return "bg-black/5 text-ink-600";
 }
 
 export function SupportTab({ token }: { token: string }) {
@@ -146,9 +146,9 @@ export function SupportTab({ token }: { token: string }) {
       <div className="mx-auto w-full max-w-6xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#777777]">Admin</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Admin</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">Support inbox</h1>
-            <p className="mt-2 text-sm text-[#666666]">Review requests, reply by email and manage resolution status.</p>
+            <p className="mt-2 text-sm text-ink-600">Review requests, reply by email and manage resolution status.</p>
           </div>
           <button
             className="inline-flex h-11 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium"
@@ -161,11 +161,11 @@ export function SupportTab({ token }: { token: string }) {
           </button>
         </div>
 
-        <div className="mt-6 grid gap-3 rounded-[22px] border border-black/[0.06] bg-white p-4 md:grid-cols-3">
-          <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[#777777]">
+        <div className="mt-6 grid gap-3 rounded-[22px] border border-black/[0.06] bg-surface p-4 md:grid-cols-3">
+          <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-ink-500">
             Status
             <select
-              className="h-11 rounded-[14px] border border-black/[0.1] bg-white px-3 text-sm font-normal normal-case tracking-normal text-[#0d0d0d]"
+              className="h-11 rounded-[14px] border border-black/[0.1] bg-surface px-3 text-sm font-normal normal-case tracking-normal text-ink"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as SupportRequestStatus | "")}
             >
@@ -173,10 +173,10 @@ export function SupportTab({ token }: { token: string }) {
               {statuses.map((status) => <option key={status} value={status}>{supportStatusLabels[status]}</option>)}
             </select>
           </label>
-          <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[#777777]">
+          <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-ink-500">
             Category
             <select
-              className="h-11 rounded-[14px] border border-black/[0.1] bg-white px-3 text-sm font-normal normal-case tracking-normal text-[#0d0d0d]"
+              className="h-11 rounded-[14px] border border-black/[0.1] bg-surface px-3 text-sm font-normal normal-case tracking-normal text-ink"
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value as SupportRequestCategory | "")}
             >
@@ -184,10 +184,10 @@ export function SupportTab({ token }: { token: string }) {
               {supportCategories.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
             </select>
           </label>
-          <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[#777777]">
+          <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-ink-500">
             Priority
             <select
-              className="h-11 rounded-[14px] border border-black/[0.1] bg-white px-3 text-sm font-normal normal-case tracking-normal text-[#0d0d0d]"
+              className="h-11 rounded-[14px] border border-black/[0.1] bg-surface px-3 text-sm font-normal normal-case tracking-normal text-ink"
               value={priorityFilter}
               onChange={(event) => setPriorityFilter(event.target.value as SupportPriority | "")}
             >
@@ -197,16 +197,16 @@ export function SupportTab({ token }: { token: string }) {
           </label>
         </div>
 
-        {error ? <p className="mt-4 rounded-[16px] bg-red-50 p-4 text-sm text-red-700">{error}</p> : null}
+        {error ? <p className="mt-4 rounded-[16px] bg-danger-tint p-4 text-sm text-danger">{error}</p> : null}
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white">
+          <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-surface">
             <div className="flex items-center justify-between border-b border-black/[0.06] p-4">
               <span className="inline-flex items-center gap-2 font-semibold">
                 <Inbox className="size-4" aria-hidden="true" />
                 Requests
               </span>
-              <span className="text-sm text-[#777777]">{requests.length}</span>
+              <span className="text-sm text-ink-500">{requests.length}</span>
             </div>
             <div className="max-h-[70vh] overflow-y-auto">
               {isLoading ? (
@@ -214,27 +214,27 @@ export function SupportTab({ token }: { token: string }) {
                   {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-24 animate-pulse rounded-2xl bg-black/5" />)}
                 </div>
               ) : requests.length === 0 ? (
-                <p className="p-7 text-center text-sm text-[#777777]">No requests match these filters.</p>
+                <p className="p-7 text-center text-sm text-ink-500">No requests match these filters.</p>
               ) : (
                 requests.map((request) => (
                   <button
                     key={request.id}
-                    className={`block w-full border-b border-black/[0.05] p-4 text-left transition last:border-b-0 hover:bg-[#fafafa] ${
-                      selected?.id === request.id ? "bg-[#f5f5f5]" : ""
+                    className={`block w-full border-b border-black/[0.05] p-4 text-left transition last:border-b-0 hover:bg-surface-muted ${
+                      selected?.id === request.id ? "bg-surface-sunken" : ""
                     }`}
                     type="button"
                     onClick={() => void openRequest(request.id)}
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-[#777777]">{request.reference}</span>
+                      <span className="text-xs font-semibold text-ink-500">{request.reference}</span>
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${priorityClass(request.priority)}`}>
                         {request.priority}
                       </span>
                       <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px]">{supportStatusLabels[request.status]}</span>
                     </div>
                     <h2 className="mt-2 truncate font-semibold">{request.subject}</h2>
-                    <p className="mt-1 truncate text-sm text-[#777777]">{request.displayName} · {getSupportCategoryLabel(request.category)}</p>
-                    <p className="mt-2 text-xs text-[#999999]">{formatDate(request.lastMessageAt)}</p>
+                    <p className="mt-1 truncate text-sm text-ink-500">{request.displayName} · {getSupportCategoryLabel(request.category)}</p>
+                    <p className="mt-2 text-xs text-ink-300">{formatDate(request.lastMessageAt)}</p>
                   </button>
                 ))
               )}
@@ -244,28 +244,28 @@ export function SupportTab({ token }: { token: string }) {
           <div>
             {isLoadingDetail ? <div className="h-[560px] animate-pulse rounded-[24px] bg-black/5" /> : null}
             {!isLoadingDetail && !selected ? (
-              <div className="grid min-h-80 place-items-center rounded-[24px] border border-dashed border-black/10 bg-white p-7 text-center text-sm text-[#777777]">
+              <div className="grid min-h-80 place-items-center rounded-[24px] border border-dashed border-black/10 bg-surface p-7 text-center text-sm text-ink-500">
                 Choose a request to open the conversation.
               </div>
             ) : null}
             {!isLoadingDetail && selected ? (
-              <section className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-white">
+              <section className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-surface">
                 <div className="border-b border-black/[0.06] p-5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold text-[#777777]">{selected.reference}</span>
+                    <span className="text-xs font-semibold text-ink-500">{selected.reference}</span>
                     <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${priorityClass(selected.priority)}`}>
                       {selected.priority}
                     </span>
                   </div>
                   <h2 className="mt-3 text-xl font-semibold">{selected.subject}</h2>
-                  <p className="mt-1 text-sm text-[#666666]">{selected.displayName} · {selected.email}</p>
-                  <p className="mt-1 text-sm text-[#777777]">{getSupportCategoryLabel(selected.category)}</p>
+                  <p className="mt-1 text-sm text-ink-600">{selected.displayName} · {selected.email}</p>
+                  <p className="mt-1 text-sm text-ink-500">{getSupportCategoryLabel(selected.category)}</p>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[#777777]">
+                    <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-ink-500">
                       Status
                       <select
-                        className="h-10 rounded-[12px] border border-black/[0.1] bg-white px-3 text-sm font-normal normal-case tracking-normal text-[#0d0d0d]"
+                        className="h-10 rounded-[12px] border border-black/[0.1] bg-surface px-3 text-sm font-normal normal-case tracking-normal text-ink"
                         value={selected.status}
                         disabled={isUpdating}
                         onChange={(event) => void updateRequest({ status: event.target.value as SupportRequestStatus })}
@@ -273,10 +273,10 @@ export function SupportTab({ token }: { token: string }) {
                         {statuses.map((status) => <option key={status} value={status}>{supportStatusLabels[status]}</option>)}
                       </select>
                     </label>
-                    <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[#777777]">
+                    <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-ink-500">
                       Priority
                       <select
-                        className="h-10 rounded-[12px] border border-black/[0.1] bg-white px-3 text-sm font-normal normal-case tracking-normal text-[#0d0d0d]"
+                        className="h-10 rounded-[12px] border border-black/[0.1] bg-surface px-3 text-sm font-normal normal-case tracking-normal text-ink"
                         value={selected.priority}
                         disabled={isUpdating}
                         onChange={(event) => void updateRequest({ priority: event.target.value as SupportPriority })}
@@ -287,7 +287,7 @@ export function SupportTab({ token }: { token: string }) {
                   </div>
                 </div>
 
-                <div className="grid max-h-[48vh] gap-4 overflow-y-auto bg-[#fafafa] p-5">
+                <div className="grid max-h-[48vh] gap-4 overflow-y-auto bg-surface-muted p-5">
                   {selected.messages.map((message) => {
                     const fromAdmin = message.authorType === "ADMIN" || message.authorType === "SYSTEM";
                     return (
@@ -295,13 +295,13 @@ export function SupportTab({ token }: { token: string }) {
                         key={message.id}
                         className={`max-w-[90%] rounded-[18px] p-4 ${
                           fromAdmin
-                            ? "justify-self-end bg-[#0d0d0d] text-white"
-                            : "justify-self-start border border-black/[0.06] bg-white"
+                            ? "justify-self-end bg-ink text-white"
+                            : "justify-self-start border border-black/[0.06] bg-surface"
                         }`}
                       >
                         <div className="flex flex-wrap gap-2 text-xs">
                           <strong>{message.authorName}</strong>
-                          <span className={fromAdmin ? "text-white/60" : "text-[#888888]"}>{formatDate(message.createdAt)}</span>
+                          <span className={fromAdmin ? "text-white/60" : "text-ink-400"}>{formatDate(message.createdAt)}</span>
                         </div>
                         <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.body}</p>
                       </article>
@@ -321,7 +321,7 @@ export function SupportTab({ token }: { token: string }) {
                     />
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                       <select
-                        className="h-10 rounded-full border border-black/[0.1] bg-white px-3 text-sm"
+                        className="h-10 rounded-full border border-black/[0.1] bg-surface px-3 text-sm"
                         value={replyStatus}
                         onChange={(event) => setReplyStatus(event.target.value as SupportRequestStatus)}
                       >
@@ -330,7 +330,7 @@ export function SupportTab({ token }: { token: string }) {
                         ))}
                       </select>
                       <button
-                        className="inline-flex h-11 items-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-semibold text-white disabled:opacity-40"
+                        className="inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:opacity-40"
                         type="submit"
                         disabled={!reply.trim() || isReplying}
                       >
@@ -340,7 +340,7 @@ export function SupportTab({ token }: { token: string }) {
                     </div>
                   </form>
                 ) : (
-                  <p className="border-t border-black/[0.06] p-4 text-center text-sm text-[#777777]">Reopen the request to reply.</p>
+                  <p className="border-t border-black/[0.06] p-4 text-center text-sm text-ink-500">Reopen the request to reply.</p>
                 )}
               </section>
             ) : null}

@@ -67,6 +67,7 @@ export function AdminEventsList({ token }: { token: string }) {
 
   return (
     <section>
+      <h1 className="sr-only">Event administration</h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center justify-end gap-2">
           <button
@@ -78,7 +79,7 @@ export function AdminEventsList({ token }: { token: string }) {
             Refresh
           </button>
           <button
-            className="inline-flex h-9 items-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white"
             type="button"
             onClick={() => router.push("/events/create")}
           >
@@ -87,11 +88,11 @@ export function AdminEventsList({ token }: { token: string }) {
           </button>
         </div>
 
-        <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
+        <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium md:max-w-sm">
           <button
             type="button"
             className={`rounded-full px-4 py-2 ${
-              listMode === "active" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"
+              listMode === "active" ? "bg-ink text-white" : "text-ink-600"
             }`}
             onClick={() => setListMode("active")}
           >
@@ -100,7 +101,7 @@ export function AdminEventsList({ token }: { token: string }) {
           <button
             type="button"
             className={`rounded-full px-4 py-2 ${
-              listMode === "inactive" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"
+              listMode === "inactive" ? "bg-ink text-white" : "text-ink-600"
             }`}
             onClick={() => setListMode("inactive")}
           >
@@ -109,7 +110,7 @@ export function AdminEventsList({ token }: { token: string }) {
         </div>
 
         {notice ? (
-          <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">
+          <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">
             {notice}
           </p>
         ) : null}
@@ -127,8 +128,8 @@ export function AdminEventsList({ token }: { token: string }) {
                   key={event.id}
                   className={`rounded-3xl border p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${
                     isAdminInactiveEvent(event)
-                      ? "border-black/[0.03] bg-[#fafafa] opacity-70"
-                      : "border-black/5 bg-white"
+                      ? "border-black/[0.03] bg-surface-muted opacity-70"
+                      : "border-black/5 bg-surface"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -136,7 +137,7 @@ export function AdminEventsList({ token }: { token: string }) {
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-lg font-semibold">{event.title}</h2>
                         {eventCategory ? (
-                          <span className="rounded-full bg-[#f2f2f2] px-2.5 py-1 text-xs font-medium text-[#555555]">
+                          <span className="rounded-full bg-surface-shade px-2.5 py-1 text-xs font-medium text-ink-600">
                             {eventCategory}
                           </span>
                         ) : null}
@@ -146,16 +147,16 @@ export function AdminEventsList({ token }: { token: string }) {
                           {getAdminEventStatusLabel(event)}
                         </span>
                       </div>
-                      <p className="mt-1 flex items-center gap-2 text-sm text-[#666666]">
+                      <p className="mt-1 flex items-center gap-2 text-sm text-ink-600">
                         <CalendarDays className="size-4" aria-hidden="true" />
                         {formatEventDate(event.startsAt)}
                       </p>
-                      <p className="mt-1 text-sm text-[#666666]">{formatEventLocation(event)}</p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">
+                      <p className="mt-1 text-sm text-ink-600">{formatEventLocation(event)}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-ink-600">
+                        <span className="rounded-full bg-surface-muted px-3 py-1">
                           {getTicketTypeSummary(event)}
                         </span>
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">
+                        <span className="rounded-full bg-surface-muted px-3 py-1">
                           {event.attendeeCount ??
                             ticketTypes.reduce(
                               (total, ticketType) => total + ticketType.soldCount,
@@ -163,10 +164,10 @@ export function AdminEventsList({ token }: { token: string }) {
                             )}{" "}
                           booked
                         </span>
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">
+                        <span className="rounded-full bg-surface-muted px-3 py-1">
                           {event.reservationCount ?? 0} active reservations
                         </span>
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">
+                        <span className="rounded-full bg-surface-muted px-3 py-1">
                           {getTotalTicketCapacity(event)} capacity
                         </span>
                       </div>
@@ -188,11 +189,11 @@ export function AdminEventsList({ token }: { token: string }) {
         ) : (
           <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>
-              <Ticket className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+              <Ticket className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">
                 {listMode === "inactive" ? "No inactive events" : "No active events"}
               </h2>
-              <p className="mt-2 text-sm text-[#666666]">
+              <p className="mt-2 text-sm text-ink-600">
                 {listMode === "inactive"
                   ? "Draft, cancelled, or completed events will appear here."
                   : "Create the first paid or free event for members."}

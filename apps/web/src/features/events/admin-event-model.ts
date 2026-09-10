@@ -357,14 +357,14 @@ export function getAdminEventStatusLabel(event: StreetzEvent) {
 
 export function getAdminEventStatusClass(event: StreetzEvent) {
   if (event.status === "PUBLISHED" && !hasEventEnded(event)) {
-    return "bg-[#f6e0f6] text-[#9d2a9e]";
+    return "bg-brand-tint text-brand-strong";
   }
 
   if (event.status === "CANCELLED") {
     return "bg-red-50 text-red-600";
   }
 
-  return "bg-[#fafafa] text-[#777777]";
+  return "bg-surface-muted text-ink-500";
 }
 
 export function getTicketTypeSummary(event: StreetzEvent) {

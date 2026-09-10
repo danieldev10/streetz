@@ -106,8 +106,8 @@ export function getHistoryAttendanceLabel(event: StreetzEvent) {
 
 export function getHistoryAttendanceClass(event: StreetzEvent) {
   return getUserTickets(event).some((ticket) => ticket.status === "CHECKED_IN")
-    ? "bg-[#e7f8ef] text-[#126c43]"
-    : "bg-[#fafafa] text-[#666666]";
+    ? "bg-success-tint text-success-deep"
+    : "bg-surface-muted text-ink-600";
 }
 
 export function hasEventEnded(event: Pick<StreetzEvent, "startsAt" | "endsAt">) {

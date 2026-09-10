@@ -240,7 +240,7 @@ export function AdminEventForm({ token, mode, eventId }: {
         </div>
 
         {notice ? (
-          <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">
+          <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">
             {notice}
           </p>
         ) : null}
@@ -251,7 +251,7 @@ export function AdminEventForm({ token, mode, eventId }: {
           <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>
               <h2 className="text-xl font-semibold">Event unavailable</h2>
-              <p className="mt-2 text-sm text-[#666666]">
+              <p className="mt-2 text-sm text-ink-600">
                 Return to events and choose another event to edit.
               </p>
             </div>

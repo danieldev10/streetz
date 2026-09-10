@@ -99,7 +99,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 aria-live="polite"
                 className={`pointer-events-auto max-w-sm rounded-full px-4 py-3 text-center text-sm font-medium text-white shadow-[0_12px_32px_rgba(0,0,0,0.22)] transition-all duration-200 ease-out ${
                   toast.visible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-                } ${toast.tone === "error" ? "bg-[#d63f3f]" : "bg-[#1c131c]"}`}
+                } ${toast.tone === "error" ? "bg-danger" : "bg-ink"}`}
               >
                 {toast.message}
               </div>

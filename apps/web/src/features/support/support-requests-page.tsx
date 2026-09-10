@@ -60,7 +60,7 @@ export function SupportRequestsPage() {
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Tickets</h1>
         </div>
         <Link
-          className="inline-flex h-11 items-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-semibold text-white"
+          className="inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white"
           href="/support/contact"
         >
           <Send className="size-4" aria-hidden="true" />
@@ -73,16 +73,16 @@ export function SupportRequestsPage() {
       ) : null}
 
       {status !== "checking" && !isMember ? (
-        <section className="mt-6 rounded-[24px] border border-black/[0.07] bg-white p-6">
+        <section className="mt-6 rounded-[24px] border border-black/[0.07] bg-surface p-6">
           <LockKeyhole className="size-5" aria-hidden="true" />
           <h2 className="mt-4 text-xl font-semibold">Guest requests stay private</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#666666]">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-600">
             Open the secure link in the email we sent after you contacted support. That link lets
             you read replies and continue the conversation without creating an account.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
-              className="inline-flex h-11 items-center rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white"
+              className="inline-flex h-11 items-center rounded-full bg-ink px-5 text-sm font-medium text-white"
               href="/support/contact"
             >
               Contact us
@@ -100,14 +100,14 @@ export function SupportRequestsPage() {
       {isMember ? (
         <section className="mt-6">
           {requestError ? (
-            <p className="mt-4 rounded-2xl bg-red-50 p-4 text-sm text-red-700">
+            <p className="mt-4 rounded-2xl bg-danger-tint p-4 text-sm text-danger">
               {requestError}
             </p>
           ) : null}
           {isLoadingRequests ? (
             <div className="mt-4 h-24 animate-pulse rounded-[24px] bg-black/5" />
           ) : requests.length === 0 ? (
-            <div className="mt-4 rounded-[24px] border border-dashed border-black/10 bg-white p-6 text-sm text-[#666666]">
+            <div className="mt-4 rounded-[24px] border border-dashed border-black/10 bg-surface p-6 text-sm text-ink-600">
               You have not sent any support requests yet.
             </div>
           ) : (
@@ -115,12 +115,12 @@ export function SupportRequestsPage() {
               {requests.map((request) => (
                 <Link
                   key={request.id}
-                  className="flex items-center gap-4 rounded-[22px] border border-black/[0.07] bg-white p-4 text-left transition hover:border-black/20"
+                  className="flex items-center gap-4 rounded-[22px] border border-black/[0.07] bg-surface p-4 text-left transition hover:border-black/20"
                   href={`/support/requests/${request.id}`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-[#777777]">
+                      <span className="text-xs font-semibold text-ink-500">
                         {request.reference}
                       </span>
                       <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium">
@@ -128,13 +128,13 @@ export function SupportRequestsPage() {
                       </span>
                     </div>
                     <h3 className="mt-2 truncate font-semibold">{request.subject}</h3>
-                    <p className="mt-1 truncate text-sm text-[#777777]">
+                    <p className="mt-1 truncate text-sm text-ink-500">
                       {getSupportCategoryLabel(request.category)} ·{" "}
                       {formatListDate(request.lastMessageAt)}
                     </p>
                   </div>
                   <ChevronRight
-                    className="size-4 shrink-0 text-[#999999]"
+                    className="size-4 shrink-0 text-ink-300"
                     aria-hidden="true"
                   />
                 </Link>

@@ -6,6 +6,7 @@ import { AuthenticatedRoute } from "@/components/app/authenticated-route";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { SupportRequest } from "@/lib/types";
 import { SupportThread } from "./support-thread";
+import { CHAT_PANEL_HEIGHT } from "@/lib/chat-layout";
 
 function MemberSupportConversation({
   requestId,
@@ -67,20 +68,20 @@ function MemberSupportConversation({
   }
 
   return (
-    <section className="min-h-[calc(100vh-80px)] bg-[#f7f7f7] px-0 md:min-h-screen md:px-8 md:py-8">
+    <section className="min-h-[calc(100vh-80px)] bg-surface-sunken px-0 md:min-h-screen md:px-8 md:py-8">
       <div className="mx-auto max-w-3xl">
         {isLoading ? (
-          <div className="h-[calc(100dvh-168px)] animate-pulse bg-black/5 md:h-[720px] md:rounded-[24px]" />
+          <div className={`${CHAT_PANEL_HEIGHT} animate-pulse bg-black/5 md:rounded-[24px]`} />
         ) : null}
 
         {!isLoading && error ? (
-          <section className="mx-5 rounded-[24px] border border-black/[0.07] bg-white p-7 text-center md:mx-0">
+          <section className="mx-5 rounded-[24px] border border-black/[0.07] bg-surface p-7 text-center md:mx-0">
             <h1 className="text-xl font-semibold">This support request is unavailable</h1>
-            <p className="mt-2 text-sm leading-6 text-[#666666]">
+            <p className="mt-2 text-sm leading-6 text-ink-600">
               It may not belong to this account, or it may no longer be available.
             </p>
             <Link
-              className="mt-5 inline-flex h-11 items-center rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white"
+              className="mt-5 inline-flex h-11 items-center rounded-full bg-ink px-5 text-sm font-medium text-white"
               href="/support/requests"
             >
               Back to requests
@@ -96,6 +97,7 @@ function MemberSupportConversation({
             onReply={reply}
             backHref="/support/requests"
             variant="conversation"
+            viewerAuthorType="USER"
           />
         ) : null}
       </div>

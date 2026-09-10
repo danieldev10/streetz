@@ -290,9 +290,9 @@ export function MemberApp({
   };
 
   return (
-    <main className="min-h-screen bg-white text-[#0d0d0d]">
+    <main className="min-h-screen bg-surface text-ink">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-white px-4 py-5 md:block">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-surface px-4 py-5 md:block">
           <AppBrand user={user} onLogout={onLogout} />
           <nav className="mt-8 grid gap-2">
             {visibleTabs.map((tab) => (
@@ -313,7 +313,7 @@ export function MemberApp({
         </section>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.05] bg-white/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.05] bg-surface/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
         <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${visibleBottomTabs.length}, minmax(0, 1fr))` }}>
           {visibleBottomTabs.map((tab) => (
             <AppNavButton

@@ -44,26 +44,26 @@ export default function GuestTicketsPage() {
     return () => { cancelled = true; };
   }, [params.orderId, token]);
 
-  if (!booking && !error) return <main className="grid min-h-screen place-items-center"><LoaderCircle className="size-6 animate-spin text-[#9d2a9e]" aria-label="Loading tickets" /></main>;
-  if (error) return <main className="grid min-h-screen place-items-center px-5"><div className="max-w-sm text-center"><h1 className="text-2xl font-semibold">Tickets unavailable</h1><p className="mt-2 text-sm text-[#666]">{error}</p><Link className="mt-5 inline-flex rounded-full bg-black px-5 py-3 text-sm text-white" href="/events">Browse events</Link></div></main>;
+  if (!booking && !error) return <main className="grid min-h-screen place-items-center"><LoaderCircle className="size-6 animate-spin text-brand-strong" aria-label="Loading tickets" /></main>;
+  if (error) return <main className="grid min-h-screen place-items-center px-5"><div className="max-w-sm text-center"><h1 className="text-2xl font-semibold">Tickets unavailable</h1><p className="mt-2 text-sm text-ink-600">{error}</p><Link className="mt-5 inline-flex rounded-full bg-black px-5 py-3 text-sm text-white" href="/events">Browse events</Link></div></main>;
 
   return (
-    <main className="min-h-screen bg-[#fafafa] px-5 py-8 text-[#0d0d0d]">
-      <section className="mx-auto max-w-lg rounded-[28px] bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#9d2a9e]">Guest tickets</p>
+    <main className="min-h-screen bg-surface-muted px-5 py-8 text-ink">
+      <section className="mx-auto max-w-lg rounded-[28px] bg-surface p-5 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-strong">Guest tickets</p>
         <h1 className="mt-2 text-2xl font-semibold">{booking!.event.title}</h1>
-        <p className="mt-3 flex gap-2 text-sm text-[#666]"><CalendarDays className="size-4 shrink-0" />{formatDate(booking!.event.startsAt)}</p>
-        <p className="mt-2 flex gap-2 text-sm text-[#666]"><MapPin className="size-4 shrink-0" />{[booking!.event.venue, booking!.event.city, booking!.event.state].filter(Boolean).join(", ")}</p>
+        <p className="mt-3 flex gap-2 text-sm text-ink-600"><CalendarDays className="size-4 shrink-0" />{formatDate(booking!.event.startsAt)}</p>
+        <p className="mt-2 flex gap-2 text-sm text-ink-600"><MapPin className="size-4 shrink-0" />{[booking!.event.venue, booking!.event.city, booking!.event.state].filter(Boolean).join(", ")}</p>
         <div className="mt-6 grid gap-3">
           {booking!.tickets.map((ticket, index) => (
-            <article key={ticket.id} className="rounded-[20px] border border-black/8 bg-[#fafafa] p-4">
-              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888]"><Ticket className="size-4" />{booking!.ticketType.name} · Ticket {index + 1}</p>
+            <article key={ticket.id} className="rounded-[20px] border border-black/8 bg-surface-muted p-4">
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400"><Ticket className="size-4" />{booking!.ticketType.name} · Ticket {index + 1}</p>
               <p className="mt-2 break-all font-mono text-xl font-bold tracking-wide">{ticket.code}</p>
-              <p className="mt-1 text-xs text-[#666]">{ticket.status === "CHECKED_IN" ? "Checked in" : "Ready to use"}</p>
+              <p className="mt-1 text-xs text-ink-600">{ticket.status === "CHECKED_IN" ? "Checked in" : "Ready to use"}</p>
             </article>
           ))}
         </div>
-        <p className="mt-5 text-xs leading-5 text-[#666]">Booked for {booking!.displayName} · {booking!.email}</p>
+        <p className="mt-5 text-xs leading-5 text-ink-600">Booked for {booking!.displayName} · {booking!.email}</p>
         <Link className="mt-5 inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium" href={`/events/${booking!.event.id}`}>View event</Link>
       </section>
     </main>

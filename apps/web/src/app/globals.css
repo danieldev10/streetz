@@ -1,8 +1,57 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fbf7fb;
-  --foreground: #1c131c;
+  --background: #ffffff;
+  --foreground: #0d0d0d;
+}
+
+/*
+ * Colour tokens. Components reference these by role (`text-ink-600`,
+ * `bg-brand-tint`, `text-danger`) rather than by hex, so a shade is defined once
+ * here instead of being re-typed across the app. Use Tailwind's own palette
+ * (red-500, emerald-50, ...) only for something genuinely outside this set.
+ */
+@theme {
+  /* Brand purple, named by the job each shade does. */
+  --color-brand: #bd40be; /* accents, focus rings, active borders */
+  --color-brand-strong: #9d2a9e; /* solid fills: buttons, badges */
+  --color-brand-deep: #7c1f7d; /* text sitting on a brand tint */
+  --color-brand-tint: #f6e0f6; /* tinted surfaces */
+  --color-brand-wash: #fbf2fb; /* faintest tint */
+  --color-brand-shade: #f3ebf3; /* media placeholders in skeletons */
+
+  /* Text, darkest to lightest. */
+  --color-ink: #0d0d0d;
+  --color-ink-700: #444444;
+  --color-ink-600: #666666;
+  --color-ink-500: #777777;
+  --color-ink-400: #888888;
+  --color-ink-300: #999999;
+  --color-ink-200: #c6c6c6;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-surface-muted: #fafafa;
+  --color-surface-sunken: #f7f7f7;
+  --color-surface-shade: #f2f2f2;
+  --color-border-soft: #e7e3ef;
+
+  /* Feedback */
+  --color-danger: #b3261e;
+  --color-danger-tint: #fdecec;
+  --color-danger-border: #fecaca;
+  --color-warning: #8a5a08;
+  --color-warning-solid: #f5a623;
+  --color-warning-tint: #fff8e9;
+  --color-warning-border: #f3dfb9;
+  --color-success: #0fa76e;
+  --color-success-deep: #126c43;
+  --color-success-tint: #e7f8ef;
+  --color-info: #2867c7;
+  --color-info-tint: #e8f1ff;
+
+  /* Likes and matches */
+  --color-heart: #ff6b8a;
 }
 
 @theme inline {
@@ -69,5 +118,30 @@ a:where([class~="flex"], [class~="inline-flex"], [class~="grid"], [class~="inlin
   textarea,
   select {
     font-size: 16px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Drop transitions and one-shot animations: drawer slides, the match banner,
+     toasts and the discovery card stack all settle straight into their end state. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Spinners still have to read as "working", so they keep turning, just slower.
+     Freezing them would leave a loading state looking broken. */
+  .animate-spin {
+    animation: spin 1.5s linear infinite !important;
+  }
+
+  /* Skeletons hold a steady tone instead of pulsing. */
+  .animate-pulse {
+    animation: none !important;
+    opacity: 1 !important;
   }
 }

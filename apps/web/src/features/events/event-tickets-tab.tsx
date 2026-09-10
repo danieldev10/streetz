@@ -118,7 +118,7 @@ function getTicketState(ticket: StreetzEventTicket) {
   if (ticket.status === "CHECKED_IN") {
     return {
       label: "Used",
-      tone: "bg-[#fafafa] text-[#666666]",
+      tone: "bg-surface-muted text-ink-600",
       icon: CheckCircle2,
     };
   }
@@ -126,14 +126,14 @@ function getTicketState(ticket: StreetzEventTicket) {
   if (ticket.status === "PAID" || ticket.status === "CONFIRMED") {
     return {
       label: "Unused",
-      tone: "bg-[#f6e0f6] text-[#7c1f7d]",
+      tone: "bg-brand-tint text-brand-deep",
       icon: Ticket,
     };
   }
 
   return {
     label: ticket.status.toLowerCase(),
-    tone: "bg-[#fafafa] text-[#666666]",
+    tone: "bg-surface-muted text-ink-600",
     icon: Ticket,
   };
 }
@@ -345,6 +345,7 @@ export function EventTicketsTab({
 
   return (
     <section>
+      {!event ? <h1 className="sr-only">Event details</h1> : null}
       {isGuestCheckoutOpen && event ? (
         <TicketCheckoutModal
           event={event}
@@ -371,11 +372,11 @@ export function EventTicketsTab({
         </div>
 
         {isAdmin ? (
-          <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">
+          <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">
             Admins manage events from the admin event page.
           </p>
         ) : null}
-        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {isLoading ? (
           <MediaDetailSkeleton label="Loading tickets" />
@@ -389,8 +390,8 @@ export function EventTicketsTab({
 
             return (
               <div className="grid gap-4">
-                <article className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-                  <div className="relative aspect-16/10 bg-[#f6e0f6]">
+                <article className="overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+                  <div className="relative aspect-16/10 bg-brand-tint">
                     <Image
                       src={event.coverImage || FALLBACK_EVENT_IMAGE}
                       alt={`${event.title} event`}
@@ -398,11 +399,11 @@ export function EventTicketsTab({
                       sizes="(max-width: 768px) 100vw, 720px"
                       className="object-cover"
                     />
-                    <span className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#0d0d0d]">
+                    <span className="absolute left-3 top-3 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-ink">
                       {selectedTicketType ? `${normalizeTicketTierName(selectedTicketType.name)} · ${formatPrice(selectedTicketType.priceKobo)}` : "No ticket"}
                     </span>
                     <button
-                      className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-white/90 text-[#0d0d0d] shadow-sm backdrop-blur transition hover:bg-white"
+                      className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-surface/90 text-ink shadow-sm backdrop-blur transition hover:bg-surface"
                       type="button"
                       onClick={() => void shareEvent()}
                       aria-label={`Share ${event.title}`}
@@ -412,20 +413,20 @@ export function EventTicketsTab({
                     </button>
                   </div>
                   <div className="p-4">
-                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                       <CalendarDays className="size-4" aria-hidden="true" />
                       {formatEventDate(event.startsAt)}
                     </p>
-                    <h2 className="mt-2 text-xl font-semibold">{event.title}</h2>
-                    <p className="mt-1 flex items-center gap-1 text-sm text-[#666666]">
+                    <h1 className="mt-2 text-xl font-semibold">{event.title}</h1>
+                    <p className="mt-1 flex items-center gap-1 text-sm text-ink-600">
                       <MapPin className="size-4" aria-hidden="true" />
                       {formatEventLocation(event)}
                     </p>
                     {ticketTypes.length > 1 ? (
-                      <label className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                      <label className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                         Tier
                         <select
-                          className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+                          className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                           value={selectedTicketType?.id ?? ""}
                           onChange={(inputEvent) => {
                             setSelectedTicketTypeId(inputEvent.target.value);
@@ -442,21 +443,21 @@ export function EventTicketsTab({
                       </label>
                     ) : null}
                     {selectedTicketType ? (
-                      <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">{selectedTicketType.availableCount} spots left</span>
-                        <span className="rounded-full bg-[#fafafa] px-3 py-1">Max {selectedTicketType.maxTicketsPerUser} per person</span>
+                      <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-ink-600">
+                        <span className="rounded-full bg-surface-muted px-3 py-1">{selectedTicketType.availableCount} spots left</span>
+                        <span className="rounded-full bg-surface-muted px-3 py-1">Max {selectedTicketType.maxTicketsPerUser} per person</span>
                       </div>
                     ) : null}
                     {event.status === "CANCELLED" ? (
-                      <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm leading-6 text-red-700">
+                      <p className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm leading-6 text-danger">
                         This event was cancelled. If you paid for a ticket, refunds are being processed and we will contact you by email.
                       </p>
                     ) : null}
                     {canBookMore && maxPurchaseQuantity > 1 ? (
-                      <label className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+                      <label className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                         Quantity
                         <select
-                          className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+                          className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                           value={selectedQuantity}
                           onChange={(inputEvent) => setBookingQuantity(Number(inputEvent.target.value))}
                           disabled={isBusy}
@@ -470,7 +471,7 @@ export function EventTicketsTab({
                       </label>
                     ) : null}
                     <button
-                      className={`${canBookMore && maxPurchaseQuantity > 1 ? "mt-3" : "mt-4"} inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60`}
+                      className={`${canBookMore && maxPurchaseQuantity > 1 ? "mt-3" : "mt-4"} inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60`}
                       type="button"
                       onClick={() => void bookEvent()}
                       disabled={!canBookMore || isBusy}
@@ -501,22 +502,22 @@ export function EventTicketsTab({
                       const Icon = state.icon;
 
                       return (
-                        <article key={ticket.id} className="rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+                        <article key={ticket.id} className="rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
-                              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Ticket {tickets.length - index}</p>
-                              <p className="mt-2 truncate text-lg font-semibold text-[#0d0d0d]">{ticket.code}</p>
+                              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Ticket {tickets.length - index}</p>
+                              <p className="mt-2 truncate text-lg font-semibold text-ink">{ticket.code}</p>
                               {ticket.ticketType ? (
-                                <p className="mt-1 text-sm font-medium text-[#666666]">{normalizeTicketTierName(ticket.ticketType.name)}</p>
+                                <p className="mt-1 text-sm font-medium text-ink-600">{normalizeTicketTierName(ticket.ticketType.name)}</p>
                               ) : null}
-                              <p className="mt-1 text-sm text-[#666666]">Booked {formatEventDate(ticket.createdAt)}</p>
+                              <p className="mt-1 text-sm text-ink-600">Booked {formatEventDate(ticket.createdAt)}</p>
                               {ticket.checkedInAt ? (
-                                <p className="mt-1 text-sm text-[#666666]">Used {formatEventDate(ticket.checkedInAt)}</p>
+                                <p className="mt-1 text-sm text-ink-600">Used {formatEventDate(ticket.checkedInAt)}</p>
                               ) : null}
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                               <button
-                                className="inline-flex size-9 items-center justify-center rounded-full border border-black/8 text-[#666666] transition hover:border-[#bd40be] hover:text-[#0d0d0d]"
+                                className="inline-flex size-9 items-center justify-center rounded-full border border-black/8 text-ink-600 transition hover:border-brand hover:text-ink"
                                 type="button"
                                 onClick={() => void shareEvent(ticket)}
                                 aria-label={`Share ${event.title} ticket`}
@@ -536,9 +537,9 @@ export function EventTicketsTab({
                   ) : (
                     <div className="grid min-h-48 place-items-center rounded-3xl border border-black/5 p-6 text-center">
                       <div>
-                        <Ticket className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+                        <Ticket className="mx-auto size-8 text-brand" aria-hidden="true" />
                         <h2 className="mt-3 text-2xl font-semibold">No tickets yet</h2>
-                        <p className="mt-2 text-sm text-[#666666]">Book this event to see your tickets here.</p>
+                        <p className="mt-2 text-sm text-ink-600">Book this event to see your tickets here.</p>
                       </div>
                     </div>
                     )}
@@ -550,9 +551,9 @@ export function EventTicketsTab({
         ) : (
           <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>
-              <Ticket className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+              <Ticket className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Event unavailable</h2>
-              <p className="mt-2 text-sm text-[#666666]">This event could not be loaded.</p>
+              <p className="mt-2 text-sm text-ink-600">This event could not be loaded.</p>
             </div>
           </div>
         )}

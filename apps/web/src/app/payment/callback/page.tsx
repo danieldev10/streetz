@@ -80,10 +80,10 @@ function PaymentCallbackContent() {
   }, [refreshSession, router, searchParams, token, updateSessionUser]);
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[#fbf7fb] px-4 text-[#1c131c]">
-      <section className="w-full max-w-sm rounded-lg border border-[#e7e3ef] bg-white p-6 text-center">
+    <main className="grid min-h-screen place-items-center bg-surface px-4 text-ink">
+      <section className="w-full max-w-sm rounded-lg border border-border-soft bg-surface p-6 text-center">
         <BrandLogo size="payment" className="mx-auto" priority />
-        <p className="mt-3 text-sm font-bold text-[#6b6675]">{message}</p>
+        <p className="mt-3 text-sm font-bold text-ink-500">{message}</p>
       </section>
     </main>
   );
@@ -93,7 +93,7 @@ export default function PaymentCallbackPage() {
   return (
     <Suspense
       fallback={
-        <main className="grid min-h-screen place-items-center bg-[#fbf7fb] px-4 text-[#1c131c]">
+        <main className="grid min-h-screen place-items-center bg-surface px-4 text-ink">
           <LoadingState label="Loading payment status" />
         </main>
       }

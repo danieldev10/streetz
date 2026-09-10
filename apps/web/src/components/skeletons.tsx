@@ -17,7 +17,7 @@ export function ListSkeleton({
   label,
   rows = 3,
   className = "grid gap-3",
-  rowClassName = "rounded-3xl border border-black/5 bg-white p-4",
+  rowClassName = "rounded-3xl border border-black/5 bg-surface p-4",
   hasAvatar = true,
   hasAction = true,
   lines = 2,
@@ -50,7 +50,7 @@ export function ListSkeleton({
 /** A wide cover image above a title, meta lines and an action, for event and profile detail screens. */
 export function MediaDetailSkeleton({
   label,
-  className = "overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
+  className = "overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
   mediaClassName = "aspect-16/10",
 }: {
   label: string;
@@ -60,7 +60,7 @@ export function MediaDetailSkeleton({
   return (
     <div className={className} role="status" aria-live="polite" aria-label={label}>
       <div className="animate-pulse" aria-hidden="true">
-        <div className={`bg-[#f3ebf3] ${mediaClassName}`} />
+        <div className={`bg-brand-shade ${mediaClassName}`} />
         <div className="p-4">
           <div className="h-7 w-2/3 rounded-full bg-black/5" />
           <div className="mt-3 h-4 w-1/2 rounded-full bg-black/5" />
@@ -78,7 +78,7 @@ export function DiscoveryCardSkeleton({ label = "Loading discovery" }: { label?:
   return (
     <div role="status" aria-live="polite" aria-label={label}>
       <div className="animate-pulse" aria-hidden="true">
-        <div className="h-[clamp(320px,44svh,440px)] bg-[#f3ebf3] md:aspect-[4/5] md:h-auto md:min-h-[440px]" />
+        <div className="h-[clamp(320px,44svh,440px)] bg-brand-shade md:aspect-[4/5] md:h-auto md:min-h-[440px]" />
         <div className="p-4">
           <div className="h-4 w-full rounded-full bg-black/5" />
           <div className="mt-2 h-4 w-4/5 rounded-full bg-black/5" />
@@ -107,7 +107,7 @@ export function DiscoveryCardSkeleton({ label = "Loading discovery" }: { label?:
 export function FormSkeleton({
   label,
   fields = 5,
-  className = "mx-auto max-w-2xl rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
+  className = "mx-auto max-w-2xl rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
 }: {
   label: string;
   fields?: number;
@@ -180,7 +180,7 @@ export function StatGridSkeleton({
       {Array.from({ length: tiles }, (_, index) => (
         <div
           key={index}
-          className="animate-pulse rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+          className="animate-pulse rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
           aria-hidden="true"
         >
           <div className="h-4 w-24 rounded-full bg-black/5" />
@@ -195,7 +195,7 @@ export function StatGridSkeleton({
 /** A single detail panel: heading, meta lines, then a body block. */
 export function DetailSkeleton({
   label,
-  className = "mx-auto max-w-3xl rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
+  className = "mx-auto max-w-3xl rounded-[28px] border border-black/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
 }: {
   label: string;
   className?: string;

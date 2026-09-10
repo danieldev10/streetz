@@ -16,13 +16,13 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body className="grid min-h-screen place-items-center bg-white px-6 text-[#0d0d0d]">
+      <body className="grid min-h-screen place-items-center bg-surface px-6 text-ink">
         <main className="max-w-md text-center">
           <h1 className="text-3xl font-semibold">Something went wrong</h1>
-          <p className="mt-3 text-sm leading-6 text-[#666666]">The error has been recorded. Please try loading this screen again.</p>
+          <p className="mt-3 text-sm leading-6 text-ink-600">The error has been recorded. Please try loading this screen again.</p>
           <button
             type="button"
-            className="mt-6 h-12 rounded-full bg-[#0d0d0d] px-6 text-sm font-semibold text-white"
+            className="mt-6 h-12 rounded-full bg-ink px-6 text-sm font-semibold text-white"
             onClick={() => unstable_retry()}
           >
             Try again

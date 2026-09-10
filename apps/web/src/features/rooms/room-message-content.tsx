@@ -100,7 +100,7 @@ export function renderRoomMessageBody(
         className={`inline bg-transparent p-0 font-semibold underline underline-offset-2 transition ${
           onDark
             ? "text-white decoration-white/60 hover:text-white/80"
-            : `no-underline ${isCurrentUser ? "text-[#7c1f7d]" : "text-[#9d2a9e] hover:text-[#7c1f7d]"}`
+            : `no-underline ${isCurrentUser ? "text-brand-deep" : "text-brand-strong hover:text-brand-deep"}`
         }`}
         onClick={() => onOpenMember(match.member)}
       >

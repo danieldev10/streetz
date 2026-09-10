@@ -62,28 +62,28 @@ export function ChatMediaPicker({ onEmoji, onGif, disabled }: {
 
   return (
     <div className="relative flex shrink-0 items-center gap-1">
-      <button type="button" className="inline-flex size-10 items-center justify-center rounded-full text-[#666] hover:bg-[#fafafa] disabled:opacity-50" onClick={() => openPanel("emoji")} disabled={disabled} aria-label="Add emoji">
+      <button type="button" className="inline-flex size-10 items-center justify-center rounded-full text-ink-600 hover:bg-surface-muted disabled:opacity-50" onClick={() => openPanel("emoji")} disabled={disabled} aria-label="Add emoji">
         <Laugh className="size-5" aria-hidden="true" />
       </button>
-      <button type="button" className="inline-flex h-10 items-center justify-center rounded-full px-2 text-xs font-bold text-[#7c1f7d] hover:bg-[#fafafa] disabled:opacity-50" onClick={() => openPanel("gif")} disabled={disabled} aria-label="Add GIF">
+      <button type="button" className="inline-flex h-10 items-center justify-center rounded-full px-2 text-xs font-bold text-brand-deep hover:bg-surface-muted disabled:opacity-50" onClick={() => openPanel("gif")} disabled={disabled} aria-label="Add GIF">
         GIF
       </button>
 
       {panel ? (
-        <div className="absolute bottom-full left-0 z-40 mb-3 w-[min(22rem,calc(100vw-2rem))] rounded-[24px] border border-black/8 bg-white p-3 shadow-[0_18px_55px_rgba(0,0,0,0.18)]">
+        <div className="absolute bottom-full left-0 z-40 mb-3 w-[min(22rem,calc(100vw-2rem))] rounded-[24px] border border-black/8 bg-surface p-3 shadow-[0_18px_55px_rgba(0,0,0,0.18)]">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-semibold">{panel === "emoji" ? "Emoji" : "Choose a GIF"}</p>
-            <button type="button" className="inline-flex size-8 items-center justify-center rounded-full hover:bg-[#fafafa]" onClick={() => setPanel(null)} aria-label="Close picker"><X className="size-4" /></button>
+            <button type="button" className="inline-flex size-8 items-center justify-center rounded-full hover:bg-surface-muted" onClick={() => setPanel(null)} aria-label="Close picker"><X className="size-4" /></button>
           </div>
           {panel === "emoji" ? (
             <div className="grid grid-cols-6 gap-1">
-              {EMOJIS.map((emoji) => <button key={emoji} type="button" className="rounded-xl p-2 text-2xl hover:bg-[#f6e0f6]" onClick={() => onEmoji(emoji)}>{emoji}</button>)}
+              {EMOJIS.map((emoji) => <button key={emoji} type="button" className="rounded-xl p-2 text-2xl hover:bg-brand-tint" onClick={() => onEmoji(emoji)}>{emoji}</button>)}
             </div>
           ) : (
             <>
               <div className="mb-3 flex gap-2" role="search">
                 <input
-                  className="h-10 min-w-0 flex-1 rounded-full border border-black/8 px-3 text-sm outline-none focus:border-[#bd40be]"
+                  className="h-10 min-w-0 flex-1 rounded-full border border-black/8 px-3 text-sm outline-none focus:border-brand"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   onKeyDown={(event) => {
@@ -95,17 +95,17 @@ export function ChatMediaPicker({ onEmoji, onGif, disabled }: {
                   placeholder="Search GIPHY"
                   maxLength={50}
                 />
-                <button type="button" className="inline-flex size-10 items-center justify-center rounded-full bg-[#0d0d0d] text-white" onClick={() => void searchGifs()} aria-label="Search GIFs">{isSearching ? <LoaderCircle className="size-4 animate-spin" /> : <Search className="size-4" />}</button>
+                <button type="button" className="inline-flex size-10 items-center justify-center rounded-full bg-ink text-white" onClick={() => void searchGifs()} aria-label="Search GIFs">{isSearching ? <LoaderCircle className="size-4 animate-spin" /> : <Search className="size-4" />}</button>
               </div>
-              {error ? <p className="rounded-xl bg-[#fdecec] p-3 text-xs text-[#b3261e]">{error}</p> : null}
+              {error ? <p className="rounded-xl bg-danger-tint p-3 text-xs text-danger">{error}</p> : null}
               <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto">
                 {results.map((gif) => (
-                  <button key={gif.id} type="button" className="relative min-h-24 overflow-hidden rounded-xl bg-[#f2f2f2]" onClick={() => { onGif(gif.url); setPanel(null); }} aria-label={`Send ${gif.title}`}>
+                  <button key={gif.id} type="button" className="relative min-h-24 overflow-hidden rounded-xl bg-surface-shade" onClick={() => { onGif(gif.url); setPanel(null); }} aria-label={`Send ${gif.title}`}>
                     <Image src={gif.previewUrl} alt={gif.title} fill sizes="160px" className="object-cover" unoptimized />
                   </button>
                 ))}
               </div>
-              <p className="mt-2 text-right text-[10px] font-semibold text-[#888]">Powered by GIPHY</p>
+              <p className="mt-2 text-right text-[10px] font-semibold text-ink-400">Powered by GIPHY</p>
             </>
           )}
         </div>

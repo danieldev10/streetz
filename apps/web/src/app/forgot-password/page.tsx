@@ -44,8 +44,8 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-white px-5 py-8 text-[#0d0d0d]">
-      <section className="w-full max-w-sm rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+    <main className="grid min-h-screen place-items-center bg-surface px-5 py-8 text-ink">
+      <section className="w-full max-w-sm rounded-[28px] border border-black/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
         <Link
           className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
           href="/"
@@ -56,11 +56,11 @@ export default function ForgotPasswordPage() {
         </Link>
 
         <div className="mt-8 text-center">
-          <div className="mx-auto grid size-16 place-items-center rounded-full bg-[#fafafa]">
+          <div className="mx-auto grid size-16 place-items-center rounded-full bg-surface-muted">
             <Mail className="size-7" aria-hidden="true" />
           </div>
           <h1 className="mt-5 text-3xl font-semibold">Reset password</h1>
-          <p className="mt-2 text-sm leading-6 text-[#666666]">
+          <p className="mt-2 text-sm leading-6 text-ink-600">
             Enter your email and we will send a password reset link if the account exists.
           </p>
         </div>
@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
           <label className="grid gap-2 text-sm font-medium">
             Email
             <input
-              className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+              className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -77,16 +77,16 @@ export default function ForgotPasswordPage() {
             />
           </label>
 
-          {message ? <p className="rounded-2xl bg-[#fff8e9] p-3 text-sm font-medium text-[#8a5a08]">{message}</p> : null}
+          {message ? <p className="rounded-2xl bg-warning-tint p-3 text-sm font-medium text-warning">{message}</p> : null}
 
           {resetUrl ? (
-            <Link className="rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]" href={resetUrl}>
+            <Link className="rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep" href={resetUrl}>
               Open development reset link
             </Link>
           ) : null}
 
           <button
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
           >
             {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}

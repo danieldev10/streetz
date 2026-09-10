@@ -151,18 +151,18 @@ function DiscoveryProfileGate({
     <section>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         {profileState === "verificationRequired" ? (
-          <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-white p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+          <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
             <div className="max-w-xs">
-              <div className="mx-auto grid size-14 place-items-center rounded-full bg-[#f6e0f6] text-[#9d2a9e]">
+              <div className="mx-auto grid size-14 place-items-center rounded-full bg-brand-tint text-brand-strong">
                 <ShieldCheck className="size-6" aria-hidden="true" />
               </div>
-              <h2 className="mt-4 text-2xl font-semibold text-[#0d0d0d]">Verify your profile</h2>
-              <p className="mt-2 text-sm leading-6 text-[#666666]">
+              <h2 className="mt-4 text-2xl font-semibold text-ink">Verify your profile</h2>
+              <p className="mt-2 text-sm leading-6 text-ink-600">
                 Discover is available after a quick live selfie check.
               </p>
-              {notice ? <p className="mt-3 rounded-2xl bg-red-50 p-3 text-sm font-medium text-red-600">{notice}</p> : null}
+              {notice ? <p className="mt-3 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{notice}</p> : null}
               <button
-                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white"
+                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
                 type="button"
                 onClick={() => router.push("/profile/verify?next=/discover")}
               >
@@ -172,18 +172,18 @@ function DiscoveryProfileGate({
             </div>
           </article>
         ) : (
-          <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-white p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+          <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
             <div className="max-w-xs">
-              <div className="mx-auto grid size-14 place-items-center rounded-full bg-[#f6e0f6] text-[#9d2a9e]">
+              <div className="mx-auto grid size-14 place-items-center rounded-full bg-brand-tint text-brand-strong">
                 <Heart className="size-6" aria-hidden="true" />
               </div>
-              <h2 className="mt-4 text-2xl font-semibold text-[#0d0d0d]">Complete your profile</h2>
-              <p className="mt-2 text-sm leading-6 text-[#666666]">
+              <h2 className="mt-4 text-2xl font-semibold text-ink">Complete your profile</h2>
+              <p className="mt-2 text-sm leading-6 text-ink-600">
                 Discover is available after you {formatProfileSetupIssues(profileIssues)}.
               </p>
-              {notice ? <p className="mt-3 rounded-2xl bg-red-50 p-3 text-sm font-medium text-red-600">{notice}</p> : null}
+              {notice ? <p className="mt-3 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{notice}</p> : null}
               <button
-                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white"
+                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
                 type="button"
                 onClick={() => router.push("/profile?mode=setup")}
               >

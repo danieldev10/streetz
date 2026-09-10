@@ -6,7 +6,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <main className="grid min-h-screen place-items-center bg-white px-5 text-[#0d0d0d]">
+        <main className="grid min-h-screen place-items-center bg-surface px-5 text-ink">
           <LoadingState label="Loading" />
         </main>
       }

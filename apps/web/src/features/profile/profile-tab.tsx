@@ -583,17 +583,20 @@ export function ProfileTab({
 
   return (
     <section>
+      <h1 className="sr-only">
+        {isSetupMode ? "Complete your profile" : profileView === "edit" ? "Edit profile" : profileView === "preview" ? "Profile preview" : "Profile"}
+      </h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         {profileView === "overview" && !isSetupMode ? (
           <div className="mb-4 hidden items-center justify-end md:flex">
-            <div className="inline-flex items-center rounded-full bg-[#f6e0f6] px-4 py-2 text-sm font-medium text-[#9d2a9e]">
+            <div className="inline-flex items-center rounded-full bg-brand-tint px-4 py-2 text-sm font-medium text-brand-strong">
               Discoverable
             </div>
           </div>
         ) : profileView !== "preview" && !isSetupMode ? (
           <div className="mb-4 flex items-center">
             <button
-              className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-white text-[#0d0d0d]"
+              className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-surface text-ink"
               onClick={closeProfileEditor}
               aria-label="Back to profile"
               title="Back"
@@ -603,12 +606,12 @@ export function ProfileTab({
           </div>
         ) : null}
 
-        {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-[16px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {isLoadingProfile ? (
           <MediaDetailSkeleton
             label="Loading profile"
-            className="mx-auto max-w-[520px] overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+            className="mx-auto max-w-[520px] overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
             mediaClassName="aspect-[1.05] min-h-80"
           />
         ) : (

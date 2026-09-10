@@ -197,7 +197,7 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
   if (guestBooking) {
     return (
       <ModalShell title="Tickets confirmed" eyebrow="Free event" onClose={onClose} disableClose={false}>
-        <div className="mt-5 rounded-[20px] bg-[#e7f8ef] p-4 text-[#126c43]">
+        <div className="mt-5 rounded-[20px] bg-success-tint p-4 text-success">
           <CheckCircle2 className="size-7" aria-hidden="true" />
           <p className="mt-2 text-sm font-semibold">Your {guestBooking.tickets.length === 1 ? "ticket is" : "tickets are"} ready.</p>
           <p className="mt-1 text-xs leading-5">
@@ -208,13 +208,13 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
         </div>
         <div className="mt-4 grid gap-2">
           {guestBooking.tickets.map((ticket, index) => (
-            <div key={ticket.id} className="rounded-2xl border border-black/8 bg-[#fafafa] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#888888]">Ticket {index + 1}</p>
-              <p className="mt-1 font-mono text-lg font-bold tracking-wide text-[#0d0d0d]">{ticket.code}</p>
+            <div key={ticket.id} className="rounded-2xl border border-black/8 bg-surface-muted p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400">Ticket {index + 1}</p>
+              <p className="mt-1 font-mono text-lg font-bold tracking-wide text-ink">{ticket.code}</p>
             </div>
           ))}
         </div>
-        <button className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white" type="button" onClick={onClose}>
+        <button className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-full bg-ink px-4 text-sm font-medium text-white" type="button" onClick={onClose}>
           Done
         </button>
         <a className="mt-2 inline-flex h-12 w-full items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium" href={guestBooking.manageUrl}>
@@ -234,10 +234,10 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
     >
       {!guestRequest ? (
         <div className="mt-5 grid gap-3">
-          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
             Tier
             <select
-              className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be] disabled:bg-[#fafafa]"
+              className="h-12 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-surface-muted"
               value={ticketType?.id ?? ""}
               onChange={(inputEvent) => {
                 setSelectedTicketTypeId(inputEvent.target.value);
@@ -254,10 +254,10 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
             </select>
           </label>
 
-          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
             Quantity
             <select
-              className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-medium normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be] disabled:bg-[#fafafa]"
+              className="h-12 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-surface-muted"
               value={selectedQuantity}
               onChange={(inputEvent) => setQuantity(Number(inputEvent.target.value))}
               disabled={isWorking || maxQuantity <= 0}
@@ -272,10 +272,10 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
 
           {isPublicGuestBooking ? (
             <>
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 Name
                 <input
-                  className="h-12 rounded-full border border-black/8 px-4 text-sm font-normal normal-case tracking-normal outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+                  className="h-12 rounded-full border border-black/8 px-4 text-sm font-normal normal-case tracking-normal outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   value={displayName}
                   onChange={(inputEvent) => setDisplayName(inputEvent.target.value)}
                   autoComplete="name"
@@ -283,10 +283,10 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
                   placeholder="Your name"
                 />
               </label>
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 Email
                 <input
-                  className="h-12 rounded-full border border-black/8 px-4 text-sm font-normal normal-case tracking-normal outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+                  className="h-12 rounded-full border border-black/8 px-4 text-sm font-normal normal-case tracking-normal outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   type="email"
                   value={email}
                   onChange={(inputEvent) => setEmail(inputEvent.target.value)}
@@ -295,8 +295,8 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
                   placeholder="you@example.com"
                 />
               </label>
-              <p className="flex items-start gap-2 rounded-2xl bg-[#fafafa] p-3 text-xs leading-5 text-[#666666]">
-                <Mail className="mt-0.5 size-4 shrink-0 text-[#bd40be]" aria-hidden="true" />
+              <p className="flex items-start gap-2 rounded-2xl bg-surface-muted p-3 text-xs leading-5 text-ink-600">
+                <Mail className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden="true" />
                 We verify your email before confirming the tickets and send every ticket code there.
               </p>
             </>
@@ -304,10 +304,10 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
         </div>
       ) : (
         <div className="mt-5 grid gap-3">
-          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
             Verification code
             <input
-              className="h-14 rounded-full border border-black/8 px-4 text-center text-xl font-semibold tracking-[0.3em] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+              className="h-14 rounded-full border border-black/8 px-4 text-center text-xl font-semibold tracking-[0.3em] outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               inputMode="numeric"
               autoComplete="one-time-code"
               value={verificationCode}
@@ -317,12 +317,12 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
             />
           </label>
           {guestRequest.verificationCode ? (
-            <p className="rounded-2xl bg-[#fff4d9] p-3 text-xs font-medium text-[#9a6a12]">
+            <p className="rounded-2xl bg-warning-tint p-3 text-xs font-medium text-warning">
               Development code: {guestRequest.verificationCode}
             </p>
           ) : null}
           <button
-            className="text-left text-xs font-medium text-[#7c1f7d]"
+            className="text-left text-xs font-medium text-brand-deep"
             type="button"
             onClick={() => {
               setGuestRequest(null);
@@ -336,11 +336,11 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
         </div>
       )}
 
-      {statusCopy ? <p className="mt-4 rounded-2xl bg-[#fff4d9] p-3 text-sm font-medium text-[#9a6a12]">{statusCopy}</p> : null}
-      {error ? <p className="mt-4 rounded-2xl bg-[#fdecec] p-3 text-sm font-medium text-[#b3261e]">{error}</p> : null}
+      {statusCopy ? <p className="mt-4 rounded-2xl bg-warning-tint p-3 text-sm font-medium text-warning">{statusCopy}</p> : null}
+      {error ? <p className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{error}</p> : null}
 
       <button
-        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
         type="button"
         disabled={!ticketType || maxQuantity <= 0 || isWorking}
         onClick={() => {
@@ -377,12 +377,12 @@ function ModalShell({ title, eyebrow, subtitle, onClose, disableClose, children 
   return (
     <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-4 backdrop-blur-sm sm:p-5">
       <button className="absolute inset-0" type="button" onClick={onClose} disabled={disableClose} aria-label="Close ticket selector" />
-      <section className="relative max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]" role="dialog" aria-modal="true" aria-labelledby="event-ticket-modal-title">
+      <section className="relative max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]" role="dialog" aria-modal="true" aria-labelledby="event-ticket-modal-title">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{eyebrow}</p>
-            <h2 id="event-ticket-modal-title" className="mt-1 truncate text-xl font-semibold text-[#0d0d0d]">{title}</h2>
-            {subtitle ? <p className="mt-1 text-sm text-[#666666]">{subtitle}</p> : null}
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">{eyebrow}</p>
+            <h2 id="event-ticket-modal-title" className="mt-1 truncate text-xl font-semibold text-ink">{title}</h2>
+            {subtitle ? <p className="mt-1 text-sm text-ink-600">{subtitle}</p> : null}
           </div>
           <button className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8" type="button" onClick={onClose} disabled={disableClose} aria-label="Close ticket selector">
             <X className="size-4" aria-hidden="true" />

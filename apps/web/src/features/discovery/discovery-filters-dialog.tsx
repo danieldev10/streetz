@@ -45,11 +45,11 @@ export function DiscoveryFiltersDialog({
         paddingBottom: 24,
       }}
     >
-      <div className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+      <div className="w-full max-w-sm rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-[#0d0d0d]">Discovery filters</h2>
-            <p className="mt-1 text-sm leading-6 text-[#666666]">
+            <h2 className="text-lg font-semibold text-ink">Discovery filters</h2>
+            <p className="mt-1 text-sm leading-6 text-ink-600">
               {!location.hasCoordinates
                 ? "GPS is off, so distances stay hidden."
                 : isNoLimitDistance
@@ -58,7 +58,7 @@ export function DiscoveryFiltersDialog({
             </p>
           </div>
           <button
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink"
             type="button"
             onClick={onCancel}
             aria-label="Close filters"
@@ -67,19 +67,19 @@ export function DiscoveryFiltersDialog({
           </button>
         </div>
 
-        <div className="mt-5 rounded-[20px] border border-black/[0.06] bg-[#fafafa] p-4">
+        <div className="mt-5 rounded-[20px] border border-black/[0.06] bg-surface-muted p-4">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-sm font-semibold text-[#0d0d0d]">Maximum distance</span>
+            <span className="text-sm font-semibold text-ink">Maximum distance</span>
             <div className="flex items-center gap-2">
               {draftMaxDistanceKm > 0 ? (
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0d0d0d]">
+                <span className="rounded-full bg-surface px-3 py-1 text-xs font-semibold text-ink">
                   {draftMaxDistanceKm} km
                 </span>
               ) : null}
               <button
                 type="button"
                 className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                  draftMaxDistanceKm === 0 ? "bg-[#0d0d0d] text-white" : "bg-white text-[#666666]"
+                  draftMaxDistanceKm === 0 ? "bg-ink text-white" : "bg-surface text-ink-600"
                 }`}
                 onClick={() =>
                   onChangeMaxDistance(
@@ -92,7 +92,7 @@ export function DiscoveryFiltersDialog({
             </div>
           </div>
           <input
-            className="mt-4 w-full accent-[#bd40be] disabled:opacity-40"
+            className="mt-4 w-full accent-brand disabled:opacity-40"
             type="range"
             min={MIN_DISCOVERY_DISTANCE_KM}
             max={MAX_DISCOVERY_DISTANCE_KM}
@@ -104,7 +104,7 @@ export function DiscoveryFiltersDialog({
         </div>
 
         <button
-          className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           onClick={onUpdateLocation}
           disabled={isDetectingLocation || isSaving}
@@ -118,7 +118,7 @@ export function DiscoveryFiltersDialog({
         </button>
 
         <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Age range</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Age range</p>
           <div className="mt-2 flex items-center gap-3">
             <AgeInput
               label="Min"
@@ -126,7 +126,7 @@ export function DiscoveryFiltersDialog({
               value={draftFilters.minAge}
               onChange={(minAge) => onChangeFilters({ ...draftFilters, minAge })}
             />
-            <span className="mt-5 text-sm text-[#888888]">–</span>
+            <span className="mt-5 text-sm text-ink-400">–</span>
             <AgeInput
               label="Max"
               placeholder="100"
@@ -137,7 +137,7 @@ export function DiscoveryFiltersDialog({
         </div>
 
         <button
-          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d]"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-ink"
           type="button"
           onClick={onChangePreferences}
         >
@@ -146,7 +146,7 @@ export function DiscoveryFiltersDialog({
 
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onCancel}
             disabled={isSaving || isDetectingLocation}
@@ -154,7 +154,7 @@ export function DiscoveryFiltersDialog({
             Cancel
           </button>
           <button
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onApply}
             disabled={isSaving || isDetectingLocation}
@@ -181,9 +181,9 @@ function AgeInput({
 }) {
   return (
     <label className="flex flex-1 flex-col gap-1">
-      <span className="text-xs text-[#666666]">{label}</span>
+      <span className="text-xs text-ink-600">{label}</span>
       <input
-        className="h-11 w-full rounded-full border border-black/[0.08] px-4 text-sm text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+        className="h-11 w-full rounded-full border border-black/[0.08] px-4 text-sm text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
         type="number"
         min={18}
         max={100}

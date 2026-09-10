@@ -39,7 +39,14 @@ export function useChatAutoScroll({
         return;
       }
 
-      scroller.scrollTo({ top: scroller.scrollHeight, behavior });
+      // CSS scroll-behavior does not cover a scripted smooth scroll, so honour
+      // the reduced-motion preference here too.
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      scroller.scrollTo({
+        top: scroller.scrollHeight,
+        behavior: prefersReducedMotion ? "auto" : behavior,
+      });
       isNearBottomRef.current = true;
       setHasNewMessages(false);
     },

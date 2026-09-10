@@ -17,7 +17,7 @@ export function DiscoveryLoadingView({ label = "Loading discovery" }: { label?: 
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[minmax(360px,520px)_1fr]">
-          <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] xl:max-w-[520px]">
+          <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] xl:max-w-[520px]">
             <DiscoveryCardSkeleton label={label} />
           </article>
         </div>

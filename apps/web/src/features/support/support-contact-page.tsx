@@ -105,12 +105,12 @@ export function SupportContactPage({
       </div>
 
       {form.category === "SAFETY_REPORT" ? (
-        <section className="mt-6 rounded-[24px] border border-red-200 bg-red-50 p-5">
+        <section className="mt-6 rounded-[24px] border border-danger-border bg-danger-tint p-5">
           <div className="flex items-start gap-3">
-            <ShieldAlert className="mt-0.5 size-5 shrink-0 text-red-700" aria-hidden="true" />
+            <ShieldAlert className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden="true" />
             <div>
-              <h2 className="font-semibold text-red-950">Safety requests are marked urgent</h2>
-              <p className="mt-1 text-sm leading-6 text-red-900/75">
+              <h2 className="font-semibold text-danger">Safety requests are marked urgent</h2>
+              <p className="mt-1 text-sm leading-6 text-danger/75">
                 Include the account, room, event, or message involved. If someone is in immediate
                 danger, contact local emergency services first.
               </p>
@@ -119,7 +119,7 @@ export function SupportContactPage({
         </section>
       ) : null}
 
-      <section className="mt-6 rounded-[28px] border border-black/[0.07] bg-white p-5 md:p-7">
+      <section className="mt-6 rounded-[28px] border border-black/[0.07] bg-surface p-5 md:p-7">
         <form className="mt-6 grid gap-4" onSubmit={submitRequest}>
           {!isMember ? (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -158,7 +158,7 @@ export function SupportContactPage({
           <label className="grid gap-2 text-sm font-medium">
             What do you need help with?
             <select
-              className="h-12 rounded-[16px] border border-black/[0.1] bg-white px-4 outline-none focus:border-black/30"
+              className="h-12 rounded-[16px] border border-black/[0.1] bg-surface px-4 outline-none focus:border-black/30"
               value={form.category}
               onChange={(event) =>
                 setForm((current) => ({
@@ -173,7 +173,7 @@ export function SupportContactPage({
                 </option>
               ))}
             </select>
-            <span className="font-normal text-[#777777]">{selectedCategory?.description}</span>
+            <span className="font-normal text-ink-500">{selectedCategory?.description}</span>
           </label>
 
           <label className="grid gap-2 text-sm font-medium">
@@ -209,8 +209,8 @@ export function SupportContactPage({
           {formMessage ? (
             <div
               className={`rounded-[16px] p-4 text-sm ${formMessage.tone === "success"
-                ? "bg-emerald-50 text-emerald-800"
-                : "bg-red-50 text-red-700"
+                ? "bg-success-tint text-success"
+                : "bg-danger-tint text-danger"
                 }`}
               role={formMessage.tone === "error" ? "alert" : "status"}
             >
@@ -224,7 +224,7 @@ export function SupportContactPage({
           ) : null}
 
           <button
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
             type="submit"
             disabled={status === "checking" || isSubmitting}
           >

@@ -601,11 +601,12 @@ export function DiscoveryTab({
 
   return (
     <section>
+      <h1 className="sr-only">Discover</h1>
       {matchNotice ? (
         <div
           role="status"
           aria-live="polite"
-          className={`pointer-events-none fixed inset-x-4 top-[calc(env(safe-area-inset-top)+16px)] z-50 mx-auto max-w-sm rounded-[24px] border border-white/10 bg-[#0d0d0d] px-5 py-4 text-white shadow-[0_18px_60px_rgba(0,0,0,0.24)] ${matchNoticePhase === "leaving" ? "match-notice-leaving" : "match-notice-entering"}`}
+          className={`pointer-events-none fixed inset-x-4 top-[calc(env(safe-area-inset-top)+16px)] z-50 mx-auto max-w-sm rounded-[24px] border border-white/10 bg-ink px-5 py-4 text-white shadow-[0_18px_60px_rgba(0,0,0,0.24)] ${matchNoticePhase === "leaving" ? "match-notice-leaving" : "match-notice-entering"}`}
         >
           <p className="text-sm font-semibold">Match with {matchNotice.name}.</p>
           <p className="mt-1 text-xs leading-5 text-white/70">Go to the Matches tab to get in touch.</p>
@@ -628,17 +629,17 @@ export function DiscoveryTab({
           </button>
         </div>
 
-        {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-[16px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {!isLoading && shouldPromptForLocation ? (
-          <div className="mb-4 rounded-[20px] border border-black/[0.06] bg-[#fafafa] p-4">
+          <div className="mb-4 rounded-[20px] border border-black/[0.06] bg-surface-muted p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#0d0d0d]">Nearby discovery</p>
-                <p className="mt-1 text-sm leading-5 text-[#666666]">{locationPromptText}</p>
+                <p className="text-sm font-semibold text-ink">Nearby discovery</p>
+                <p className="mt-1 text-sm leading-5 text-ink-600">{locationPromptText}</p>
               </div>
               <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={() => void saveCurrentLocation()}
                 disabled={isDetectingLocation}
@@ -652,7 +653,7 @@ export function DiscoveryTab({
 
         <div className="grid gap-5 xl:grid-cols-[minmax(360px,520px)_1fr]">
           {isLoading ? (
-            <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] xl:max-w-[520px]">
+            <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] xl:max-w-[520px]">
               <DiscoveryCardSkeleton label="Loading discovery" />
             </article>
           ) : renderedCandidates.length > 0 ? (
@@ -672,7 +673,7 @@ export function DiscoveryTab({
                   <article
                     key={candidate.id}
                     aria-hidden={!isTopCard}
-                    className={`${isTopCard ? "relative" : "absolute inset-x-0 top-0"} overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.08)] ${isTopCard ? "touch-pan-y select-none" : "pointer-events-none"
+                    className={`${isTopCard ? "relative" : "absolute inset-x-0 top-0"} overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.08)] ${isTopCard ? "touch-pan-y select-none" : "pointer-events-none"
                       } ${isTopCard && isDraggingCard ? "cursor-grabbing" : isTopCard ? "cursor-grab" : ""}`}
                     style={stackStyle}
                     onPointerDown={isTopCard ? handleSwipeStart : undefined}
@@ -706,12 +707,12 @@ export function DiscoveryTab({
               })}
             </div>
           ) : (
-            <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] xl:max-w-[520px]">
+            <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] xl:max-w-[520px]">
               <div className="grid min-h-[520px] place-items-center p-6 text-center">
                 <div>
-                  <Heart className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+                  <Heart className="mx-auto size-8 text-brand" aria-hidden="true" />
                   <h2 className="mt-3 text-2xl font-semibold">No other profiles yet</h2>
-                  <p className="mt-2 text-sm leading-6 text-[#666666]">
+                  <p className="mt-2 text-sm leading-6 text-ink-600">
                     Your profile is live for other members. You will see people here as more subscribed users go live.
                   </p>
                   <button

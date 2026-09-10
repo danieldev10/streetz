@@ -372,25 +372,28 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
 
   return (
     <section>
+      <h1 className="sr-only">
+        {eventViewMode === "tickets" ? "My tickets" : eventViewMode === "history" ? "Event history" : "Events"}
+      </h1>
       {isEventFilterOpen ? (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-4 backdrop-blur-sm sm:p-5">
           <button className="absolute inset-0" type="button" onClick={() => setIsEventFilterOpen(false)} aria-label="Close filters" />
-          <div className="relative w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]" role="dialog" aria-modal="true" aria-label="Event filters">
+          <div className="relative w-full max-w-sm rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]" role="dialog" aria-modal="true" aria-label="Event filters">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">Filters</p>
-                <h2 className="mt-1 text-xl font-semibold text-[#0d0d0d]">Location</h2>
+                <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">Filters</p>
+                <h2 className="mt-1 text-xl font-semibold text-ink">Location</h2>
               </div>
-              <button className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]" type="button" onClick={() => setIsEventFilterOpen(false)} aria-label="Close filters">
+              <button className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-ink" type="button" onClick={() => setIsEventFilterOpen(false)} aria-label="Close filters">
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
 
             <div className="mt-5 grid gap-3">
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 State
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+                  className="h-12 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   value={eventFilterState}
                   onChange={(inputEvent) => {
                     setEventFilterState(inputEvent.target.value);
@@ -401,10 +404,10 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
                   {nigeriaStateNames.map((state) => <option key={state} value={state}>{state}</option>)}
                 </select>
               </label>
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 City
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-white px-4 text-sm font-normal normal-case tracking-normal text-[#0d0d0d] outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be] disabled:bg-[#fafafa] disabled:text-[#999999]"
+                  className="h-12 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-surface-muted disabled:text-ink-300"
                   value={eventFilterCity}
                   onChange={(inputEvent) => setEventFilterCity(inputEvent.target.value)}
                   disabled={!eventFilterState}
@@ -417,7 +420,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
 
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button
-                className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-[#666666] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-50"
                 type="button"
                 onClick={() => {
                   setEventFilterState("");
@@ -427,7 +430,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
               >
                 Clear
               </button>
-              <button className="inline-flex h-12 items-center justify-center rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white" type="button" onClick={() => setIsEventFilterOpen(false)}>
+              <button className="inline-flex h-12 items-center justify-center rounded-full bg-ink px-4 text-sm font-medium text-white" type="button" onClick={() => setIsEventFilterOpen(false)}>
                 Done
               </button>
             </div>
@@ -449,22 +452,22 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center gap-3">
           {!isGuest ? (
-            <div className="grid flex-1 grid-cols-3 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-md">
-              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("events")}>Events</button>
-              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("tickets")}>Tickets</button>
-              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`} onClick={() => setEventViewMode("history")}>History</button>
+            <div className="grid flex-1 grid-cols-3 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium md:max-w-md">
+              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("events")}>Events</button>
+              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("tickets")}>Tickets</button>
+              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("history")}>History</button>
             </div>
           ) : null}
           {eventViewMode === "events" ? (
             <button
-              className={`relative ml-auto inline-flex size-10 shrink-0 items-center justify-center rounded-full border text-[#0d0d0d] ${hasEventLocationFilter ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"}`}
+              className={`relative ml-auto inline-flex size-10 shrink-0 items-center justify-center rounded-full border text-ink ${hasEventLocationFilter ? "border-brand bg-brand-tint" : "border-black/8 bg-surface"}`}
               type="button"
               onClick={() => setIsEventFilterOpen(true)}
               aria-label="Filter events"
             >
               <SlidersHorizontal className="size-4" aria-hidden="true" />
               {hasEventLocationFilter ? (
-                <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-[#9d2a9e] text-[9px] font-semibold text-white">
+                <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-strong text-[9px] font-semibold text-white">
                   {[eventFilterState, eventFilterCity].filter(Boolean).length}
                 </span>
               ) : null}
@@ -476,11 +479,11 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
           <div className="flex min-w-max gap-5">
             <button
               type="button"
-              className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${eventFilterCategory ? "text-[#666666]" : "text-[#0d0d0d]"}`}
+              className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${eventFilterCategory ? "text-ink-600" : "text-ink"}`}
               onClick={() => setEventFilterCategory("")}
               aria-pressed={!eventFilterCategory}
             >
-              <span className={`grid size-14 place-items-center rounded-full border ${eventFilterCategory ? "border-black/8 bg-white" : "border-[#bd40be] bg-[#f6e0f6]"}`}>
+              <span className={`grid size-14 place-items-center rounded-full border ${eventFilterCategory ? "border-black/8 bg-surface" : "border-brand bg-brand-tint"}`}>
                 <Sparkles className="size-5" aria-hidden="true" />
               </span>
               All
@@ -494,11 +497,11 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
                 <button
                   key={category}
                   type="button"
-                  className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${isActiveCategory ? "text-[#0d0d0d]" : "text-[#666666]"} ${hasCategoryEvents ? "" : "opacity-55"}`}
+                  className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${isActiveCategory ? "text-ink" : "text-ink-600"} ${hasCategoryEvents ? "" : "opacity-55"}`}
                   onClick={() => setEventFilterCategory(category)}
                   aria-pressed={isActiveCategory}
                 >
-                  <span className={`grid size-14 place-items-center rounded-full border ${isActiveCategory ? "border-[#bd40be] bg-[#f6e0f6]" : "border-black/8 bg-white"}`}>
+                  <span className={`grid size-14 place-items-center rounded-full border ${isActiveCategory ? "border-brand bg-brand-tint" : "border-black/8 bg-surface"}`}>
                     <Icon className="size-5" aria-hidden="true" />
                   </span>
                   <span className="leading-tight">{category}</span>
@@ -508,7 +511,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
           </div>
         </div>
 
-        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {isLoadingEvents ? (
           <CardGridSkeleton label="Loading events" hasTicketChips={eventViewMode !== "events"} />

@@ -183,6 +183,7 @@ export function AdminDashboard({ token }: { token: string }) {
 
   return (
     <section>
+      <h1 className="sr-only">Admin dashboard</h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 hidden items-center justify-end md:flex">
           <button
@@ -195,7 +196,7 @@ export function AdminDashboard({ token }: { token: string }) {
           </button>
         </div>
 
-        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {isLoadingMetrics ? (
           <StatGridSkeleton label="Loading metrics" />
@@ -204,27 +205,27 @@ export function AdminDashboard({ token }: { token: string }) {
             {cards.map((card) => (
               <article
                 key={card.label}
-                className="rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+                className="rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-[#666666]">{card.label}</p>
-                    <p className="mt-3 text-3xl font-semibold tracking-normal text-[#0d0d0d]">{card.value}</p>
+                    <p className="text-sm font-medium text-ink-600">{card.label}</p>
+                    <p className="mt-3 text-3xl font-semibold tracking-normal text-ink">{card.value}</p>
                   </div>
-                  <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#f6e0f6] text-[#7c1f7d]">
+                  <span className="inline-flex size-10 items-center justify-center rounded-full bg-brand-tint text-brand-deep">
                     <card.icon className="size-5" aria-hidden="true" />
                   </span>
                 </div>
-                <p className="mt-4 text-sm leading-6 text-[#666666]">{card.helper}</p>
+                <p className="mt-4 text-sm leading-6 text-ink-600">{card.helper}</p>
               </article>
             ))}
           </div>
         ) : (
           <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
-              <Activity className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+              <Activity className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No metrics available</h2>
-              <p className="mt-2 text-sm text-[#666666]">Try refreshing the admin overview.</p>
+              <p className="mt-2 text-sm text-ink-600">Try refreshing the admin overview.</p>
               <button
                 className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 px-5 text-sm font-medium"
                 type="button"

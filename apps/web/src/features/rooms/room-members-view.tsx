@@ -3,6 +3,7 @@ import { ListSkeleton } from "@/components/skeletons";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { formatConnectionStatus } from "@/lib/profile";
 import type { ChatRoom, RoomMember } from "@/lib/types";
+import { CHAT_PANEL_HEIGHT } from "@/lib/chat-layout";
 
 export function RoomMembersView({
   room,
@@ -21,11 +22,11 @@ export function RoomMembersView({
 }) {
   return (
     <section className="px-0 md:px-8 md:py-8">
-      <article className="mx-auto flex h-[calc(100dvh-168px)] max-w-3xl flex-col overflow-hidden bg-white md:h-180 md:rounded-[28px] md:border md:border-black/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+      <article className={`mx-auto flex ${CHAT_PANEL_HEIGHT} max-w-3xl flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-black/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
         <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
           <button
             type="button"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink"
             onClick={onBack}
             aria-label="Back to room chat"
             title="Back"
@@ -35,17 +36,17 @@ export function RoomMembersView({
 
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-semibold">{room.name}</h1>
-            <p className="truncate text-sm text-[#666666]">
+            <p className="truncate text-sm text-ink-600">
               {room.memberCount} {room.memberCount === 1 ? "member" : "members"}
             </p>
           </div>
         </div>
 
-        {notice ? <p className="mx-4 mt-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        {notice ? <p className="mx-4 mt-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[#fafafa] px-4 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-surface-muted px-4 py-5">
           {isLoading ? (
-            <ListSkeleton label="Loading room members" rows={6} className="grid gap-3 p-4" hasAction={false} rowClassName="rounded-3xl border border-black/5 bg-white p-3" />
+            <ListSkeleton label="Loading room members" rows={6} className="grid gap-3 p-4" hasAction={false} rowClassName="rounded-3xl border border-black/5 bg-surface p-3" />
           ) : members.length > 0 ? (
             <div className="grid gap-3">
               {members.map((member) => {
@@ -55,22 +56,22 @@ export function RoomMembersView({
                   <button
                     key={member.id}
                     type="button"
-                    className="flex items-center gap-3 rounded-[24px] border border-black/5 bg-white p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition hover:border-[#bd40be]/40"
+                    className="flex items-center gap-3 rounded-[24px] border border-black/5 bg-surface p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition hover:border-brand/40"
                     onClick={() => onOpenMember(member)}
                     aria-label={`View ${member.displayName} profile`}
                   >
-                    <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
+                    <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-brand-tint">
                       <CandidatePhoto candidate={member} variant="thumb" />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[#0d0d0d]">{member.displayName}</p>
-                      <p className="truncate text-xs font-medium text-[#666666]">
+                      <p className="truncate text-sm font-semibold text-ink">{member.displayName}</p>
+                      <p className="truncate text-xs font-medium text-ink-600">
                         {formatConnectionStatus(member.connectionStatus)} · {location}
                       </p>
                     </div>
 
-                    <ArrowRight className="size-4 shrink-0 text-[#888888]" aria-hidden="true" />
+                    <ArrowRight className="size-4 shrink-0 text-ink-400" aria-hidden="true" />
                   </button>
                 );
               })}
@@ -78,9 +79,9 @@ export function RoomMembersView({
           ) : (
             <div className="grid h-full min-h-90 place-items-center text-center">
               <div>
-                <Users className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+                <Users className="mx-auto size-8 text-brand" aria-hidden="true" />
                 <h2 className="mt-3 text-2xl font-semibold">No members yet</h2>
-                <p className="mt-2 text-sm text-[#666666]">Members will appear here after they join.</p>
+                <p className="mt-2 text-sm text-ink-600">Members will appear here after they join.</p>
               </div>
             </div>
           )}

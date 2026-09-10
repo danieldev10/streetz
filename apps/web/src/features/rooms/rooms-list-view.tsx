@@ -62,17 +62,18 @@ export function RoomsListView({
 }) {
   return (
     <section>
+      <h1 className="sr-only">{isAdmin ? "Rooms administration" : "Rooms"}</h1>
       <div className="px-5 pt-6 md:px-8 md:pt-8">
         <div className={`mb-4 items-center justify-end gap-2 ${isAdmin ? "flex" : "hidden md:flex"}`}>
           {!isGuest ? (
             <div className="hidden items-center gap-2 rounded-full border border-black/8 px-4 py-2 text-sm font-medium md:inline-flex">
-              <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-[#bd40be]" : "bg-[#c6c6c6]"}`} />
+              <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-brand" : "bg-ink-200"}`} />
               {socketStatus === "connected" ? "Live" : "Connecting"}
             </div>
           ) : null}
           {isAdmin ? (
             <button
-              className="inline-flex h-9 items-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white"
               type="button"
               onClick={onStartCreateRoom}
             >
@@ -83,19 +84,19 @@ export function RoomsListView({
         </div>
 
         {!isGuest ? (
-          <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-[#fafafa] p-1 text-sm font-medium md:max-w-sm">
+          <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium md:max-w-sm">
             {isAdmin ? (
               <>
                 <button
                   type="button"
-                  className={`rounded-full px-4 py-2 ${viewMode === "active" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+                  className={`rounded-full px-4 py-2 ${viewMode === "active" ? "bg-ink text-white" : "text-ink-600"}`}
                   onClick={() => onViewModeChange("active")}
                 >
                   Active
                 </button>
                 <button
                   type="button"
-                  className={`rounded-full px-4 py-2 ${viewMode === "inactive" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+                  className={`rounded-full px-4 py-2 ${viewMode === "inactive" ? "bg-ink text-white" : "text-ink-600"}`}
                   onClick={() => onViewModeChange("inactive")}
                 >
                   Inactive
@@ -105,14 +106,14 @@ export function RoomsListView({
               <>
                 <button
                   type="button"
-                  className={`rounded-full px-4 py-2 ${viewMode === "joined" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+                  className={`rounded-full px-4 py-2 ${viewMode === "joined" ? "bg-ink text-white" : "text-ink-600"}`}
                   onClick={() => onViewModeChange("joined")}
                 >
                   Joined
                 </button>
                 <button
                   type="button"
-                  className={`rounded-full px-4 py-2 ${viewMode === "explore" ? "bg-[#0d0d0d] text-white" : "text-[#666666]"}`}
+                  className={`rounded-full px-4 py-2 ${viewMode === "explore" ? "bg-ink text-white" : "text-ink-600"}`}
                   onClick={() => onViewModeChange("explore")}
                 >
                   Explore
@@ -122,7 +123,7 @@ export function RoomsListView({
           </div>
         ) : null}
 
-        {notice ? <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {isLoadingRooms ? (
           <ListSkeleton label="Loading rooms" hasAvatar={false} />
@@ -132,27 +133,27 @@ export function RoomsListView({
               <article
                 key={room.id}
                 className={`rounded-3xl border p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${
-                  room.isActive ? "border-black/5 bg-white" : "border-black/[0.03] bg-[#fafafa] opacity-70"
+                  room.isActive ? "border-black/5 bg-surface" : "border-black/[0.03] bg-surface-muted opacity-70"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-lg font-semibold">{room.name}</h2>
-                      <span className="rounded-full bg-[#f6e0f6] px-2.5 py-1 text-xs font-medium text-[#9d2a9e]">
+                      <span className="rounded-full bg-brand-tint px-2.5 py-1 text-xs font-medium text-brand-strong">
                         {room.category}
                       </span>
                       {isAdmin ? (
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                            room.isActive ? "bg-[#f6e0f6] text-[#9d2a9e]" : "bg-[#fafafa] text-[#777777]"
+                            room.isActive ? "bg-brand-tint text-brand-strong" : "bg-surface-muted text-ink-500"
                           }`}
                         >
                           {room.isActive ? "Active" : "Inactive"}
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-1 text-sm text-[#666666]">{room.description || "Open member conversation."}</p>
+                    <p className="mt-1 text-sm text-ink-600">{room.description || "Open member conversation."}</p>
                   </div>
                   <div className="flex shrink-0 gap-2">
                     {isAdmin ? (
@@ -169,8 +170,8 @@ export function RoomsListView({
                         <button
                           className={`inline-flex size-10 items-center justify-center rounded-full border ${
                             room.isActive
-                              ? "border-red-200 text-red-500 hover:bg-red-50"
-                              : "border-[#bd40be] text-[#9d2a9e] hover:bg-[#f6e0f6]"
+                              ? "border-danger-border text-danger hover:bg-danger-tint"
+                              : "border-brand text-brand-strong hover:bg-brand-tint"
                           }`}
                           type="button"
                           onClick={() => onRequestToggle(room)}
@@ -197,19 +198,19 @@ export function RoomsListView({
                     </button>
                   </div>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-[#666666]">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#fafafa] px-3 py-1">
+                <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-ink-600">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-3 py-1">
                     <Users className="size-3.5" aria-hidden="true" />
                     {room.memberCount} members
                   </span>
                   {isAdmin ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#fafafa] px-3 py-1">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-3 py-1">
                       <MessageCircle className="size-3.5" aria-hidden="true" />
                       {room.messageCount ?? 0} messages
                     </span>
                   ) : null}
                   {!isAdmin && room.hasJoined && (room.unreadCount ?? 0) > 0 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#9d2a9e] px-3 py-1 font-semibold text-white">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-brand-strong px-3 py-1 font-semibold text-white">
                       {(room.unreadCount ?? 0) > 9 ? "9+" : room.unreadCount} new
                     </span>
                   ) : null}
@@ -220,7 +221,7 @@ export function RoomsListView({
         ) : (
           <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
             <div>
-              <MessageCircle className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+              <MessageCircle className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">
                 {isAdmin
                   ? viewMode === "inactive"
@@ -232,7 +233,7 @@ export function RoomsListView({
                       ? "No joined rooms yet"
                       : "No rooms yet"}
               </h2>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-[#666666]">
+              <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">
                 {isAdmin
                   ? viewMode === "inactive"
                     ? "Deactivated rooms will appear here."
@@ -257,11 +258,11 @@ export function RoomsListView({
 
       {pendingJoinRoom ? (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5">
-          <section className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]">
+          <section className="w-full max-w-sm rounded-3xl bg-surface p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold">Join this room?</h2>
-                <p className="mt-2 text-sm leading-6 text-[#666666]">{pendingJoinRoom.name}</p>
+                <p className="mt-2 text-sm leading-6 text-ink-600">{pendingJoinRoom.name}</p>
               </div>
               <button
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
@@ -282,7 +283,7 @@ export function RoomsListView({
                 No
               </button>
               <button
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={onConfirmJoin}
                 disabled={isJoiningRoom}
@@ -297,20 +298,20 @@ export function RoomsListView({
 
       {pendingToggleRoom ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
-          <section className="w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
+          <section className="w-full max-w-sm rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-[#0d0d0d]">
+                <h2 className="text-lg font-semibold text-ink">
                   {pendingToggleRoom.isActive ? "Deactivate room?" : "Activate room?"}
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-[#666666]">
+                <p className="mt-2 text-sm leading-6 text-ink-600">
                   {pendingToggleRoom.isActive
                     ? `"${pendingToggleRoom.name}" will be hidden from members and no new messages can be sent.`
                     : `"${pendingToggleRoom.name}" will become visible to members again.`}
                 </p>
               </div>
               <button
-                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-[#0d0d0d]"
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink"
                 type="button"
                 onClick={onCloseToggle}
                 disabled={isTogglingRoom}
@@ -323,7 +324,7 @@ export function RoomsListView({
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={onCloseToggle}
                 disabled={isTogglingRoom}
@@ -332,7 +333,7 @@ export function RoomsListView({
               </button>
               <button
                 className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
-                  pendingToggleRoom.isActive ? "bg-red-600 text-white" : "bg-[#0d0d0d] text-white"
+                  pendingToggleRoom.isActive ? "bg-danger text-white" : "bg-ink text-white"
                 }`}
                 type="button"
                 onClick={() => onConfirmToggle(pendingToggleRoom)}

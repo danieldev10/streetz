@@ -46,13 +46,13 @@ function formatNaira(amountKobo: number) {
 
 function StatusChip({ status }: { status: AccountStatus }) {
   const map: Record<AccountStatus, { label: string; cls: string }> = {
-    ACTIVE: { label: "Active", cls: "bg-[#f6e0f6] text-[#9d2a9e]" },
-    DEACTIVATED: { label: "Deactivated", cls: "bg-[#fafafa] text-[#666666]" },
+    ACTIVE: { label: "Active", cls: "bg-brand-tint text-brand-strong" },
+    DEACTIVATED: { label: "Deactivated", cls: "bg-surface-muted text-ink-600" },
     SUSPENDED: { label: "Suspended", cls: "bg-orange-50 text-orange-700" },
-    BANNED: { label: "Banned", cls: "bg-red-50 text-red-700" },
-    DELETED: { label: "Deleted", cls: "bg-red-100 text-red-900" },
+    BANNED: { label: "Banned", cls: "bg-danger-tint text-danger" },
+    DELETED: { label: "Deleted", cls: "bg-danger-tint text-danger" },
   };
-  const { label, cls } = map[status] ?? { label: status, cls: "bg-[#fafafa] text-[#666666]" };
+  const { label, cls } = map[status] ?? { label: status, cls: "bg-surface-muted text-ink-600" };
   return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${cls}`}>{label}</span>;
 }
 
@@ -61,7 +61,7 @@ function SubChip({ status }: { status: string }) {
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-        isActive ? "bg-[#f6e0f6] text-[#9d2a9e]" : "bg-[#fafafa] text-[#888888]"
+        isActive ? "bg-brand-tint text-brand-strong" : "bg-surface-muted text-ink-400"
       }`}
     >
       {isActive ? "Subscribed" : "No sub"}
@@ -95,6 +95,7 @@ function UserDetailView({
 
   return (
     <section>
+      <h1 className="sr-only">{user.displayName} user details</h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center">
           <button
@@ -108,15 +109,15 @@ function UserDetailView({
         </div>
 
         {/* User header */}
-        <div className="mb-5 rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+        <div className="mb-5 rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xl font-semibold">{user.displayName}</p>
-              <p className="mt-0.5 text-sm text-[#666666]">{user.email}</p>
+              <p className="mt-0.5 text-sm text-ink-600">{user.email}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {user.role === "ADMIN" && (
-                <span className="rounded-full bg-[#bd40be]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#bd40be]">
+                <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-[11px] font-semibold text-brand">
                   Admin
                 </span>
               )}
@@ -124,17 +125,17 @@ function UserDetailView({
               <SubChip status={user.subscriptionStatus} />
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#666666] sm:grid-cols-4">
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-ink-600 sm:grid-cols-4">
             <div>
-              <span className="font-medium text-[#888888]">Joined</span>
+              <span className="font-medium text-ink-400">Joined</span>
               <p className="mt-0.5">{formatDate(user.createdAt)}</p>
             </div>
             <div>
-              <span className="font-medium text-[#888888]">Sub expires</span>
+              <span className="font-medium text-ink-400">Sub expires</span>
               <p className="mt-0.5">{formatDate(user.subscriptionEndsAt)}</p>
             </div>
             <div>
-              <span className="font-medium text-[#888888]">Age confirmed</span>
+              <span className="font-medium text-ink-400">Age confirmed</span>
               <p className="mt-0.5">{formatDate(user.ageConfirmedAt)}</p>
             </div>
             {user.suspendedUntil && (
@@ -145,7 +146,7 @@ function UserDetailView({
             )}
           </div>
           {user.moderationReason && (
-            <p className="mt-3 rounded-2xl bg-red-50 p-3 text-sm text-red-700">
+            <p className="mt-3 rounded-2xl bg-danger-tint p-3 text-sm text-danger">
               <span className="font-semibold">Moderation reason:</span> {user.moderationReason}
             </p>
           )}
@@ -158,7 +159,7 @@ function UserDetailView({
               key={tab.id}
               type="button"
               className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition ${
-                activeTab === tab.id ? "bg-[#0d0d0d] text-white shadow" : "text-[#666666]"
+                activeTab === tab.id ? "bg-ink text-white shadow" : "text-ink-600"
               }`}
               onClick={() => setActiveTab(tab.id)}
             >
@@ -170,8 +171,8 @@ function UserDetailView({
         {/* Profile tab */}
         {activeTab === "profile" && (
           <div className="space-y-4">
-            <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Profile</p>
+            <div className="rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Profile</p>
               {user.profile ? (
                 <div className="grid gap-2 text-sm">
                   <Row label="City / State" value={[user.profile.city, user.profile.state].filter(Boolean).join(", ") || "—"} />
@@ -184,17 +185,17 @@ function UserDetailView({
                   <Row label="Max distance" value={user.profile.maxDistanceKm === 0 ? "No limit" : `${user.profile.maxDistanceKm} km`} />
                   <Row label="Location updated" value={formatDate(user.profile.locationUpdatedAt)} />
                   {user.profile.bio && (
-                    <div className="rounded-2xl bg-[#fafafa] p-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#888888]">Bio</p>
-                      <p className="mt-1 text-sm text-[#444444]">{user.profile.bio}</p>
+                    <div className="rounded-2xl bg-surface-muted p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400">Bio</p>
+                      <p className="mt-1 text-sm text-ink-700">{user.profile.bio}</p>
                     </div>
                   )}
                   {user.profile.interests.length > 0 && (
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#888888]">Interests</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400">Interests</p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {user.profile.interests.map((interest) => (
-                          <span key={interest} className="rounded-full bg-[#fafafa] px-3 py-1 text-xs text-[#666666]">
+                          <span key={interest} className="rounded-full bg-surface-muted px-3 py-1 text-xs text-ink-600">
                             {interest}
                           </span>
                         ))}
@@ -203,7 +204,7 @@ function UserDetailView({
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-[#888888]">No profile set up.</p>
+                <p className="text-sm text-ink-400">No profile set up.</p>
               )}
             </div>
           </div>
@@ -213,9 +214,9 @@ function UserDetailView({
         {activeTab === "discovery" && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3">
-              <StatCard label="Likes given" value={givenLikes} icon={Heart} color="text-[#ff6b8a]" />
-              <StatCard label="Passes given" value={givenPasses} icon={X} color="text-[#888888]" />
-              <StatCard label="Likes received" value={unseenLikes} icon={Heart} color="text-[#bd40be]" />
+              <StatCard label="Likes given" value={givenLikes} icon={Heart} color="text-heart" />
+              <StatCard label="Passes given" value={givenPasses} icon={X} color="text-ink-400" />
+              <StatCard label="Likes received" value={unseenLikes} icon={Heart} color="text-brand" />
             </div>
             <ActivityList
               title="Actions given (recent 50)"
@@ -223,7 +224,7 @@ function UserDetailView({
               items={user.discoveryActions.map((a) => ({
                 key: `${a.targetId}-${a.createdAt}`,
                 icon: a.action === "LIKE" ? Heart : X,
-                iconCls: a.action === "LIKE" ? "text-[#ff6b8a]" : "text-[#888888]",
+                iconCls: a.action === "LIKE" ? "text-heart" : "text-ink-400",
                 primary: a.targetName,
                 secondary: a.action === "LIKE" ? "Liked" : "Passed",
                 time: a.createdAt,
@@ -235,7 +236,7 @@ function UserDetailView({
               items={user.receivedActions.map((a) => ({
                 key: `${a.actorId}-${a.createdAt}`,
                 icon: a.action === "LIKE" ? Heart : X,
-                iconCls: a.action === "LIKE" ? "text-[#ff6b8a]" : "text-[#888888]",
+                iconCls: a.action === "LIKE" ? "text-heart" : "text-ink-400",
                 primary: a.actorName,
                 secondary: a.action === "LIKE" ? "Liked them" : "Passed on them",
                 time: a.createdAt,
@@ -252,7 +253,7 @@ function UserDetailView({
             items={user.matches.map((m) => ({
               key: m.id,
               icon: UsersRound,
-              iconCls: m.status === "ACTIVE" ? "text-[#bd40be]" : "text-[#888888]",
+              iconCls: m.status === "ACTIVE" ? "text-brand" : "text-ink-400",
               primary: m.otherUserName,
               secondary: m.status,
               time: m.createdAt,
@@ -268,7 +269,7 @@ function UserDetailView({
             items={user.roomMemberships.map((r) => ({
               key: r.roomId,
               icon: MessageCircle,
-              iconCls: "text-[#bd40be]",
+              iconCls: "text-brand",
               primary: r.roomName,
               secondary: r.roomCategory,
               time: r.joinedAt,
@@ -284,7 +285,7 @@ function UserDetailView({
             items={user.tickets.map((t) => ({
               key: t.id,
               icon: Ticket,
-              iconCls: t.status === "CONFIRMED" || t.status === "PAID" || t.status === "CHECKED_IN" ? "text-[#bd40be]" : "text-[#888888]",
+              iconCls: t.status === "CONFIRMED" || t.status === "PAID" || t.status === "CHECKED_IN" ? "text-brand" : "text-ink-400",
               primary: t.eventTitle,
               secondary: `${t.code} · ${t.ticketTypeName} · ${formatNaira(t.priceKobo)} · ${t.status}`,
               time: t.createdAt,
@@ -301,7 +302,7 @@ function UserDetailView({
               items={user.payments.map((p) => ({
                 key: p.id,
                 icon: CheckCircle2,
-                iconCls: p.status === "SUCCESS" ? "text-[#bd40be]" : "text-[#888888]",
+                iconCls: p.status === "SUCCESS" ? "text-brand" : "text-ink-400",
                 primary: `${p.purpose.replace("_", " ")} — ${formatNaira(p.amountKobo)}`,
                 secondary: `${p.status} via ${p.provider}`,
                 time: p.createdAt,
@@ -313,7 +314,7 @@ function UserDetailView({
               items={user.moderationActions.map((m, i) => ({
                 key: String(i),
                 icon: ShieldAlert,
-                iconCls: "text-red-500",
+                iconCls: "text-danger",
                 primary: `${m.action}${m.adminName ? ` by ${m.adminName}` : ""}`,
                 secondary: [m.reason, m.expiresAt ? `expires ${formatDate(m.expiresAt)}` : null].filter(Boolean).join(" · ") || "—",
                 time: m.createdAt,
@@ -325,7 +326,7 @@ function UserDetailView({
               items={user.loginSessions.map((s, i) => ({
                 key: String(i),
                 icon: LogIn,
-                iconCls: s.revokedAt ? "text-[#888888]" : "text-[#bd40be]",
+                iconCls: s.revokedAt ? "text-ink-400" : "text-brand",
                 primary: s.revokedAt ? "Session ended" : "Session active",
                 secondary: `Expires ${formatDate(s.expiresAt)}${s.revokedAt ? ` · Revoked ${formatDate(s.revokedAt)}` : ""}`,
                 time: s.createdAt,
@@ -341,8 +342,8 @@ function UserDetailView({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <span className="shrink-0 text-[#888888]">{label}</span>
-      <span className="text-right font-medium text-[#0d0d0d]">{value}</span>
+      <span className="shrink-0 text-ink-400">{label}</span>
+      <span className="text-right font-medium text-ink">{value}</span>
     </div>
   );
 }
@@ -359,10 +360,10 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-2xl border border-black/5 bg-white p-3 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+    <div className="rounded-2xl border border-black/5 bg-surface p-3 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
       <Icon className={`mx-auto size-5 ${color}`} aria-hidden="true" />
       <p className="mt-1 text-xl font-semibold">{value}</p>
-      <p className="text-[11px] text-[#888888]">{label}</p>
+      <p className="text-[11px] text-ink-400">{label}</p>
     </div>
   );
 }
@@ -384,12 +385,12 @@ function ActivityList({
   }>;
 }) {
   return (
-    <div className="rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+    <div className="rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
       <div className="border-b border-black/5 px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">{title}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">{title}</p>
       </div>
       {items.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-[#888888]">{empty}</p>
+        <p className="px-4 py-6 text-center text-sm text-ink-400">{empty}</p>
       ) : (
         <div className="divide-y divide-black/[0.04]">
           {items.map((item) => {
@@ -400,10 +401,10 @@ function ActivityList({
                   <Icon className={`size-4 ${item.iconCls}`} aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-[#0d0d0d]">{item.primary}</p>
-                  <p className="truncate text-xs text-[#888888]">{item.secondary}</p>
+                  <p className="truncate text-sm font-medium text-ink">{item.primary}</p>
+                  <p className="truncate text-xs text-ink-400">{item.secondary}</p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1 text-[11px] text-[#999999]">
+                <div className="flex shrink-0 items-center gap-1 text-[11px] text-ink-300">
                   <Clock className="size-3" aria-hidden="true" />
                   {formatDateTime(item.time)}
                 </div>
@@ -483,10 +484,11 @@ export function UsersTab({ token }: { token: string }) {
 
   return (
     <section>
+      <h1 className="sr-only">User administration</h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center justify-end">
           <button
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-[#666666]"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-ink-600"
             onClick={() => void loadUsers()}
             disabled={isLoadingUsers}
             aria-label="Refresh users"
@@ -496,21 +498,21 @@ export function UsersTab({ token }: { token: string }) {
         </div>
 
         {notice ? (
-          <p className="mb-4 rounded-2xl bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p>
+          <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p>
         ) : null}
 
         <div className="mb-4 flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-48">
-            <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#888888]" aria-hidden="true" />
+            <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
             <input
-              className="h-11 w-full rounded-full border border-black/8 bg-white pl-10 pr-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+              className="h-11 w-full rounded-full border border-black/8 bg-surface pl-10 pr-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               placeholder="Search name or email"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <select
-            className="h-11 rounded-full border border-black/8 bg-white px-4 text-sm outline-none focus:border-[#bd40be] focus:ring-1 focus:ring-[#bd40be]"
+            className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as AccountStatus | "")}
           >
@@ -523,8 +525,8 @@ export function UsersTab({ token }: { token: string }) {
         </div>
 
         {openingUser ? (
-          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-black/5 bg-[#fafafa] p-3 text-sm font-medium text-[#666666]">
-            <LoaderCircle className="size-4 animate-spin text-[#bd40be]" aria-hidden="true" />
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-black/5 bg-surface-muted p-3 text-sm font-medium text-ink-600">
+            <LoaderCircle className="size-4 animate-spin text-brand" aria-hidden="true" />
             Opening {openingUser.displayName}
           </div>
         ) : null}
@@ -533,7 +535,7 @@ export function UsersTab({ token }: { token: string }) {
           <ListSkeleton
             label="Loading users"
             rows={8}
-            className="divide-y divide-black/[0.04] overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+            className="divide-y divide-black/[0.04] overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
             rowClassName="px-4 py-3"
             hasAvatar={false}
             hasAction={false}
@@ -542,18 +544,18 @@ export function UsersTab({ token }: { token: string }) {
         ) : filteredUsers.length === 0 ? (
           <div className="grid min-h-80 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>
-              <UserRound className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+              <UserRound className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No users found</h2>
-              <p className="mt-2 text-sm text-[#666666]">Try adjusting the search or filter.</p>
+              <p className="mt-2 text-sm text-ink-600">Try adjusting the search or filter.</p>
             </div>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+          <div className="overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
             <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-4 border-b border-black/5 px-4 py-2.5">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 Name ({filteredUsers.length})
               </p>
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Email</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Email</p>
               <span className="size-4" aria-hidden="true" />
             </div>
             <div className="divide-y divide-black/[0.04]">
@@ -561,14 +563,14 @@ export function UsersTab({ token }: { token: string }) {
                 <button
                   key={user.id}
                   type="button"
-                  className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 text-left transition hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 text-left transition hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60"
                   onClick={() => void openUserDetail(user.id)}
                   disabled={openingUserId !== null}
                 >
-                  <p className="truncate text-sm font-medium text-[#0d0d0d]">{user.displayName}</p>
-                  <p className="truncate text-sm text-[#666666]">{user.email}</p>
+                  <p className="truncate text-sm font-medium text-ink">{user.displayName}</p>
+                  <p className="truncate text-sm text-ink-600">{user.email}</p>
                   {openingUserId === user.id ? (
-                    <LoaderCircle className="size-4 animate-spin text-[#bd40be]" aria-hidden="true" />
+                    <LoaderCircle className="size-4 animate-spin text-brand" aria-hidden="true" />
                   ) : (
                     <span className="size-4" aria-hidden="true" />
                   )}

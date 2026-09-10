@@ -161,7 +161,7 @@ function FaceVerificationContent({ token }: { token: string }) {
     <section>
       <div className="px-5 pt-5 md:px-8 md:pt-8">
         <button
-          className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-white text-[#0d0d0d]"
+          className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-surface text-ink"
           onClick={() => router.push("/profile")}
           aria-label="Back to profile"
           title="Back"
@@ -171,15 +171,15 @@ function FaceVerificationContent({ token }: { token: string }) {
       </div>
       <div className="px-5 pb-8 pt-4 md:px-8">
         <div className="mx-auto max-w-130">
-          {notice ? <p className="mb-4 rounded-2xl bg-red-50 p-3 text-sm font-medium text-red-600">{notice}</p> : null}
+          {notice ? <p className="mb-4 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{notice}</p> : null}
 
           {isLoadingState ? (
             <DetailSkeleton
               label="Checking verification"
-              className="rounded-[28px] border border-black/5 bg-white p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+              className="rounded-[28px] border border-black/5 bg-surface p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
             />
           ) : livenessSession ? (
-            <article className="overflow-hidden rounded-[28px] border border-black/5 bg-white p-3 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+            <article className="overflow-hidden rounded-[28px] border border-black/5 bg-surface p-3 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
               <FaceLivenessDetector
                 sessionId={livenessSession.sessionId}
                 region={livenessSession.region}
@@ -192,28 +192,28 @@ function FaceVerificationContent({ token }: { token: string }) {
                 }}
               />
               {isCompleting ? (
-                <div className="p-4 text-center text-sm font-medium text-[#666666]">
-                  <LoaderCircle className="mx-auto mb-2 size-5 animate-spin text-[#bd40be]" aria-hidden="true" />
+                <div className="p-4 text-center text-sm font-medium text-ink-600">
+                  <LoaderCircle className="mx-auto mb-2 size-5 animate-spin text-brand" aria-hidden="true" />
                   Saving verification result
                 </div>
               ) : null}
             </article>
           ) : (
-            <article className="rounded-[28px] border border-black/5 bg-white p-5 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-              <div className={`mx-auto grid size-16 place-items-center rounded-full ${isVerified ? "bg-[#f6e0f6] text-[#9d2a9e]" : "bg-[#fafafa] text-[#0d0d0d]"}`}>
+            <article className="rounded-[28px] border border-black/5 bg-surface p-5 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+              <div className={`mx-auto grid size-16 place-items-center rounded-full ${isVerified ? "bg-brand-tint text-brand-strong" : "bg-surface-muted text-ink"}`}>
                 {isVerified ? <CheckCircle2 className="size-7" aria-hidden="true" /> : <ShieldCheck className="size-7" aria-hidden="true" />}
               </div>
-              <h1 className="mt-4 text-2xl font-semibold text-[#0d0d0d]">
+              <h1 className="mt-4 text-2xl font-semibold text-ink">
                 {isVerified ? "Profile verified" : "Live selfie verification"}
               </h1>
-              <p className="mt-2 text-sm leading-6 text-[#666666]">
+              <p className="mt-2 text-sm leading-6 text-ink-600">
                 {state?.enabled
                   ? "We compare a live selfie with your profile photos to reduce fake profiles and impersonation."
                   : "Face verification is set up, but it is currently disabled for this prototype."}
               </p>
 
               {state?.mode === "prototype-pass" || result?.overrideReason ? (
-                <div className="mt-4 rounded-[18px] bg-[#fff7df] p-3 text-left text-sm leading-6 text-[#8a5b00]">
+                <div className="mt-4 rounded-[18px] bg-warning-tint p-3 text-left text-sm leading-6 text-warning">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <p>
@@ -224,18 +224,18 @@ function FaceVerificationContent({ token }: { token: string }) {
               ) : null}
 
               {result ? (
-                <div className="mt-4 grid gap-2 rounded-[18px] bg-[#fafafa] p-3 text-left text-xs font-medium text-[#666666]">
+                <div className="mt-4 grid gap-2 rounded-[18px] bg-surface-muted p-3 text-left text-xs font-medium text-ink-600">
                   <div className="flex items-center justify-between gap-3">
                     <span>Real result</span>
-                    <span className="text-[#0d0d0d]">{result.status.replaceAll("_", " ")}</span>
+                    <span className="text-ink">{result.status.replaceAll("_", " ")}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span>Liveness</span>
-                    <span className="text-[#0d0d0d]">{result.livenessConfidence === null ? "N/A" : `${result.livenessConfidence.toFixed(1)}%`}</span>
+                    <span className="text-ink">{result.livenessConfidence === null ? "N/A" : `${result.livenessConfidence.toFixed(1)}%`}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span>Face match</span>
-                    <span className="text-[#0d0d0d]">{result.faceMatchSimilarity === null ? "N/A" : `${result.faceMatchSimilarity.toFixed(1)}%`}</span>
+                    <span className="text-ink">{result.faceMatchSimilarity === null ? "N/A" : `${result.faceMatchSimilarity.toFixed(1)}%`}</span>
                   </div>
                 </div>
               ) : null}
@@ -243,7 +243,7 @@ function FaceVerificationContent({ token }: { token: string }) {
               <div className="mt-5 grid gap-3">
                 {state?.enabled && !isVerified ? (
                   <button
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                     type="button"
                     onClick={() => void startVerification()}
                     disabled={isStarting}
@@ -253,7 +253,7 @@ function FaceVerificationContent({ token }: { token: string }) {
                   </button>
                 ) : null}
                 <button
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 bg-white px-5 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 bg-surface px-5 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
                   type="button"
                   disabled={!canContinue}
                   onClick={() => router.replace(nextPath)}

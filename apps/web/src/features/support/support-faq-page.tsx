@@ -12,23 +12,23 @@ export function SupportFaqPage() {
           {supportFaqs.map((faq) => (
             <details
               key={faq.question}
-              className="group rounded-[20px] border border-black/[0.07] bg-white p-5"
+              className="group rounded-[20px] border border-black/[0.07] bg-surface p-5"
             >
               <summary className="cursor-pointer list-none pr-6 font-medium marker:content-none">
                 {faq.question}
               </summary>
-              <p className="mt-3 text-sm leading-6 text-[#666666]">{faq.answer}</p>
+              <p className="mt-3 text-sm leading-6 text-ink-600">{faq.answer}</p>
             </details>
           ))}
         </div>
 
-        <div className="mt-6 rounded-[24px] bg-[#0d0d0d] p-6 text-white">
+        <div className="mt-6 rounded-[24px] bg-ink p-6 text-white">
           <h2 className="text-xl font-semibold">Still need help?</h2>
           <p className="mt-2 text-sm leading-6 text-white/70">
             Send the support team a request and keep the conversation in one private place.
           </p>
           <Link
-            className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[#0d0d0d]"
+            className="mt-5 inline-flex h-11 items-center gap-2 rounded-full bg-surface px-5 text-sm font-semibold text-ink"
             href="/support/contact"
           >
             <Send className="size-4" aria-hidden="true" />

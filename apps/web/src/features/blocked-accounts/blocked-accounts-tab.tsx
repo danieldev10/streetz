@@ -77,6 +77,7 @@ export function BlockedAccountsTab({
 
   return (
     <section>
+      <h1 className="sr-only">Blocked accounts</h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 hidden items-center justify-end md:flex">
           <button
@@ -90,22 +91,22 @@ export function BlockedAccountsTab({
           </button>
         </div>
 
-        {notice ? <p className="mb-4 rounded-[16px] bg-[#f6e0f6] p-3 text-sm font-medium text-[#7c1f7d]">{notice}</p> : null}
+        {notice ? <p className="mb-4 rounded-[16px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {isLoadingBlockedAccounts ? (
           <ListSkeleton
             label="Loading blocked accounts"
             className="mx-auto grid max-w-2xl gap-3"
-            rowClassName="rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+            rowClassName="rounded-[24px] border border-black/[0.05] bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
           />
         ) : blockedAccounts.length > 0 ? (
           <div className="mx-auto grid max-w-2xl gap-3">
             {blockedAccounts.map((account) => (
               <article
                 key={account.id}
-                className="flex items-center gap-3 rounded-[24px] border border-black/[0.05] bg-white p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+                className="flex items-center gap-3 rounded-[24px] border border-black/[0.05] bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
               >
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-[#f6e0f6]">
+                <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-brand-tint">
                   <ProfilePhotoImage
                     photo={account.photos[0]}
                     alt={`${account.displayName} profile`}
@@ -116,12 +117,12 @@ export function BlockedAccountsTab({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-base font-semibold">{account.displayName}</p>
-                  <p className="mt-1 truncate text-sm text-[#666666]">
+                  <p className="mt-1 truncate text-sm text-ink-600">
                     {[account.city, account.state].filter(Boolean).join(", ") || "Nigeria"}
                   </p>
                 </div>
                 <button
-                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-4 text-sm font-medium text-[#0d0d0d] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
                   onClick={() => void unblockAccount(account)}
                   disabled={unblockingUserId === account.id}
@@ -135,9 +136,9 @@ export function BlockedAccountsTab({
         ) : (
           <div className="mx-auto grid min-h-[420px] max-w-2xl place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
             <div>
-              <ShieldOff className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+              <ShieldOff className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No blocked accounts</h2>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-[#666666]">Accounts you block will appear here.</p>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">Accounts you block will appear here.</p>
             </div>
           </div>
         )}

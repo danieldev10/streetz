@@ -34,9 +34,9 @@ export function EventCardList({ events, mode, activeEventId, emptyTitle, emptyDe
     return (
       <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
         <div>
-          <Ticket className="mx-auto size-8 text-[#bd40be]" aria-hidden="true" />
+          <Ticket className="mx-auto size-8 text-brand" aria-hidden="true" />
           <h2 className="mt-3 text-2xl font-semibold">{emptyTitle}</h2>
-          <p className="mt-2 text-sm text-[#666666]">{emptyDescription}</p>
+          <p className="mt-2 text-sm text-ink-600">{emptyDescription}</p>
         </div>
       </div>
     );
@@ -75,7 +75,7 @@ export function EventCardList({ events, mode, activeEventId, emptyTitle, emptyDe
         return (
           <article
             key={event.id}
-            className={`overflow-hidden rounded-3xl border border-black/5 bg-white shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${isOwnedEventCard ? "cursor-pointer transition hover:border-[#bd40be]/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)]" : ""}`}
+            className={`overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${isOwnedEventCard ? "cursor-pointer transition hover:border-brand/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)]" : ""}`}
             role={isOwnedEventCard ? "button" : undefined}
             tabIndex={isOwnedEventCard ? 0 : undefined}
             onClick={isOwnedEventCard ? () => onOpenDetails(event) : undefined}
@@ -86,7 +86,7 @@ export function EventCardList({ events, mode, activeEventId, emptyTitle, emptyDe
               openDetailsFromKeyboard(keyboardEvent.key);
             } : undefined}
           >
-            <div className="relative h-44 bg-[#f6e0f6] md:h-48">
+            <div className="relative h-44 bg-brand-tint md:h-48">
               <Image
                 src={event.coverImage || FALLBACK_EVENT_IMAGE}
                 alt={`${event.title} event`}
@@ -95,7 +95,7 @@ export function EventCardList({ events, mode, activeEventId, emptyTitle, emptyDe
                 className="object-cover"
               />
               <button
-                className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-white/90 text-[#0d0d0d] shadow-sm backdrop-blur transition hover:bg-white"
+                className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-surface/90 text-ink shadow-sm backdrop-blur transition hover:bg-surface"
                 type="button"
                 onClick={(clickEvent) => {
                   clickEvent.stopPropagation();
@@ -109,11 +109,11 @@ export function EventCardList({ events, mode, activeEventId, emptyTitle, emptyDe
             </div>
             <div className="p-4">
               <h2 className="text-lg font-semibold leading-snug">{event.title}</h2>
-              <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-[#666666]">
+              <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-ink-600">
                 <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 <span>{formatEventLocation(event)}</span>
               </p>
-              <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">
+              <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 <CalendarDays className="size-4" aria-hidden="true" />
                 {formatEventDate(event.startsAt)}
               </p>
@@ -131,7 +131,7 @@ export function EventCardList({ events, mode, activeEventId, emptyTitle, emptyDe
                       <span
                         key={availableTicketType.id}
                         className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          isOwnedTier ? "bg-[#f6e0f6] text-[#7c1f7d]" : "bg-[#fafafa] text-[#666666]"
+                          isOwnedTier ? "bg-brand-tint text-brand-deep" : "bg-surface-muted text-ink-600"
                         }`}
                       >
                         {normalizeTicketTierName(availableTicketType.name)} · {formatPrice(availableTicketType.priceKobo)}
@@ -141,7 +141,7 @@ export function EventCardList({ events, mode, activeEventId, emptyTitle, emptyDe
                 </div>
               ) : null}
               <button
-                className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 disabled={!isOwnedEventCard && (!ticketType || !canBookMore || isBusy)}
                 onClick={(clickEvent) => {

@@ -75,8 +75,8 @@ export function ProfileOverviewView({
 
   return (
     <>
-      <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
-        <div className="relative aspect-[1.05] min-h-[320px] bg-[#f6e0f6]">
+      <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
+        <div className="relative aspect-[1.05] min-h-[320px] bg-brand-tint">
           <ProfilePhotoImage
             photo={activePhoto}
             alt={`${displayName} profile`}
@@ -85,12 +85,12 @@ export function ProfileOverviewView({
             iconSize="lg"
           />
           <div className="absolute left-4 top-4 flex flex-wrap items-center gap-2">
-            <span className="inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#0d0d0d]">
+            <span className="inline-flex rounded-full bg-surface/90 px-3 py-1 text-xs font-medium text-ink">
               {statusLabel}
             </span>
             {attendedEventCount > 0 ? (
               <span
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#0d0d0d]"
+                className="inline-flex items-center gap-1.5 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-ink"
                 aria-label={`${attendedEventCount} attended events`}
                 title={`${attendedEventCount} attended events`}
               >
@@ -111,7 +111,7 @@ export function ProfileOverviewView({
                 key={photo.id}
                 className={`relative aspect-square overflow-hidden rounded-[16px] border ${
                   isActive
-                    ? "border-[#bd40be] ring-2 ring-[#bd40be]/30"
+                    ? "border-brand ring-2 ring-brand/30"
                     : "border-black/[0.06]"
                 }`}
                 type="button"
@@ -129,7 +129,7 @@ export function ProfileOverviewView({
             ) : (
               <div
                 key={`empty-overview-photo-${index}`}
-                className="grid aspect-square place-items-center rounded-[16px] border border-dashed border-black/[0.12] bg-[#fafafa] text-[#999999]"
+                className="grid aspect-square place-items-center rounded-[16px] border border-dashed border-black/[0.12] bg-surface-muted text-ink-300"
               >
                 <Camera className="size-4" aria-hidden="true" />
               </div>
@@ -140,16 +140,16 @@ export function ProfileOverviewView({
         <div className="px-5 pb-5 pt-2">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-3xl font-semibold text-[#0d0d0d]">
+              <h2 className="text-3xl font-semibold text-ink">
                 {displayName}
                 {profileAge ? `, ${profileAge}` : ""}
               </h2>
-              <p className="mt-2 flex items-center gap-1 text-sm font-medium text-[#666666]">
+              <p className="mt-2 flex items-center gap-1 text-sm font-medium text-ink-600">
                 <MapPin className="size-4" aria-hidden="true" />
                 {location}
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-[#f6e0f6] px-3 py-1 text-xs font-medium text-[#9d2a9e]">
+            <span className="shrink-0 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand-strong">
               {photos.length} photo{photos.length === 1 ? "" : "s"}
             </span>
           </div>
@@ -161,7 +161,7 @@ export function ProfileOverviewView({
           </ProfileDetail>
 
           <div className="mt-5">
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">
               Interests
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -169,13 +169,13 @@ export function ProfileOverviewView({
                 interests.slice(0, 8).map((interest) => (
                   <span
                     key={interest}
-                    className="rounded-full bg-[#fafafa] px-3 py-1 text-xs font-medium text-[#666666]"
+                    className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium text-ink-600"
                   >
                     {interest}
                   </span>
                 ))
               ) : (
-                <span className="text-sm text-[#777777]">No interests added yet.</span>
+                <span className="text-sm text-ink-500">No interests added yet.</span>
               )}
             </div>
           </div>
@@ -188,13 +188,13 @@ export function ProfileOverviewView({
           Discovery preferences
         </ActionButton>
         {isFaceVerified ? (
-          <div className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#f6e0f6] px-5 text-sm font-medium text-[#9d2a9e]">
+          <div className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-brand-tint px-5 text-sm font-medium text-brand-strong">
             <ShieldCheck className="size-4" aria-hidden="true" />
             Live Verified
           </div>
         ) : (
           <a
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-[#bd40be]/40 bg-[#f6e0f6] px-5 text-sm font-medium text-[#7c1f7d]"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-tint px-5 text-sm font-medium text-brand-deep"
             href="/profile/verify"
           >
             <ShieldCheck className="size-4" aria-hidden="true" />
@@ -206,7 +206,7 @@ export function ProfileOverviewView({
           Preview Card
         </ActionButton>
         <button
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
           type="button"
           onClick={onEdit}
         >
@@ -218,11 +218,11 @@ export function ProfileOverviewView({
           Deactivate Profile
         </ActionButton>
         {isDeleteAccountOpen ? (
-          <form onSubmit={onDeleteAccount} className="grid gap-3 rounded-[20px] border border-red-200 p-4">
+          <form onSubmit={onDeleteAccount} className="grid gap-3 rounded-[20px] border border-danger-border p-4">
             <label className="grid gap-2 text-sm font-medium">
               Password
               <input
-                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
+                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-danger-border focus:ring-1 focus:ring-danger-border"
                 type="password"
                 value={deleteAccountPassword}
                 onChange={(event) => onChangeDeletePassword(event.target.value)}
@@ -232,7 +232,7 @@ export function ProfileOverviewView({
               />
             </label>
             <button
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-red-600 px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-55"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-danger px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-55"
               type="submit"
               disabled={isSubmittingAccountAction}
             >
@@ -246,7 +246,7 @@ export function ProfileOverviewView({
           </form>
         ) : (
           <button
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-red-200 bg-white px-5 text-sm font-medium text-red-600"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-danger-border bg-surface px-5 text-sm font-medium text-danger"
             type="button"
             onClick={onOpenDeleteAccount}
           >
@@ -270,8 +270,8 @@ export function ProfileOverviewView({
 function ProfileDetail({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="mt-5">
-      <p className="text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{label}</p>
-      <p className="mt-2 text-sm leading-6 text-[#444444]">{children}</p>
+      <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">{label}</p>
+      <p className="mt-2 text-sm leading-6 text-ink-700">{children}</p>
     </div>
   );
 }
@@ -285,7 +285,7 @@ function ActionButton({
 }) {
   return (
     <button
-      className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white px-5 text-sm font-medium text-[#0d0d0d]"
+      className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-5 text-sm font-medium text-ink"
       type="button"
       onClick={onClick}
     >
@@ -306,7 +306,7 @@ function DeactivateProfileDialog({
   return (
     <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5" role="presentation">
       <section
-        className="w-full max-w-sm rounded-[24px] bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
+        className="w-full max-w-sm rounded-[24px] bg-surface p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="deactivate-confirm-title"
@@ -316,7 +316,7 @@ function DeactivateProfileDialog({
             <h2 id="deactivate-confirm-title" className="text-xl font-semibold">
               Deactivate profile?
             </h2>
-            <p className="mt-2 text-sm leading-6 text-[#666666]">
+            <p className="mt-2 text-sm leading-6 text-ink-600">
               Your profile will be hidden from discovery and you will be logged out. You can
               reactivate anytime by logging back in.
             </p>
@@ -342,7 +342,7 @@ function DeactivateProfileDialog({
             Cancel
           </button>
           <button
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onConfirm}
             disabled={isSubmitting}

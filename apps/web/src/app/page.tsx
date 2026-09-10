@@ -115,8 +115,8 @@ function getPendingCheckoutTicketType(event: StreetzEvent, checkout: PendingEven
 function CheckoutRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4 text-sm">
-      <span className="text-[#666666]">{label}</span>
-      <span className={`text-right ${strong ? "text-base font-semibold text-[#0d0d0d]" : "font-medium text-[#0d0d0d]"}`}>{value}</span>
+      <span className="text-ink-600">{label}</span>
+      <span className={`text-right ${strong ? "text-base font-semibold text-ink" : "font-medium text-ink"}`}>{value}</span>
     </div>
   );
 }
@@ -130,7 +130,7 @@ function PendingEventCheckoutReview({
 }) {
   if (preview.status === "loading" || preview.status === "idle") {
     return (
-      <div className="mb-4 rounded-[22px] border border-black/5 bg-[#fafafa] p-5">
+      <div className="mb-4 rounded-[22px] border border-black/5 bg-surface-muted p-5">
         <LoadingState label="Loading checkout" />
       </div>
     );
@@ -138,7 +138,7 @@ function PendingEventCheckoutReview({
 
   if (preview.status === "error" || !preview.event) {
     return (
-      <div className="mb-4 rounded-[22px] border border-[#f3dfb9] bg-[#fff8e9] p-4 text-sm font-medium text-[#8a5a08]">
+      <div className="mb-4 rounded-[22px] border border-warning-border bg-warning-tint p-4 text-sm font-medium text-warning">
         {preview.message ?? "We could not load this event checkout. Please choose the ticket again."}
       </div>
     );
@@ -148,7 +148,7 @@ function PendingEventCheckoutReview({
 
   if (!ticketType) {
     return (
-      <div className="mb-4 rounded-[22px] border border-[#f3dfb9] bg-[#fff8e9] p-4 text-sm font-medium text-[#8a5a08]">
+      <div className="mb-4 rounded-[22px] border border-warning-border bg-warning-tint p-4 text-sm font-medium text-warning">
         This event no longer has that ticket available. Please choose again.
       </div>
     );
@@ -158,12 +158,12 @@ function PendingEventCheckoutReview({
   const totalKobo = MEMBERSHIP_AMOUNT_KOBO + ticketTotalKobo;
 
   return (
-    <div className="mb-4 rounded-[24px] border border-black/5 bg-[#fafafa] p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Checkout review</p>
-      <h2 className="mt-2 text-lg font-semibold text-[#0d0d0d]">{preview.event.title}</h2>
-      <p className="mt-1 text-sm font-medium text-[#666666]">{formatEventDate(preview.event.startsAt)}</p>
+    <div className="mb-4 rounded-[24px] border border-black/5 bg-surface-muted p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Checkout review</p>
+      <h2 className="mt-2 text-lg font-semibold text-ink">{preview.event.title}</h2>
+      <p className="mt-1 text-sm font-medium text-ink-600">{formatEventDate(preview.event.startsAt)}</p>
 
-      <div className="mt-4 grid gap-3 rounded-[18px] bg-white p-4">
+      <div className="mt-4 grid gap-3 rounded-[18px] bg-surface p-4">
         <CheckoutRow label="Membership" value={formatNaira(MEMBERSHIP_AMOUNT_KOBO)} />
         <CheckoutRow label="Ticket" value={`${normalizeTicketTierName(ticketType.name)} x ${checkout.quantity}`} />
         <CheckoutRow label="Ticket total" value={formatNaira(ticketTotalKobo)} />
@@ -176,7 +176,7 @@ function PendingEventCheckoutReview({
 
 function LoadingShell() {
   return (
-    <main className="grid min-h-screen place-items-center bg-white px-4 text-[#0d0d0d]">
+    <main className="grid min-h-screen place-items-center bg-surface px-4 text-ink">
       <LoadingState label="Loading" />
     </main>
   );

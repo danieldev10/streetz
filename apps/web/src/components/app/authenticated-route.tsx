@@ -56,14 +56,14 @@ function TabContentSkeleton({ activeTab }: { activeTab: TabKey }) {
 
 function LoadingShell({ activeTab }: { activeTab: TabKey }) {
   return (
-    <main className="min-h-screen bg-white text-[#0d0d0d]">
+    <main className="min-h-screen bg-surface text-ink">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-white px-4 py-5 md:block">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-surface px-4 py-5 md:block">
           <div className="animate-pulse" aria-hidden="true">
             <div className="size-16 rounded-2xl bg-black/5" />
             {/* Matches the role caption AppBrand renders under the logo. */}
             <div className="mt-2 h-4 w-16 rounded-full bg-black/5" />
-            <div className="mt-5 h-28 rounded-[16px] border border-black/[0.05] bg-[#fafafa]" />
+            <div className="mt-5 h-28 rounded-[16px] border border-black/[0.05] bg-surface-muted" />
             <div className="mt-8 grid gap-2">
               {Array.from({ length: 6 }, (_, index) => (
                 <div key={index} className="h-11 rounded-full bg-black/[0.04]" />
@@ -73,7 +73,7 @@ function LoadingShell({ activeTab }: { activeTab: TabKey }) {
         </aside>
 
         <section className="min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
-          <div className="sticky top-0 z-10 border-b border-black/[0.05] bg-white/90 px-5 py-4 backdrop-blur md:hidden">
+          <div className="sticky top-0 z-10 border-b border-black/[0.05] bg-surface/90 px-5 py-4 backdrop-blur md:hidden">
             <div className="grid grid-cols-[44px_1fr_44px] items-center" aria-hidden="true">
               <div className="size-11 animate-pulse rounded-full bg-black/5" />
               <div className="justify-self-center">

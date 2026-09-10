@@ -90,11 +90,11 @@ export function DiscoveryPreferencesForm({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-5 py-6 backdrop-blur-sm">
-      <div className="mx-auto w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_18px_60px_rgba(0,0,0,0.2)]">
+      <div className="mx-auto w-full max-w-sm rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.2)]">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-[#0d0d0d]">Discovery preferences</h2>
-            <p className="mt-1 text-sm leading-6 text-[#666666]">These private choices make discovery mutual. Sexuality is never used as an automatic rule.</p>
+            <h2 className="text-lg font-semibold text-ink">Discovery preferences</h2>
+            <p className="mt-1 text-sm leading-6 text-ink-600">These private choices make discovery mutual. Sexuality is never used as an automatic rule.</p>
           </div>
           {!required ? (
             <button type="button" className="inline-flex size-9 items-center justify-center rounded-full border border-black/[0.08]" onClick={onClose} aria-label="Close preferences">
@@ -106,8 +106,8 @@ export function DiscoveryPreferencesForm({
         {!preference ? <div className="mt-8 flex justify-center"><LoaderCircle className="size-5 animate-spin" /></div> : (
           <div className="mt-5 grid gap-5">
             <fieldset>
-              <legend className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Private matching gender</legend>
-              <p className="mt-1 text-xs leading-5 text-[#777777]">Used for compatibility even if you hide gender publicly.</p>
+              <legend className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Private matching gender</legend>
+              <p className="mt-1 text-xs leading-5 text-ink-500">Used for compatibility even if you hide gender publicly.</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {genderOptions.map((option) => (
                   <button key={option.value} type="button" className={`rounded-full border px-4 py-2 text-sm ${preference.discoveryGender === option.value ? "border-black bg-black text-white" : "border-black/10"}`} onClick={() => setPreference({ ...preference, discoveryGender: option.value })}>
@@ -115,14 +115,14 @@ export function DiscoveryPreferencesForm({
                   </button>
                 ))}
               </div>
-              <label className="mt-3 flex items-center gap-2 text-sm text-[#444444]">
+              <label className="mt-3 flex items-center gap-2 text-sm text-ink-700">
                 <input type="checkbox" checked={preference.showGender} onChange={(event) => setPreference({ ...preference, showGender: event.target.checked })} />
                 Show my gender on my public profile
               </label>
             </fieldset>
 
             <fieldset>
-              <legend className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Who would you like to meet?</legend>
+              <legend className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Who would you like to meet?</legend>
               <div className="mt-2 flex flex-wrap gap-2">
                 {genderOptions.map((option) => {
                   const active = preference.interestedInGenders.includes(option.value);
@@ -132,7 +132,7 @@ export function DiscoveryPreferencesForm({
             </fieldset>
 
             <fieldset>
-              <legend className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888888]">Preferred age range</legend>
+              <legend className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Preferred age range</legend>
               <div className="mt-2 flex items-center gap-3">
                 <input className="h-11 min-w-0 flex-1 rounded-full border border-black/10 px-4" type="number" min={18} max={100} value={preference.minAge} onChange={(event) => setPreference({ ...preference, minAge: Number(event.target.value) })} />
                 <span>–</span>
@@ -142,8 +142,8 @@ export function DiscoveryPreferencesForm({
           </div>
         )}
 
-        {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
-        <button className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-4 text-sm font-semibold text-white disabled:opacity-50" type="button" disabled={!preference || isSaving} onClick={() => void save()}>
+        {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
+        <button className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50" type="button" disabled={!preference || isSaving} onClick={() => void save()}>
           {isSaving ? <LoaderCircle className="size-4 animate-spin" /> : null}
           Confirm discovery preferences
         </button>

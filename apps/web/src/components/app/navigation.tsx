@@ -184,7 +184,7 @@ function AccountMenu({
 
       <aside
         ref={drawerRef}
-        className={`absolute left-0 top-0 flex h-full w-[min(84vw,320px)] flex-col border-r border-black/[0.05] bg-[#ffffff] p-5 opacity-100 shadow-[8px_0_24px_rgba(0,0,0,0.08)] transition-transform duration-200 ease-out ${
+        className={`absolute left-0 top-0 flex h-full w-[min(84vw,320px)] flex-col border-r border-black/[0.05] bg-surface p-5 opacity-100 shadow-[8px_0_24px_rgba(0,0,0,0.08)] transition-transform duration-200 ease-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         role="dialog"
@@ -195,7 +195,7 @@ function AccountMenu({
           <BrandLogo size="sidebar" priority />
           <button
             type="button"
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-ink"
             onClick={closeMenu}
             aria-label="Close menu"
             tabIndex={isOpen ? 0 : -1}
@@ -210,7 +210,7 @@ function AccountMenu({
           {!isAdmin ? (
             <>
               <Link
-                className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+                className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
                 href="/profile"
                 onClick={closeMenu}
                 tabIndex={isOpen ? 0 : -1}
@@ -220,7 +220,7 @@ function AccountMenu({
               </Link>
 
               <Link
-                className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+                className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
                 href="/blocked-accounts"
                 onClick={closeMenu}
                 tabIndex={isOpen ? 0 : -1}
@@ -233,7 +233,7 @@ function AccountMenu({
 
           {isAdmin ? (
             <Link
-              className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+              className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
               href="/admin/support"
               onClick={closeMenu}
               tabIndex={isOpen ? 0 : -1}
@@ -245,7 +245,7 @@ function AccountMenu({
             <div>
               <button
                 type="button"
-                className="flex h-12 w-full items-center justify-between rounded-full px-4 text-sm font-medium text-[#0d0d0d] transition hover:bg-[#fafafa]"
+                className="flex h-12 w-full items-center justify-between rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
                 onClick={() => setIsSupportExpanded((current) => !current)}
                 aria-expanded={isSupportExpanded}
                 aria-controls={supportMenuId}
@@ -277,7 +277,7 @@ function AccountMenu({
                   ].map((item) => (
                     <Link
                       key={item.href}
-                      className="flex h-10 items-center rounded-full px-4 text-sm text-[#666666] transition hover:bg-[#fafafa] hover:text-[#0d0d0d]"
+                      className="flex h-10 items-center rounded-full px-4 text-sm text-ink-600 transition hover:bg-surface-muted hover:text-ink"
                       href={item.href}
                       onClick={closeMenu}
                       tabIndex={isOpen && isSupportExpanded ? 0 : -1}
@@ -292,7 +292,7 @@ function AccountMenu({
 
           <button
             type="button"
-            className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-[#9a9a9a]"
+            className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-ink-300"
             disabled
             aria-disabled="true"
           >
@@ -300,12 +300,12 @@ function AccountMenu({
               <CreditCard className="size-4" aria-hidden="true" />
               Subscriptions
             </span>
-            <span className="rounded-full bg-[#f4f4f4] px-2 py-1 text-[11px] text-[#888888]">Soon</span>
+            <span className="rounded-full bg-surface-shade px-2 py-1 text-[11px] text-ink-400">Soon</span>
           </button>
 
           <button
             type="button"
-            className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-[#9a9a9a]"
+            className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-ink-300"
             disabled
             aria-disabled="true"
           >
@@ -313,12 +313,12 @@ function AccountMenu({
               <Palette className="size-4" aria-hidden="true" />
               Change Theme
             </span>
-            <span className="rounded-full bg-[#f4f4f4] px-2 py-1 text-[11px] text-[#888888]">Soon</span>
+            <span className="rounded-full bg-surface-shade px-2 py-1 text-[11px] text-ink-400">Soon</span>
           </button>
 
           <button
             type="button"
-            className="mt-3 inline-flex h-12 items-center gap-3 rounded-full bg-[#0d0d0d] px-4 text-sm font-medium text-white"
+            className="mt-3 inline-flex h-12 items-center gap-3 rounded-full bg-ink px-4 text-sm font-medium text-white"
             onClick={requestLogout}
             tabIndex={isOpen ? 0 : -1}
           >
@@ -341,7 +341,7 @@ function AccountMenu({
       />
       <section
         ref={logoutDialogRef}
-        className="relative w-full max-w-sm rounded-[24px] bg-white p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
+        className="relative w-full max-w-sm rounded-[24px] bg-surface p-5 shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="logout-confirm-title"
@@ -351,7 +351,7 @@ function AccountMenu({
             <h2 id="logout-confirm-title" className="text-xl font-semibold">
               Logout?
             </h2>
-            <p className="mt-2 text-sm leading-6 text-[#666666]">You will need to log in again to continue using crushclub.</p>
+            <p className="mt-2 text-sm leading-6 text-ink-600">You will need to log in again to continue using crushclub.</p>
           </div>
           <button
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
@@ -372,7 +372,7 @@ function AccountMenu({
             Cancel
           </button>
           <button
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
             type="button"
             onClick={confirmLogout}
           >
@@ -387,7 +387,7 @@ function AccountMenu({
     <>
       <button
         type="button"
-        className={triggerClassName ?? "inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-[#0d0d0d]"}
+        className={triggerClassName ?? "inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-ink"}
         onClick={openMenu}
         aria-label="Open menu"
         title={triggerTitle}
@@ -407,14 +407,14 @@ export function AppBrand({ user, onLogout }: { user: StreetzUser; onLogout: () =
       <div className="flex items-center justify-between">
         <div>
           <BrandLogo size="sidebar" priority />
-          <p className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-[#888888]">{user.role}</p>
+          <p className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-ink-400">{user.role}</p>
         </div>
         <AccountMenu onLogout={onLogout} isAdmin={user.role === "ADMIN"} />
       </div>
-      <div className="mt-5 rounded-[16px] border border-black/[0.05] bg-[#fafafa] p-4">
+      <div className="mt-5 rounded-[16px] border border-black/[0.05] bg-surface-muted p-4">
         <p className="text-sm font-medium">{user.displayName}</p>
-        <p className="mt-1 truncate text-xs text-[#666666]">{user.email}</p>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#f6e0f6] px-3 py-1 text-xs font-medium text-[#9d2a9e]">
+        <p className="mt-1 truncate text-xs text-ink-600">{user.email}</p>
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand-strong">
           <ShieldCheck className="size-3.5" aria-hidden="true" />
           Active
         </div>
@@ -433,12 +433,12 @@ export function MobileHeader({
   onLogout: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-10 border-b border-black/[0.05] bg-white/90 px-5 py-4 backdrop-blur md:hidden">
+    <header className="sticky top-0 z-10 border-b border-black/[0.05] bg-surface/90 px-5 py-4 backdrop-blur md:hidden">
       <div className="grid grid-cols-[44px_1fr_44px] items-center">
         <AccountMenu
           onLogout={onLogout}
           isAdmin={user.role === "ADMIN"}
-          triggerClassName="inline-flex size-11 overflow-hidden rounded-full border border-black/[0.08] bg-[#fbf2fb] text-[#9d2a9e] shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          triggerClassName="inline-flex size-11 overflow-hidden rounded-full border border-black/[0.08] bg-brand-wash text-brand-strong shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
           triggerTitle={user.displayName ? "Open " + user.displayName + "'s menu" : "Open menu"}
           trigger={
             <ProfilePhotoImage
@@ -477,11 +477,11 @@ export function AppNavButton({
 }) {
   const Icon = tab.icon;
   const base = "inline-flex items-center justify-center gap-2 text-sm font-medium transition";
-  const activeClass = active ? "bg-[#0d0d0d] text-white" : "text-[#666666] hover:text-[#0d0d0d]";
+  const activeClass = active ? "bg-ink text-white" : "text-ink-600 hover:text-ink";
   const badgeLabel = badgeCount > 99 ? "99+" : String(badgeCount);
   const badge =
     badgeCount > 0 ? (
-      <span className="absolute -right-2 -top-2 grid min-w-5 place-items-center rounded-full bg-[#9d2a9e] px-1 text-[10px] font-semibold leading-5 text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)]">
+      <span className="absolute -right-2 -top-2 grid min-w-5 place-items-center rounded-full bg-brand-strong px-1 text-[10px] font-semibold leading-5 text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)]">
         {badgeLabel}
       </span>
     ) : null;

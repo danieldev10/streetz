@@ -63,15 +63,15 @@ export function GuestSupportRequestClient({
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f7f7] text-[#0d0d0d]">
-      <header className="border-b border-black/[0.06] bg-white">
+    <main className="min-h-screen bg-surface-sunken text-ink">
+      <header className="border-b border-black/[0.06] bg-surface">
         <div className="mx-auto flex h-20 w-full max-w-3xl items-center justify-between px-5">
           <Link className="inline-flex items-center gap-2 text-sm font-medium" href="/support">
             <ArrowLeft className="size-4" aria-hidden="true" />
             Support
           </Link>
           <BrandLogo size="header" priority />
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#666666]">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-600">
             <LockKeyhole className="size-3.5" aria-hidden="true" />
             Private
           </span>
@@ -79,18 +79,18 @@ export function GuestSupportRequestClient({
       </header>
 
       <div className="mx-auto w-full max-w-3xl px-5 py-8">
-        <div className="mb-5 rounded-[20px] border border-black/[0.06] bg-white p-4 text-sm leading-6 text-[#666666]">
+        <div className="mb-5 rounded-[20px] border border-black/[0.06] bg-surface p-4 text-sm leading-6 text-ink-600">
           This private link provides access to your support conversation. Do not share it with anyone.
         </div>
 
         {isLoading ? <div className="h-96 animate-pulse rounded-[24px] bg-black/5" /> : null}
         {!isLoading && error ? (
-          <section className="rounded-[24px] border border-black/[0.07] bg-white p-7 text-center">
+          <section className="rounded-[24px] border border-black/[0.07] bg-surface p-7 text-center">
             <h1 className="text-xl font-semibold">This support link is unavailable</h1>
-            <p className="mt-2 text-sm leading-6 text-[#666666]">
+            <p className="mt-2 text-sm leading-6 text-ink-600">
               The link may have expired or been replaced by a newer email. Open the latest support email, or start a new request.
             </p>
-            <Link className="mt-5 inline-flex h-11 items-center rounded-full bg-[#0d0d0d] px-5 text-sm font-medium text-white" href="/support">
+            <Link className="mt-5 inline-flex h-11 items-center rounded-full bg-ink px-5 text-sm font-medium text-white" href="/support">
               Go to support
             </Link>
           </section>
@@ -101,6 +101,7 @@ export function GuestSupportRequestClient({
             isReplying={isReplying}
             error={replyError}
             onReply={reply}
+            viewerAuthorType="GUEST"
           />
         ) : null}
       </div>
