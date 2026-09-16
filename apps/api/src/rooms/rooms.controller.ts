@@ -1,6 +1,5 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@prisma/client";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ActiveSubscriptionGuard } from "../auth/guards/active-subscription.guard";
@@ -9,9 +8,7 @@ import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/roles.decorator";
 import { AuthUser } from "../auth/types/auth-user";
 import { MessagePageDto } from "../common/dto/message-page.dto";
-import { CreateRoomDto } from "./dto/create-room.dto";
 import { SendRoomMessageDto } from "./dto/send-room-message.dto";
-import { UpdateRoomDto } from "./dto/update-room.dto";
 import { RoomsGateway } from "./rooms.gateway";
 import { RoomsService } from "./rooms.service";
 
@@ -23,12 +20,6 @@ export class RoomsController {
     private readonly roomsService: RoomsService,
     private readonly roomsGateway: RoomsGateway
   ) {}
-
-  @Throttle({ default: { limit: 60, ttl: 60_000 } })
-  @Get("public/rooms")
-  getPublicRooms() {
-    return this.roomsService.getPublicRooms();
-  }
 
   @Get("rooms")
   @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)
@@ -90,17 +81,4 @@ export class RoomsController {
     return this.roomsService.getAdminRooms();
   }
 
-  @Post("admin/rooms")
-  @Roles(UserRole.ADMIN)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  createRoom(@CurrentUser() user: AuthUser, @Body() dto: CreateRoomDto) {
-    return this.roomsService.createRoom(user.id, dto);
-  }
-
-  @Put("admin/rooms/:roomId")
-  @Roles(UserRole.ADMIN)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  updateRoom(@Param("roomId") roomId: string, @Body() dto: UpdateRoomDto) {
-    return this.roomsService.updateRoom(roomId, dto);
-  }
 }

@@ -518,6 +518,8 @@ model ChatRoom {
   description String?
   category    String           @default("General")
   isActive    Boolean          @default(true)
+  eventId     String?          @unique
+  event       Event?           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   createdById String?
   createdBy   User?            @relation("RoomCreator", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt   DateTime         @default(now())
@@ -578,6 +580,7 @@ model Event {
   tickets            Ticket[]
   guestTicketRequests GuestTicketRequest[]
   guestTicketOrders   GuestTicketOrder[]
+  room                ChatRoom?
 
   @@index([category, status, startsAt])
 }

@@ -105,7 +105,7 @@ export function RoomsProfileGate({
             </div>
             <h2 className="mt-4 text-2xl font-semibold text-ink">Complete your profile</h2>
             <p className="mt-2 text-sm leading-6 text-ink-600">
-              Rooms are available after you {formatProfileSetupIssues(profileIssues)}.
+              Event chats are available after you {formatProfileSetupIssues(profileIssues)}.
             </p>
             {notice ? <p className="mt-3 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{notice}</p> : null}
             <button

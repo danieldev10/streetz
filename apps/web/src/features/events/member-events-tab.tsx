@@ -105,6 +105,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
   const [eventFilterCity, setEventFilterCity] = useState("");
   const [isEventFilterOpen, setIsEventFilterOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
+  const [activeRoomEventId, setActiveRoomEventId] = useState<string | null>(null);
   const [ticketModalEventId, setTicketModalEventId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -360,13 +361,46 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
     }));
   }
 
+  async function openEventRoom(event: StreetzEvent) {
+    if (!token || !event.room) {
+      return;
+    }
+
+    setActiveRoomEventId(event.id);
+    setNotice(null);
+
+    try {
+      if (!event.room.hasJoined) {
+        await apiRequest(`/rooms/${event.room.id}/join`, {
+          method: "POST",
+          headers: authHeaders(token),
+        });
+
+        const markRoomJoined = (candidate: StreetzEvent) => candidate.id === event.id && candidate.room
+          ? { ...candidate, room: { ...candidate.room, hasJoined: true } }
+          : candidate;
+
+        setEvents((current) => current.map(markRoomJoined));
+        setHistoryEvents((current) => current.map(markRoomJoined));
+      }
+
+      router.push(`/rooms/${event.room.id}`);
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    } finally {
+      setActiveRoomEventId(null);
+    }
+  }
+
   const sharedListProps = {
     events: visibleMemberEvents,
     activeEventId,
+    activeRoomEventId,
     emptyTitle: emptyMemberTitle,
     emptyDescription: emptyMemberDescription,
     onOpenCheckout: (event: StreetzEvent) => setTicketModalEventId(event.id),
     onOpenDetails: (event: StreetzEvent) => router.push(`/events/${event.id}`),
+    onOpenRoom: (event: StreetzEvent) => void openEventRoom(event),
     onShare: (event: StreetzEvent) => void shareEvent(event),
   };
 

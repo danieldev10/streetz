@@ -4,7 +4,6 @@ export type TabKey =
   | "profile"
   | "blockedAccounts"
   | "notifications"
-  | "rooms"
   | "events"
   | "admin"
   | "reports"

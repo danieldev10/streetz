@@ -1,22 +1,5 @@
-"use client";
-
-import { AuthenticatedRoute } from "@/components/app/authenticated-route";
-import { RoomsTab } from "@/features/rooms/rooms-tab";
+import { redirect } from "next/navigation";
 
 export default function CreateRoomPage() {
-  return (
-    <AuthenticatedRoute activeTab="rooms" adminOnly>
-      {({ token, user, cachedRooms, onRoomsLoaded, onRoomOpened, onNotificationsChanged }) => (
-        <RoomsTab
-          token={token}
-          user={user}
-          initialRooms={cachedRooms}
-          adminMode="create"
-          onRoomsLoaded={onRoomsLoaded}
-          onRoomOpened={onRoomOpened}
-          onNotificationsChanged={onNotificationsChanged}
-        />
-      )}
-    </AuthenticatedRoute>
-  );
+  redirect("/events");
 }

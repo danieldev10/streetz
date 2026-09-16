@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { AccountStatus, ConnectionStatus, Gender, Prisma, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
+import { AccountStatus, ConnectionStatus, EventStatus, Gender, Prisma, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
 import { getCheckedInStandardEventCounts } from "../common/attendance";
 import { normalizeMessageContent } from "../common/message-content";
@@ -8,12 +8,12 @@ import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
 import { MessagePageDto } from "../common/dto/message-page.dto";
+import { CONFIRMED_TICKET_STATUSES } from "../events/ticket-reservations";
 import {
   countUnreadRoomMessages,
   getUnreadRoomMessageCountsByRoom
 } from "../notifications/unread-message-counts";
-import { CreateRoomDto } from "./dto/create-room.dto";
-import { UpdateRoomDto } from "./dto/update-room.dto";
+import { getAvailableEventRoomWhere, getEventRoomClosesAt } from "./event-room-lifecycle";
 
 type RoomSource = {
   id: string;
@@ -21,8 +21,16 @@ type RoomSource = {
   description: string | null;
   category: string;
   isActive: boolean;
+  eventId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  event?: {
+    id: string;
+    title: string;
+    startsAt: Date;
+    endsAt: Date | null;
+    status: EventStatus;
+  } | null;
   _count?: {
     memberships?: number;
     messages?: number;
@@ -82,7 +90,11 @@ export class RoomsService {
 
   async getAdminRooms() {
     const rooms = await this.prisma.chatRoom.findMany({
-      include: this.roomCounts({ includeMessages: true }),
+      where: this.availableEventRoomWhere(),
+      include: {
+        ...this.roomCounts({ includeMessages: true }),
+        event: this.eventSummarySelect()
+      },
       orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }]
     });
 
@@ -91,61 +103,20 @@ export class RoomsService {
     };
   }
 
-  async createRoom(adminId: string, dto: CreateRoomDto) {
-    const room = await this.prisma.chatRoom.create({
-      data: {
-        name: this.cleanText(dto.name),
-        category: this.cleanText(dto.category),
-        description: this.cleanOptionalText(dto.description),
-        isActive: dto.isActive ?? true,
-        createdById: adminId
-      },
-      include: this.roomCounts({ includeMessages: true })
-    });
-
-    return this.formatRoom(room, { includeMessageCount: true });
-  }
-
-  async updateRoom(roomId: string, dto: UpdateRoomDto) {
-    await this.assertRoomExists(roomId);
-
-    const room = await this.prisma.chatRoom.update({
-      where: { id: roomId },
-      data: {
-        ...(dto.name !== undefined ? { name: this.cleanText(dto.name) } : {}),
-        ...(dto.category !== undefined ? { category: this.cleanText(dto.category) } : {}),
-        ...(dto.description !== undefined ? { description: this.cleanOptionalText(dto.description) } : {}),
-        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {})
-      },
-      include: this.roomCounts({ includeMessages: true })
-    });
-
-    return this.formatRoom(room, { includeMessageCount: true });
-  }
-
-  async getPublicRooms() {
-    const rooms = await this.prisma.chatRoom.findMany({
-      where: { isActive: true },
-      include: this.roomCounts({ includeMessages: false }),
-      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }]
-    });
-
-    return {
-      rooms: await Promise.all(rooms.map((room) => this.formatRoom(room, { includeMessageCount: false })))
-    };
-  }
-
   async getActiveRooms(userId: string) {
     const user = await this.ensureMemberOrAdmin(userId);
 
     if (user.role !== UserRole.ADMIN) {
-      await this.ensureRoomProfileReady(userId, "using rooms", { removeMemberships: true });
+      await this.ensureRoomProfileReady(userId, "using event chats", { removeMemberships: true });
     }
 
     const rooms = await this.prisma.chatRoom.findMany({
-      where: { isActive: true },
+      where: user.role === UserRole.ADMIN
+        ? this.availableEventRoomWhere()
+        : this.availableEventRoomWhere(userId),
       include: {
         ...this.roomCounts({ includeMessages: user.role === UserRole.ADMIN }),
+        event: this.eventSummarySelect(),
         memberships:
           user.role === UserRole.ADMIN
             ? false
@@ -257,10 +228,10 @@ export class RoomsService {
     const user = await this.assertActiveRoomAccess(userId, roomId);
 
     if (user.role === UserRole.ADMIN) {
-      throw new ForbiddenException("Admins can view rooms but cannot join as members.");
+      throw new ForbiddenException("Admins can view event chats but cannot join as members.");
     }
 
-    await this.ensureRoomProfileReady(userId, "joining rooms");
+    await this.ensureRoomProfileReady(userId, "joining event chats");
 
     try {
       await this.prisma.roomMembership.create({
@@ -339,7 +310,7 @@ export class RoomsService {
     const user = await this.assertRoomParticipant(userId, roomId);
 
     if (user.role === UserRole.ADMIN) {
-      throw new ForbiddenException("Admins can view rooms but cannot send room messages.");
+      throw new ForbiddenException("Admins can view event chats but cannot send messages.");
     }
 
     const { body, gifUrl } = normalizeMessageContent(rawBody, rawGifUrl);
@@ -398,7 +369,9 @@ export class RoomsService {
     const room = await this.prisma.chatRoom.findFirst({
       where: {
         id: roomId,
-        isActive: true
+        ...(user.role === UserRole.ADMIN
+          ? this.availableEventRoomWhere()
+          : this.availableEventRoomWhere(userId))
       },
       select: {
         id: true
@@ -406,7 +379,7 @@ export class RoomsService {
     });
 
     if (!room) {
-      throw new ForbiddenException("This room is not available.");
+      throw new ForbiddenException("This event chat is not available.");
     }
 
     return user;
@@ -432,23 +405,12 @@ export class RoomsService {
     });
 
     if (!membership) {
-      throw new ForbiddenException("Join this room before opening the chat.");
+      throw new ForbiddenException("Join this event chat before opening it.");
     }
 
-    await this.ensureRoomProfileReady(userId, "using rooms", { removeMemberships: true });
+    await this.ensureRoomProfileReady(userId, "using event chats", { removeMemberships: true });
 
     return user;
-  }
-
-  private async assertRoomExists(roomId: string) {
-    const room = await this.prisma.chatRoom.findUnique({
-      where: { id: roomId },
-      select: { id: true }
-    });
-
-    if (!room) {
-      throw new NotFoundException("Room not found.");
-    }
   }
 
   private async ensureMemberOrAdmin(userId: string) {
@@ -492,7 +454,7 @@ export class RoomsService {
 
   private async ensureRoomProfileReady(
     userId: string,
-    action: "joining rooms" | "using rooms",
+    action: "joining event chats" | "using event chats",
     options: { removeMemberships?: boolean } = {}
   ) {
     const user = await this.prisma.user.findUnique({
@@ -528,16 +490,6 @@ export class RoomsService {
     throw new ForbiddenException(`Complete your profile setup before ${action}.`);
   }
 
-  private cleanText(value: string) {
-    return value.trim();
-  }
-
-  private cleanOptionalText(value: string | undefined) {
-    const trimmed = value?.trim();
-
-    return trimmed ? trimmed : null;
-  }
-
   private async formatRoom(
     room: RoomSource,
     options: { includeMessageCount: boolean; unreadCount?: number }
@@ -550,6 +502,16 @@ export class RoomsService {
       description: room.description,
       category: room.category,
       isActive: room.isActive,
+      eventId: room.eventId,
+      event: room.event
+        ? {
+            id: room.event.id,
+            title: room.event.title,
+            startsAt: room.event.startsAt,
+            endsAt: room.event.endsAt,
+            availableUntil: getEventRoomClosesAt(room.event)
+          }
+        : null,
       memberCount: room._count?.memberships ?? 0,
       ...(options.includeMessageCount ? { messageCount: room._count?.messages ?? 0 } : {}),
       ...(membership ? { unreadCount: options.unreadCount ?? 0 } : {}),
@@ -613,6 +575,40 @@ export class RoomsService {
         }
       }
     };
+  }
+
+  private availableEventRoomWhere(userId?: string): Prisma.ChatRoomWhereInput {
+    return {
+      isActive: true,
+      eventId: { not: null },
+      event: {
+        is: {
+          ...getAvailableEventRoomWhere(),
+          ...(userId
+            ? {
+                tickets: {
+                  some: {
+                    userId,
+                    status: { in: CONFIRMED_TICKET_STATUSES }
+                  }
+                }
+              }
+            : {})
+        }
+      }
+    };
+  }
+
+  private eventSummarySelect() {
+    return {
+      select: {
+        id: true,
+        title: true,
+        startsAt: true,
+        endsAt: true,
+        status: true
+      }
+    } as const;
   }
 
 }

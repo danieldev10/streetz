@@ -8,7 +8,6 @@ import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-ap
 import { CardGridSkeleton } from "@/components/card-grid-skeleton";
 import { ListSkeleton, StatGridSkeleton } from "@/components/skeletons";
 import { DiscoveryLoadingView } from "@/features/discovery/discovery-loading-view";
-import { RoomsLoadingView } from "@/features/rooms/rooms-loading-view";
 import { useSession } from "@/components/app/session-provider";
 import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/lib/api";
 import type { StreetzUser, TabKey } from "@/lib/types";
@@ -23,7 +22,7 @@ function isRouteAllowed(user: StreetzUser, activeTab: TabKey, adminOnly: boolean
   }
 
   if (user.role === "ADMIN") {
-    return activeTab === "admin" || activeTab === "reports" || activeTab === "rooms" || activeTab === "events" || activeTab === "users" || activeTab === "support";
+    return activeTab === "admin" || activeTab === "reports" || activeTab === "events" || activeTab === "users" || activeTab === "support";
   }
 
   return activeTab !== "admin" && activeTab !== "reports" && activeTab !== "users";
@@ -31,14 +30,10 @@ function isRouteAllowed(user: StreetzUser, activeTab: TabKey, adminOnly: boolean
 
 /** Stands in for the tab that is about to render, so the shell hands over without a jump. */
 function TabContentSkeleton({ activeTab }: { activeTab: TabKey }) {
-  // Discovery and Rooms sit behind a profile gate, so they share their loading
-  // view with that gate and the tab itself to keep one continuous skeleton.
+  // Discovery sits behind a profile gate, so it shares its loading view with
+  // that gate and the tab itself to keep one continuous skeleton.
   if (activeTab === "discovery") {
     return <DiscoveryLoadingView />;
-  }
-
-  if (activeTab === "rooms") {
-    return <RoomsLoadingView />;
   }
 
   return (

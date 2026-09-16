@@ -231,10 +231,6 @@ export function NotificationsTab({
   const markFeedItemsSeen = useCallback(
     async (currentFeed: NotificationFeed) => {
       const items: FeedSeenItem[] = [
-        ...currentFeed.rooms.map((room) => ({
-          kind: "ROOM_CREATED" as const,
-          entityId: room.id,
-        })),
         ...currentFeed.events.map((event) => ({
           kind: "EVENT_PUBLISHED" as const,
           entityId: event.id,
@@ -442,7 +438,7 @@ export function NotificationsTab({
   const tabCounts: Record<NotificationTabKey, number> = feed
     ? {
       likes: feed.likes.length + feed.matches.filter((m) => !m.seen).length + feed.directMessages.length,
-      rooms: feed.roomMessages.length + feed.rooms.length,
+      rooms: feed.roomMessages.length,
       events: feed.eventAlerts.length + feed.tickets.length + feed.events.length,
       notifications: feed.subscriptionAlerts.length + feed.reportUpdates.length + feed.paymentAlerts.length,
     }
@@ -455,20 +451,20 @@ export function NotificationsTab({
   const tabHasContent: Record<NotificationTabKey, boolean> = feed
     ? {
       likes: feed.likes.length > 0 || feed.matches.length > 0 || feed.directMessages.length > 0,
-      rooms: feed.roomMessages.length > 0 || feed.rooms.length > 0,
+      rooms: feed.roomMessages.length > 0,
       events: feed.eventAlerts.length > 0 || feed.tickets.length > 0 || feed.events.length > 0,
       notifications: feed.subscriptionAlerts.length > 0 || feed.reportUpdates.length > 0 || feed.paymentAlerts.length > 0,
     }
     : { likes: false, rooms: false, events: false, notifications: false };
   const notificationTabs: Array<{ id: NotificationTabKey; label: string; count: number }> = [
     { id: "likes", label: "Likes", count: tabCounts.likes },
-    { id: "rooms", label: "Rooms", count: tabCounts.rooms },
+    { id: "rooms", label: "Event chats", count: tabCounts.rooms },
     { id: "events", label: "Events", count: tabCounts.events },
     { id: "notifications", label: "Others", count: tabCounts.notifications },
   ];
   const emptyTabCopy: Record<NotificationTabKey, string> = {
     likes: "No likes, matches, or direct messages right now.",
-    rooms: "No room activity or new rooms right now.",
+    rooms: "No unread event chat messages right now.",
     events: "No event alerts, tickets, or upcoming events right now.",
     notifications: "No membership, payment, or report updates right now.",
   };
@@ -507,7 +503,7 @@ export function NotificationsTab({
               <Bell className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Nothing new</h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">
-                Likes, matches, messages, rooms, events, tickets, payments, and report updates will appear here.
+                Likes, matches, event chats, events, tickets, payments, and report updates will appear here.
               </p>
             </div>
           </div>
@@ -667,7 +663,7 @@ export function NotificationsTab({
 
                 {activeNotificationTab === "rooms" && feed.roomMessages.length > 0 ? (
                   <div>
-                    <SectionHeader icon={MessageCircle} label="Room activity" count={feed.roomMessages.length} />
+                    <SectionHeader icon={MessageCircle} label="Event chat activity" count={feed.roomMessages.length} />
                     <div className="grid gap-3 sm:grid-cols-2">
                       {feed.roomMessages.map((room) => (
                         <button
@@ -765,37 +761,6 @@ export function NotificationsTab({
                             <div className="mt-1.5 flex items-center gap-1 text-[11px] text-ink-300">
                               <Calendar className="size-3" aria-hidden="true" />
                               {formatEventDate(ticket.event.startsAt)}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {activeNotificationTab === "rooms" && feed.rooms.length > 0 ? (
-                  <div>
-                    <SectionHeader icon={MessageCircle} label="New rooms" count={feed.rooms.length} />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {feed.rooms.map((room) => (
-                        <button
-                          key={room.id}
-                          type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-                          onClick={() => router.push("/rooms")}
-                        >
-                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-brand/10">
-                            <MessageCircle className="size-5 text-brand" aria-hidden="true" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-ink">{room.name}</p>
-                            <p className="mt-0.5 truncate text-xs text-ink-600">{room.category}</p>
-                            <div className="mt-1.5 flex items-center gap-3 text-[11px] text-ink-300">
-                              <span className="inline-flex items-center gap-1">
-                                <Users className="size-3" aria-hidden="true" />
-                                {room.memberCount} {room.memberCount === 1 ? "member" : "members"}
-                              </span>
-                              <span>{timeAgo(room.createdAt)}</span>
                             </div>
                           </div>
                         </button>

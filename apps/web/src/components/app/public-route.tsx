@@ -31,15 +31,15 @@ function getPromptCopy(kind: AuthPromptKind) {
 
   if (kind === "roomJoin") {
     return {
-      title: "Create an account to join rooms",
-      body: "Rooms are visible to browse, but joining and chatting require an active membership.",
+      title: "Create an account to join event chats",
+      body: "Event chats are available to active members who have tickets for the event.",
     };
   }
 
   if (kind === "account") {
     return {
       title: "Log in or create an account",
-      body: "Create an account to save your activity, buy tickets, join rooms, and meet people.",
+      body: "Create an account to save your activity, buy tickets, join event chats, and meet people.",
     };
   }
 
@@ -109,7 +109,7 @@ function PublicNavButton({ tab, active, variant, onRequireAuth }: {
   onRequireAuth: () => void;
 }) {
   const Icon = tab.icon;
-  const isPublicTab = tab.id === "events" || tab.id === "rooms";
+  const isPublicTab = tab.id === "events";
   const base = "inline-flex items-center justify-center gap-2 text-sm font-medium transition";
   const activeClass = active ? "bg-ink text-white" : "text-ink-600 hover:text-ink";
   const className = variant === "side"
@@ -164,8 +164,8 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
               </button>
             </div>
             <div className="mt-5 rounded-[16px] border border-black/[0.05] bg-surface-muted p-4">
-              <p className="text-sm font-medium">Browse events and rooms</p>
-              <p className="mt-1 text-xs leading-5 text-ink-600">Create an account when you are ready to buy tickets, join rooms, or meet people.</p>
+              <p className="text-sm font-medium">Browse upcoming events</p>
+              <p className="mt-1 text-xs leading-5 text-ink-600">Create an account when you are ready to buy tickets, join event chats, or meet people.</p>
             </div>
           </div>
           <nav className="mt-8 grid gap-2">
@@ -230,7 +230,6 @@ const emptyRenderProps: MemberAppRenderProps = {
   onMatchOpened: () => undefined,
   onNotificationsChanged: () => undefined,
   onRoomsLoaded: () => undefined,
-  onRoomOpened: () => undefined,
   refreshNotificationSummary: async () => undefined,
 };
 

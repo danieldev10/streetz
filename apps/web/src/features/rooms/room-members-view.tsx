@@ -46,7 +46,7 @@ export function RoomMembersView({
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-surface-muted px-4 py-5">
           {isLoading ? (
-            <ListSkeleton label="Loading room members" rows={6} className="grid gap-3 p-4" hasAction={false} rowClassName="rounded-3xl border border-black/5 bg-surface p-3" />
+            <ListSkeleton label="Loading event chat members" rows={6} className="grid gap-3 p-4" hasAction={false} rowClassName="rounded-3xl border border-black/5 bg-surface p-3" />
           ) : members.length > 0 ? (
             <div className="grid gap-3">
               {members.map((member) => {

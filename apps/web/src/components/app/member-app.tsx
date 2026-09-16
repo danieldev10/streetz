@@ -25,7 +25,6 @@ export type MemberAppRenderProps = {
   onMatchOpened: (match: MatchThread) => void;
   onNotificationsChanged: () => void;
   onRoomsLoaded: (rooms: ChatRoom[]) => void;
-  onRoomOpened: (room: ChatRoom) => void;
   refreshNotificationSummary: () => Promise<void>;
 };
 
@@ -142,12 +141,8 @@ export function MemberApp({
       return notificationSummary.matchesUnreadCount;
     }
 
-    if (tabId === "rooms") {
-      return notificationSummary.roomsUnreadCount;
-    }
-
     if (tabId === "notifications") {
-      return notificationSummary.notificationsUnreadCount;
+      return notificationSummary.roomsUnreadCount + notificationSummary.notificationsUnreadCount;
     }
 
     return 0;
@@ -187,22 +182,6 @@ export function MemberApp({
     updateNotificationSummary({
       roomsUnreadCount: rooms.reduce((total, room) => total + (room.hasJoined ? room.unreadCount ?? 0 : 0), 0),
     });
-  }
-
-  function handleRoomOpened(room: ChatRoom) {
-    const unreadCount = room.unreadCount ?? 0;
-
-    if (unreadCount > 0) {
-      setNotificationSummary((current) => {
-        const roomsUnreadCount = Math.max(0, current.roomsUnreadCount - unreadCount);
-
-        return {
-          ...current,
-          roomsUnreadCount,
-          totalUnreadCount: current.matchesUnreadCount + roomsUnreadCount + current.notificationsUnreadCount,
-        };
-      });
-    }
   }
 
   useEffect(() => {
@@ -285,7 +264,6 @@ export function MemberApp({
     onMatchOpened: handleMatchOpened,
     onNotificationsChanged: refreshNotificationSummary,
     onRoomsLoaded: handleRoomsLoaded,
-    onRoomOpened: handleRoomOpened,
     refreshNotificationSummary,
   };
 

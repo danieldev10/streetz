@@ -4,7 +4,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, CheckCircle2, LoaderCircle, MapPin, Share2, Ticket } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, LoaderCircle, MapPin, MessageCircle, Share2, Ticket, UsersRound } from "lucide-react";
 import { type AuthPromptKind } from "@/components/app/public-route";
 import { useToast } from "@/components/app/toast-provider";
 import { MediaDetailSkeleton } from "@/components/skeletons";
@@ -157,6 +157,7 @@ export function EventTicketsTab({
   const [event, setEvent] = useState<StreetzEvent | null>(initialEvent ?? null);
   const [isLoading, setIsLoading] = useState(!isAdmin && initialEvent === undefined);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
+  const [isRoomBusy, setIsRoomBusy] = useState(false);
   const [bookingQuantity, setBookingQuantity] = useState(1);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string | null>(null);
   const [isGuestCheckoutOpen, setIsGuestCheckoutOpen] = useState(false);
@@ -343,6 +344,33 @@ export function EventTicketsTab({
     });
   }
 
+  async function openEventRoom() {
+    if (!token || !event?.room) {
+      return;
+    }
+
+    setIsRoomBusy(true);
+    setNotice(null);
+
+    try {
+      if (!event.room.hasJoined) {
+        await apiRequest(`/rooms/${event.room.id}/join`, {
+          method: "POST",
+          headers: authHeaders(token),
+        });
+        setEvent((current) => current?.room
+          ? { ...current, room: { ...current.room, hasJoined: true } }
+          : current);
+      }
+
+      router.push(`/rooms/${event.room.id}`);
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    } finally {
+      setIsRoomBusy(false);
+    }
+  }
+
   return (
     <section>
       {!event ? <h1 className="sr-only">Event details</h1> : null}
@@ -491,6 +519,23 @@ export function EventTicketsTab({
                                     ? `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} more ${purchaseNounPlural}`
                                     : `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} ${selectedNoun}`}
                     </button>
+                    {!isGuest && tickets.length > 0 && event.room ? (
+                      <button
+                        className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium text-ink transition hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
+                        type="button"
+                        onClick={() => void openEventRoom()}
+                        disabled={isRoomBusy}
+                      >
+                        {isRoomBusy ? (
+                          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                        ) : event.room.hasJoined ? (
+                          <MessageCircle className="size-4" aria-hidden="true" />
+                        ) : (
+                          <UsersRound className="size-4" aria-hidden="true" />
+                        )}
+                        {event.room.hasJoined ? "Open event chat" : "Join room"}
+                      </button>
+                    ) : null}
                   </div>
                 </article>
 

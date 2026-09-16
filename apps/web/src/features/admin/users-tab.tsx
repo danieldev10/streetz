@@ -75,7 +75,7 @@ const activityTabs: Array<{ id: ActivityTabKey; label: string }> = [
   { id: "profile", label: "Profile" },
   { id: "discovery", label: "Discovery" },
   { id: "matches", label: "Matches" },
-  { id: "social", label: "Rooms" },
+  { id: "social", label: "Event chats" },
   { id: "events", label: "Events" },
   { id: "account", label: "Account" },
 ];
@@ -261,7 +261,7 @@ function UserDetailView({
           />
         )}
 
-        {/* Social / Rooms tab */}
+        {/* Social / event chats tab */}
         {activeTab === "social" && (
           <ActivityList
             title={`Room memberships (${user.roomMemberships.length})`}

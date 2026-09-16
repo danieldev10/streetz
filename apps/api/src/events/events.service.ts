@@ -10,6 +10,11 @@ import { CreateEventDto, EVENT_CATEGORY_NAMES, EVENT_TICKET_TIER_NAMES, EventTic
 import { PresignEventImageDto } from "./dto/presign-event-image.dto";
 import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "./ticket-reservations";
 import { UpdateEventDto } from "./dto/update-event.dto";
+import {
+  getEventRoomClosesAt,
+  isEventRoomAvailable,
+  isEventRoomEnabledForStatus
+} from "../rooms/event-room-lifecycle";
 
 const EVENT_IMAGE_UPLOAD_EXPIRES_SECONDS = 300;
 const REGULAR_TICKET_NAME = "Regular";
@@ -32,7 +37,13 @@ type EventSource = Prisma.EventGetPayload<{
       };
     };
   };
-}>;
+}> & {
+  room?: {
+    id: string;
+    isActive: boolean;
+    memberships?: Array<{ id: string }>;
+  } | null;
+};
 
 type TicketTypeSource = EventSource["ticketTypes"][number];
 type TicketTypeCounts = {
@@ -81,20 +92,31 @@ export class EventsService {
     const ticketTypes = this.buildTicketTypeInputs(dto);
     const bookingAccess = this.resolveBookingAccess(dto.bookingAccess, ticketTypes);
 
+    const title = this.cleanText(dto.title);
+    const category = this.cleanEventCategory(dto.category);
+    const status = dto.status ?? EventStatus.DRAFT;
     const event = await this.prisma.event.create({
       data: {
-        title: this.cleanText(dto.title),
+        title,
         slug: await this.createUniqueSlug(dto.title),
         description: this.cleanOptionalText(dto.description),
         coverImage: this.cleanCoverImage(dto.coverImage),
-        category: this.cleanEventCategory(dto.category),
+        category,
         venue: this.cleanText(dto.venue),
         state: this.cleanText(dto.state),
         city: this.cleanText(dto.city),
         startsAt,
         endsAt,
-        status: dto.status ?? EventStatus.DRAFT,
+        status,
         bookingAccess,
+        room: {
+          create: {
+            name: title,
+            description: this.getEventRoomDescription(title),
+            category,
+            isActive: isEventRoomEnabledForStatus(status)
+          }
+        },
         ticketTypes: {
           create: ticketTypes
         }
@@ -210,6 +232,27 @@ export class EventsService {
         }
       });
 
+      const nextTitle = dto.title !== undefined ? this.cleanText(dto.title) : event.title;
+      const nextCategory = dto.category !== undefined ? this.cleanEventCategory(dto.category) : event.category;
+      const nextStatus = dto.status ?? event.status;
+
+      await transaction.chatRoom.upsert({
+        where: { eventId },
+        create: {
+          eventId,
+          name: nextTitle,
+          description: this.getEventRoomDescription(nextTitle),
+          category: nextCategory,
+          isActive: isEventRoomEnabledForStatus(nextStatus)
+        },
+        update: {
+          name: nextTitle,
+          description: this.getEventRoomDescription(nextTitle),
+          category: nextCategory,
+          isActive: isEventRoomEnabledForStatus(nextStatus)
+        }
+      });
+
       if (isCancellingEvent) {
         await transaction.ticket.deleteMany({
           where: {
@@ -271,6 +314,7 @@ export class EventsService {
       where: this.getBookableEventWhere(now),
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
+        room: this.eventRoomInclude(userId),
         tickets: {
           where: {
             userId,
@@ -298,6 +342,7 @@ export class EventsService {
       where: this.getHistoricalMemberEventWhere(userId, now),
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
+        room: this.eventRoomInclude(userId),
         tickets: {
           where: {
             userId,
@@ -327,6 +372,7 @@ export class EventsService {
       },
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
+        room: this.eventRoomInclude(userId),
         tickets: {
           where: {
             userId,
@@ -640,6 +686,7 @@ export class EventsService {
       },
       include: {
         ticketTypes: { orderBy: { createdAt: "asc" } },
+        room: this.eventRoomInclude(userId),
         tickets: {
           where: {
             userId,
@@ -943,6 +990,13 @@ export class EventsService {
     const userTickets = options.includeUserTickets ? event.tickets : [];
     const userTicket = userTickets[0] ?? null;
     const totalPaidAmountKobo = options.includeAdminCounts ? await this.sumSuccessfulEventTicketPayments(event.id) : 0;
+    const eventRoom = options.includeUserTickets && userTickets.length > 0 && event.room?.isActive && isEventRoomAvailable(event)
+      ? {
+          id: event.room.id,
+          hasJoined: Boolean(event.room.memberships?.length),
+          availableUntil: getEventRoomClosesAt(event)
+        }
+      : null;
 
     return {
       id: event.id,
@@ -975,6 +1029,7 @@ export class EventsService {
         : {}),
       ...(options.includeUserTickets
         ? {
+            room: eventRoom,
             userTickets: userTickets.map((ticket) => this.formatTicket(ticket)),
             userTicket: userTicket
               ? this.formatTicket(userTicket)
@@ -1082,6 +1137,24 @@ export class EventsService {
 
   private cleanText(value: string) {
     return value.trim();
+  }
+
+  private getEventRoomDescription(title: string) {
+    return `Event chat for ${title}.`;
+  }
+
+  private eventRoomInclude(userId: string) {
+    return {
+      select: {
+        id: true,
+        isActive: true,
+        memberships: {
+          where: { userId },
+          select: { id: true },
+          take: 1
+        }
+      }
+    } as const;
   }
 
   private cleanOptionalText(value: string | undefined) {

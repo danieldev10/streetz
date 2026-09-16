@@ -14,7 +14,6 @@ import {
   LogOut,
   LifeBuoy,
   Menu,
-  MessageCircle,
   MessagesSquare,
   Palette,
   ShieldCheck,
@@ -30,7 +29,6 @@ import { ProfilePhotoImage } from "@/components/profile-photo-image";
 
 export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "events", label: "Events", icon: Ticket },
-  { id: "rooms", label: "Rooms", icon: MessageCircle },
   { id: "discovery", label: "Discover", icon: Heart },
   { id: "notifications", label: "Alerts", icon: Bell },
   { id: "matches", label: "Matches", icon: MessagesSquare },
@@ -40,7 +38,6 @@ export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
 export const bottomTabs = tabs.filter((tab) => tab.id !== "blockedAccounts");
 
 export const adminTabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
-  { id: "rooms", label: "Rooms", icon: MessageCircle },
   { id: "events", label: "Events", icon: Ticket },
   { id: "reports", label: "Reports", icon: Flag },
   { id: "users", label: "Users", icon: UsersRound },
@@ -48,8 +45,7 @@ export const adminTabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> =
   { id: "admin", label: "Metrics", icon: ShieldCheck },
 ];
 
-// Six columns leave ~57px each on a 375px screen, so Support moves to the
-// account drawer and the mobile bar keeps the same five-slot density as members.
+// Support stays in the account drawer so the admin mobile bar has four actions.
 export const adminBottomTabs = adminTabs.filter((tab) => tab.id !== "support");
 
 export const tabRoutes: Record<TabKey, string> = {
@@ -58,7 +54,6 @@ export const tabRoutes: Record<TabKey, string> = {
   notifications: "/notifications",
   profile: "/profile",
   blockedAccounts: "/blocked-accounts",
-  rooms: "/rooms",
   events: "/events",
   admin: "/admin",
   reports: "/reports",

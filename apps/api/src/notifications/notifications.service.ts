@@ -16,6 +16,7 @@ import { calculateAge } from "../common/age";
 import { countCheckedInStandardEvents } from "../common/attendance";
 import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "../events/ticket-reservations";
 import { PrismaService } from "../prisma/prisma.service";
+import { getAvailableEventRoomWhere } from "../rooms/event-room-lifecycle";
 import { StorageService } from "../storage/storage.service";
 import { MarkNotificationsSeenDto } from "./dto/mark-notifications-seen.dto";
 import {
@@ -29,13 +30,11 @@ const FEED_LIKES_LIMIT = 20;
 const FEED_MATCHES_LIMIT = 10;
 const FEED_DIRECT_MESSAGES_LIMIT = 10;
 const FEED_ROOM_MESSAGES_LIMIT = 10;
-const FEED_ROOMS_LIMIT = 10;
 const FEED_EVENTS_LIMIT = 10;
 const FEED_TICKETS_LIMIT = 10;
 const FEED_EVENT_ALERTS_LIMIT = 10;
 const FEED_REPORT_UPDATES_LIMIT = 10;
 const FEED_PAYMENT_ALERTS_LIMIT = 10;
-const FEED_ROOMS_RECENCY_DAYS = 30;
 const FEED_MATCHES_SEEN_RECENCY_DAYS = 7;
 const SUBSCRIPTION_EXPIRING_DAYS = 7;
 const EVENT_REMINDER_HOURS = 48;
@@ -165,7 +164,6 @@ export class NotificationsService {
       matches,
       directMessages,
       roomMessages,
-      rooms,
       events,
       tickets,
       eventAlerts,
@@ -177,7 +175,6 @@ export class NotificationsService {
       this.getNewMatches(userId),
       this.getUnreadDirectMessageSummaries(userId),
       this.getUnreadRoomMessageSummaries(userId),
-      this.getRecentRooms(userId, userCreatedAt),
       this.getUpcomingEvents(userId, userCreatedAt),
       this.getConfirmedTickets(userId),
       this.getEventAlerts(userId),
@@ -191,7 +188,7 @@ export class NotificationsService {
       matches,
       directMessages,
       roomMessages,
-      rooms,
+      rooms: [],
       events,
       tickets,
       eventAlerts,
@@ -377,7 +374,18 @@ export class NotificationsService {
         where: {
           userId,
           room: {
-            isActive: true
+            isActive: true,
+            event: {
+              is: {
+                ...getAvailableEventRoomWhere(),
+                tickets: {
+                  some: {
+                    userId,
+                    status: { in: CONFIRMED_TICKET_STATUSES }
+                  }
+                }
+              }
+            }
           }
         },
         include: {
@@ -431,43 +439,6 @@ export class NotificationsService {
       .filter(isDefined)
       .sort((first, second) => Date.parse(second.updatedAt) - Date.parse(first.updatedAt))
       .slice(0, FEED_ROOM_MESSAGES_LIMIT);
-  }
-
-  private async getRecentRooms(userId: string, userCreatedAt: Date) {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - FEED_ROOMS_RECENCY_DAYS);
-    const effectiveCutoff = userCreatedAt > cutoff ? userCreatedAt : cutoff;
-    const seenRoomIds = await this.getSeenEntityIds(userId, NotificationKind.ROOM_CREATED);
-
-    const rooms = await this.prisma.chatRoom.findMany({
-      where: {
-        id: { notIn: seenRoomIds },
-        isActive: true,
-        createdAt: { gte: effectiveCutoff },
-        memberships: {
-          none: { userId }
-        }
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        category: true,
-        createdAt: true,
-        _count: { select: { memberships: true } }
-      },
-      orderBy: { createdAt: "desc" },
-      take: FEED_ROOMS_LIMIT
-    });
-
-    return rooms.map((room) => ({
-      id: room.id,
-      name: room.name,
-      description: room.description,
-      category: room.category,
-      memberCount: room._count.memberships,
-      createdAt: room.createdAt.toISOString()
-    }));
   }
 
   private async getUpcomingEvents(userId: string, userCreatedAt: Date) {
@@ -760,7 +731,6 @@ export class NotificationsService {
     const [
       pendingLikeCount,
       unseenMatchCount,
-      unseenRoomCount,
       unseenEventCount,
       unseenTicketCount,
       unseenEventAlertCount,
@@ -770,7 +740,6 @@ export class NotificationsService {
     ] = await Promise.all([
       this.getPendingLikeCount(userId),
       this.getUnseenMatchNotificationCount(userId),
-      this.getUnseenRoomNotificationCount(userId, userCreatedAt),
       this.getUnseenEventNotificationCount(userId, userCreatedAt),
       this.getUnseenTicketNotificationCount(userId),
       this.getUnseenEventAlertCount(userId),
@@ -782,7 +751,6 @@ export class NotificationsService {
     return (
       pendingLikeCount +
       unseenMatchCount +
-      unseenRoomCount +
       unseenEventCount +
       unseenTicketCount +
       unseenEventAlertCount +
@@ -899,24 +867,6 @@ export class NotificationsService {
         id: { notIn: seenMatchIds },
         status: MatchStatus.ACTIVE,
         OR: [{ userAId: userId }, { userBId: userId }]
-      }
-    });
-  }
-
-  private async getUnseenRoomNotificationCount(userId: string, userCreatedAt: Date) {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - FEED_ROOMS_RECENCY_DAYS);
-    const effectiveCutoff = userCreatedAt > cutoff ? userCreatedAt : cutoff;
-    const seenRoomIds = await this.getSeenEntityIds(userId, NotificationKind.ROOM_CREATED);
-
-    return this.prisma.chatRoom.count({
-      where: {
-        id: { notIn: seenRoomIds },
-        isActive: true,
-        createdAt: { gte: effectiveCutoff },
-        memberships: {
-          none: { userId }
-        }
       }
     });
   }

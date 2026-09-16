@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CalendarDays, LoaderCircle, MapPin, Share2, Ticket } from "lucide-react";
+import { CalendarDays, LoaderCircle, MapPin, MessageCircle, Share2, Ticket, UsersRound } from "lucide-react";
 import {
   FALLBACK_EVENT_IMAGE,
   formatEventDate,
@@ -20,14 +20,16 @@ import type { StreetzEvent } from "@/lib/types";
 
 export type EventCardMode = "explore" | "tickets" | "history";
 
-export function EventCardList({ events, mode, activeEventId, emptyTitle, emptyDescription, onOpenCheckout, onOpenDetails, onShare }: {
+export function EventCardList({ events, mode, activeEventId, activeRoomEventId, emptyTitle, emptyDescription, onOpenCheckout, onOpenDetails, onOpenRoom, onShare }: {
   events: StreetzEvent[];
   mode: EventCardMode;
   activeEventId: string | null;
+  activeRoomEventId: string | null;
   emptyTitle: string;
   emptyDescription: string;
   onOpenCheckout: (event: StreetzEvent) => void;
   onOpenDetails: (event: StreetzEvent) => void;
+  onOpenRoom: (event: StreetzEvent) => void;
   onShare: (event: StreetzEvent) => void;
 }) {
   if (events.length === 0) {
@@ -58,6 +60,7 @@ export function EventCardList({ events, mode, activeEventId, emptyTitle, emptyDe
           ticketType && isMemberBookableEvent(event) && !isSoldOut && maxPurchaseQuantity <= 0
         );
         const isBusy = activeEventId === event.id;
+        const isRoomBusy = activeRoomEventId === event.id;
         const getTicketsLabel = isSoldOut
           ? "Sold out"
           : isLimitReached
@@ -140,23 +143,47 @@ export function EventCardList({ events, mode, activeEventId, emptyTitle, emptyDe
                   })}
                 </div>
               ) : null}
-              <button
-                className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                type="button"
-                disabled={!isOwnedEventCard && (!ticketType || !canBookMore || isBusy)}
-                onClick={(clickEvent) => {
-                  clickEvent.stopPropagation();
-                  if (isOwnedEventCard) {
-                    onOpenDetails(event);
-                    return;
-                  }
+              <div className="mt-4 flex gap-2">
+                <button
+                  className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  type="button"
+                  disabled={!isOwnedEventCard && (!ticketType || !canBookMore || isBusy)}
+                  onClick={(clickEvent) => {
+                    clickEvent.stopPropagation();
+                    if (isOwnedEventCard) {
+                      onOpenDetails(event);
+                      return;
+                    }
 
-                  onOpenCheckout(event);
-                }}
-              >
-                {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
-                {isHistoryCard ? "View details" : mode === "tickets" ? "View tickets" : getTicketsLabel}
-              </button>
+                    onOpenCheckout(event);
+                  }}
+                >
+                  {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
+                  {isHistoryCard ? "View details" : mode === "tickets" ? "View tickets" : getTicketsLabel}
+                </button>
+                {isOwnedEventCard && event.room ? (
+                  <button
+                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface text-sm font-medium text-ink transition hover:border-brand ${event.room.hasJoined ? "w-11 shrink-0" : "min-w-0 flex-1 px-4"}`}
+                    type="button"
+                    onClick={(clickEvent) => {
+                      clickEvent.stopPropagation();
+                      onOpenRoom(event);
+                    }}
+                    disabled={isRoomBusy}
+                    aria-label={event.room.hasJoined ? `Open ${event.title} chat` : undefined}
+                    title={event.room.hasJoined ? "Open event chat" : undefined}
+                  >
+                    {isRoomBusy ? (
+                      <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                    ) : event.room.hasJoined ? (
+                      <MessageCircle className="size-4" aria-hidden="true" />
+                    ) : (
+                      <UsersRound className="size-4" aria-hidden="true" />
+                    )}
+                    {event.room.hasJoined ? <span className="sr-only">Open event chat</span> : <span>Join room</span>}
+                  </button>
+                ) : null}
+              </div>
             </div>
           </article>
         );

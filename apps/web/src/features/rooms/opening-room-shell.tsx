@@ -20,7 +20,7 @@ export function OpeningRoomShell({
             type="button"
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink"
             onClick={onBack}
-            aria-label="Back to rooms"
+            aria-label="Back to events"
             title="Back"
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
@@ -41,7 +41,7 @@ export function OpeningRoomShell({
 
         <div className="grid min-h-0 flex-1 place-items-center bg-surface-muted px-4 py-5">
           <LoaderCircle className="size-7 animate-spin text-brand" aria-hidden="true" />
-          <span className="sr-only">Loading room</span>
+          <span className="sr-only">Loading event chat</span>
         </div>
 
         {isAdmin ? (

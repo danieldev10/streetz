@@ -3,11 +3,9 @@
 import { ListSkeleton } from "@/components/skeletons";
 
 /**
- * Mirrors RoomsListView's loading layout, including the connection pill row and
- * the Joined/Explore toggle, so the app shell, the profile gate and the list all
- * render the same geometry and hand over without a shift.
+ * Provides stable event-chat geometry while profile readiness is checked.
  */
-export function RoomsLoadingView({ label = "Loading rooms" }: { label?: string }) {
+export function RoomsLoadingView({ label = "Loading event chat" }: { label?: string }) {
   return (
     <section>
       <div className="px-5 pt-6 md:px-8 md:pt-8">

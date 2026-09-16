@@ -31,6 +31,12 @@ export type StreetzEventTicket = {
   createdAt: string;
 };
 
+export type StreetzEventRoom = {
+  id: string;
+  hasJoined: boolean;
+  availableUntil: string;
+};
+
 export type StreetzEvent = {
   id: string;
   title: string;
@@ -52,6 +58,7 @@ export type StreetzEvent = {
   attendeeCount?: number;
   reservationCount?: number;
   totalPaidAmountKobo?: number;
+  room?: StreetzEventRoom | null;
   userTicket?: StreetzEventTicket | null;
   userTickets?: StreetzEventTicket[];
   createdAt: string;

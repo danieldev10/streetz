@@ -78,19 +78,19 @@ export function AdminDashboard({ token }: { token: string }) {
         icon: Heart,
       },
       {
-        label: "Rooms",
+        label: "Event chats",
         value: formatNumber(metrics.rooms.total),
-        helper: "Admin-created public rooms",
+        helper: "Event-linked chat spaces",
         icon: MessageCircle,
       },
       {
-        label: "Room members",
+        label: "Event chat members",
         value: formatNumber(metrics.rooms.members),
         helper: "Joined room memberships",
         icon: Users,
       },
       {
-        label: "Room messages",
+        label: "Event chat messages",
         value: formatNumber(metrics.rooms.messages),
         helper: "Visible member messages",
         icon: MessagesSquare,

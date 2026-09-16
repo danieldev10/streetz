@@ -11,7 +11,7 @@ export const supportCategories: Array<{
   { id: "GUEST_TICKETS", label: "Guest tickets", description: "Free guest bookings and private ticket links." },
   { id: "PROFILE_VERIFICATION", label: "Profile & verification", description: "Profile details, photos or face verification." },
   { id: "DISCOVERY_PRIVACY", label: "Discovery & privacy", description: "Who you see, preferences, blocks or privacy." },
-  { id: "ROOMS_MESSAGES", label: "Rooms & messages", description: "Rooms, matches, chat delivery, GIFs or moderation." },
+  { id: "ROOMS_MESSAGES", label: "Event chats & messages", description: "Event chats, matches, chat delivery, GIFs or moderation." },
   { id: "SAFETY_REPORT", label: "Safety concern", description: "Harassment, threats, impersonation or urgent safety issues." },
   { id: "TECHNICAL", label: "Technical problem", description: "Errors, loading problems or unexpected behaviour." },
   { id: "OTHER", label: "Something else", description: "Anything that does not fit the categories above." },

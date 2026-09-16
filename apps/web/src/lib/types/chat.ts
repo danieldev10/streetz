@@ -27,6 +27,14 @@ export type ChatRoom = {
   description: string | null;
   category: string;
   isActive: boolean;
+  eventId: string | null;
+  event: {
+    id: string;
+    title: string;
+    startsAt: string;
+    endsAt: string | null;
+    availableUntil: string;
+  } | null;
   hasJoined: boolean;
   memberCount: number;
   messageCount?: number;

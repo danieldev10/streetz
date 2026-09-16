@@ -218,10 +218,10 @@ export class AdminService {
       this.prisma.match.count({
         where: { status: MatchStatus.ACTIVE }
       }),
-      this.prisma.chatRoom.count(),
-      this.prisma.roomMembership.count(),
+      this.prisma.chatRoom.count({ where: { eventId: { not: null } } }),
+      this.prisma.roomMembership.count({ where: { room: { eventId: { not: null } } } }),
       this.prisma.chatMessage.count({
-        where: { deletedAt: null }
+        where: { deletedAt: null, room: { eventId: { not: null } } }
       }),
       this.prisma.event.count({
         where: { status: EventStatus.PUBLISHED }

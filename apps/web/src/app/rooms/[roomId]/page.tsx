@@ -9,8 +9,8 @@ export default function RoomThreadPage() {
   const params = useParams<{ roomId: string }>();
 
   return (
-    <AuthenticatedRoute activeTab="rooms">
-      {({ token, user, cachedRooms, onRoomsLoaded, onRoomOpened, onNotificationsChanged }) => (
+    <AuthenticatedRoute activeTab="events">
+      {({ token, user, cachedRooms, onRoomsLoaded, onNotificationsChanged }) => (
         <RoomsProfileGate token={token} user={user}>
           <RoomsTab
             key={params.roomId}
@@ -19,7 +19,6 @@ export default function RoomThreadPage() {
             initialRooms={cachedRooms}
             initialSelectedRoomId={params.roomId}
             onRoomsLoaded={onRoomsLoaded}
-            onRoomOpened={onRoomOpened}
             onNotificationsChanged={onNotificationsChanged}
           />
         </RoomsProfileGate>

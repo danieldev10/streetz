@@ -108,7 +108,7 @@ export function RoomThreadView({
               type="button"
               className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink"
               onClick={onBack}
-              aria-label="Back to rooms"
+              aria-label="Back to events"
               title="Back"
             >
               <ArrowLeft className="size-4" aria-hidden="true" />
@@ -162,7 +162,7 @@ export function RoomThreadView({
 
             <div ref={messageScrollerRef} onScroll={onMessagesScroll} className="h-full overflow-y-auto bg-surface-muted px-4 py-5">
               {isLoadingMessages ? (
-                <MessageThreadSkeleton label="Loading room messages" className="h-full" />
+                <MessageThreadSkeleton label="Loading event chat messages" className="h-full" />
               ) : messages.length > 0 ? (
                 <div className="grid gap-3">
                   {datedMessages.map((item) => {
@@ -230,7 +230,7 @@ export function RoomThreadView({
                 <div className="grid h-full min-h-90 place-items-center text-center">
                   <div>
                     <MessageCircle className="mx-auto size-8 text-brand" aria-hidden="true" />
-                    <h2 className="mt-3 text-2xl font-semibold">{isAdmin ? "Room is quiet" : "Start the room"}</h2>
+                    <h2 className="mt-3 text-2xl font-semibold">{isAdmin ? "Event chat is quiet" : "Start the event chat"}</h2>
                     <p className="mt-2 text-sm text-ink-600">
                       {isAdmin ? "Member messages will appear here." : `Send the first message in ${room.name}.`}
                     </p>
@@ -293,7 +293,7 @@ export function RoomThreadView({
                 <input
                   ref={messageInputRef}
                   className="h-12 w-full rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-                  placeholder="Write to the room or tag @name"
+                  placeholder="Write to the event chat or tag @name"
                   value={messageBody}
                   onChange={(event) => onMessageBodyChange(event.target.value, event.currentTarget)}
                   onKeyDown={onMessageInputKeyDown}
