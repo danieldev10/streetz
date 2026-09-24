@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { AccountStatus, ConnectionStatus, DiscoveryAction, DiscoveryGender, FaceVerificationStatus, Gender, MatchStatus, Prisma, ReportStatus, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
-import { getCheckedInStandardEventCounts } from "../common/attendance";
+import { countCheckedInStandardEvents, getCheckedInStandardEventCounts } from "../common/attendance";
 import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
@@ -17,6 +17,7 @@ import { selectDiscoveryDeck, seededUnitInterval, type DiscoveryRankedCandidate 
 const DISCOVERY_DECK_SIZE = 12;
 const DISCOVERY_POOL_SIZE = 100;
 const DISCOVERY_ALGORITHM = "mutual-v1";
+const DISCOVERY_PEOPLE_PAGE_SIZE = 20;
 
 type ReadyDiscoveryProfile = {
   birthDate: Date;
@@ -48,6 +49,185 @@ export class DiscoveryService {
     private readonly storage: StorageService,
     private readonly verification: VerificationService
   ) {}
+
+  async getPeople(userId: string, cursor?: string) {
+    const currentProfile = await this.ensureCurrentProfileReady(userId);
+    const now = new Date();
+    await this.prisma.user.update({ where: { id: userId }, data: { lastDiscoveryActiveAt: now } });
+    const [blocks, closedConnections] = await Promise.all([
+      this.prisma.userBlock.findMany({
+        where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+        select: { blockerId: true, blockedId: true }
+      }),
+      this.prisma.match.findMany({
+        where: {
+          status: { in: [MatchStatus.CLOSED, MatchStatus.DECLINED, MatchStatus.UNMATCHED, MatchStatus.BLOCKED] },
+          OR: [{ userAId: userId }, { userBId: userId }]
+        },
+        select: { userAId: true, userBId: true }
+      })
+    ]);
+    const excludedIds = new Set<string>([userId]);
+
+    for (const block of blocks) {
+      excludedIds.add(block.blockerId === userId ? block.blockedId : block.blockerId);
+    }
+
+    for (const connection of closedConnections) {
+      excludedIds.add(connection.userAId === userId ? connection.userBId : connection.userAId);
+    }
+
+    const candidateInclude = {
+      profile: true,
+      discoveryPreference: true,
+      photos: {
+        orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
+        take: 1
+      }
+    };
+    const viewerAge = calculateAge(currentProfile.birthDate);
+    const candidates = await this.prisma.user.findMany({
+      where: {
+        id: { notIn: Array.from(excludedIds) },
+        accountStatus: AccountStatus.ACTIVE,
+        ...(this.verification.isRequired() ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
+        role: UserRole.USER,
+        subscriptionStatus: SubscriptionStatus.ACTIVE,
+        subscriptionEndsAt: { gt: now },
+        discoveryPreference: {
+          is: {
+            confirmedAt: { not: null },
+            interestedInGenders: { has: currentProfile.discoveryGender },
+            minAge: { lte: viewerAge },
+            maxAge: { gte: viewerAge }
+          }
+        },
+        profile: {
+          is: {
+            bio: { not: null },
+            birthDate: this.getBirthDateWhere(currentProfile.minAge, currentProfile.maxAge, now),
+            discoveryGender: { in: currentProfile.interestedInGenders },
+            connectionStatus: currentProfile.connectionStatus,
+            state: currentProfile.state === null ? null : { equals: currentProfile.state, mode: "insensitive" },
+            discoveryLive: true,
+            interests: { isEmpty: false }
+          }
+        },
+        photos: { some: {} }
+      },
+      include: candidateInclude,
+      orderBy: [{ lastDiscoveryActiveAt: "desc" }, { id: "asc" }],
+      take: DISCOVERY_POOL_SIZE
+    });
+    const rankedCandidates: Array<DiscoveryRankedCandidate<Prisma.UserGetPayload<{ include: typeof candidateInclude }>>> = this.rankCandidates(
+      candidates.map((candidate) => ({ candidate, distanceKm: null })),
+      currentProfile,
+      now,
+      userId
+    );
+
+    const cursorIndex = cursor ? rankedCandidates.findIndex(({ candidate }) => candidate.id === cursor) : -1;
+    if (cursor && cursorIndex < 0) {
+      throw new BadRequestException("Discovery cursor is no longer valid. Start a new search.");
+    }
+    const pageStart = cursorIndex + 1;
+    const page = rankedCandidates.slice(pageStart, pageStart + DISCOVERY_PEOPLE_PAGE_SIZE);
+    const hasMore = pageStart + page.length < rankedCandidates.length;
+    const attendanceByUserId = await getCheckedInStandardEventCounts(
+      this.prisma,
+      page.map(({ candidate }) => candidate.id)
+    );
+
+    return {
+      people: await Promise.all(page.map(({ candidate, distanceKm }) => this.formatCandidate(candidate, {
+        distanceKm,
+        attendedEventCount: attendanceByUserId.get(candidate.id) ?? 0
+      }))),
+      nextCursor: hasMore ? page.at(-1)?.candidate.id ?? null : null,
+      location: this.formatLocationMeta(currentProfile)
+    };
+  }
+
+  async getPerson(userId: string, targetUserId: string) {
+    const currentProfile = await this.ensureCurrentProfileReady(userId);
+    this.ensureDifferentUsers(userId, targetUserId);
+    const now = new Date();
+    const [target, block, closedConnection] = await Promise.all([
+      this.prisma.user.findFirst({
+        where: {
+          id: targetUserId,
+          accountStatus: AccountStatus.ACTIVE,
+          role: UserRole.USER,
+          subscriptionStatus: SubscriptionStatus.ACTIVE,
+          subscriptionEndsAt: { gt: now },
+          ...(this.verification.isRequired() ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
+          profile: {
+            is: {
+              bio: { not: null },
+              city: { not: null },
+              state: { not: null },
+              interests: { isEmpty: false }
+            }
+          },
+          photos: { some: {} }
+        },
+        include: {
+          profile: true,
+          discoveryPreference: true,
+          photos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 6 }
+        }
+      }),
+      this.prisma.userBlock.findFirst({
+        where: {
+          OR: [
+            { blockerId: userId, blockedId: targetUserId },
+            { blockerId: targetUserId, blockedId: userId }
+          ]
+        },
+        select: { id: true }
+      }),
+      this.prisma.match.findFirst({
+        where: {
+          status: { in: [MatchStatus.CLOSED, MatchStatus.DECLINED, MatchStatus.UNMATCHED, MatchStatus.BLOCKED] },
+          OR: [
+            { userAId: userId, userBId: targetUserId },
+            { userAId: targetUserId, userBId: userId }
+          ]
+        },
+        select: { id: true }
+      })
+    ]);
+
+    if (
+      !target ||
+      block ||
+      closedConnection ||
+      !target.profile?.birthDate ||
+      !target.profile.discoveryGender ||
+      !target.profile.connectionStatus ||
+      !target.profile.discoveryLive ||
+      target.profile.connectionStatus !== currentProfile.connectionStatus ||
+      !target.discoveryPreference?.confirmedAt ||
+      target.discoveryPreference.interestedInGenders.length === 0 ||
+      !areDiscoveryProfilesCompatible(currentProfile, {
+        birthDate: target.profile.birthDate,
+        discoveryGender: target.profile.discoveryGender,
+        interestedInGenders: target.discoveryPreference.interestedInGenders,
+        minAge: target.discoveryPreference.minAge,
+        maxAge: target.discoveryPreference.maxAge
+      }, now)
+    ) {
+      throw new NotFoundException("Discovery profile not found.");
+    }
+
+    const isSameState = target.profile.state?.trim().toLowerCase() === currentProfile.state?.trim().toLowerCase();
+
+    if (!isSameState) {
+      throw new NotFoundException("Discovery profile not found.");
+    }
+    const attendedEventCount = await countCheckedInStandardEvents(this.prisma, target.id);
+    return this.formatCandidate(target, { distanceKm: null, attendedEventCount });
+  }
 
   async getCandidates(userId: string) {
     const currentProfile = await this.ensureCurrentProfileReady(userId);
@@ -420,6 +600,14 @@ export class DiscoveryService {
       data: { status: MatchStatus.BLOCKED }
     });
 
+    await this.prisma.match.updateMany({
+      where: {
+        ...this.getMatchPair(userId, dto.targetUserId),
+        status: MatchStatus.REQUESTED
+      },
+      data: { status: MatchStatus.DECLINED, closedAt: new Date() }
+    });
+
     return {
       blocked: true,
       block
@@ -747,6 +935,7 @@ export class DiscoveryService {
             AND candidate_profile."city" IS NOT NULL
             AND candidate_profile."state" IS NOT NULL
             AND candidate_profile."connectionStatus" IS NOT NULL
+            AND candidate_profile."connectionStatus" = CAST(${profile.connectionStatus} AS "ConnectionStatus")
             AND candidate_profile."discoveryLive" = TRUE
             AND cardinality(candidate_profile."interests") > 0
             AND candidate_profile."location" IS NOT NULL
@@ -889,7 +1078,7 @@ export class DiscoveryService {
       connectionStatus: candidate.profile?.connectionStatus ?? null,
       city: candidate.profile?.city ?? null,
       state: candidate.profile?.state ?? null,
-      distanceKm: options.distanceKm === null || options.distanceKm === undefined ? null : Math.round(options.distanceKm * 10) / 10,
+      distanceKm: options.distanceKm === null || options.distanceKm === undefined ? null : Math.round(options.distanceKm),
       attendedEventCount: options.attendedEventCount,
       interests: candidate.profile?.interests ?? [],
       photos

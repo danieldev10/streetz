@@ -31,7 +31,7 @@ export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "events", label: "Events", icon: Ticket },
   { id: "discovery", label: "Discover", icon: Heart },
   { id: "notifications", label: "Alerts", icon: Bell },
-  { id: "matches", label: "Matches", icon: MessagesSquare },
+  { id: "matches", label: "Messages", icon: MessagesSquare },
   { id: "blockedAccounts", label: "Blocked Accounts", icon: Ban },
 ];
 
@@ -50,7 +50,7 @@ export const adminBottomTabs = adminTabs.filter((tab) => tab.id !== "support");
 
 export const tabRoutes: Record<TabKey, string> = {
   discovery: "/discover",
-  matches: "/matches",
+  matches: "/messages",
   notifications: "/notifications",
   profile: "/profile",
   blockedAccounts: "/blocked-accounts",

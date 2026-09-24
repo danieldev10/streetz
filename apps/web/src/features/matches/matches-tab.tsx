@@ -11,7 +11,7 @@ import { useChatAutoScroll } from "@/lib/use-chat-autoscroll";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import { queryKeys } from "@/lib/query-keys";
-import type { DirectMessage, DiscoveryCandidate, MatchThread, StreetzUser } from "@/lib/types";
+import type { ConversationRequests, DirectMessage, DiscoveryCandidate, MatchThread, StreetzUser } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
 import { ChatGif } from "@/components/chat/chat-gif";
@@ -102,7 +102,7 @@ function OpeningMatchShell({
             type="button"
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink"
             onClick={onBack}
-            aria-label="Back to matches"
+            aria-label="Back to messages"
             title="Back"
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
@@ -158,6 +158,7 @@ export function MatchesTab({
     ? queryClient.getQueryData<DirectMessage[]>(queryKeys.directMessages(user.id, initialSelectedMatchId))
     : undefined;
   const [matches, setMatches] = useState<MatchThread[]>(initialMatches);
+  const [conversationRequests, setConversationRequests] = useState<ConversationRequests>({ received: [], sent: [] });
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(initialSelectedMatchId);
   const [viewedMatchProfile, setViewedMatchProfile] = useState<DiscoveryCandidate | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>(initialCachedMessages ?? []);
@@ -226,16 +227,16 @@ export function MatchesTab({
       return `${prefix}${match.lastMessage.body || (match.lastMessage.gifUrl ? "GIF" : "Message")}`;
     }
 
-    return `Matched · ${match.user.city ?? "Nigeria"}`;
+    return `Connected · ${match.user.city ?? "Nigeria"}`;
   }
 
-  function openMatch(matchId: string) {
-    const match = matches.find((candidate) => candidate.id === matchId);
+  function openMatch(matchId: string, knownMatch?: MatchThread) {
+    const match = knownMatch ?? matches.find((candidate) => candidate.id === matchId);
 
     setNotice(null);
     setSelectedMatchId(matchId);
     setViewedMatchProfile(null);
-    router.push(`/matches/${matchId}`);
+    router.push(`/messages/${matchId}`);
     setSelectedGifUrl(null);
 
     if (match) {
@@ -246,7 +247,7 @@ export function MatchesTab({
   }
 
   function closeMatch() {
-    router.push("/matches");
+    router.push("/messages");
     setSelectedMatchId(null);
     setViewedMatchProfile(null);
     setMessages([]);
@@ -262,10 +263,16 @@ export function MatchesTab({
     setNotice(null);
 
     try {
-      const response = await apiRequest<{ matches: MatchThread[] }>("/matches", {
-        headers: authHeaders(token),
-      });
+      const [response, requests] = await Promise.all([
+        apiRequest<{ conversations: MatchThread[]; matches: MatchThread[] }>("/conversations", {
+          headers: authHeaders(token),
+        }),
+        apiRequest<ConversationRequests>("/conversations/requests", {
+          headers: authHeaders(token),
+        }),
+      ]);
       setMatches(response.matches);
+      setConversationRequests(requests);
       setSelectedMatchId((current) => {
         if (current && response.matches.some((match) => match.id === current)) {
           return current;
@@ -296,7 +303,7 @@ export function MatchesTab({
       const nextMessages = await queryClient.fetchQuery({
         queryKey,
         queryFn: async () => {
-          const response = await apiRequest<{ messages: DirectMessage[] }>(`/matches/${matchId}/messages`, {
+          const response = await apiRequest<{ messages: DirectMessage[] }>(`/conversations/${matchId}/messages`, {
             headers: authHeaders(token),
           });
           return mergeCachedDirectMessages(queryClient.getQueryData<DirectMessage[]>(queryKey), response.messages);
@@ -313,6 +320,45 @@ export function MatchesTab({
       if (!hasCachedMessages) setNotice(getUserErrorMessage(error));
     } finally {
       if (selectedMatchIdRef.current === matchId) setIsLoadingMessages(false);
+    }
+  }
+
+  async function acceptRequest(request: MatchThread) {
+    setNotice(null);
+
+    try {
+      const response = await apiRequest<{ conversation: MatchThread }>(`/conversations/${request.id}/accept`, {
+        method: "POST",
+        headers: authHeaders(token),
+      });
+      setConversationRequests((current) => ({
+        ...current,
+        received: current.received.filter((item) => item.id !== request.id),
+      }));
+      setMatches((current) => [response.conversation, ...current.filter((item) => item.id !== request.id)]);
+      onNotificationsChangedRef.current();
+      openMatch(response.conversation.id, response.conversation);
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    }
+  }
+
+  async function declineRequest(request: MatchThread) {
+    setNotice(null);
+
+    try {
+      await apiRequest(`/conversations/${request.id}/decline`, {
+        method: "POST",
+        headers: authHeaders(token),
+      });
+      setConversationRequests((current) => ({
+        ...current,
+        received: current.received.filter((item) => item.id !== request.id),
+      }));
+      setNotice("Message request declined.");
+      onNotificationsChangedRef.current();
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
     }
   }
 
@@ -387,7 +433,7 @@ export function MatchesTab({
 
   async function markMatchRead(matchId: string) {
     try {
-      await apiRequest(`/matches/${matchId}/read`, {
+      await apiRequest(`/conversations/${matchId}/read`, {
         method: "POST",
         headers: authHeaders(token),
       });
@@ -423,20 +469,20 @@ export function MatchesTab({
   }
 
   async function unmatchMatch(match: MatchThread) {
-    await apiRequest<{ unmatched: boolean; matchId: string; otherUserId: string }>(`/matches/${match.id}/unmatch`, {
+    await apiRequest<{ closed: boolean; conversationId: string; otherUserId: string }>(`/conversations/${match.id}/close`, {
       method: "POST",
       headers: authHeaders(token),
     });
 
     setMatches((current) => current.filter((item) => item.id !== match.id));
-    router.push("/matches");
+    router.push("/messages");
     setSelectedMatchId(null);
     setViewedMatchProfile(null);
     queryClient.removeQueries({ queryKey: queryKeys.directMessages(user.id, match.id), exact: true });
     setMessages([]);
     setMessageBody("");
     setSelectedGifUrl(null);
-    setNotice("Match removed.");
+    setNotice("Conversation closed.");
     onNotificationsChangedRef.current();
   }
 
@@ -463,6 +509,11 @@ export function MatchesTab({
     socket.on("connect_error", () => {
       setSocketStatus("offline");
     });
+    socket.on("notifications:changed", (event: { source?: string; kind?: string }) => {
+      if (event.source === "matches" && event.kind?.startsWith("conversation-")) {
+        void loadMatches();
+      }
+    });
     socket.on("direct-message:new", (message: DirectMessage) => {
       if (message.matchId === selectedMatchIdRef.current) {
         upsertMessage(message);
@@ -479,12 +530,12 @@ export function MatchesTab({
       queryClient.removeQueries({ queryKey: queryKeys.directMessages(user.id, event.matchId), exact: true });
 
       if (event.matchId === selectedMatchIdRef.current) {
-        router.push("/matches");
+        router.push("/messages");
         setSelectedMatchId(null);
         setViewedMatchProfile(null);
         setMessages([]);
         setMessageBody("");
-        setNotice(event.actorId === user.id ? "Match removed." : "This match is no longer available.");
+        setNotice(event.actorId === user.id ? "Conversation closed." : "This conversation is no longer available.");
       }
 
       onNotificationsChangedRef.current();
@@ -614,7 +665,7 @@ export function MatchesTab({
               type="button"
               className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink"
               onClick={closeMatch}
-              aria-label="Back to matches"
+              aria-label="Back to messages"
               title="Back"
             >
               <ArrowLeft className="size-4" aria-hidden="true" />
@@ -780,89 +831,133 @@ export function MatchesTab({
     );
   }
 
+  const hasAnyConversation = matches.length > 0 || conversationRequests.received.length > 0 || conversationRequests.sent.length > 0;
+
   return (
     <section>
-      <h1 className="sr-only">Matches</h1>
       <div className="px-5 pt-6 md:px-8 md:pt-8">
-        <div className="mb-4 hidden items-center justify-end md:flex">
-          <div className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] px-4 py-2 text-sm font-medium">
-            <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-brand" : "bg-ink-200"}`} />
-            {socketStatus === "connected" ? "Live" : "Connecting"}
-          </div>
-        </div>
-
-        {notice ? <p className="mb-4 rounded-[16px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
+        {notice ? <p className="mx-auto mb-4 max-w-3xl rounded-[16px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {isLoadingMatches ? (
-          <ListSkeleton label="Loading matches" className="mx-auto grid max-w-3xl gap-3" hasAction={false} />
-        ) : matches.length > 0 ? (
-          <div className="mx-auto max-w-3xl">
-
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
-              <input
-                id="match-search"
-                className="h-12 w-full rounded-full border border-black/[0.08] pl-11 pr-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-                placeholder="Search name, city, interest"
-                value={matchSearch}
-                onChange={(event) => setMatchSearch(event.target.value)}
-              />
-            </div>
-
-            <div className="mt-4 overflow-hidden rounded-[24px] border border-black/[0.05] bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-              {filteredMatches.length > 0 ? (
-                filteredMatches.map((match) => {
-                  const unreadCount = match.unreadCount ?? 0;
-
-                  return (
-                    <button
-                      key={match.id}
-                      className="flex w-full items-center gap-4 border-b border-black/[0.05] px-4 py-4 text-left transition last:border-b-0 hover:bg-surface-muted"
-                      onClick={() => openMatch(match.id)}
-                    >
-                      <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-brand-tint sm:size-20">
-                        <CandidatePhoto candidate={match.user} variant="thumb" />
+          <ListSkeleton label="Loading messages" className="mx-auto mt-5 grid max-w-3xl gap-3" hasAction={false} />
+        ) : hasAnyConversation ? (
+          <div className="mx-auto mt-5 max-w-3xl space-y-6">
+            {conversationRequests.received.length > 0 ? (
+              <section>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-ink-400">Requests</h2>
+                  <span className="grid min-w-6 place-items-center rounded-full bg-brand-strong px-1.5 text-xs font-semibold leading-6 text-white">
+                    {conversationRequests.received.length}
+                  </span>
+                </div>
+                <div className="mt-3 overflow-hidden rounded-[24px] border border-black/[0.05] bg-surface">
+                  {conversationRequests.received.map((request) => (
+                    <article key={request.id} className="flex gap-3 border-b border-black/[0.05] p-4 last:border-b-0">
+                      <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-brand-tint">
+                        <CandidatePhoto candidate={request.user} variant="thumb" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="truncate text-lg font-semibold">{match.user.displayName}</p>
-                          {unreadCount > 0 ? (
-                            <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-brand-strong px-1 text-[10px] font-semibold leading-5 text-white">
-                              {unreadCount > 9 ? "9+" : unreadCount}
-                            </span>
-                          ) : (
-                            <p className="shrink-0 text-xs font-medium text-ink-300">
-                              {new Date(match.lastMessage?.createdAt ?? match.createdAt).toLocaleDateString([], {
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </p>
-                          )}
+                        <p className="truncate font-semibold">{request.user.displayName}</p>
+                        <p className="mt-1 line-clamp-2 text-sm leading-5 text-ink-600">{request.lastMessage?.body}</p>
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            type="button"
+                            className="h-9 rounded-full bg-ink px-4 text-xs font-semibold text-white"
+                            onClick={() => void acceptRequest(request)}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            className="h-9 rounded-full border border-black/[0.08] px-4 text-xs font-semibold"
+                            onClick={() => void declineRequest(request)}
+                          >
+                            Decline
+                          </button>
                         </div>
-                        <p className="mt-1 truncate text-sm text-ink-600">{getMatchPreview(match)}</p>
                       </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="grid min-h-[260px] place-items-center p-6 text-center">
-                  <div>
-                    <Search className="mx-auto size-8 text-brand" aria-hidden="true" />
-                    <h2 className="mt-3 text-2xl font-semibold">No matches found</h2>
-                    <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">Try another name, city, or interest.</p>
-                  </div>
+                    </article>
+                  ))}
                 </div>
-              )}
-            </div>
+              </section>
+            ) : null}
+
+            {conversationRequests.sent.length > 0 ? (
+              <section>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-ink-400">Pending</h2>
+                <div className="mt-3 overflow-hidden rounded-[24px] border border-black/[0.05] bg-surface">
+                  {conversationRequests.sent.map((request) => (
+                    <article key={request.id} className="flex items-center gap-3 border-b border-black/[0.05] p-4 last:border-b-0">
+                      <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-brand-tint">
+                        <CandidatePhoto candidate={request.user} variant="thumb" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold">{request.user.displayName}</p>
+                        <p className="mt-1 truncate text-sm text-ink-500">Request sent · waiting for a response</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {matches.length > 0 ? (
+              <section>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
+                  <input
+                    id="conversation-search"
+                    className="h-12 w-full rounded-full border border-black/[0.08] pl-11 pr-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    placeholder="Search name, state, interest"
+                    value={matchSearch}
+                    onChange={(event) => setMatchSearch(event.target.value)}
+                  />
+                </div>
+
+                <div className="mt-4 overflow-hidden rounded-[24px] border border-black/[0.05] bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+                  {filteredMatches.length > 0 ? filteredMatches.map((match) => {
+                    const unreadCount = match.unreadCount ?? 0;
+                    return (
+                      <button
+                        key={match.id}
+                        className="flex w-full items-center gap-4 border-b border-black/[0.05] px-4 py-4 text-left transition last:border-b-0 hover:bg-surface-muted"
+                        onClick={() => openMatch(match.id)}
+                      >
+                        <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-brand-tint sm:size-20">
+                          <CandidatePhoto candidate={match.user} variant="thumb" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="truncate text-lg font-semibold">{match.user.displayName}</p>
+                            {unreadCount > 0 ? (
+                              <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-brand-strong px-1 text-[10px] font-semibold leading-5 text-white">
+                                {unreadCount > 9 ? "9+" : unreadCount}
+                              </span>
+                            ) : (
+                              <p className="shrink-0 text-xs font-medium text-ink-300">
+                                {new Date(match.lastMessage?.createdAt ?? match.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })}
+                              </p>
+                            )}
+                          </div>
+                          <p className="mt-1 truncate text-sm text-ink-600">{getMatchPreview(match)}</p>
+                        </div>
+                      </button>
+                    );
+                  }) : (
+                    <div className="grid min-h-52 place-items-center p-6 text-center">
+                      <p className="text-sm text-ink-500">No conversations match that search.</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            ) : null}
           </div>
         ) : (
-          <div className="mx-auto grid min-h-[420px] max-w-3xl place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
+          <div className="mx-auto mt-5 grid min-h-[420px] max-w-3xl place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
             <div>
               <MessagesSquare className="mx-auto size-8 text-brand" aria-hidden="true" />
-              <h2 className="mt-3 text-2xl font-semibold">No matches yet</h2>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">
-                When someone likes you back, they will appear here.
-              </p>
+              <h2 className="mt-3 text-2xl font-semibold">No messages yet</h2>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">Discover people nearby and send an introduction to start a conversation.</p>
               <button
                 className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/[0.08] px-5 text-sm font-medium"
                 onClick={loadMatches}

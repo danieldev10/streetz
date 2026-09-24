@@ -47,4 +47,3 @@ export type DiscoveryMatch = {
 };
 
 export type MatchBlockStatus = "NONE" | "BLOCKED_BY_ME" | "BLOCKED_ME" | "MUTUAL";
-export type DiscoveryActionName = "LIKE" | "PASS";

@@ -138,11 +138,19 @@ export class NotificationsService {
     }
 
     const userCreatedAt = user?.createdAt ?? new Date(0);
-    const [matchesUnreadCount, roomsUnreadCount, notificationsUnreadCount] = await Promise.all([
+    const [directMessagesUnreadCount, messageRequestCount, roomsUnreadCount, notificationsUnreadCount] = await Promise.all([
       countUnreadDirectMessages(this.prisma, userId),
+      this.prisma.match.count({
+        where: {
+          status: MatchStatus.REQUESTED,
+          requestedById: { not: userId },
+          OR: [{ userAId: userId }, { userBId: userId }]
+        }
+      }),
       countUnreadRoomMessages(this.prisma, userId),
       this.getUnreadFeedNotificationCount(userId, userCreatedAt)
     ]);
+    const matchesUnreadCount = directMessagesUnreadCount + messageRequestCount;
 
     return {
       matchesUnreadCount,
@@ -171,8 +179,8 @@ export class NotificationsService {
       reportUpdates,
       paymentAlerts
     ] = await Promise.all([
-      this.getPendingLikes(userId),
-      this.getNewMatches(userId),
+      Promise.resolve([]),
+      Promise.resolve([]),
       this.getUnreadDirectMessageSummaries(userId),
       this.getUnreadRoomMessageSummaries(userId),
       this.getUpcomingEvents(userId, userCreatedAt),
@@ -729,8 +737,6 @@ export class NotificationsService {
 
   private async getUnreadFeedNotificationCount(userId: string, userCreatedAt: Date) {
     const [
-      pendingLikeCount,
-      unseenMatchCount,
       unseenEventCount,
       unseenTicketCount,
       unseenEventAlertCount,
@@ -738,8 +744,6 @@ export class NotificationsService {
       unseenReportUpdateCount,
       unseenPaymentAlertCount
     ] = await Promise.all([
-      this.getPendingLikeCount(userId),
-      this.getUnseenMatchNotificationCount(userId),
       this.getUnseenEventNotificationCount(userId, userCreatedAt),
       this.getUnseenTicketNotificationCount(userId),
       this.getUnseenEventAlertCount(userId),
@@ -749,8 +753,6 @@ export class NotificationsService {
     ]);
 
     return (
-      pendingLikeCount +
-      unseenMatchCount +
       unseenEventCount +
       unseenTicketCount +
       unseenEventAlertCount +

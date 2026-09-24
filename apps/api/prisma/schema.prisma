@@ -72,7 +72,10 @@ enum DiscoveryAction {
 }
 
 enum MatchStatus {
+  REQUESTED
   ACTIVE
+  DECLINED
+  CLOSED
   BLOCKED
   UNMATCHED
 }
@@ -205,6 +208,7 @@ model User {
   receivedActions    DiscoveryActionLog[] @relation("DiscoveryTarget")
   matchesA           Match[]              @relation("MatchUserA")
   matchesB           Match[]              @relation("MatchUserB")
+  conversationRequests Match[]            @relation("MatchRequester")
   blockedUsers       UserBlock[]          @relation("Blocker")
   blockedByUsers     UserBlock[]          @relation("Blocked")
   reportsMade        UserReport[]         @relation("Reporter")
@@ -425,15 +429,21 @@ model Match {
   userA                          User              @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
   userB                          User              @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
   status                         MatchStatus       @default(ACTIVE)
+  requestedById                  String?
+  requestedBy                    User?             @relation("MatchRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  acceptedAt                     DateTime?
+  closedAt                       DateTime?
   userAConnectionStatusAtMatch   ConnectionStatus?
   userBConnectionStatusAtMatch   ConnectionStatus?
   createdAt                      DateTime          @default(now())
+  updatedAt                      DateTime          @updatedAt
   messages                       DirectMessage[]
   readStates MatchReadState[]
 
   @@unique([userAId, userBId])
   @@index([userAId, status])
   @@index([userBId, status])
+  @@index([requestedById, status, createdAt])
 }
 
 model DirectMessage {

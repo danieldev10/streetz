@@ -508,6 +508,19 @@ export class ProfilesService {
   private getLocationUpdate(dto: UpdateProfileDto) {
     const { latitude, longitude } = dto;
 
+    if (dto.clearCoordinates) {
+      if (latitude !== undefined || longitude !== undefined) {
+        throw new BadRequestException("Choose either precise coordinates or city/state location.");
+      }
+
+      return {
+        latitude: null,
+        longitude: null,
+        locationAccuracyMeters: null,
+        locationUpdatedAt: null
+      };
+    }
+
     if (latitude === undefined && longitude === undefined) {
       return {};
     }

@@ -96,7 +96,7 @@ export function MemberProfileView({
     try {
       await onUnmatched(candidate);
       setIsUnmatchConfirmOpen(false);
-      setActionNotice("Match removed.");
+      setActionNotice("Conversation closed.");
     } catch (error) {
       setActionNotice(getUserErrorMessage(error));
     } finally {
@@ -242,17 +242,17 @@ export function MemberProfileView({
                   {candidate.displayName}
                   {candidate.age ? `, ${candidate.age}` : ""}
                 </h1>
-	                <p className="mt-1 flex items-center gap-1 text-sm font-medium">
-	                  <MapPin className="size-4" aria-hidden="true" />
-	                  {locationLabel}
-	                </p>
+                <p className="mt-1 flex items-center gap-1 text-sm font-medium">
+                  <MapPin className="size-4" aria-hidden="true" />
+                  {locationLabel}
+                </p>
               </div>
             </div>
 
             {matchedConnectionStatus ? (
               <div className="border-b border-brand/20 bg-brand-tint px-5 py-3">
                 <p className="text-sm font-semibold text-brand-deep">
-                  Matched as {formatConnectionStatus(matchedConnectionStatus)}
+                  Connected as {formatConnectionStatus(matchedConnectionStatus)}
                 </p>
               </div>
             ) : null}
@@ -272,10 +272,10 @@ export function MemberProfileView({
 
               <div className="mt-5">
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">Location</p>
-	                <p className="mt-2 flex items-center gap-1 text-sm font-medium text-ink-700">
-	                  <MapPin className="size-4 text-brand" aria-hidden="true" />
-	                  {locationLabel}
-	                </p>
+                <p className="mt-2 flex items-center gap-1 text-sm font-medium text-ink-700">
+                  <MapPin className="size-4 text-brand" aria-hidden="true" />
+                  {locationLabel}
+                </p>
               </div>
 
               <div className="mt-5">
@@ -327,7 +327,7 @@ export function MemberProfileView({
                       disabled={isSubmittingSafetyAction}
                     >
                       <HeartOff className="size-[18px] shrink-0 stroke-[2.2]" aria-hidden="true" />
-                      Unmatch
+                      Close chat
                     </button>
                   ) : null}
                   <button
@@ -360,7 +360,7 @@ export function MemberProfileView({
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold text-ink">Block this profile?</h2>
                 <p className="mt-1 text-sm leading-6 text-ink-600">
-                  You will stop seeing {candidate.displayName} and any active match will close.
+                  You will stop seeing {candidate.displayName} and any active conversation will close.
                 </p>
               </div>
             </div>
@@ -395,9 +395,9 @@ export function MemberProfileView({
                 <HeartOff className="size-5" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-ink">Unmatch {candidate.displayName}?</h2>
+                <h2 className="text-lg font-semibold text-ink">Close this conversation?</h2>
                 <p className="mt-1 text-sm leading-6 text-ink-600">
-                  This removes the chat from both Matches lists. You may see each other in Discovery again later.
+                  This removes the chat from both message lists. The existing message history will no longer be available.
                 </p>
               </div>
             </div>
@@ -417,7 +417,7 @@ export function MemberProfileView({
                 disabled={isSubmittingSafetyAction}
               >
                 {isSubmittingSafetyAction ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
-                Unmatch
+                Close
               </button>
             </div>
           </div>

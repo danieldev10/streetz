@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import type { LucideIcon } from "lucide-react";
@@ -12,27 +12,19 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
-  Heart,
-  LoaderCircle,
   MapPin,
   MessageCircle,
   RefreshCw,
   ShieldCheck,
   Ticket,
-  Users,
-  X,
 } from "lucide-react";
 import { ListSkeleton } from "@/components/skeletons";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
-import { MemberProfileView } from "@/features/discovery/member-profile-view";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
-import { formatConnectionStatus } from "@/lib/profile";
 import type {
-  DiscoveryActionName,
   NotificationFeed,
   NotificationFeedEventAlert,
-  NotificationFeedLike,
   NotificationKind,
   PaymentPurpose,
   PaymentStatus,
@@ -156,25 +148,20 @@ type FeedSeenItem = {
   entityId: string;
 };
 
-type NotificationTabKey = "likes" | "rooms" | "events" | "notifications";
+type NotificationTabKey = "messages" | "rooms" | "events" | "notifications";
 
 export function NotificationsTab({
   token,
   userId,
-  onMatchCreated,
   onNotificationsChanged,
 }: {
   token: string;
   userId: string;
-  onMatchCreated: () => void;
   onNotificationsChanged: () => void;
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
-  const [viewedLiker, setViewedLiker] = useState<NotificationFeedLike | null>(null);
-  const [actionTargetId, setActionTargetId] = useState<string | null>(null);
-  const [activeNotificationTab, setActiveNotificationTab] = useState<NotificationTabKey>("likes");
+  const [activeNotificationTab, setActiveNotificationTab] = useState<NotificationTabKey>("messages");
   const submittedSeenKeysRef = useRef<Set<string>>(new Set());
   const { data: cachedFeed, error: feedError, isFetching: isLoading, refetch: refetchFeed } = useQuery({
     queryKey: queryKeys.notifications(userId),
@@ -187,46 +174,10 @@ export function NotificationsTab({
   const feed = cachedFeed ?? null;
   const queryErrorNotice = feedError ? getUserErrorMessage(feedError) : null;
 
-  const setFeed = useCallback((updater: NotificationFeed | ((current: NotificationFeed | null) => NotificationFeed | null)) => {
-    queryClient.setQueryData<NotificationFeed | null>(queryKeys.notifications(userId), (current) =>
-      typeof updater === "function" ? updater(current ?? null) : updater
-    );
-  }, [queryClient, userId]);
-
   const loadFeed = useCallback(async () => {
     setNotice(null);
     await refetchFeed();
   }, [refetchFeed]);
-
-  async function handleLikeAction(liker: NotificationFeedLike, action: DiscoveryActionName) {
-    if (actionTargetId) return;
-
-    setActionTargetId(liker.id);
-
-    try {
-      const result = await apiRequest<{ matched: boolean }>("/discovery/actions", {
-        method: "POST",
-        headers: authHeaders(token),
-        body: JSON.stringify({ targetUserId: liker.id, action }),
-      });
-
-      setFeed((current) =>
-        current ? { ...current, likes: current.likes.filter((candidate) => candidate.id !== liker.id) } : current
-      );
-      setViewedLiker(null);
-
-      if (result.matched) {
-        onMatchCreated();
-        setNotice(`You matched with ${liker.displayName}.`);
-      }
-
-      onNotificationsChanged();
-    } catch (error) {
-      setNotice(getUserErrorMessage(error));
-    } finally {
-      setActionTargetId(null);
-    }
-  }
 
   const markFeedItemsSeen = useCallback(
     async (currentFeed: NotificationFeed) => {
@@ -263,12 +214,6 @@ export function NotificationsTab({
   const markActiveTabSeen = useCallback(
     async (currentFeed: NotificationFeed, tab: NotificationTabKey) => {
       const candidates: FeedSeenItem[] = [];
-
-      if (tab === "likes") {
-        for (const match of currentFeed.matches) {
-          candidates.push({ kind: "MATCH_CREATED", entityId: match.id });
-        }
-      }
 
       if (tab === "events") {
         for (const alert of currentFeed.eventAlerts) {
@@ -389,81 +334,35 @@ export function NotificationsTab({
     return () => window.clearTimeout(timer);
   }, [feed, activeNotificationTab, markActiveTabSeen]);
 
-  if (viewedLiker) {
-    return (
-      <MemberProfileView
-        candidate={viewedLiker}
-        onBack={() => setViewedLiker(null)}
-        backLabel="Back to notifications"
-        token={token}
-        showSafetyActions
-        onBlocked={(candidate) => {
-          setFeed((current) =>
-            current ? { ...current, likes: current.likes.filter((liker) => liker.id !== candidate.id) } : current
-          );
-          setViewedLiker(null);
-          setNotice("Profile blocked.");
-          onNotificationsChanged();
-        }}
-        footer={
-          <div className="flex gap-3 border-t border-black/5 bg-surface p-4">
-            <button
-              type="button"
-              className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-black/8 text-sm font-medium text-ink-600 transition hover:bg-surface-muted disabled:opacity-60"
-              onClick={() => handleLikeAction(viewedLiker, "PASS")}
-              disabled={actionTargetId === viewedLiker.id}
-            >
-              <X className="size-4" aria-hidden="true" />
-              Pass
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-brand-strong text-sm font-medium text-white transition hover:bg-brand-deep disabled:opacity-60"
-              onClick={() => handleLikeAction(viewedLiker, "LIKE")}
-              disabled={actionTargetId === viewedLiker.id}
-            >
-              {actionTargetId === viewedLiker.id ? (
-                <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Heart className="size-4" aria-hidden="true" />
-              )}
-              Like back
-            </button>
-          </div>
-        }
-      />
-    );
-  }
-
   const tabCounts: Record<NotificationTabKey, number> = feed
     ? {
-      likes: feed.likes.length + feed.matches.filter((m) => !m.seen).length + feed.directMessages.length,
+      messages: feed.directMessages.length,
       rooms: feed.roomMessages.length,
       events: feed.eventAlerts.length + feed.tickets.length + feed.events.length,
       notifications: feed.subscriptionAlerts.length + feed.reportUpdates.length + feed.paymentAlerts.length,
     }
     : {
-      likes: 0,
+      messages: 0,
       rooms: 0,
       events: 0,
       notifications: 0,
     };
   const tabHasContent: Record<NotificationTabKey, boolean> = feed
     ? {
-      likes: feed.likes.length > 0 || feed.matches.length > 0 || feed.directMessages.length > 0,
+      messages: feed.directMessages.length > 0,
       rooms: feed.roomMessages.length > 0,
       events: feed.eventAlerts.length > 0 || feed.tickets.length > 0 || feed.events.length > 0,
       notifications: feed.subscriptionAlerts.length > 0 || feed.reportUpdates.length > 0 || feed.paymentAlerts.length > 0,
     }
-    : { likes: false, rooms: false, events: false, notifications: false };
+    : { messages: false, rooms: false, events: false, notifications: false };
   const notificationTabs: Array<{ id: NotificationTabKey; label: string; count: number }> = [
-    { id: "likes", label: "Likes", count: tabCounts.likes },
+    { id: "messages", label: "Messages", count: tabCounts.messages },
     { id: "rooms", label: "Event chats", count: tabCounts.rooms },
     { id: "events", label: "Events", count: tabCounts.events },
     { id: "notifications", label: "Others", count: tabCounts.notifications },
   ];
   const emptyTabCopy: Record<NotificationTabKey, string> = {
-    likes: "No likes, matches, or direct messages right now.",
+    messages: "No message updates right now.",
     rooms: "No unread event chat messages right now.",
     events: "No event alerts, tickets, or upcoming events right now.",
     notifications: "No membership, payment, or report updates right now.",
@@ -473,19 +372,7 @@ export function NotificationsTab({
   return (
     <section>
       <h1 className="sr-only">Notifications</h1>
-      <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
-        <div className="mb-4 flex items-center justify-end">
-          <button
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-ink-600 transition hover:text-ink"
-            onClick={() => void loadFeed()}
-            disabled={isLoading}
-            aria-label="Refresh notifications"
-            title="Refresh"
-          >
-            <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" />
-          </button>
-        </div>
-
+      <div className="px-5 pb-24 pt-6 md:px-8 md:pt-8">
         {notice ?? queryErrorNotice ? (
           <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice ?? queryErrorNotice}</p>
         ) : null}
@@ -503,7 +390,7 @@ export function NotificationsTab({
               <Bell className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Nothing new</h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">
-                Likes, matches, event chats, events, tickets, payments, and report updates will appear here.
+                Messages, event chats, events, tickets, payments, and report updates will appear here.
               </p>
             </div>
           </div>
@@ -546,90 +433,7 @@ export function NotificationsTab({
               </div>
             ) : (
               <div className="space-y-6">
-                {activeNotificationTab === "likes" && feed.likes.length > 0 ? (
-                  <div>
-                    <SectionHeader icon={Heart} label="Likes" count={feed.likes.length} />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {feed.likes.map((liker) => (
-                        <button
-                          key={liker.id}
-                          type="button"
-                          className="group flex items-center gap-4 rounded-[20px] border border-black/5 bg-surface p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-                          onClick={() => setViewedLiker(liker)}
-                        >
-                          <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-brand-tint">
-                            <CandidatePhoto candidate={liker} variant="thumb" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="truncate text-sm font-semibold text-ink">
-                                {liker.displayName}{liker.age ? `, ${liker.age}` : ""}
-                              </p>
-                              <Heart className="size-4 shrink-0 fill-heart text-heart" aria-hidden="true" />
-                            </div>
-                            <p className="mt-0.5 truncate text-xs text-ink-600">
-                              {[liker.city, liker.state].filter(Boolean).join(", ") || "Nigeria"}
-                              {liker.connectionStatus ? ` · ${formatConnectionStatus(liker.connectionStatus)}` : ""}
-                            </p>
-                            {liker.likedAt ? (
-                              <p className="mt-1 text-[11px] text-ink-300">{timeAgo(liker.likedAt)}</p>
-                            ) : null}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {activeNotificationTab === "likes" && feed.matches.length > 0 ? (
-                  <div>
-                    <SectionHeader icon={Users} label="New matches" count={feed.matches.filter((m) => !m.seen).length} />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {[...feed.matches]
-                        .sort((a, b) => {
-                          if (a.seen !== b.seen) return a.seen ? 1 : -1;
-                          return Date.parse(b.createdAt) - Date.parse(a.createdAt);
-                        })
-                        .map((match) => (
-                          <button
-                            key={match.id}
-                            type="button"
-                            className={`flex items-center gap-4 rounded-[20px] border bg-surface p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition ${
-                              match.seen
-                                ? "border-black/[0.03] opacity-50"
-                                : "border-black/5 hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-                            }`}
-                            onClick={() => {
-                              if (!match.seen) {
-                                void markFeedItemSeen({ kind: "MATCH_CREATED", entityId: match.id });
-                              }
-                              router.push(`/matches/${match.id}`);
-                            }}
-                          >
-                            <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-brand-tint">
-                              <CandidatePhoto candidate={match.user} variant="thumb" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="truncate text-sm font-semibold text-ink">{match.user.displayName}</p>
-                                {match.seen
-                                  ? <CheckCircle2 className="size-4 shrink-0 text-brand" aria-hidden="true" />
-                                  : <Heart className="size-4 shrink-0 fill-heart text-heart" aria-hidden="true" />
-                                }
-                              </div>
-                              <p className="mt-0.5 truncate text-xs text-ink-600">
-                                {match.seen ? "Match" : "New match"}
-                                {match.user.city ? ` · ${match.user.city}` : ""}
-                              </p>
-                              <p className="mt-1 text-[11px] text-ink-300">{timeAgo(match.createdAt)}</p>
-                            </div>
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {activeNotificationTab === "likes" && feed.directMessages.length > 0 ? (
+                {activeNotificationTab === "messages" && feed.directMessages.length > 0 ? (
                   <div>
                     <SectionHeader icon={MessageCircle} label="Direct messages" count={feed.directMessages.length} />
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -638,7 +442,7 @@ export function NotificationsTab({
                           key={message.id}
                           type="button"
                           className="group flex items-center gap-4 rounded-[20px] border border-black/5 bg-surface p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-                          onClick={() => router.push(`/matches/${message.matchId}`)}
+                          onClick={() => router.push(`/messages/${message.matchId}`)}
                         >
                           <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-brand-tint">
                             <CandidatePhoto candidate={message.user} variant="thumb" />
@@ -895,6 +699,16 @@ export function NotificationsTab({
           </div>
         ) : null}
       </div>
+      <button
+        type="button"
+        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full border border-black/8 bg-surface text-ink-600 shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition hover:text-ink disabled:opacity-60 md:right-8"
+        onClick={() => void loadFeed()}
+        disabled={isLoading}
+        aria-label="Refresh notifications"
+        title="Refresh"
+      >
+        <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" />
+      </button>
     </section>
   );
 }

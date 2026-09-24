@@ -73,7 +73,7 @@ export function MediaDetailSkeleton({
   );
 }
 
-/** Mirrors DiscoveryCandidateCard: tall photo, then bio, interest chips and the action stack. */
+/** Loading state for a discovery profile. */
 export function DiscoveryCardSkeleton({ label = "Loading discovery" }: { label?: string }) {
   return (
     <div role="status" aria-live="polite" aria-label={label}>

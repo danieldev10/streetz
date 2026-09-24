@@ -7,6 +7,7 @@ import type {
 export type DirectMessage = {
   id: string;
   matchId: string;
+  conversationId?: string;
   senderId: string;
   senderName: string;
   body: string;
@@ -16,9 +17,19 @@ export type DirectMessage = {
 };
 
 export type MatchThread = DiscoveryMatch & {
+  status?: "REQUESTED" | "ACTIVE" | "DECLINED" | "CLOSED" | "BLOCKED" | "UNMATCHED";
+  requestedById?: string | null;
+  requestDirection?: "SENT" | "RECEIVED" | null;
+  acceptedAt?: string | null;
+  closedAt?: string | null;
   lastMessage: DirectMessage | null;
   unreadCount: number;
   blockStatus: MatchBlockStatus;
+};
+
+export type ConversationRequests = {
+  received: MatchThread[];
+  sent: MatchThread[];
 };
 
 export type ChatRoom = {

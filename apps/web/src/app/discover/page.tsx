@@ -50,11 +50,11 @@ function resolveFromCache(
 function DiscoveryProfileGate({
   token,
   user,
-  onMatchCreated,
+  onConversationChanged,
 }: {
   token: string;
   user: StreetzUser;
-  onMatchCreated: () => void;
+  onConversationChanged: () => void;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -138,7 +138,8 @@ function DiscoveryProfileGate({
           readyProfile?.sexuality ?? "no-sexuality",
         ].join(":")}
         token={token}
-        onMatchCreated={onMatchCreated}
+        profile={readyProfile!}
+        onConversationChanged={onConversationChanged}
       />
     );
   }
@@ -202,7 +203,7 @@ export default function DiscoverPage() {
   return (
     <AuthenticatedRoute activeTab="discovery">
       {({ token, user, onMatchCreated }) => (
-        <DiscoveryProfileGate token={token} user={user} onMatchCreated={onMatchCreated} />
+        <DiscoveryProfileGate token={token} user={user} onConversationChanged={onMatchCreated} />
       )}
     </AuthenticatedRoute>
   );

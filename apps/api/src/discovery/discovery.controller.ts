@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ActiveSubscriptionGuard } from "../auth/guards/active-subscription.guard";
@@ -10,6 +10,7 @@ import { BlockUserDto } from "./dto/block-user.dto";
 import { DiscoveryActionDto } from "./dto/discovery-action.dto";
 import { ReportUserDto } from "./dto/report-user.dto";
 import { UnblockUserDto } from "./dto/unblock-user.dto";
+import { DiscoveryPeoplePageDto } from "./dto/discovery-people-page.dto";
 
 @ApiTags("discovery")
 @ApiBearerAuth()
@@ -24,6 +25,16 @@ export class DiscoveryController {
   @Get("candidates")
   getCandidates(@CurrentUser() user: AuthUser) {
     return this.discoveryService.getCandidates(user.id);
+  }
+
+  @Get("people")
+  getPeople(@CurrentUser() user: AuthUser, @Query() page: DiscoveryPeoplePageDto) {
+    return this.discoveryService.getPeople(user.id, page.cursor);
+  }
+
+  @Get("people/:userId")
+  getPerson(@CurrentUser() user: AuthUser, @Param("userId") targetUserId: string) {
+    return this.discoveryService.getPerson(user.id, targetUserId);
   }
 
   @Post("actions")

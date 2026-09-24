@@ -4,6 +4,7 @@ import { ConnectionStatus, Gender, Sexuality } from "@prisma/client";
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsISO8601,
   IsInt,
@@ -76,6 +77,11 @@ export class UpdateProfileDto {
   @Type(() => Number)
   @IsLongitude()
   longitude?: number;
+
+  @ApiPropertyOptional({ description: "Remove precise coordinates and use city/state discovery." })
+  @IsOptional()
+  @IsBoolean()
+  clearCoordinates?: boolean;
 
   @ApiPropertyOptional({ example: 35 })
   @IsOptional()

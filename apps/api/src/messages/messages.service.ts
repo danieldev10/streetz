@@ -1,11 +1,14 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { AccountStatus, ConnectionStatus, MatchStatus, SubscriptionStatus } from "@prisma/client";
+import { AccountStatus, ConnectionStatus, FaceVerificationStatus, MatchStatus, Prisma, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
 import { countCheckedInStandardEvents } from "../common/attendance";
+import { isProfileSetupComplete } from "../common/profile-readiness";
+import { areDiscoveryProfilesCompatible } from "../discovery/discovery-compatibility";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { normalizeMessageContent } from "../common/message-content";
 import { getAccountAccessBlock } from "../users/account-status";
+import { VerificationService } from "../verification/verification.service";
 import { MessagePageDto } from "../common/dto/message-page.dto";
 
 type CandidateUser = {
@@ -40,6 +43,9 @@ type MatchWithUsers = {
   status: MatchStatus;
   userAId: string;
   userBId: string;
+  requestedById: string | null;
+  acceptedAt: Date | null;
+  closedAt: Date | null;
   userAConnectionStatusAtMatch: ConnectionStatus | null;
   userBConnectionStatusAtMatch: ConnectionStatus | null;
   userA: CandidateUser;
@@ -71,11 +77,29 @@ type DirectMessageReadReceipt = {
 
 type MatchBlockStatus = "NONE" | "BLOCKED_BY_ME" | "BLOCKED_ME" | "MUTUAL";
 
+type RequestParticipant = Prisma.UserGetPayload<{
+  select: {
+    id: true;
+    role: true;
+    accountStatus: true;
+    suspendedUntil: true;
+    subscriptionStatus: true;
+    subscriptionEndsAt: true;
+    faceVerificationStatus: true;
+    profile: true;
+    discoveryPreference: true;
+    photos: { select: { id: true } };
+  };
+}>;
+
+const DAILY_CONVERSATION_REQUEST_LIMIT = 10;
+
 @Injectable()
 export class MessagesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService
+    private readonly storage: StorageService,
+    private readonly verification: VerificationService
   ) {}
 
   async getMatches(userId: string) {
@@ -130,8 +154,176 @@ export class MessagesService {
     );
 
     return {
-      matches: formattedMatches.filter((match): match is NonNullable<typeof match> => Boolean(match))
+      matches: formattedMatches.filter((match): match is NonNullable<typeof match> => Boolean(match)),
+      conversations: formattedMatches.filter((match): match is NonNullable<typeof match> => Boolean(match))
     };
+  }
+
+  async getConversationRequests(userId: string) {
+    await this.ensureActiveSubscriber(userId);
+
+    const requests = await this.prisma.match.findMany({
+      where: {
+        status: MatchStatus.REQUESTED,
+        OR: [{ userAId: userId }, { userBId: userId }]
+      },
+      include: this.threadInclude(userId),
+      orderBy: { createdAt: "desc" }
+    });
+    const formatted = await Promise.all(requests.map((request) => this.formatMatch(request, userId)));
+
+    return {
+      received: formatted.filter((request) => request.requestDirection === "RECEIVED"),
+      sent: formatted.filter((request) => request.requestDirection === "SENT")
+    };
+  }
+
+  async createConversationRequest(userId: string, targetUserId: string, rawBody: string) {
+    await this.ensureActiveSubscriber(userId);
+    this.ensureDifferentUsers(userId, targetUserId);
+    const { body } = normalizeMessageContent(rawBody);
+    const pair = this.getConversationPair(userId, targetUserId);
+    const blockStatus = await this.getMatchBlockStatus(userId, targetUserId);
+
+    if (blockStatus !== "NONE") {
+      throw new ForbiddenException("This profile is not available for messages.");
+    }
+
+    const existing = await this.prisma.match.findUnique({
+      where: { userAId_userBId: pair },
+      include: this.threadInclude(userId)
+    });
+
+    if (existing) {
+      if (existing.status === MatchStatus.ACTIVE) {
+        const message = await this.createMessage(userId, existing.id, body);
+        return {
+          created: false,
+          accepted: true,
+          conversation: await this.getFormattedConversation(userId, existing.id),
+          message
+        };
+      }
+
+      if (existing.status === MatchStatus.REQUESTED && existing.requestedById === userId) {
+        return { created: false, conversation: await this.formatMatch(existing, userId), message: undefined };
+      }
+
+      if (existing.status === MatchStatus.REQUESTED && existing.requestedById === targetUserId) {
+        const [sender, target] = await Promise.all([
+          this.getRequestParticipant(userId),
+          this.getRequestParticipant(targetUserId)
+        ]);
+        this.assertDiscoverableRequestPair(sender, target);
+
+        const [, reply] = await this.prisma.$transaction([
+          this.prisma.match.update({
+            where: { id: existing.id },
+            data: { status: MatchStatus.ACTIVE, acceptedAt: new Date(), closedAt: null }
+          }),
+          this.prisma.directMessage.create({
+            data: { matchId: existing.id, senderId: userId, body }
+          })
+        ]);
+
+        return {
+          created: false,
+          accepted: true,
+          conversation: await this.getFormattedConversation(userId, existing.id),
+          message: this.formatMessage(reply)
+        };
+      }
+
+      throw new ForbiddenException("A previous conversation with this member is closed.");
+    }
+
+    const [sender, target, recentRequestCount] = await Promise.all([
+      this.getRequestParticipant(userId),
+      this.getRequestParticipant(targetUserId),
+      this.prisma.match.count({
+        where: {
+          requestedById: userId,
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        }
+      })
+    ]);
+
+    if (recentRequestCount >= DAILY_CONVERSATION_REQUEST_LIMIT) {
+      throw new ForbiddenException("You have reached today’s message request limit.");
+    }
+
+    this.assertDiscoverableRequestPair(sender, target);
+    const statusSnapshot = this.getConnectionStatusSnapshot(pair, userId, sender.profile!.connectionStatus!, target.profile!.connectionStatus!);
+
+    try {
+      const conversation = await this.prisma.$transaction(async (transaction) => {
+        const created = await transaction.match.create({
+          data: {
+            ...pair,
+            status: MatchStatus.REQUESTED,
+            requestedById: userId,
+            ...statusSnapshot
+          }
+        });
+
+        await transaction.directMessage.create({
+          data: { matchId: created.id, senderId: userId, body }
+        });
+
+        return created;
+      });
+
+      return { created: true, conversation: await this.getFormattedConversation(userId, conversation.id), message: undefined };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        const concurrent = await this.prisma.match.findUnique({
+          where: { userAId_userBId: pair },
+          include: this.threadInclude(userId)
+        });
+
+        if (concurrent) {
+          return { created: false, conversation: await this.formatMatch(concurrent, userId), message: undefined };
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  async acceptConversationRequest(userId: string, conversationId: string) {
+    await this.ensureActiveSubscriber(userId);
+    const request = await this.getReceivedRequest(userId, conversationId);
+    const requesterId = request.requestedById!;
+    const [requester, recipient, blockStatus] = await Promise.all([
+      this.getRequestParticipant(requesterId),
+      this.getRequestParticipant(userId),
+      this.getMatchBlockStatus(userId, requesterId)
+    ]);
+
+    if (blockStatus !== "NONE") {
+      throw new ForbiddenException("This message request is no longer available.");
+    }
+
+    this.assertDiscoverableRequestPair(requester, recipient);
+
+    await this.prisma.match.update({
+      where: { id: request.id },
+      data: { status: MatchStatus.ACTIVE, acceptedAt: new Date(), closedAt: null }
+    });
+
+    return { accepted: true, conversation: await this.getFormattedConversation(userId, request.id) };
+  }
+
+  async declineConversationRequest(userId: string, conversationId: string) {
+    await this.ensureActiveSubscriber(userId);
+    const request = await this.getReceivedRequest(userId, conversationId);
+
+    await this.prisma.match.update({
+      where: { id: request.id },
+      data: { status: MatchStatus.DECLINED, closedAt: new Date() }
+    });
+
+    return { declined: true, conversationId: request.id };
   }
 
   async getMessages(userId: string, matchId: string, page: MessagePageDto = new MessagePageDto()) {
@@ -259,6 +451,34 @@ export class MessagesService {
     };
   }
 
+  async closeConversation(userId: string, conversationId: string) {
+    await this.ensureActiveSubscriber(userId);
+
+    const conversation = await this.prisma.match.findFirst({
+      where: {
+        id: conversationId,
+        status: MatchStatus.ACTIVE,
+        OR: [{ userAId: userId }, { userBId: userId }]
+      },
+      select: { id: true, userAId: true, userBId: true }
+    });
+
+    if (!conversation) {
+      throw new ForbiddenException("This conversation is not available to close.");
+    }
+
+    await this.prisma.match.update({
+      where: { id: conversation.id },
+      data: { status: MatchStatus.CLOSED, closedAt: new Date() }
+    });
+
+    return {
+      closed: true,
+      conversationId: conversation.id,
+      otherUserId: this.getOtherUserId(conversation, userId)
+    };
+  }
+
   async getUnreadDirectMessageCount(userId: string) {
     await this.ensureActiveSubscriber(userId);
 
@@ -371,6 +591,13 @@ export class MessagesService {
     return {
       id: match.id,
       createdAt: match.createdAt,
+      status: match.status,
+      requestedById: match.requestedById,
+      requestDirection: match.status === MatchStatus.REQUESTED
+        ? match.requestedById === currentUserId ? "SENT" as const : "RECEIVED" as const
+        : null,
+      acceptedAt: match.acceptedAt,
+      closedAt: match.closedAt,
       matchedConnectionStatus: matchedConnectionStatus ?? otherUser.profile?.connectionStatus ?? null,
       user: await this.formatCandidate(otherUser),
       lastMessage: lastMessage ? this.formatMessage(lastMessage) : null,
@@ -468,6 +695,7 @@ export class MessagesService {
     return {
       id: message.id,
       matchId: message.matchId,
+      conversationId: message.matchId,
       senderId: message.senderId,
       senderName: message.sender?.displayName ?? "crushclub member",
       body: message.body,
@@ -486,6 +714,177 @@ export class MessagesService {
           take: 6
         }
       }
+    };
+  }
+
+  private threadInclude(userId: string) {
+    return {
+      userA: this.userInclude(),
+      userB: this.userInclude(),
+      messages: {
+        orderBy: { createdAt: "desc" as const },
+        take: 1,
+        include: {
+          sender: {
+            select: {
+              id: true,
+              displayName: true
+            }
+          }
+        }
+      },
+      readStates: {
+        where: { userId },
+        select: { lastReadAt: true },
+        take: 1
+      }
+    };
+  }
+
+  private async getFormattedConversation(userId: string, conversationId: string) {
+    const conversation = await this.prisma.match.findUnique({
+      where: { id: conversationId },
+      include: this.threadInclude(userId)
+    });
+
+    if (!conversation) {
+      throw new NotFoundException("Conversation not found.");
+    }
+
+    return this.formatMatch(conversation, userId);
+  }
+
+  private async getReceivedRequest(userId: string, conversationId: string) {
+    const request = await this.prisma.match.findFirst({
+      where: {
+        id: conversationId,
+        status: MatchStatus.REQUESTED,
+        requestedById: { not: userId },
+        OR: [{ userAId: userId }, { userBId: userId }]
+      },
+      select: { id: true, requestedById: true }
+    });
+
+    if (!request) {
+      throw new ForbiddenException("This message request is not available to you.");
+    }
+
+    return request;
+  }
+
+  private async getRequestParticipant(userId: string): Promise<RequestParticipant> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        accountStatus: true,
+        suspendedUntil: true,
+        subscriptionStatus: true,
+        subscriptionEndsAt: true,
+        faceVerificationStatus: true,
+        profile: true,
+        discoveryPreference: true,
+        photos: { select: { id: true }, take: 1 }
+      }
+    });
+
+    if (!user) {
+      throw new NotFoundException("Member not found.");
+    }
+
+    return user;
+  }
+
+  private assertDiscoverableRequestPair(sender: RequestParticipant, target: RequestParticipant) {
+    const now = new Date();
+    const senderBlock = getAccountAccessBlock(sender);
+    const targetBlock = getAccountAccessBlock(target);
+
+    if (
+      senderBlock ||
+      targetBlock ||
+      sender.role !== UserRole.USER ||
+      target.role !== UserRole.USER ||
+      sender.subscriptionStatus !== SubscriptionStatus.ACTIVE ||
+      !sender.subscriptionEndsAt ||
+      sender.subscriptionEndsAt <= now ||
+      target.subscriptionStatus !== SubscriptionStatus.ACTIVE ||
+      !target.subscriptionEndsAt ||
+      target.subscriptionEndsAt <= now
+    ) {
+      throw new ForbiddenException("This profile is not available for messages.");
+    }
+
+    if (
+      this.verification.isRequired() &&
+      (sender.faceVerificationStatus !== FaceVerificationStatus.VERIFIED || target.faceVerificationStatus !== FaceVerificationStatus.VERIFIED)
+    ) {
+      throw new ForbiddenException("Both members must be verified before messaging.");
+    }
+
+    if (
+      !isProfileSetupComplete({ profile: sender.profile, photos: sender.photos }) ||
+      !isProfileSetupComplete({ profile: target.profile, photos: target.photos }) ||
+      !sender.profile?.birthDate ||
+      !sender.profile.discoveryGender ||
+      !sender.profile.connectionStatus ||
+      !sender.discoveryPreference?.confirmedAt ||
+      sender.discoveryPreference.interestedInGenders.length === 0 ||
+      !target.profile?.birthDate ||
+      !target.profile.discoveryGender ||
+      !target.profile.connectionStatus ||
+      !target.discoveryPreference?.confirmedAt ||
+      target.discoveryPreference.interestedInGenders.length === 0
+    ) {
+      throw new ForbiddenException("Both members need complete discovery profiles before messaging.");
+    }
+
+    if (sender.profile.connectionStatus !== target.profile.connectionStatus) {
+      throw new ForbiddenException("This member’s discovery status has changed.");
+    }
+
+    if (!areDiscoveryProfilesCompatible({
+      birthDate: sender.profile.birthDate,
+      discoveryGender: sender.profile.discoveryGender,
+      interestedInGenders: sender.discoveryPreference.interestedInGenders,
+      minAge: sender.discoveryPreference.minAge,
+      maxAge: sender.discoveryPreference.maxAge
+    }, {
+      birthDate: target.profile.birthDate,
+      discoveryGender: target.profile.discoveryGender,
+      interestedInGenders: target.discoveryPreference.interestedInGenders,
+      minAge: target.discoveryPreference.minAge,
+      maxAge: target.discoveryPreference.maxAge
+    }, now)) {
+      throw new ForbiddenException("This profile is no longer available in your discovery preferences.");
+    }
+
+    if (sender.profile.state?.trim().toLowerCase() !== target.profile.state?.trim().toLowerCase()) {
+      throw new ForbiddenException("This profile is outside your selected state.");
+    }
+  }
+
+  private ensureDifferentUsers(userId: string, targetUserId: string) {
+    if (userId === targetUserId) {
+      throw new BadRequestException("You cannot message your own profile.");
+    }
+  }
+
+  private getConversationPair(userId: string, targetUserId: string) {
+    const [userAId, userBId] = [userId, targetUserId].sort();
+    return { userAId, userBId };
+  }
+
+  private getConnectionStatusSnapshot(
+    pair: { userAId: string; userBId: string },
+    senderId: string,
+    senderStatus: ConnectionStatus,
+    targetStatus: ConnectionStatus
+  ) {
+    return {
+      userAConnectionStatusAtMatch: pair.userAId === senderId ? senderStatus : targetStatus,
+      userBConnectionStatusAtMatch: pair.userBId === senderId ? senderStatus : targetStatus
     };
   }
 

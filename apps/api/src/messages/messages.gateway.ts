@@ -129,12 +129,13 @@ export class MessagesGateway implements OnGatewayConnection {
     await this.emitNotificationChanged(matchId);
   }
 
-  async emitNotificationChanged(matchId: string) {
+  async emitNotificationChanged(matchId: string, kind = "direct-message") {
     const participantIds = await this.messagesService.getMatchParticipantIds(matchId);
 
     for (const userId of participantIds) {
       this.server.to(getUserNotificationRoom(userId)).emit("notifications:changed", {
         source: "matches",
+        kind,
         matchId
       });
     }
