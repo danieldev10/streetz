@@ -82,6 +82,12 @@ export function validateEnvironment(config: Record<string, unknown>) {
   const secretKeyConfigured = hasAny(config, ["AWS_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY"]);
   if (accessKeyConfigured !== secretKeyConfigured) errors.push("AWS/S3 access key and secret key must be configured together");
 
+  const verificationAccessKeyConfigured = hasAny(config, ["AWS_VERIFICATION_ACCESS_KEY_ID", "FACE_VERIFICATION_ACCESS_KEY_ID"]);
+  const verificationSecretKeyConfigured = hasAny(config, ["AWS_VERIFICATION_SECRET_ACCESS_KEY", "FACE_VERIFICATION_SECRET_ACCESS_KEY"]);
+  if (verificationAccessKeyConfigured !== verificationSecretKeyConfigured) {
+    errors.push("face-verification access key and secret key must be configured together");
+  }
+
   if (nodeEnv === "production") {
     for (const key of REQUIRED_PRODUCTION_KEYS) {
       if (!read(config, key)) errors.push(key);

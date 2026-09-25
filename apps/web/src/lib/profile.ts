@@ -5,17 +5,17 @@ export const PROFILE_INTEREST_LIMIT = 12;
 export const MINIMUM_PROFILE_AGE = 18;
 
 export const connectionStatusOptions: Array<{ value: ConnectionStatus; label: string }> = [
-  { value: "MEET_NOW", label: "Meet Now" },
-  { value: "FWB", label: "FWB" },
-  { value: "JUST_FRIENDS", label: "Just Friends" },
-  { value: "DATING", label: "Dating" },
+  { value: "CHILL", label: "Chill" },
+  { value: "PARTY", label: "Party" },
+  { value: "FOODIE", label: "Foodie" },
+  { value: "OPEN_TO_ANYTHING", label: "Open to Anything" },
 ];
 
 export const connectionStatusLabels: Record<ConnectionStatus, string> = {
-  MEET_NOW: "Meet Now",
-  FWB: "FWB",
-  JUST_FRIENDS: "Just Friends",
-  DATING: "Dating",
+  CHILL: "Chill",
+  PARTY: "Party",
+  FOODIE: "Foodie",
+  OPEN_TO_ANYTHING: "Open to Anything",
 };
 
 export const sexualityOptions: Array<{ value: Sexuality; label: string }> = [
@@ -213,7 +213,7 @@ export function getProfileSetupIssuesFromForm(
   }
 
   if (!form.connectionStatus) {
-    issues.push("choose what you are looking for");
+    issues.push("choose your status");
   }
 
   if (!form.city.trim()) {

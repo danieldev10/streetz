@@ -225,7 +225,7 @@ export class ProfilesService {
           ...locationUpdate,
           ...(maxDistanceKm === undefined ? {} : { maxDistanceKm }),
           interests: interests ?? [],
-          discoveryLive: true
+          discoveryLive: dto.discoveryLive ?? true
         },
         update: {
           bio: dto.bio === undefined ? undefined : this.cleanNullableText(dto.bio),
@@ -238,7 +238,7 @@ export class ProfilesService {
           ...locationUpdate,
           ...(maxDistanceKm === undefined ? {} : { maxDistanceKm }),
           interests,
-          discoveryLive: true
+          discoveryLive: dto.discoveryLive
         },
         include: {
           user: {

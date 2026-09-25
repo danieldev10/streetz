@@ -1,5 +1,6 @@
 import type { ChangeEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
-import { Camera, LoaderCircle, MapPin, Trash2, X } from "lucide-react";
+import { Camera, LoaderCircle, MapPin, Sparkles, Trash2, X } from "lucide-react";
+import { CustomSelect } from "@/components/custom-select";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import {
   PROFILE_INTEREST_LIMIT,
@@ -125,25 +126,16 @@ export function ProfileEditorView({
               required={isSetupMode}
             />
           </Field>
-          <Field label="Looking for?">
-            <select
-              className={inputClassName}
+          {isSetupMode ? (
+            <CustomSelect
+              label="Status"
               value={form.connectionStatus}
-              onChange={(event) =>
-                onChangeForm({ connectionStatus: event.target.value as ConnectionStatus | "" })
-              }
-              required={isSetupMode}
-            >
-              <option value="" disabled>
-                Choose what you are looking for
-              </option>
-              {connectionStatusOptions.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+              options={connectionStatusOptions}
+              onChange={(connectionStatus: ConnectionStatus) => onChangeForm({ connectionStatus })}
+              icon={Sparkles}
+              placeholder="Choose your status"
+            />
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Date of birth">
               <input

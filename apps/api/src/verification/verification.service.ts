@@ -368,8 +368,18 @@ export class VerificationService {
   }
 
   private getClient() {
-    const accessKeyId = this.getOptionalConfig("AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID");
-    const secretAccessKey = this.getOptionalConfig("AWS_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY");
+    const accessKeyId = this.getOptionalConfig(
+      "AWS_VERIFICATION_ACCESS_KEY_ID",
+      "FACE_VERIFICATION_ACCESS_KEY_ID",
+      "AWS_ACCESS_KEY_ID",
+      "S3_ACCESS_KEY_ID"
+    );
+    const secretAccessKey = this.getOptionalConfig(
+      "AWS_VERIFICATION_SECRET_ACCESS_KEY",
+      "FACE_VERIFICATION_SECRET_ACCESS_KEY",
+      "AWS_SECRET_ACCESS_KEY",
+      "S3_SECRET_ACCESS_KEY"
+    );
 
     return new RekognitionClient({
       region: this.getRegion(),

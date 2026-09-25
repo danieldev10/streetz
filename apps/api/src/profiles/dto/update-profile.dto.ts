@@ -54,6 +54,11 @@ export class UpdateProfileDto {
   @IsEnum(ConnectionStatus)
   connectionStatus?: ConnectionStatus;
 
+  @ApiPropertyOptional({ description: "Whether this profile appears in the discovery pool" })
+  @IsOptional()
+  @IsBoolean()
+  discoveryLive?: boolean;
+
   @ApiPropertyOptional({ example: "Lagos" })
   @IsOptional()
   @IsString()

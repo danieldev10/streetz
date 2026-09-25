@@ -40,6 +40,13 @@ test("enabled face verification requires its audit bucket", () => {
   );
 });
 
+test("separate face-verification credentials must be configured together", () => {
+  assert.throws(
+    () => validateEnvironment(productionEnvironment({ AWS_VERIFICATION_ACCESS_KEY_ID: "verification-access-key" })),
+    /face-verification access key and secret key must be configured together/
+  );
+});
+
 test("development remains usable without production integrations", () => {
   const environment = { NODE_ENV: "development", WEB_APP_URL: "http://localhost:3000" };
   assert.equal(validateEnvironment(environment), environment);

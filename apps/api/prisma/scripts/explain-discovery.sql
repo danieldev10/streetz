@@ -19,7 +19,7 @@ INSERT INTO "Profile" (
   "city", "state", "latitude", "longitude", "location", "locationUpdatedAt", "maxDistanceKm", "interests",
   "discoveryLive", "createdAt", "updatedAt"
 ) VALUES (
-  'perf-profile-viewer', 'perf-viewer', 'Performance viewer profile', DATE '1994-01-01', 'MAN', 'MAN', 'BISEXUAL', 'DATING',
+  'perf-profile-viewer', 'perf-viewer', 'Performance viewer profile', DATE '1994-01-01', 'MAN', 'MAN', 'BISEXUAL', 'OPEN_TO_ANYTHING',
   'Lagos', 'Lagos', 6.5244, 3.3792, ST_SetSRID(ST_MakePoint(3.3792, 6.5244), 4326)::geography, NOW(), 50,
   ARRAY['music', 'travel'], TRUE, NOW(), NOW()
 );
@@ -61,7 +61,7 @@ SELECT
   CASE number % 3 WHEN 0 THEN 'MAN'::"Gender" WHEN 1 THEN 'WOMAN'::"Gender" ELSE 'NON_BINARY'::"Gender" END,
   CASE number % 3 WHEN 0 THEN 'MAN'::"DiscoveryGender" WHEN 1 THEN 'WOMAN'::"DiscoveryGender" ELSE 'NON_BINARY'::"DiscoveryGender" END,
   'BISEXUAL',
-  CASE number % 4 WHEN 0 THEN 'MEET_NOW'::"ConnectionStatus" WHEN 1 THEN 'FWB'::"ConnectionStatus" WHEN 2 THEN 'JUST_FRIENDS'::"ConnectionStatus" ELSE 'DATING'::"ConnectionStatus" END,
+  CASE number % 4 WHEN 0 THEN 'CHILL'::"ConnectionStatus" WHEN 1 THEN 'PARTY'::"ConnectionStatus" WHEN 2 THEN 'FOODIE'::"ConnectionStatus" ELSE 'OPEN_TO_ANYTHING'::"ConnectionStatus" END,
   'Lagos',
   'Lagos',
   6.5244 + floor(number / 100.0) * 0.001,

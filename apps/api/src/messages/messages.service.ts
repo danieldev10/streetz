@@ -840,10 +840,6 @@ export class MessagesService {
       throw new ForbiddenException("Both members need complete discovery profiles before messaging.");
     }
 
-    if (sender.profile.connectionStatus !== target.profile.connectionStatus) {
-      throw new ForbiddenException("This member’s discovery status has changed.");
-    }
-
     if (!areDiscoveryProfilesCompatible({
       birthDate: sender.profile.birthDate,
       discoveryGender: sender.profile.discoveryGender,

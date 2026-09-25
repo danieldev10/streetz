@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Compass, LoaderCircle, MapPin, MessageCircle, SlidersHorizontal, Sparkles, UserRoundSearch } from "lucide-react";
+import { Compass, Eye, EyeOff, LoaderCircle, MapPin, MessageCircle, Sparkles, UserRoundSearch } from "lucide-react";
 import { CustomSelect } from "@/components/custom-select";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { DiscoveryPreferencesForm } from "@/features/discovery/discovery-preferences-form";
@@ -42,14 +42,17 @@ export function DiscoveryTab({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<ConnectionStatus>(initialProfile.connectionStatus ?? "DATING");
+  const [status, setStatus] = useState<ConnectionStatus>(initialProfile.connectionStatus ?? "OPEN_TO_ANYTHING");
   const [stateName, setStateName] = useState(initialProfile.state ?? "");
+  const [isInDiscoveryPool, setIsInDiscoveryPool] = useState(initialProfile.discoveryLive);
   const [people, setPeople] = useState<DiscoveryCandidate[]>([]);
-  const [activeSearch, setActiveSearch] = useState<{ state: string; status: ConnectionStatus } | null>(null);
+  const [activeSearch, setActiveSearch] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [viewedProfile, setViewedProfile] = useState<DiscoveryCandidate | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
@@ -92,7 +95,6 @@ export function DiscoveryTab({
       method: "PUT",
       headers: authHeaders(token),
       body: JSON.stringify({
-        connectionStatus: status,
         state: trimmedState,
       }),
     });
@@ -102,6 +104,12 @@ export function DiscoveryTab({
 
   async function searchPeople(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+
+    if (!isInDiscoveryPool) {
+      setNotice("Enter the discovery pool before discovering people.");
+      return;
+    }
+
     setIsSearching(true);
     setNotice(null);
 
@@ -112,7 +120,7 @@ export function DiscoveryTab({
       });
       setPeople(response.people);
       setNextCursor(response.nextCursor);
-      setActiveSearch({ state: stateName, status });
+      setActiveSearch(stateName.trim());
       setHasSearched(true);
     } catch (error) {
       setNotice(error instanceof Error && !("status" in error) ? error.message : getUserErrorMessage(error));
@@ -121,8 +129,66 @@ export function DiscoveryTab({
     }
   }
 
+  async function toggleDiscoveryPool() {
+    if (isUpdatingVisibility) return;
+
+    const nextVisibility = !isInDiscoveryPool;
+    setIsUpdatingVisibility(true);
+    setNotice(null);
+
+    try {
+      const saved = await apiRequest<StreetzProfile>("/profiles/me", {
+        method: "PUT",
+        headers: authHeaders(token),
+        body: JSON.stringify({ discoveryLive: nextVisibility }),
+      });
+
+      setIsInDiscoveryPool(saved.discoveryLive);
+      queryClient.setQueryData(queryKeys.profile(saved.user.id), saved);
+
+      if (!saved.discoveryLive) {
+        setPeople([]);
+        setNextCursor(null);
+        setActiveSearch(null);
+        setHasSearched(false);
+        setViewedProfile(null);
+      }
+
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    } finally {
+      setIsUpdatingVisibility(false);
+    }
+  }
+
+  async function updateStatus(nextStatus: ConnectionStatus) {
+    if (isUpdatingStatus || nextStatus === status) return;
+
+    const previousStatus = status;
+    setStatus(nextStatus);
+    setIsUpdatingStatus(true);
+    setNotice(null);
+
+    try {
+      const saved = await apiRequest<StreetzProfile>("/profiles/me", {
+        method: "PUT",
+        headers: authHeaders(token),
+        body: JSON.stringify({ connectionStatus: nextStatus }),
+      });
+
+      setStatus(saved.connectionStatus ?? nextStatus);
+      queryClient.setQueryData(queryKeys.profile(saved.user.id), saved);
+      setNotice(`Status updated to ${formatConnectionStatus(saved.connectionStatus)}.`);
+    } catch (error) {
+      setStatus(previousStatus);
+      setNotice(getUserErrorMessage(error));
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  }
+
   async function loadMore() {
-    if (!nextCursor || isLoadingMore) return;
+    if (!isInDiscoveryPool || !nextCursor || isLoadingMore) return;
     setIsLoadingMore(true);
     setNotice(null);
 
@@ -233,16 +299,16 @@ export function DiscoveryTab({
         <form onSubmit={searchPeople}>
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <CustomSelect
-              label="Status"
+              label={isUpdatingStatus ? "Updating status" : "Your status"}
               value={status}
               options={connectionStatusOptions}
-              onChange={setStatus}
+              onChange={(nextStatus) => void updateStatus(nextStatus)}
               icon={Sparkles}
               menuClassName="left-0 w-[calc(200%+0.5rem)] sm:w-full"
             />
 
             <CustomSelect
-              label="State"
+              label="Filter by state"
               value={stateName}
               options={stateOptions.map((state) => ({ value: state, label: state }))}
               onChange={setStateName}
@@ -252,30 +318,53 @@ export function DiscoveryTab({
             />
           </div>
 
-          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2 sm:grid-cols-[minmax(0,1fr)_3rem] sm:gap-3">
+          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:gap-3">
             <button
               type="submit"
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:h-12"
-              disabled={isSearching || preferenceRequired}
+              disabled={isSearching || preferenceRequired || !isInDiscoveryPool}
             >
               {isSearching ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Compass className="size-4" aria-hidden="true" />}
               {isSearching ? "Finding people" : "Discover"}
             </button>
             <button
               type="button"
-              className="inline-flex size-11 items-center justify-center rounded-full border border-black/[0.08] bg-surface text-ink sm:size-12"
-              onClick={() => setIsPreferenceOpen(true)}
-              aria-label="Discovery preferences"
-              title="Discovery preferences"
+              className={`inline-flex h-11 min-w-[7.25rem] items-center justify-center gap-2 rounded-full border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 sm:h-12 sm:min-w-32 sm:text-sm ${
+                isInDiscoveryPool
+                  ? "border-brand/20 bg-brand-tint text-brand-deep"
+                  : "border-black/[0.08] bg-surface text-ink-600"
+              }`}
+              onClick={() => void toggleDiscoveryPool()}
+              disabled={isUpdatingVisibility}
+              aria-pressed={isInDiscoveryPool}
+              aria-label={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
+              title={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
             >
-              <SlidersHorizontal className="size-4" aria-hidden="true" />
+              {isUpdatingVisibility ? (
+                <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+              ) : isInDiscoveryPool ? (
+                <EyeOff className="size-4" aria-hidden="true" />
+              ) : (
+                <Eye className="size-4" aria-hidden="true" />
+              )}
+              {isInDiscoveryPool ? "Withdraw" : "Enter pool"}
             </button>
           </div>
         </form>
 
         {notice ? <p className="mt-4 rounded-[18px] bg-brand-tint p-4 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
-        {isLoadingProfile ? (
+        {!isInDiscoveryPool ? (
+          <div className="mt-7 grid min-h-64 place-items-center rounded-[28px] border border-black/[0.05] bg-surface-muted p-6 text-center">
+            <div>
+              <EyeOff className="mx-auto size-8 text-ink-400" aria-hidden="true" />
+              <h2 className="mt-3 text-2xl font-semibold">You are out of the pool</h2>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">
+                Enter the discovery pool to see and be seen by people in your state.
+              </p>
+            </div>
+          </div>
+        ) : isLoadingProfile ? (
           <div className="mt-6 flex min-h-48 items-center justify-center rounded-[24px] border border-black/[0.05]">
             <LoaderCircle className="size-6 animate-spin text-brand" aria-hidden="true" />
             <span className="sr-only">Loading profile</span>
@@ -284,8 +373,8 @@ export function DiscoveryTab({
           <div className="mt-7">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold">People in {activeSearch?.state ?? stateName}</h2>
-                <p className="mt-1 text-sm text-ink-500">Showing people looking for {formatConnectionStatus(activeSearch?.status ?? status).toLowerCase()}.</p>
+                <h2 className="text-xl font-semibold">People in {activeSearch ?? stateName}</h2>
+                <p className="mt-1 text-sm text-ink-500">Profiles available in this state.</p>
               </div>
               <span className="text-sm font-medium text-ink-400">{people.length} found</span>
             </div>
@@ -307,6 +396,10 @@ export function DiscoveryTab({
                       <p className="mt-1 flex items-center gap-1 truncate text-xs font-medium text-ink-500">
                         <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
                         {person.state ?? "Nigeria"}
+                      </p>
+                      <p className="mt-1 flex items-center gap-1 truncate text-xs font-semibold text-brand-strong">
+                        <Sparkles className="size-3.5 shrink-0" aria-hidden="true" />
+                        {formatConnectionStatus(person.connectionStatus)}
                       </p>
                     </button>
                     <div className="mt-3 flex gap-2">
@@ -349,7 +442,7 @@ export function DiscoveryTab({
             <div>
               <UserRoundSearch className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No one found yet</h2>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">Try another state or status, or search again later.</p>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">Try another state or search again later.</p>
             </div>
           </div>
         ) : null}

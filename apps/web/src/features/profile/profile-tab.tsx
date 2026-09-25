@@ -90,7 +90,7 @@ export function ProfileTab({
   const profileLocation = [profileForm.city, profileForm.state].filter(Boolean).join(", ") || "Nigeria";
   const profileDisplayName = profileForm.displayName.trim() || user.displayName;
   const hasGpsLocation = profileForm.latitude !== null && profileForm.longitude !== null;
-  const profileStatusLabel = profileForm.connectionStatus ? formatConnectionStatus(profileForm.connectionStatus) : "Looking for?";
+  const profileStatusLabel = profileForm.connectionStatus ? formatConnectionStatus(profileForm.connectionStatus) : "Status";
   const stateOptions = profileForm.state && !nigeriaStateNames.includes(profileForm.state)
     ? [...nigeriaStateNames, profileForm.state]
     : nigeriaStateNames;

@@ -107,7 +107,7 @@ export class DiscoveryService {
             bio: { not: null },
             birthDate: this.getBirthDateWhere(currentProfile.minAge, currentProfile.maxAge, now),
             discoveryGender: { in: currentProfile.interestedInGenders },
-            connectionStatus: currentProfile.connectionStatus,
+            connectionStatus: { not: null },
             state: currentProfile.state === null ? null : { equals: currentProfile.state, mode: "insensitive" },
             discoveryLive: true,
             interests: { isEmpty: false }
@@ -206,7 +206,6 @@ export class DiscoveryService {
       !target.profile.discoveryGender ||
       !target.profile.connectionStatus ||
       !target.profile.discoveryLive ||
-      target.profile.connectionStatus !== currentProfile.connectionStatus ||
       !target.discoveryPreference?.confirmedAt ||
       target.discoveryPreference.interestedInGenders.length === 0 ||
       !areDiscoveryProfilesCompatible(currentProfile, {
@@ -787,6 +786,7 @@ export class DiscoveryService {
             birthDate: true,
             discoveryGender: true,
             connectionStatus: true,
+            discoveryLive: true,
             city: true,
             state: true,
             latitude: true,
@@ -835,6 +835,10 @@ export class DiscoveryService {
       preference.interestedInGenders.length === 0
     ) {
       throw new ForbiddenException("Complete your profile setup before using discovery.");
+    }
+
+    if (!profile.discoveryLive) {
+      throw new ForbiddenException("Enter the discovery pool before discovering people.");
     }
 
     return {
@@ -935,7 +939,6 @@ export class DiscoveryService {
             AND candidate_profile."city" IS NOT NULL
             AND candidate_profile."state" IS NOT NULL
             AND candidate_profile."connectionStatus" IS NOT NULL
-            AND candidate_profile."connectionStatus" = CAST(${profile.connectionStatus} AS "ConnectionStatus")
             AND candidate_profile."discoveryLive" = TRUE
             AND cardinality(candidate_profile."interests") > 0
             AND candidate_profile."location" IS NOT NULL
@@ -979,7 +982,7 @@ export class DiscoveryService {
   private rankCandidates<T extends {
     id: string;
     lastDiscoveryActiveAt: Date;
-    profile: { connectionStatus: ConnectionStatus | null; interests: string[]; bio: string | null } | null;
+    profile: { interests: string[]; bio: string | null } | null;
     photos: unknown[];
   }>(
     rows: Array<{ candidate: T; distanceKm: number | null }>,
@@ -998,14 +1001,12 @@ export class DiscoveryService {
         const candidateInterests = candidate.profile?.interests ?? [];
         const sharedInterestCount = candidateInterests.filter((interest) => viewerInterests.has(interest.toLowerCase())).length;
         const interestScore = Math.min(1, sharedInterestCount / 3);
-        const connectionScore = candidate.profile?.connectionStatus === viewer.connectionStatus ? 1 : 0.35;
         const profileScore = Math.min(1, ((candidate.profile?.bio?.length ?? 0) / 200) * 0.5 + (candidate.photos.length / 4) * 0.5);
         const explorationScore = seededUnitInterval(`${viewerId}:${candidate.id}:${now.toISOString().slice(0, 10)}`);
         const score =
-          distanceScore * 0.45 +
+          distanceScore * 0.55 +
           activityScore * 0.1 +
           interestScore * 0.15 +
-          connectionScore * 0.1 +
           profileScore * 0.15 +
           explorationScore * 0.05;
 

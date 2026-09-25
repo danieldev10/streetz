@@ -60,10 +60,10 @@ enum Sexuality {
 }
 
 enum ConnectionStatus {
-  MEET_NOW
-  FWB
-  JUST_FRIENDS
-  DATING
+  CHILL
+  PARTY
+  FOODIE
+  OPEN_TO_ANYTHING
 }
 
 enum DiscoveryAction {

@@ -3,7 +3,7 @@ const { test } = require("node:test");
 const { AccountStatus, ConnectionStatus, DiscoveryGender, MatchStatus, SubscriptionStatus, UserRole } = require("@prisma/client");
 const { MessagesService } = require("../dist/src/messages/messages.service.js");
 
-function participant(id) {
+function participant(id, connectionStatus) {
   return {
     id,
     email: `${id}@example.com`,
@@ -21,7 +21,7 @@ function participant(id) {
       discoveryGender: DiscoveryGender.WOMAN,
       showGender: true,
       sexuality: null,
-      connectionStatus: ConnectionStatus.JUST_FRIENDS,
+      connectionStatus,
       city: "Lagos",
       state: "Lagos",
       latitude: 6.5244,
@@ -43,7 +43,10 @@ function participant(id) {
 }
 
 test("a message request creates one pending conversation and one introduction", async () => {
-  const users = { a: participant("a"), b: participant("b") };
+  const users = {
+    a: participant("a", ConnectionStatus.CHILL),
+    b: participant("b", ConnectionStatus.PARTY),
+  };
   let conversation = null;
   const messages = [];
   const prisma = {
@@ -104,6 +107,8 @@ test("a message request creates one pending conversation and one introduction", 
   assert.equal(first.created, true);
   assert.equal(first.conversation.status, MatchStatus.REQUESTED);
   assert.equal(first.conversation.requestDirection, "SENT");
+  assert.equal(conversation.userAConnectionStatusAtMatch, ConnectionStatus.CHILL);
+  assert.equal(conversation.userBConnectionStatusAtMatch, ConnectionStatus.PARTY);
   assert.equal(second.created, false);
   assert.equal(messages.length, 1);
   assert.equal(messages[0].body, "Hi Bola");

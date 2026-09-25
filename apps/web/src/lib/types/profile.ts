@@ -9,7 +9,7 @@ export type Sexuality =
   | "ASEXUAL"
   | "QUEER"
   | "PREFER_NOT_TO_SAY";
-export type ConnectionStatus = "MEET_NOW" | "FWB" | "JUST_FRIENDS" | "DATING";
+export type ConnectionStatus = "CHILL" | "PARTY" | "FOODIE" | "OPEN_TO_ANYTHING";
 
 export type ProfilePhoto = {
   id: string;
