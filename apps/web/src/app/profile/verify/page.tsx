@@ -3,6 +3,7 @@
 import "@aws-amplify/ui-react/styles.css";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Amplify } from "aws-amplify";
 import { FaceLivenessDetector } from "@aws-amplify/ui-react-liveness";
 import { AlertTriangle, ArrowLeft, Camera, CheckCircle2, LoaderCircle, ShieldCheck } from "lucide-react";
@@ -10,6 +11,7 @@ import { AuthenticatedRoute } from "@/components/app/authenticated-route";
 import { DetailSkeleton } from "@/components/skeletons";
 import { useSession } from "@/components/app/session-provider";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { queryKeys } from "@/lib/query-keys";
 import type { FaceVerificationState } from "@/lib/types";
 
 type LivenessSession = {
@@ -57,7 +59,9 @@ function configureAmplifyForLiveness() {
 function FaceVerificationContent({ token }: { token: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { refreshSession } = useSession();
+  const queryClient = useQueryClient();
+  const { refreshSession, user } = useSession();
+  const userId = user?.id;
   const nextPath = useMemo(() => searchParams.get("next") || "/profile", [searchParams]);
   const [state, setState] = useState<FaceVerificationState | null>(null);
   const [livenessSession, setLivenessSession] = useState<LivenessSession | null>(null);
@@ -81,6 +85,9 @@ function FaceVerificationContent({ token }: { token: string }) {
 
         if (!cancelled) {
           setState(verification);
+          if (userId) {
+            queryClient.setQueryData(queryKeys.verification(userId), verification);
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -98,7 +105,7 @@ function FaceVerificationContent({ token }: { token: string }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [queryClient, token, userId]);
 
   async function startVerification() {
     setNotice(null);
@@ -146,7 +153,11 @@ function FaceVerificationContent({ token }: { token: string }) {
       setResult(completion);
       setState(verification);
       setLivenessSession(null);
+      if (userId) {
+        queryClient.setQueryData(queryKeys.verification(userId), verification);
+      }
       await refreshSession({ force: true });
+      router.replace(nextPath);
     } catch (error) {
       setNotice(getUserErrorMessage(error));
     } finally {

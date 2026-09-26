@@ -1,10 +1,10 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Compass, Eye, EyeOff, LoaderCircle, MapPin, MessageCircle, Sparkles, UserRoundSearch } from "lucide-react";
+import { Compass, Eye, EyeOff, LoaderCircle, MapPin, MessageCircle, RefreshCw, SlidersHorizontal, Sparkles, UserRoundSearch, X } from "lucide-react";
 import { CustomSelect } from "@/components/custom-select";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { DiscoveryPreferencesForm } from "@/features/discovery/discovery-preferences-form";
@@ -14,6 +14,7 @@ import { nigeriaStateNames } from "@/lib/nigeria-locations";
 import { connectionStatusOptions, formatConnectionStatus } from "@/lib/profile";
 import { queryKeys } from "@/lib/query-keys";
 import type { ConnectionStatus, DiscoveryCandidate, DiscoveryPreference, StreetzProfile } from "@/lib/types";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 type PeopleResponse = {
   people: DiscoveryCandidate[];
@@ -59,11 +60,35 @@ export function DiscoveryTab({
   const [messageTarget, setMessageTarget] = useState<DiscoveryCandidate | null>(null);
   const [introMessage, setIntroMessage] = useState("");
   const [isSendingRequest, setIsSendingRequest] = useState(false);
+  const [isControlsOpen, setIsControlsOpen] = useState(false);
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
   const [preferenceRequired, setPreferenceRequired] = useState(false);
+  const controlsDialogRef = useRef<HTMLElement | null>(null);
   const stateOptions = initialProfile.state && !nigeriaStateNames.includes(initialProfile.state)
     ? [...nigeriaStateNames, initialProfile.state]
     : nigeriaStateNames;
+
+  useDialogFocus(isControlsOpen, controlsDialogRef);
+
+  useEffect(() => {
+    if (!isControlsOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsControlsOpen(false);
+      }
+    }
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isControlsOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +147,7 @@ export function DiscoveryTab({
       setNextCursor(response.nextCursor);
       setActiveSearch(stateName.trim());
       setHasSearched(true);
+      setIsControlsOpen(false);
     } catch (error) {
       setNotice(error instanceof Error && !("status" in error) ? error.message : getUserErrorMessage(error));
     } finally {
@@ -294,64 +320,8 @@ export function DiscoveryTab({
   }
 
   return (
-    <section className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
+    <section className="px-5 pb-24 pt-6 md:px-8 md:pt-8">
       <div className="mx-auto max-w-4xl">
-        <form onSubmit={searchPeople}>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <CustomSelect
-              label={isUpdatingStatus ? "Updating status" : "Your status"}
-              value={status}
-              options={connectionStatusOptions}
-              onChange={(nextStatus) => void updateStatus(nextStatus)}
-              icon={Sparkles}
-              menuClassName="left-0 w-[calc(200%+0.5rem)] sm:w-full"
-            />
-
-            <CustomSelect
-              label="Filter by state"
-              value={stateName}
-              options={stateOptions.map((state) => ({ value: state, label: state }))}
-              onChange={setStateName}
-              icon={MapPin}
-              placeholder="Choose state"
-              menuClassName="right-0 w-[calc(200%+0.5rem)] sm:w-full"
-            />
-          </div>
-
-          <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:gap-3">
-            <button
-              type="submit"
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:h-12"
-              disabled={isSearching || preferenceRequired || !isInDiscoveryPool}
-            >
-              {isSearching ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Compass className="size-4" aria-hidden="true" />}
-              {isSearching ? "Finding people" : "Discover"}
-            </button>
-            <button
-              type="button"
-              className={`inline-flex h-11 min-w-[7.25rem] items-center justify-center gap-2 rounded-full border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 sm:h-12 sm:min-w-32 sm:text-sm ${
-                isInDiscoveryPool
-                  ? "border-brand/20 bg-brand-tint text-brand-deep"
-                  : "border-black/[0.08] bg-surface text-ink-600"
-              }`}
-              onClick={() => void toggleDiscoveryPool()}
-              disabled={isUpdatingVisibility}
-              aria-pressed={isInDiscoveryPool}
-              aria-label={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
-              title={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
-            >
-              {isUpdatingVisibility ? (
-                <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-              ) : isInDiscoveryPool ? (
-                <EyeOff className="size-4" aria-hidden="true" />
-              ) : (
-                <Eye className="size-4" aria-hidden="true" />
-              )}
-              {isInDiscoveryPool ? "Withdraw" : "Enter pool"}
-            </button>
-          </div>
-        </form>
-
         {notice ? <p className="mt-4 rounded-[18px] bg-brand-tint p-4 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {!isInDiscoveryPool ? (
@@ -381,45 +351,45 @@ export function DiscoveryTab({
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {people.map((person) => (
-                <article key={person.id} className="flex min-w-0 gap-4 rounded-[24px] border border-black/[0.05] bg-surface p-4 shadow-[0_2px_6px_rgba(0,0,0,0.03)]">
+                <article key={person.id} className="flex min-w-0 items-center gap-3 rounded-[22px] border border-black/[0.05] bg-surface p-3 shadow-[0_2px_6px_rgba(0,0,0,0.03)]">
                   <button
                     type="button"
-                    className="relative size-20 shrink-0 overflow-hidden rounded-[20px] bg-brand-tint"
+                    className="relative size-16 shrink-0 overflow-hidden rounded-[18px] bg-brand-tint"
                     onClick={() => void viewProfile(person)}
                     aria-label={`View ${person.displayName} profile`}
                   >
                     <CandidatePhoto candidate={person} variant="thumb" />
                   </button>
-                  <div className="min-w-0 flex-1">
-                    <button type="button" className="block max-w-full text-left" onClick={() => void viewProfile(person)}>
-                      <h3 className="truncate text-lg font-semibold">{person.displayName}{person.age ? `, ${person.age}` : ""}</h3>
-                      <p className="mt-1 flex items-center gap-1 truncate text-xs font-medium text-ink-500">
-                        <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-                        {person.state ?? "Nigeria"}
-                      </p>
-                      <p className="mt-1 flex items-center gap-1 truncate text-xs font-semibold text-brand-strong">
-                        <Sparkles className="size-3.5 shrink-0" aria-hidden="true" />
-                        {formatConnectionStatus(person.connectionStatus)}
-                      </p>
+                  <button type="button" className="min-w-0 flex-1 text-left" onClick={() => void viewProfile(person)}>
+                    <h3 className="truncate text-base font-semibold">{person.displayName}{person.age ? `, ${person.age}` : ""}</h3>
+                    <p className="mt-1 flex items-center gap-1 truncate text-xs font-medium text-ink-500">
+                      <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                      {person.state ?? "Nigeria"}
+                    </p>
+                    <p className="mt-1 flex items-center gap-1 truncate text-xs font-semibold text-brand-strong">
+                      <Sparkles className="size-3.5 shrink-0" aria-hidden="true" />
+                      {formatConnectionStatus(person.connectionStatus)}
+                    </p>
+                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-ink transition hover:border-black/[0.16] hover:bg-surface-muted"
+                      onClick={() => void viewProfile(person)}
+                      aria-label={`View ${person.displayName} profile`}
+                      title="View profile"
+                    >
+                      <UserRoundSearch className="size-4" aria-hidden="true" />
                     </button>
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        type="button"
-                        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-black/[0.08] px-3 text-xs font-semibold"
-                        onClick={() => void viewProfile(person)}
-                      >
-                        <UserRoundSearch className="size-3.5" aria-hidden="true" />
-                        Profile
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-brand-strong px-3 text-xs font-semibold text-white"
-                        onClick={() => openMessageComposer(person)}
-                      >
-                        <MessageCircle className="size-3.5" aria-hidden="true" />
-                        Message
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex size-10 items-center justify-center rounded-full bg-brand-strong text-white transition hover:bg-brand-deep"
+                      onClick={() => openMessageComposer(person)}
+                      aria-label={`Message ${person.displayName}`}
+                      title="Message"
+                    >
+                      <MessageCircle className="size-4" aria-hidden="true" />
+                    </button>
                   </div>
                 </article>
               ))}
@@ -447,6 +417,121 @@ export function DiscoveryTab({
           </div>
         ) : null}
       </div>
+
+      <button
+        type="button"
+        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex size-12 items-center justify-center rounded-full border border-black/[0.08] bg-surface text-ink-600 shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 md:bottom-8 md:left-8"
+        onClick={() => void searchPeople()}
+        disabled={isSearching || preferenceRequired || !isInDiscoveryPool || !stateName.trim()}
+        aria-label="Refresh people"
+        title="Refresh people"
+      >
+        <RefreshCw className={`size-4 ${isSearching ? "animate-spin" : ""}`} aria-hidden="true" />
+      </button>
+
+      <button
+        type="button"
+        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full bg-ink text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-ink/90 md:bottom-8 md:right-8"
+        onClick={() => setIsControlsOpen(true)}
+        aria-label="Open discovery controls"
+        aria-haspopup="dialog"
+        aria-expanded={isControlsOpen}
+        aria-controls="discovery-controls-dialog"
+        title="Discovery controls"
+      >
+        <SlidersHorizontal className="size-4" aria-hidden="true" />
+      </button>
+
+      {isControlsOpen ? (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
+          <button
+            type="button"
+            className="absolute inset-0"
+            onClick={() => setIsControlsOpen(false)}
+            aria-label="Close discovery controls"
+          />
+          <section
+            id="discovery-controls-dialog"
+            ref={controlsDialogRef}
+            className="relative w-full max-w-sm rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.2)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="discovery-controls-title"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Discovery</p>
+                <h2 id="discovery-controls-title" className="mt-1 text-xl font-semibold text-ink">Find your crowd</h2>
+                <p className="mt-1 text-sm leading-5 text-ink-500">Update your status and choose where to look.</p>
+              </div>
+              <button
+                type="button"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink"
+                onClick={() => setIsControlsOpen(false)}
+                aria-label="Close discovery controls"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <form className="mt-5" onSubmit={searchPeople}>
+              <div className="grid gap-3">
+                <CustomSelect
+                  label={isUpdatingStatus ? "Updating status" : "Your status"}
+                  value={status}
+                  options={connectionStatusOptions}
+                  onChange={(nextStatus) => void updateStatus(nextStatus)}
+                  icon={Sparkles}
+                />
+
+                <CustomSelect
+                  label="Filter by state"
+                  value={stateName}
+                  options={stateOptions.map((state) => ({ value: state, label: state }))}
+                  onChange={setStateName}
+                  icon={MapPin}
+                  placeholder="Choose state"
+                />
+              </div>
+
+              {notice ? <p className="mt-4 rounded-[18px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
+
+              <div className="mt-5 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                <button
+                  type="submit"
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isSearching || preferenceRequired || !isInDiscoveryPool}
+                >
+                  {isSearching ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Compass className="size-4" aria-hidden="true" />}
+                  {isSearching ? "Finding people" : "Discover"}
+                </button>
+                <button
+                  type="button"
+                  className={`inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isInDiscoveryPool
+                      ? "border-brand/20 bg-brand-tint text-brand-deep"
+                      : "border-black/[0.08] bg-surface text-ink-600"
+                  }`}
+                  onClick={() => void toggleDiscoveryPool()}
+                  disabled={isUpdatingVisibility}
+                  aria-pressed={isInDiscoveryPool}
+                  aria-label={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
+                  title={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
+                >
+                  {isUpdatingVisibility ? (
+                    <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                  ) : isInDiscoveryPool ? (
+                    <EyeOff className="size-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="size-4" aria-hidden="true" />
+                  )}
+                  {isInDiscoveryPool ? "Withdraw" : "Enter pool"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
 
       {messageTarget ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
