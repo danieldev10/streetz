@@ -50,6 +50,7 @@ export function DiscoveryTab({
   const [activeSearch, setActiveSearch] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -93,21 +94,53 @@ export function DiscoveryTab({
   useEffect(() => {
     let cancelled = false;
 
-    void apiRequest<DiscoveryPreference>("/profiles/me/discovery-preferences", { headers: authHeaders(token) })
-      .then((preference) => {
-        if (!cancelled && preference.needsConfirmation) {
+    async function initializeDiscovery() {
+      setIsInitializing(true);
+
+      try {
+        const preference = await apiRequest<DiscoveryPreference>("/profiles/me/discovery-preferences", {
+          headers: authHeaders(token),
+        });
+
+        if (cancelled) return;
+
+        if (preference.needsConfirmation) {
           setPreferenceRequired(true);
           setIsPreferenceOpen(true);
+          return;
         }
-      })
-      .catch((error) => {
+
+        const initialState = initialProfile.state?.trim();
+
+        if (!initialProfile.discoveryLive || !initialState) return;
+
+        setIsSearching(true);
+        const response = await apiRequest<PeopleResponse>("/discovery/people", {
+          headers: authHeaders(token),
+        });
+
+        if (cancelled) return;
+
+        setPeople(response.people);
+        setNextCursor(response.nextCursor);
+        setActiveSearch(initialState);
+        setHasSearched(true);
+      } catch (error) {
         if (!cancelled) setNotice(getUserErrorMessage(error));
-      });
+      } finally {
+        if (!cancelled) {
+          setIsSearching(false);
+          setIsInitializing(false);
+        }
+      }
+    }
+
+    void initializeDiscovery();
 
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [initialProfile.discoveryLive, initialProfile.state, token]);
 
   async function saveSearchSettings() {
     const trimmedState = stateName.trim();
@@ -332,6 +365,13 @@ export function DiscoveryTab({
               <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">
                 Enter the discovery pool to see and be seen by people in your state.
               </p>
+            </div>
+          </div>
+        ) : isInitializing || (isSearching && !hasSearched) ? (
+          <div className="mt-7 flex min-h-64 items-center justify-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center">
+            <div>
+              <LoaderCircle className="mx-auto size-6 animate-spin text-brand" aria-hidden="true" />
+              <p className="mt-3 text-sm font-medium text-ink-600">Finding people in your state</p>
             </div>
           </div>
         ) : isLoadingProfile ? (
@@ -587,6 +627,7 @@ export function DiscoveryTab({
             setPeople([]);
             setActiveSearch(null);
             setHasSearched(false);
+            void searchPeople();
           }}
         />
       ) : null}
