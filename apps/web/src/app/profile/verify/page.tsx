@@ -186,8 +186,16 @@ function FaceVerificationContent({ token }: { token: string }) {
                 onAnalysisComplete={async () => {
                   await completeVerification();
                 }}
-                onError={() => {
-                  setNotice("Face verification failed. Please try again.");
+                onError={(livenessError) => {
+                  const isCameraError =
+                    livenessError.state === "CAMERA_ACCESS_ERROR" ||
+                    livenessError.state === "DEFAULT_CAMERA_NOT_FOUND_ERROR";
+
+                  setNotice(
+                    isCameraError
+                      ? "Camera access is required for live verification. Allow camera access for Crushclub, then try again."
+                      : "Face verification failed. Please try again."
+                  );
                   setLivenessSession(null);
                 }}
               />
