@@ -104,7 +104,7 @@ export function AuthenticatedRoute({
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/");
+      router.replace("/?mode=login");
     }
   }, [router, status]);
 

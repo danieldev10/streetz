@@ -381,11 +381,11 @@ export function DiscoveryTab({
           </div>
         ) : hasSearched && people.length > 0 ? (
           <div className="mt-7">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold">People in {activeSearch ?? stateName}</h2>
-                <p className="mt-1 text-sm text-ink-500">Profiles available in this state.</p>
-              </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-ink-400">
+                <MapPin className="size-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">{activeSearch ?? stateName}</span>
+              </span>
               <span className="text-sm font-medium text-ink-400">{people.length} found</span>
             </div>
 

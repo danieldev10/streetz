@@ -465,7 +465,7 @@ function HomeContent() {
   }
 
   function logout() {
-    clearSession({ redirect: false });
+    clearSession();
     setAuthMode("login");
   }
 
