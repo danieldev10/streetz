@@ -362,7 +362,12 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
   }
 
   async function openEventRoom(event: StreetzEvent) {
-    if (!token || !event.room) {
+    if (!event.room) {
+      return;
+    }
+
+    if (isGuest || event.room.readOnly || !token) {
+      router.push(`/rooms/${event.room.id}`);
       return;
     }
 
@@ -394,6 +399,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
 
   const sharedListProps = {
     events: visibleMemberEvents,
+    isGuest,
     activeEventId,
     activeRoomEventId,
     emptyTitle: emptyMemberTitle,

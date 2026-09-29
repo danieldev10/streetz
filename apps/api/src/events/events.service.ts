@@ -284,7 +284,8 @@ export class EventsService {
     const events = await this.prisma.event.findMany({
       where: this.getBookableEventWhere(now),
       include: {
-        ticketTypes: { orderBy: { createdAt: "asc" } }
+        ticketTypes: { orderBy: { createdAt: "asc" } },
+        room: this.publicEventRoomInclude()
       },
       orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }]
     });
@@ -295,7 +296,10 @@ export class EventsService {
 
     return {
       events: await Promise.all(
-        events.map((event) => this.formatEvent({ ...event, tickets: [] }, { includeUserTickets: false, ticketTypeCounts }))
+        events.map((event) => this.formatEvent(
+          { ...event, tickets: [] },
+          { includeUserTickets: false, includePublicRoom: true, ticketTypeCounts }
+        ))
       )
     };
   }
@@ -303,7 +307,7 @@ export class EventsService {
   async getPublicEvent(eventId: string) {
     const event = await this.findPublishedEvent(eventId);
 
-    return this.formatEvent(event, { includeUserTickets: false });
+    return this.formatEvent(event, { includeUserTickets: false, includePublicRoom: true });
   }
 
   async getPublishedEvents(userId: string) {
@@ -715,7 +719,8 @@ export class EventsService {
         ...this.getBookableEventWhere(now)
       },
       include: {
-        ticketTypes: { orderBy: { createdAt: "asc" } }
+        ticketTypes: { orderBy: { createdAt: "asc" } },
+        room: this.publicEventRoomInclude()
       }
     });
 
@@ -965,7 +970,12 @@ export class EventsService {
 
   private async formatEvent(
     event: EventSource,
-    options: { includeAdminCounts?: boolean; includeUserTickets?: boolean; ticketTypeCounts?: Map<string, TicketTypeCounts> }
+    options: {
+      includeAdminCounts?: boolean;
+      includeUserTickets?: boolean;
+      includePublicRoom?: boolean;
+      ticketTypeCounts?: Map<string, TicketTypeCounts>;
+    }
   ) {
     const ticketTypeCounts = options.ticketTypeCounts ??
       (await this.getTicketTypeCounts(event.ticketTypes.map((ticketType) => ticketType.id)));
@@ -990,11 +1000,15 @@ export class EventsService {
     const userTickets = options.includeUserTickets ? event.tickets : [];
     const userTicket = userTickets[0] ?? null;
     const totalPaidAmountKobo = options.includeAdminCounts ? await this.sumSuccessfulEventTicketPayments(event.id) : 0;
-    const eventRoom = options.includeUserTickets && userTickets.length > 0 && event.room?.isActive && isEventRoomAvailable(event)
+    const eventRoomIsAvailable = Boolean(event.room?.isActive && isEventRoomAvailable(event));
+    const eventRoom = eventRoomIsAvailable && (
+      options.includePublicRoom || (options.includeUserTickets && userTickets.length > 0)
+    )
       ? {
-          id: event.room.id,
-          hasJoined: Boolean(event.room.memberships?.length),
-          availableUntil: getEventRoomClosesAt(event)
+          id: event.room!.id,
+          hasJoined: options.includePublicRoom ? false : Boolean(event.room!.memberships?.length),
+          availableUntil: getEventRoomClosesAt(event),
+          ...(options.includePublicRoom ? { readOnly: true } : {})
         }
       : null;
 
@@ -1027,13 +1041,17 @@ export class EventsService {
             totalPaidAmountKobo
           }
         : {}),
-      ...(options.includeUserTickets
+      ...(options.includeUserTickets || options.includePublicRoom
         ? {
             room: eventRoom,
-            userTickets: userTickets.map((ticket) => this.formatTicket(ticket)),
-            userTicket: userTicket
-              ? this.formatTicket(userTicket)
-              : null
+            ...(options.includeUserTickets
+              ? {
+                  userTickets: userTickets.map((ticket) => this.formatTicket(ticket)),
+                  userTicket: userTicket
+                    ? this.formatTicket(userTicket)
+                    : null
+                }
+              : {})
           }
         : {}),
       createdAt: event.createdAt,
@@ -1153,6 +1171,15 @@ export class EventsService {
           select: { id: true },
           take: 1
         }
+      }
+    } as const;
+  }
+
+  private publicEventRoomInclude() {
+    return {
+      select: {
+        id: true,
+        isActive: true
       }
     } as const;
   }

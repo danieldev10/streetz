@@ -345,7 +345,12 @@ export function EventTicketsTab({
   }
 
   async function openEventRoom() {
-    if (!token || !event?.room) {
+    if (!event?.room) {
+      return;
+    }
+
+    if (isGuest || event.room.readOnly || !token) {
+      router.push(`/rooms/${event.room.id}`);
       return;
     }
 
@@ -519,7 +524,7 @@ export function EventTicketsTab({
                                     ? `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} more ${purchaseNounPlural}`
                                     : `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} ${selectedNoun}`}
                     </button>
-                    {!isGuest && tickets.length > 0 && event.room ? (
+                    {event.room && ((isGuest && event.room.readOnly) || (!isGuest && tickets.length > 0)) ? (
                       <button
                         className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium text-ink transition hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
                         type="button"
@@ -528,12 +533,12 @@ export function EventTicketsTab({
                       >
                         {isRoomBusy ? (
                           <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                        ) : event.room.hasJoined ? (
+                        ) : isGuest || event.room.hasJoined ? (
                           <MessageCircle className="size-4" aria-hidden="true" />
                         ) : (
                           <UsersRound className="size-4" aria-hidden="true" />
                         )}
-                        {event.room.hasJoined ? "Open event chat" : "Join room"}
+                        {isGuest ? "View event chat" : event.room.hasJoined ? "Open event chat" : "Join room"}
                       </button>
                     ) : null}
                   </div>

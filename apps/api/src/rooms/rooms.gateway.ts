@@ -12,7 +12,8 @@ import { Server, Socket } from "socket.io";
 import { AuthUser } from "../auth/types/auth-user";
 import { RealtimeAuthService } from "../auth/realtime-auth.service";
 import { getUserNotificationRoom } from "../notifications/notification-rooms";
-import { RoomsService } from "./rooms.service";
+import { PublicRoomsGateway } from "./public-rooms.gateway";
+import { RealtimeRoomMessage, RoomsService } from "./rooms.service";
 
 type AuthenticatedSocket = Socket & {
   data: {
@@ -31,7 +32,8 @@ export class RoomsGateway implements OnGatewayConnection {
 
   constructor(
     private readonly roomsService: RoomsService,
-    private readonly realtimeAuth: RealtimeAuthService
+    private readonly realtimeAuth: RealtimeAuthService,
+    private readonly publicRoomsGateway: PublicRoomsGateway
   ) {}
 
   async handleConnection(client: AuthenticatedSocket) {
@@ -104,8 +106,9 @@ export class RoomsGateway implements OnGatewayConnection {
     }
   }
 
-  emitRoomMessage(roomId: string, message: unknown) {
+  emitRoomMessage(roomId: string, message: RealtimeRoomMessage) {
     this.server.to(this.roomsService.getSocketRoomName(roomId)).emit("room-message:new", message);
+    this.publicRoomsGateway.emitRoomMessage(roomId, this.roomsService.toPublicRoomMessage(message));
   }
 
   emitRoomReadNotification(userId: string, roomId: string) {

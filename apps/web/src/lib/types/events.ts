@@ -35,6 +35,7 @@ export type StreetzEventRoom = {
   id: string;
   hasJoined: boolean;
   availableUntil: string;
+  readOnly?: boolean;
 };
 
 export type StreetzEvent = {

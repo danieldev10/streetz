@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Header, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@prisma/client";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { ActiveSubscriptionGuard } from "../auth/guards/active-subscription.guard";
@@ -20,6 +21,13 @@ export class RoomsController {
     private readonly roomsService: RoomsService,
     private readonly roomsGateway: RoomsGateway
   ) {}
+
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Header("Cache-Control", "no-store")
+  @Get("public/rooms/:roomId")
+  getPublicRoom(@Param("roomId") roomId: string, @Query() page: MessagePageDto) {
+    return this.roomsService.getPublicRoom(roomId, page);
+  }
 
   @Get("rooms")
   @UseGuards(JwtAuthGuard, ActiveSubscriptionGuard)

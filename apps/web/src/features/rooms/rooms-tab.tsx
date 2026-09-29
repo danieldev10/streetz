@@ -582,6 +582,7 @@ export function RoomsTab({
         room={selectedRoom}
         userId={user?.id ?? null}
         isAdmin={isAdmin}
+        isGuest={isGuest}
         notice={notice}
         socketStatus={socketStatus}
         messages={messages}

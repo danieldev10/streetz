@@ -52,6 +52,21 @@ type RoomMessageSource = {
   author: CandidateUser;
 };
 
+export type RealtimeRoomMessage = {
+  id: string;
+  roomId: string;
+  authorId: string;
+  authorName: string;
+  author?: {
+    id: string;
+    displayName: string;
+    photos?: unknown[];
+  };
+  body: string;
+  gifUrl: string | null;
+  createdAt: Date | string;
+};
+
 type CandidateUser = {
   id: string;
   displayName: string;
@@ -188,6 +203,72 @@ export class RoomsService {
       hasMore,
       nextCursor: hasMore ? selectedMessages.at(-1)?.id ?? null : null
     };
+  }
+
+  async getPublicRoom(roomId: string, page: MessagePageDto = new MessagePageDto()) {
+    const room = await this.prisma.chatRoom.findFirst({
+      where: {
+        id: roomId,
+        ...this.availableEventRoomWhere()
+      },
+      include: {
+        ...this.roomCounts({ includeMessages: true }),
+        event: this.eventSummarySelect()
+      }
+    });
+
+    if (!room) {
+      throw new NotFoundException("This event chat is not available.");
+    }
+
+    if (page.cursor) {
+      const cursorExists = await this.prisma.chatMessage.count({
+        where: { id: page.cursor, roomId, deletedAt: null }
+      });
+
+      if (cursorExists !== 1) {
+        throw new BadRequestException("Message cursor is not valid for this room.");
+      }
+    }
+
+    const messages = await this.prisma.chatMessage.findMany({
+      where: {
+        roomId,
+        deletedAt: null
+      },
+      include: {
+        author: this.userInclude()
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: page.limit + 1,
+      ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {})
+    });
+    const hasMore = messages.length > page.limit;
+    const selectedMessages = hasMore ? messages.slice(0, page.limit) : messages;
+    const orderedMessages = [...selectedMessages].reverse();
+
+    return {
+      room: await this.formatRoom(room, { includeMessageCount: true }),
+      messages: await Promise.all(orderedMessages.map((message) => this.formatPublicMessage(message))),
+      hasMore,
+      nextCursor: hasMore ? selectedMessages.at(-1)?.id ?? null : null
+    };
+  }
+
+  async assertPublicRoomAvailable(roomId: string) {
+    const room = await this.prisma.chatRoom.findFirst({
+      where: {
+        id: roomId,
+        ...this.availableEventRoomWhere()
+      },
+      select: { id: true }
+    });
+
+    if (!room) {
+      throw new NotFoundException("This event chat is not available.");
+    }
+
+    return room;
   }
 
   async getRoomMembers(userId: string, roomId: string) {
@@ -363,6 +444,36 @@ export class RoomsService {
     return `room:${roomId}`;
   }
 
+  getPublicSocketRoomName(roomId: string) {
+    return `public-room:${roomId}`;
+  }
+
+  toPublicRoomMessage(message: RealtimeRoomMessage) {
+    const authorPhoto = message.author?.photos?.[0];
+
+    return {
+      id: message.id,
+      roomId: message.roomId,
+      authorId: message.authorId,
+      authorName: message.authorName,
+      author: {
+        id: message.author?.id ?? message.authorId,
+        displayName: message.author?.displayName ?? message.authorName,
+        age: null,
+        bio: null,
+        connectionStatus: null,
+        city: null,
+        state: null,
+        attendedEventCount: 0,
+        interests: [],
+        photos: authorPhoto ? [authorPhoto] : []
+      },
+      body: message.body,
+      gifUrl: message.gifUrl,
+      createdAt: message.createdAt
+    };
+  }
+
   private async assertActiveRoomAccess(userId: string, roomId: string) {
     const user = await this.ensureMemberOrAdmin(userId);
 
@@ -532,6 +643,25 @@ export class RoomsService {
       gifUrl: message.gifUrl,
       createdAt: message.createdAt
     };
+  }
+
+  private async formatPublicMessage(message: RoomMessageSource) {
+    const photos = await this.storage.signPhotoUrls(message.author.photos.slice(0, 1));
+
+    return this.toPublicRoomMessage({
+      id: message.id,
+      roomId: message.roomId,
+      authorId: message.authorId,
+      authorName: message.author.displayName,
+      author: {
+        id: message.author.id,
+        displayName: message.author.displayName,
+        photos
+      },
+      body: message.body,
+      gifUrl: message.gifUrl,
+      createdAt: message.createdAt
+    });
   }
 
   private async formatCandidate(candidate: CandidateUser, attendedEventCount: number) {

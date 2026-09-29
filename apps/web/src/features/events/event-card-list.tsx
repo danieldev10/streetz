@@ -20,9 +20,10 @@ import type { StreetzEvent } from "@/lib/types";
 
 export type EventCardMode = "explore" | "tickets" | "history";
 
-export function EventCardList({ events, mode, activeEventId, activeRoomEventId, emptyTitle, emptyDescription, onOpenCheckout, onOpenDetails, onOpenRoom, onShare }: {
+export function EventCardList({ events, mode, isGuest, activeEventId, activeRoomEventId, emptyTitle, emptyDescription, onOpenCheckout, onOpenDetails, onOpenRoom, onShare }: {
   events: StreetzEvent[];
   mode: EventCardMode;
+  isGuest: boolean;
   activeEventId: string | null;
   activeRoomEventId: string | null;
   emptyTitle: string;
@@ -161,26 +162,32 @@ export function EventCardList({ events, mode, activeEventId, activeRoomEventId, 
                   {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
                   {isHistoryCard ? "View details" : mode === "tickets" ? "View tickets" : getTicketsLabel}
                 </button>
-                {isOwnedEventCard && event.room ? (
+                {event.room && (isGuest || isOwnedEventCard) ? (
                   <button
-                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface text-sm font-medium text-ink transition hover:border-brand ${event.room.hasJoined ? "w-11 shrink-0" : "min-w-0 flex-1 px-4"}`}
+                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface text-sm font-medium text-ink transition hover:border-brand ${!isGuest && event.room.hasJoined ? "w-11 shrink-0" : "min-w-0 flex-1 px-4"}`}
                     type="button"
                     onClick={(clickEvent) => {
                       clickEvent.stopPropagation();
                       onOpenRoom(event);
                     }}
                     disabled={isRoomBusy}
-                    aria-label={event.room.hasJoined ? `Open ${event.title} chat` : undefined}
-                    title={event.room.hasJoined ? "Open event chat" : undefined}
+                    aria-label={!isGuest && event.room.hasJoined ? `Open ${event.title} chat` : undefined}
+                    title={!isGuest && event.room.hasJoined ? "Open event chat" : undefined}
                   >
                     {isRoomBusy ? (
                       <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                    ) : event.room.hasJoined ? (
+                    ) : isGuest || event.room.hasJoined ? (
                       <MessageCircle className="size-4" aria-hidden="true" />
                     ) : (
                       <UsersRound className="size-4" aria-hidden="true" />
                     )}
-                    {event.room.hasJoined ? <span className="sr-only">Open event chat</span> : <span>Join room</span>}
+                    {isGuest ? (
+                      <span>View chat</span>
+                    ) : event.room.hasJoined ? (
+                      <span className="sr-only">Open event chat</span>
+                    ) : (
+                      <span>Join room</span>
+                    )}
                   </button>
                 ) : null}
               </div>

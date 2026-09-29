@@ -28,6 +28,7 @@ export function RoomThreadView({
   room,
   userId,
   isAdmin,
+  isGuest = false,
   notice,
   socketStatus,
   messages,
@@ -65,6 +66,7 @@ export function RoomThreadView({
   room: ChatRoom;
   userId: string | null;
   isAdmin: boolean;
+  isGuest?: boolean;
   notice: string | null;
   socketStatus: "connecting" | "connected" | "offline";
   messages: RoomMessage[];
@@ -114,19 +116,28 @@ export function RoomThreadView({
               <ArrowLeft className="size-4" aria-hidden="true" />
             </button>
 
-            <button
-              type="button"
-              className="min-w-0 flex-1 rounded-[18px] p-1 text-left transition hover:bg-surface-muted"
-              onClick={onOpenMembers}
-              aria-label={`View ${room.name} members`}
-            >
-              <h1 className="truncate text-lg font-semibold">{room.name}</h1>
-              <p className="truncate text-sm text-ink-600">
-                {room.category} · {room.memberCount} {room.memberCount === 1 ? "member" : "members"}
-              </p>
-            </button>
+            {isGuest ? (
+              <div className="min-w-0 flex-1 p-1 text-left">
+                <h1 className="truncate text-lg font-semibold">{room.name}</h1>
+                <p className="truncate text-sm text-ink-600">
+                  {room.category} · {room.memberCount} {room.memberCount === 1 ? "member" : "members"}
+                </p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="min-w-0 flex-1 rounded-[18px] p-1 text-left transition hover:bg-surface-muted"
+                onClick={onOpenMembers}
+                aria-label={`View ${room.name} members`}
+              >
+                <h1 className="truncate text-lg font-semibold">{room.name}</h1>
+                <p className="truncate text-sm text-ink-600">
+                  {room.category} · {room.memberCount} {room.memberCount === 1 ? "member" : "members"}
+                </p>
+              </button>
+            )}
 
-            {!isAdmin ? (
+            {!isAdmin && !isGuest ? (
               <button
                 type="button"
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-sm font-medium md:h-10 md:w-auto md:gap-2 md:px-4"
@@ -142,7 +153,7 @@ export function RoomThreadView({
 
             <div className="inline-flex items-center gap-2 rounded-full bg-surface-muted px-3 py-2 text-xs font-medium text-ink-600">
               <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-brand" : "bg-ink-200"}`} />
-              {isAdmin ? "Moderator" : socketStatus === "connected" ? "Live" : "Connecting"}
+              {isAdmin ? "Moderator" : socketStatus === "connected" ? "Live" : socketStatus === "offline" ? "Offline" : "Connecting"}
             </div>
           </div>
 
@@ -191,7 +202,7 @@ export function RoomThreadView({
                                 onOpenMember(author);
                               }
                             }}
-                            disabled={!author}
+                            disabled={!author || isGuest}
                             aria-label={author ? `View ${author.displayName} profile` : `View ${message.authorName} profile`}
                           >
                             {author ? (
@@ -230,9 +241,11 @@ export function RoomThreadView({
                 <div className="grid h-full min-h-90 place-items-center text-center">
                   <div>
                     <MessageCircle className="mx-auto size-8 text-brand" aria-hidden="true" />
-                    <h2 className="mt-3 text-2xl font-semibold">{isAdmin ? "Event chat is quiet" : "Start the event chat"}</h2>
+                    <h2 className="mt-3 text-2xl font-semibold">
+                      {isAdmin ? "Event chat is quiet" : isGuest ? "No messages yet" : "Start the event chat"}
+                    </h2>
                     <p className="mt-2 text-sm text-ink-600">
-                      {isAdmin ? "Member messages will appear here." : `Send the first message in ${room.name}.`}
+                      {isAdmin || isGuest ? "Member messages will appear here." : `Send the first message in ${room.name}.`}
                     </p>
                   </div>
                 </div>
@@ -240,9 +253,9 @@ export function RoomThreadView({
             </div>
           </div>
 
-          {isAdmin ? (
+          {isAdmin || isGuest ? (
             <div className="shrink-0 border-t border-black/5 bg-surface p-4 text-center text-sm font-medium text-ink-600">
-              Moderator view only
+              {isGuest ? "Read-only event chat · Guests cannot send messages" : "Moderator view only"}
             </div>
           ) : (
             <form onSubmit={onSubmitMessage} className="relative flex shrink-0 items-center gap-2 border-t border-black/5 bg-surface p-4">
