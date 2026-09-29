@@ -386,7 +386,19 @@ export function DiscoveryTab({
                 <MapPin className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">{activeSearch ?? stateName}</span>
               </span>
-              <span className="text-sm font-medium text-ink-400">{people.length} found</span>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="text-sm font-medium text-ink-400">{people.length} found</span>
+                <button
+                  type="button"
+                  className="inline-flex size-8 items-center justify-center rounded-full border border-black/[0.08] bg-surface text-ink-500 transition hover:border-black/[0.16] hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => void searchPeople()}
+                  disabled={isSearching || preferenceRequired || !stateName.trim()}
+                  aria-label="Refresh people"
+                  title="Refresh people"
+                >
+                  <RefreshCw className={`size-3.5 ${isSearching ? "animate-spin" : ""}`} aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -460,13 +472,25 @@ export function DiscoveryTab({
 
       <button
         type="button"
-        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex size-12 items-center justify-center rounded-full border border-black/[0.08] bg-surface text-ink-600 shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 md:bottom-8 md:left-8"
-        onClick={() => void searchPeople()}
-        disabled={isSearching || preferenceRequired || !isInDiscoveryPool || !stateName.trim()}
-        aria-label="Refresh people"
-        title="Refresh people"
+        className={`fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition disabled:cursor-not-allowed disabled:opacity-60 md:bottom-8 md:left-8 ${
+          isInDiscoveryPool
+            ? "border-brand/20 bg-brand-tint text-brand-deep"
+            : "border-black/[0.08] bg-surface text-ink-600"
+        }`}
+        onClick={() => void toggleDiscoveryPool()}
+        disabled={isUpdatingVisibility}
+        aria-pressed={isInDiscoveryPool}
+        aria-label={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
+        title={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
       >
-        <RefreshCw className={`size-4 ${isSearching ? "animate-spin" : ""}`} aria-hidden="true" />
+        {isUpdatingVisibility ? (
+          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+        ) : isInDiscoveryPool ? (
+          <EyeOff className="size-4" aria-hidden="true" />
+        ) : (
+          <Eye className="size-4" aria-hidden="true" />
+        )}
+        {isInDiscoveryPool ? "Withdraw" : "Enter pool"}
       </button>
 
       <button
@@ -536,7 +560,7 @@ export function DiscoveryTab({
 
               {notice ? <p className="mt-4 rounded-[18px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
-              <div className="mt-5 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+              <div className="mt-5">
                 <button
                   type="submit"
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
@@ -544,28 +568,6 @@ export function DiscoveryTab({
                 >
                   {isSearching ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Compass className="size-4" aria-hidden="true" />}
                   {isSearching ? "Finding people" : "Discover"}
-                </button>
-                <button
-                  type="button"
-                  className={`inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                    isInDiscoveryPool
-                      ? "border-brand/20 bg-brand-tint text-brand-deep"
-                      : "border-black/[0.08] bg-surface text-ink-600"
-                  }`}
-                  onClick={() => void toggleDiscoveryPool()}
-                  disabled={isUpdatingVisibility}
-                  aria-pressed={isInDiscoveryPool}
-                  aria-label={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
-                  title={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
-                >
-                  {isUpdatingVisibility ? (
-                    <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                  ) : isInDiscoveryPool ? (
-                    <EyeOff className="size-4" aria-hidden="true" />
-                  ) : (
-                    <Eye className="size-4" aria-hidden="true" />
-                  )}
-                  {isInDiscoveryPool ? "Withdraw" : "Enter pool"}
                 </button>
               </div>
             </form>
