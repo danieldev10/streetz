@@ -160,10 +160,12 @@ export function DiscoveryTab({
     queryClient.setQueryData(queryKeys.profile(saved.user.id), saved);
   }
 
-  async function searchPeople(event?: FormEvent<HTMLFormElement>) {
+  async function searchPeople(event?: FormEvent<HTMLFormElement>, options?: { poolIsActive?: boolean }) {
     event?.preventDefault();
 
-    if (!isInDiscoveryPool) {
+    const poolIsActive = options?.poolIsActive ?? isInDiscoveryPool;
+
+    if (!poolIsActive) {
       setNotice("Enter the discovery pool before discovering people.");
       return;
     }
@@ -211,6 +213,8 @@ export function DiscoveryTab({
         setActiveSearch(null);
         setHasSearched(false);
         setViewedProfile(null);
+      } else {
+        await searchPeople(undefined, { poolIsActive: true });
       }
 
     } catch (error) {
@@ -390,7 +394,7 @@ export function DiscoveryTab({
                 <span className="text-sm font-medium text-ink-400">{people.length} found</span>
                 <button
                   type="button"
-                  className="inline-flex size-8 items-center justify-center rounded-full border border-black/[0.08] bg-surface text-ink-500 transition hover:border-black/[0.16] hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex size-8 items-center justify-center text-ink-400 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => void searchPeople()}
                   disabled={isSearching || preferenceRequired || !stateName.trim()}
                   aria-label="Refresh people"
