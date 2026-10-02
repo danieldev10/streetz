@@ -1,6 +1,6 @@
 import type { ConnectionStatus, Sexuality, StreetzProfile } from "@/lib/types";
 
-export const PROFILE_PHOTO_LIMIT = 4;
+export const PROFILE_PHOTO_LIMIT = 1;
 export const PROFILE_INTEREST_LIMIT = 12;
 export const MINIMUM_PROFILE_AGE = 18;
 

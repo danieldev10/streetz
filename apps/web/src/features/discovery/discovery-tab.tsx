@@ -381,7 +381,7 @@ export function DiscoveryTab({
               <EyeOff className="mx-auto size-8 text-ink-400" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">You are out of the pool</h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">
-                Enter the discovery pool to see and be seen by people in your state.
+                Enter the discovery pool to see and be seen by people.
               </p>
             </div>
           </div>
@@ -389,7 +389,7 @@ export function DiscoveryTab({
           <div className="mt-7 flex min-h-64 items-center justify-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center">
             <div>
               <LoaderCircle className="mx-auto size-6 animate-spin text-brand" aria-hidden="true" />
-              <p className="mt-3 text-sm font-medium text-ink-600">Finding people in your state</p>
+              <p className="mt-3 text-sm font-medium text-ink-600">Finding people</p>
             </div>
           </div>
         ) : isLoadingProfile ? (
@@ -491,11 +491,10 @@ export function DiscoveryTab({
 
       <button
         type="button"
-        className={`fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition disabled:cursor-not-allowed disabled:opacity-60 md:bottom-8 md:left-8 ${
-          isInDiscoveryPool
+        className={`fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition disabled:cursor-not-allowed disabled:opacity-60 md:bottom-8 md:left-8 ${isInDiscoveryPool
             ? "border-brand/20 bg-brand-tint text-brand-deep"
             : "border-black/[0.08] bg-surface text-ink-600"
-        }`}
+          }`}
         onClick={() => void toggleDiscoveryPool()}
         disabled={isUpdatingVisibility}
         aria-pressed={isInDiscoveryPool}

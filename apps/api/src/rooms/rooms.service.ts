@@ -690,7 +690,7 @@ export class RoomsService {
         profile: true,
         photos: {
           orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
-          take: 6
+          take: 1
         }
       }
     };

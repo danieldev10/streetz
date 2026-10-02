@@ -174,7 +174,7 @@ export class DiscoveryService {
         include: {
           profile: true,
           discoveryPreference: true,
-          photos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 6 }
+          photos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1 }
         }
       }),
       this.prisma.userBlock.findFirst({
@@ -279,7 +279,7 @@ export class DiscoveryService {
       discoveryPreference: true,
       photos: {
         orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
-        take: 6
+        take: 1
       }
     };
 
@@ -1001,7 +1001,7 @@ export class DiscoveryService {
         const candidateInterests = candidate.profile?.interests ?? [];
         const sharedInterestCount = candidateInterests.filter((interest) => viewerInterests.has(interest.toLowerCase())).length;
         const interestScore = Math.min(1, sharedInterestCount / 3);
-        const profileScore = Math.min(1, ((candidate.profile?.bio?.length ?? 0) / 200) * 0.5 + (candidate.photos.length / 4) * 0.5);
+        const profileScore = Math.min(1, ((candidate.profile?.bio?.length ?? 0) / 200) * 0.5 + (candidate.photos.length > 0 ? 0.5 : 0));
         const explorationScore = seededUnitInterval(`${viewerId}:${candidate.id}:${now.toISOString().slice(0, 10)}`);
         const score =
           distanceScore * 0.55 +

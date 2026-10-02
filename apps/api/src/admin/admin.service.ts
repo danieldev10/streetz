@@ -860,7 +860,7 @@ export class AdminService {
           },
           photos: {
             orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
-            take: 6
+            take: 1
           }
         }
       },
@@ -887,7 +887,7 @@ export class AdminService {
           },
           photos: {
             orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
-            take: 6
+            take: 1
           }
         }
       }

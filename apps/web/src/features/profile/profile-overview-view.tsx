@@ -1,6 +1,5 @@
 import type { FormEvent, ReactNode } from "react";
 import {
-  Camera,
   Heart,
   LoaderCircle,
   MapPin,
@@ -13,12 +12,11 @@ import {
 } from "lucide-react";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
-import { PROFILE_PHOTO_LIMIT, formatSexuality } from "@/lib/profile";
+import { formatSexuality } from "@/lib/profile";
 import type { ProfilePhoto, Sexuality } from "@/lib/types";
 
 export function ProfileOverviewView({
-  activePhoto,
-  activePhotoIndex,
+  photo,
   attendedEventCount,
   bio,
   deleteAccountPassword,
@@ -29,11 +27,9 @@ export function ProfileOverviewView({
   isFaceVerified,
   isSubmittingAccountAction,
   location,
-  photos,
   profileAge,
   sexuality,
   statusLabel,
-  onChangeActivePhoto,
   onChangeDeletePassword,
   onCloseDeactivate,
   onDeactivate,
@@ -44,8 +40,7 @@ export function ProfileOverviewView({
   onOpenDiscoveryPreferences,
   onPreview,
 }: {
-  activePhoto: ProfilePhoto | undefined;
-  activePhotoIndex: number;
+  photo: ProfilePhoto | undefined;
   attendedEventCount: number;
   bio: string;
   deleteAccountPassword: string;
@@ -56,11 +51,9 @@ export function ProfileOverviewView({
   isFaceVerified: boolean;
   isSubmittingAccountAction: boolean;
   location: string;
-  photos: ProfilePhoto[];
   profileAge: number | null;
   sexuality: Sexuality | "";
   statusLabel: string;
-  onChangeActivePhoto: (index: number) => void;
   onChangeDeletePassword: (password: string) => void;
   onCloseDeactivate: () => void;
   onDeactivate: () => void;
@@ -78,7 +71,7 @@ export function ProfileOverviewView({
       <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
         <div className="relative aspect-[1.05] min-h-[320px] bg-brand-tint">
           <ProfilePhotoImage
-            photo={activePhoto}
+            photo={photo}
             alt={`${displayName} profile`}
             variant="full"
             sizes="(max-width: 768px) 100vw, 520px"
@@ -101,43 +94,7 @@ export function ProfileOverviewView({
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 p-3">
-          {Array.from({ length: PROFILE_PHOTO_LIMIT }).map((_, index) => {
-            const photo = photos[index];
-            const isActive = index === activePhotoIndex;
-
-            return photo ? (
-              <button
-                key={photo.id}
-                className={`relative aspect-square overflow-hidden rounded-[16px] border ${
-                  isActive
-                    ? "border-brand ring-2 ring-brand/30"
-                    : "border-black/[0.06]"
-                }`}
-                type="button"
-                onClick={() => onChangeActivePhoto(index)}
-                aria-label={`Show photo ${index + 1}`}
-              >
-                <ProfilePhotoImage
-                  photo={photo}
-                  alt={`${displayName} thumbnail ${index + 1}`}
-                  variant="thumb"
-                  sizes="96px"
-                  iconSize="sm"
-                />
-              </button>
-            ) : (
-              <div
-                key={`empty-overview-photo-${index}`}
-                className="grid aspect-square place-items-center rounded-[16px] border border-dashed border-black/[0.12] bg-surface-muted text-ink-300"
-              >
-                <Camera className="size-4" aria-hidden="true" />
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="px-5 pb-5 pt-2">
+        <div className="px-5 pb-5 pt-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-3xl font-semibold text-ink">
@@ -149,9 +106,6 @@ export function ProfileOverviewView({
                 {location}
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand-strong">
-              {photos.length} photo{photos.length === 1 ? "" : "s"}
-            </span>
           </div>
 
           <ProfileDetail label="Status">{statusLabel}</ProfileDetail>

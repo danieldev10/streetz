@@ -110,6 +110,32 @@ psql "$TEST_DATABASE_URL" -f apps/api/prisma/scripts/explain-discovery.sql
 
 On the local PostgreSQL 15 test database, the materialized spatial-first plan measured about 24 ms versus about 39 ms for the previous warmed plan. Re-run this on production-like statistics before a large launch and inspect index usage, row-estimate errors, buffers, and total time.
 
+## One-photo profile migration
+
+The application accepts one user-selected profile photo. The original upload plus its thumbnail, card, and full-size derivatives remain in S3 for responsive delivery.
+
+After deploying the one-photo API restriction, generate a cleanup manifest without changing data:
+
+```bash
+npm run profile-photos:consolidate -- --manifest=./profile-photo-consolidation.json
+```
+
+Review the manifest. For each user, the command retains the first photo by `sortOrder`, `createdAt`, and `id`, in that order. Apply that exact cleanup plan only after confirming the retained photo selections. The apply command requires the reviewed manifest and stops for any user whose photo set changed after the dry run:
+
+```bash
+npm run profile-photos:consolidate -- --apply --manifest=./profile-photo-consolidation.json
+```
+
+The apply command removes secondary `ProfilePhoto` rows, normalizes the retained photo to slot and sort order zero, then deletes every unreferenced original, thumbnail, card, and full-size S3 object. The manifest is updated after each user so an interrupted cleanup can be audited. Keep it private because object keys contain user identifiers.
+
+If any S3 deletion fails, retry it from the same manifest. Referenced objects are checked again and will not be deleted:
+
+```bash
+npm run profile-photos:consolidate -- --retry-manifest=./profile-photo-consolidation.json
+```
+
+If S3 bucket versioning is enabled, also permanently remove noncurrent versions and delete markers. If immediate removal from public delivery is required, invalidate the removed paths in CloudFront because immutable variants can remain cached after their S3 objects are deleted.
+
 ## PostgreSQL backup and restore
 
 Use the direct PostgreSQL connection, not a transaction-pooler URL. Store dumps encrypted in access-controlled storage outside the database provider.

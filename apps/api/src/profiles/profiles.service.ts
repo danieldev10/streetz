@@ -1,7 +1,8 @@
-import { BadGatewayException, BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { BadGatewayException, BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { randomBytes } from "crypto";
 import sharp = require("sharp");
+import { FaceVerificationStatus } from "@prisma/client";
 import { countCheckedInStandardEvents } from "../common/attendance";
 import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
@@ -14,7 +15,7 @@ import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { UpdateDiscoveryPreferenceDto } from "./dto/update-discovery-preference.dto";
 import { suggestInterestedInGenders, toDiscoveryGender } from "./discovery-preference-suggestions";
 
-const MAX_PROFILE_PHOTOS = 4;
+const MAX_PROFILE_PHOTOS = 1;
 const PHOTO_UPLOAD_EXPIRES_SECONDS = 300;
 const DEFAULT_MAX_DISTANCE_KM = 50;
 const GOOGLE_GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json";
@@ -48,6 +49,8 @@ type GoogleReverseGeocodeResponse = {
 
 @Injectable()
 export class ProfilesService {
+  private readonly logger = new Logger(ProfilesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -64,7 +67,8 @@ export class ProfilesService {
             displayName: true,
             email: true,
             photos: {
-              orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+              orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+              take: 1
             }
           }
         }
@@ -82,7 +86,8 @@ export class ProfilesService {
         displayName: true,
         email: true,
         photos: {
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          take: 1
         }
       }
     });
@@ -247,7 +252,8 @@ export class ProfilesService {
               displayName: true,
               email: true,
               photos: {
-                orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
+                orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+                take: 1
               }
             }
           }
@@ -352,46 +358,80 @@ export class ProfilesService {
   async registerPhoto(userId: string, dto: CreateProfilePhotoDto) {
     this.ensureOwnObjectKey(userId, dto.objectKey);
     const variants = await this.createOptimizedPhotoVariants(dto.objectKey);
-    const generatedObjectKeys = [variants.thumbObjectKey, variants.cardObjectKey, variants.fullObjectKey];
+    const newObjectKeys = [dto.objectKey, variants.thumbObjectKey, variants.cardObjectKey, variants.fullObjectKey];
 
     try {
-      const photo = await this.prisma.$transaction(async (transaction) => {
+      const result = await this.prisma.$transaction(async (transaction) => {
         await transaction.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
         const existingPhotos = await transaction.profilePhoto.findMany({
           where: { userId },
-          select: { slot: true }
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }]
         });
-        const occupiedSlots = new Set(existingPhotos.map((item) => item.slot));
-        const slot = Array.from({ length: MAX_PROFILE_PHOTOS }, (_unused, index) => index)
-          .find((candidate) => !occupiedSlots.has(candidate));
+        const primaryPhoto = existingPhotos[0];
+        const additionalPhotoIds = existingPhotos.slice(1).map((photo) => photo.id);
+        const photoData = {
+          objectKey: dto.objectKey,
+          url: this.storage.buildPublicUrl(dto.objectKey),
+          thumbObjectKey: variants.thumbObjectKey,
+          thumbUrl: variants.thumbUrl,
+          cardObjectKey: variants.cardObjectKey,
+          cardUrl: variants.cardUrl,
+          fullObjectKey: variants.fullObjectKey,
+          fullUrl: variants.fullUrl,
+          blurDataUrl: variants.blurDataUrl,
+          slot: 0,
+          sortOrder: 0
+        };
 
-        if (slot === undefined) {
-          throw new BadRequestException(`You can add up to ${MAX_PROFILE_PHOTOS} profile photos.`);
+        if (additionalPhotoIds.length > 0) {
+          await transaction.profilePhoto.deleteMany({
+            where: { id: { in: additionalPhotoIds } }
+          });
         }
 
-        return transaction.profilePhoto.create({
-          data: {
-            userId,
-            objectKey: dto.objectKey,
-            url: this.storage.buildPublicUrl(dto.objectKey),
-            thumbObjectKey: variants.thumbObjectKey,
-            thumbUrl: variants.thumbUrl,
-            cardObjectKey: variants.cardObjectKey,
-            cardUrl: variants.cardUrl,
-            fullObjectKey: variants.fullObjectKey,
-            fullUrl: variants.fullUrl,
-            blurDataUrl: variants.blurDataUrl,
-            slot,
-            sortOrder: dto.sortOrder ?? slot
-          }
-        });
+        const photo = primaryPhoto
+          ? await transaction.profilePhoto.update({
+              where: { id: primaryPhoto.id },
+              data: photoData
+            })
+          : await transaction.profilePhoto.create({
+              data: {
+                userId,
+                ...photoData
+              }
+            });
+
+        if (primaryPhoto) {
+          await transaction.user.update({
+            where: { id: userId },
+            data: {
+              faceVerificationStatus: FaceVerificationStatus.NOT_STARTED,
+              faceVerificationVerifiedAt: null,
+              faceVerificationOverrideReason: null
+            }
+          });
+        }
+
+        return {
+          photo,
+          replacedObjectKeys: existingPhotos.flatMap((existingPhoto) => this.getPhotoObjectKeys(existingPhoto))
+        };
       });
 
-      return this.storage.signPhotoUrl(photo);
+      const obsoleteObjectKeys = result.replacedObjectKeys.filter((objectKey) => !newObjectKeys.includes(objectKey));
+
+      if (obsoleteObjectKeys.length > 0) {
+        await this.storage.deleteObjects(obsoleteObjectKeys).catch((error) => {
+          this.logger.warn(`Profile photo ${result.photo.id} was replaced, but old S3 objects could not all be deleted: ${String(error)}`);
+        });
+      }
+
+      return this.storage.signPhotoUrl(result.photo);
     } catch (error) {
-      const referencedVariants = await this.prisma.profilePhoto.count({
+      const referencedObjects = await this.prisma.profilePhoto.count({
         where: {
           OR: [
+            { objectKey: dto.objectKey },
             { thumbObjectKey: variants.thumbObjectKey },
             { cardObjectKey: variants.cardObjectKey },
             { fullObjectKey: variants.fullObjectKey }
@@ -399,8 +439,8 @@ export class ProfilesService {
         }
       }).catch(() => 1);
 
-      if (referencedVariants === 0) {
-        await this.storage.deleteObjects(generatedObjectKeys).catch(() => undefined);
+      if (referencedObjects === 0) {
+        await this.storage.deleteObjects(newObjectKeys).catch(() => undefined);
       }
       throw error;
     }
@@ -419,6 +459,12 @@ export class ProfilesService {
       throw new ForbiddenException("You can only delete your own profile photos.");
     }
 
+    const photoCount = await this.prisma.profilePhoto.count({ where: { userId } });
+
+    if (photoCount <= MAX_PROFILE_PHOTOS) {
+      throw new BadRequestException("Upload a replacement before removing your current profile photo.");
+    }
+
     await this.prisma.profilePhoto.delete({
       where: { id: photoId }
     });
@@ -433,6 +479,16 @@ export class ProfilesService {
     ]);
 
     return { deleted: true };
+  }
+
+  private getPhotoObjectKeys(photo: {
+    objectKey?: string | null;
+    thumbObjectKey?: string | null;
+    cardObjectKey?: string | null;
+    fullObjectKey?: string | null;
+  }) {
+    return [photo.objectKey, photo.thumbObjectKey, photo.cardObjectKey, photo.fullObjectKey]
+      .filter((objectKey): objectKey is string => Boolean(objectKey));
   }
 
   async backfillMissingPhotoVariants(limit = 50) {

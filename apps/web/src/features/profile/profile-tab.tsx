@@ -61,7 +61,6 @@ export function ProfileTab({
   const [profileView, setProfileView] = useState<"overview" | "edit" | "preview">(
     isSetupMode ? "edit" : "overview"
   );
-  const [activeProfilePhotoIndex, setActiveProfilePhotoIndex] = useState(0);
   const [isLoadingProfile, setIsLoadingProfile] = useState(profile === null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [uploadingPhotoSlot, setUploadingPhotoSlot] = useState<number | null>(null);
@@ -78,13 +77,7 @@ export function ProfileTab({
   const profilePhotos = profile?.user.photos ?? [];
   const visibleProfilePhotos = profilePhotos.slice(0, PROFILE_PHOTO_LIMIT);
   const profilePhoto = visibleProfilePhotos[0];
-  const safeActiveProfilePhotoIndex =
-    activeProfilePhotoIndex < visibleProfilePhotos.length ? activeProfilePhotoIndex : 0;
-  const activeProfilePhoto = visibleProfilePhotos[safeActiveProfilePhotoIndex] ?? profilePhoto;
   const attendedEventCount = profile?.attendedEventCount ?? 0;
-  const isUploadingPhoto = uploadingPhotoSlot !== null;
-  const canDeleteProfilePhoto = visibleProfilePhotos.length > 1;
-  const nextAvailablePhotoSlot = Math.min(visibleProfilePhotos.length, PROFILE_PHOTO_LIMIT - 1);
   const profileAge = getAgeFromBirthDate(profileForm.birthDate);
   const adultBirthDateMax = getAdultBirthDateMaxValue();
   const profileLocation = [profileForm.city, profileForm.state].filter(Boolean).join(", ") || "Nigeria";
@@ -385,20 +378,13 @@ export function ProfileTab({
 
   async function uploadProfilePhoto(
     event: ChangeEvent<HTMLInputElement>,
-    sortOrder = nextAvailablePhotoSlot,
-    options: { replacePhotoId?: string } = {}
+    sortOrder = 0
   ) {
     const input = event.currentTarget;
     const file = input.files?.[0];
-    const isReplacingPhoto = Boolean(options.replacePhotoId);
+    const isReplacingPhoto = visibleProfilePhotos.length > 0;
 
     if (!file) {
-      return;
-    }
-
-    if (!isReplacingPhoto && visibleProfilePhotos.length >= PROFILE_PHOTO_LIMIT) {
-      setNotice(`You can add up to ${PROFILE_PHOTO_LIMIT} profile photos.`);
-      input.value = "";
       return;
     }
 
@@ -453,13 +439,6 @@ export function ProfileTab({
         throw new Error("S3 rejected the photo upload. Check the bucket CORS settings.");
       }
 
-      if (options.replacePhotoId) {
-        await apiRequest<{ deleted: boolean }>(`/profiles/photos/${encodeURIComponent(options.replacePhotoId)}`, {
-          method: "DELETE",
-          headers: authHeaders(token),
-        });
-      }
-
       await apiRequest<ProfilePhoto>("/profiles/photos", {
         method: "POST",
         headers: authHeaders(token),
@@ -469,8 +448,13 @@ export function ProfileTab({
         }),
       });
 
-      setActiveProfilePhotoIndex(Math.min(sortOrder, PROFILE_PHOTO_LIMIT - 1));
-      setNotice(isReplacingPhoto ? "Photo updated." : "Photo added to your profile.");
+      if (isReplacingPhoto) {
+        updateSessionUser((currentUser) => ({
+          ...currentUser,
+          faceVerificationStatus: "NOT_STARTED",
+        }));
+      }
+      setNotice(isReplacingPhoto ? "Photo updated. Please verify your profile again." : "Photo added to your profile.");
       await loadProfile({ clearNotice: false, showLoading: false, syncForm: false, force: true });
     } catch (error) {
       const message = getUserErrorMessage(error);
@@ -482,45 +466,6 @@ export function ProfileTab({
     } finally {
       setUploadingPhotoSlot(null);
       input.value = "";
-    }
-  }
-
-  async function deleteProfilePhoto(photo: ProfilePhoto, index: number) {
-    if (!canDeleteProfilePhoto) {
-      setNotice("Your profile needs at least one photo.");
-      return;
-    }
-
-    if (isUploadingPhoto) {
-      return;
-    }
-
-    setUploadingPhotoSlot(index);
-    setNotice(null);
-
-    try {
-      await apiRequest<{ deleted: boolean }>(`/profiles/photos/${encodeURIComponent(photo.id)}`, {
-        method: "DELETE",
-        headers: authHeaders(token),
-      });
-
-      setActiveProfilePhotoIndex((currentIndex) => {
-        if (currentIndex === index) {
-          return Math.max(index - 1, 0);
-        }
-
-        if (currentIndex > index) {
-          return currentIndex - 1;
-        }
-
-        return currentIndex;
-      });
-      setNotice("Photo removed from your profile.");
-      await loadProfile({ clearNotice: false, showLoading: false, syncForm: false, force: true });
-    } catch (error) {
-      setNotice(getUserErrorMessage(error));
-    } finally {
-      setUploadingPhotoSlot(null);
     }
   }
 
@@ -620,7 +565,6 @@ export function ProfileTab({
               <ProfileEditorView
                 adultBirthDateMax={adultBirthDateMax}
                 canAddMoreInterests={canAddMoreInterests}
-                canDeletePhoto={canDeleteProfilePhoto}
                 cityOptions={cityOptions}
                 displayName={profileDisplayName}
                 form={profileForm}
@@ -629,8 +573,6 @@ export function ProfileTab({
                 isDetectingLocation={isDetectingLocation}
                 isSaving={isSavingProfile}
                 isSetupMode={isSetupMode}
-                nextAvailablePhotoSlot={nextAvailablePhotoSlot}
-                photos={visibleProfilePhotos}
                 profilePhoto={profilePhoto}
                 selectedInterests={previewInterests}
                 stateOptions={stateOptions}
@@ -641,7 +583,6 @@ export function ProfileTab({
                   setProfileForm((current) => ({ ...current, ...patch }))
                 }
                 onChangeInterestQuery={setInterestQuery}
-                onDeletePhoto={(photo, index) => void deleteProfilePhoto(photo, index)}
                 onDetectLocation={() => void detectProfileLocation()}
                 onInterestKeyDown={handleInterestSearchKeyDown}
                 onRemoveInterest={removeInterest}
@@ -663,8 +604,7 @@ export function ProfileTab({
             ) : (
               <>
                 <ProfileOverviewView
-                  activePhoto={activeProfilePhoto}
-                  activePhotoIndex={safeActiveProfilePhotoIndex}
+                  photo={profilePhoto}
                   attendedEventCount={attendedEventCount}
                   bio={profileForm.bio}
                   deleteAccountPassword={deleteAccountPassword}
@@ -675,11 +615,9 @@ export function ProfileTab({
                   isFaceVerified={user.faceVerificationStatus === "VERIFIED"}
                   isSubmittingAccountAction={isSubmittingAccountAction}
                   location={profileLocation}
-                  photos={visibleProfilePhotos}
                   profileAge={profileAge}
                   sexuality={profileForm.sexuality}
                   statusLabel={profileStatusLabel}
-                  onChangeActivePhoto={setActiveProfilePhotoIndex}
                   onChangeDeletePassword={setDeleteAccountPassword}
                   onCloseDeactivate={() => setIsDeactivateConfirmOpen(false)}
                   onDeactivate={() => {

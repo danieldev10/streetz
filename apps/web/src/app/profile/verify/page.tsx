@@ -227,7 +227,7 @@ function FaceVerificationContent({ token }: { token: string }) {
               </h1>
               <p className="mt-2 text-sm leading-6 text-ink-600">
                 {state?.enabled
-                  ? "We compare a live selfie with your profile photos to reduce fake profiles and impersonation."
+                  ? "We compare a live selfie with your profile photo to reduce fake profiles and impersonation."
                   : "Face verification is set up, but it is currently disabled for this prototype."}
               </p>
 

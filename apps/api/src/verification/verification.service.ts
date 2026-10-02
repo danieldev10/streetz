@@ -250,7 +250,7 @@ export class VerificationService {
         matchedPhotoId: null,
         referenceImageBucket,
         referenceImageKey,
-        failureReason: "No comparable face was found in the profile photos."
+        failureReason: "No comparable face was found in the profile photo."
       };
     }
 
@@ -261,7 +261,7 @@ export class VerificationService {
         matchedPhotoId: bestMatch.photoId,
         referenceImageBucket,
         referenceImageKey,
-        failureReason: "The live selfie did not match the profile photos closely enough."
+        failureReason: "The live selfie did not match the profile photo closely enough."
       };
     }
 
@@ -279,6 +279,7 @@ export class VerificationService {
     const photos = await this.prisma.profilePhoto.findMany({
       where: { userId },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      take: 1,
       select: {
         id: true,
         objectKey: true,

@@ -1,10 +1,9 @@
 import type { ChangeEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
-import { Camera, LoaderCircle, MapPin, Sparkles, Trash2, X } from "lucide-react";
+import { Camera, LoaderCircle, MapPin, Sparkles, X } from "lucide-react";
 import { CustomSelect } from "@/components/custom-select";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import {
   PROFILE_INTEREST_LIMIT,
-  PROFILE_PHOTO_LIMIT,
   connectionStatusOptions,
   sexualityOptions,
 } from "@/lib/profile";
@@ -14,7 +13,6 @@ import { SUPPORTED_PROFILE_PHOTO_TYPES, type ProfileForm } from "./profile-model
 export function ProfileEditorView({
   adultBirthDateMax,
   canAddMoreInterests,
-  canDeletePhoto,
   cityOptions,
   displayName,
   form,
@@ -23,8 +21,6 @@ export function ProfileEditorView({
   isDetectingLocation,
   isSaving,
   isSetupMode,
-  nextAvailablePhotoSlot,
-  photos,
   profilePhoto,
   selectedInterests,
   stateOptions,
@@ -33,7 +29,6 @@ export function ProfileEditorView({
   onAddInterest,
   onChangeForm,
   onChangeInterestQuery,
-  onDeletePhoto,
   onDetectLocation,
   onInterestKeyDown,
   onRemoveInterest,
@@ -42,7 +37,6 @@ export function ProfileEditorView({
 }: {
   adultBirthDateMax: string;
   canAddMoreInterests: boolean;
-  canDeletePhoto: boolean;
   cityOptions: string[];
   displayName: string;
   form: ProfileForm;
@@ -51,8 +45,6 @@ export function ProfileEditorView({
   isDetectingLocation: boolean;
   isSaving: boolean;
   isSetupMode: boolean;
-  nextAvailablePhotoSlot: number;
-  photos: ProfilePhoto[];
   profilePhoto: ProfilePhoto | undefined;
   selectedInterests: string[];
   stateOptions: string[];
@@ -61,29 +53,21 @@ export function ProfileEditorView({
   onAddInterest: (interest: string) => void;
   onChangeForm: (patch: Partial<ProfileForm>) => void;
   onChangeInterestQuery: (query: string) => void;
-  onDeletePhoto: (photo: ProfilePhoto, index: number) => void;
   onDetectLocation: () => void;
   onInterestKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   onRemoveInterest: (interest: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onUploadPhoto: (
-    event: ChangeEvent<HTMLInputElement>,
-    index: number,
-    options?: { replacePhotoId?: string },
-  ) => void;
+  onUploadPhoto: (event: ChangeEvent<HTMLInputElement>, index?: number) => void;
 }) {
   const isUploadingPhoto = uploadingPhotoSlot !== null;
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <ProfilePhotosEditor
-        canDeletePhoto={canDeletePhoto}
         displayName={displayName}
         isUploadingPhoto={isUploadingPhoto}
-        nextAvailablePhotoSlot={nextAvailablePhotoSlot}
-        photos={photos}
+        photo={profilePhoto}
         uploadingPhotoSlot={uploadingPhotoSlot}
-        onDeletePhoto={onDeletePhoto}
         onUploadPhoto={onUploadPhoto}
       />
 
@@ -263,137 +247,68 @@ export function ProfileEditorView({
 }
 
 function ProfilePhotosEditor({
-  canDeletePhoto,
   displayName,
   isUploadingPhoto,
-  nextAvailablePhotoSlot,
-  photos,
+  photo,
   uploadingPhotoSlot,
-  onDeletePhoto,
   onUploadPhoto,
 }: {
-  canDeletePhoto: boolean;
   displayName: string;
   isUploadingPhoto: boolean;
-  nextAvailablePhotoSlot: number;
-  photos: ProfilePhoto[];
+  photo: ProfilePhoto | undefined;
   uploadingPhotoSlot: number | null;
-  onDeletePhoto: (photo: ProfilePhoto, index: number) => void;
-  onUploadPhoto: (
-    event: ChangeEvent<HTMLInputElement>,
-    index: number,
-    options?: { replacePhotoId?: string },
-  ) => void;
+  onUploadPhoto: (event: ChangeEvent<HTMLInputElement>, index?: number) => void;
 }) {
   return (
     <section className="rounded-[24px] border border-black/[0.05] bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Profile photos</h2>
+          <h2 className="text-lg font-semibold">Profile photo</h2>
           <p className="mt-1 text-sm leading-6 text-ink-600">
-            Add one main photo, then up to three more.
+            This is the photo people will see across Crushclub.
           </p>
         </div>
         <span className="rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand-strong">
-          {Math.min(photos.length, PROFILE_PHOTO_LIMIT)}/{PROFILE_PHOTO_LIMIT}
+          {photo ? "1/1" : "0/1"}
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: PROFILE_PHOTO_LIMIT }).map((_, index) => {
-          const photo = photos[index];
-          const isOpenSlot =
-            !photo && index === nextAvailablePhotoSlot && photos.length < PROFILE_PHOTO_LIMIT;
-          const isLockedSlot = !photo && !isOpenSlot;
-
-          return (
-            <div
-              key={photo?.id ?? `photo-slot-${index}`}
-              className="relative aspect-[3/4] overflow-hidden rounded-[20px] border border-black/[0.06] bg-brand-tint"
-            >
-              {photo ? (
-                <ProfilePhotoImage
-                  photo={photo}
-                  alt={`${displayName} photo ${index + 1}`}
-                  variant="card"
-                  sizes="(max-width: 640px) 50vw, 160px"
-                  iconSize="md"
-                />
-              ) : (
-                <div className="grid h-full place-items-center px-3 text-center text-brand-strong">
-                  <div>
-                    <Camera className="mx-auto size-7" aria-hidden="true" />
-                    <p className="mt-2 text-xs font-medium">
-                      {index === 0 ? "Main photo" : `Photo ${index + 1}`}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <span className="absolute left-2 top-2 rounded-full bg-surface/90 px-2.5 py-1 text-[11px] font-medium text-ink">
-                {index === 0 ? "Main" : `Photo ${index + 1}`}
-              </span>
-
-              {photo ? (
-                <div className="absolute inset-x-2 bottom-2 flex items-center gap-2">
-                  <label className="inline-flex h-8 flex-1 cursor-pointer items-center justify-center rounded-full bg-surface/95 px-3 text-xs font-semibold text-ink shadow-[0_2px_10px_rgba(0,0,0,0.12)] transition hover:bg-surface">
-                    {uploadingPhotoSlot === index ? (
-                      <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      "Replace"
-                    )}
-                    <input
-                      className="sr-only"
-                      type="file"
-                      accept={SUPPORTED_PROFILE_PHOTO_TYPES.join(",")}
-                      onChange={(event) =>
-                        onUploadPhoto(event, index, { replacePhotoId: photo.id })
-                      }
-                      disabled={isUploadingPhoto}
-                    />
-                  </label>
-                  {canDeletePhoto ? (
-                    <button
-                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-surface/95 text-danger shadow-[0_2px_10px_rgba(0,0,0,0.12)] transition hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
-                      type="button"
-                      onClick={() => onDeletePhoto(photo, index)}
-                      disabled={isUploadingPhoto}
-                      aria-label={`Remove photo ${index + 1}`}
-                      title="Remove photo"
-                    >
-                      <Trash2 className="size-4" aria-hidden="true" />
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {isOpenSlot ? (
-                <label className="absolute inset-0 grid cursor-pointer place-items-center bg-black/10 text-white">
-                  {uploadingPhotoSlot === index ? (
-                    <LoaderCircle className="size-6 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <span className="rounded-full bg-ink px-3 py-1.5 text-xs font-medium">
-                      Add photo
-                    </span>
-                  )}
-                  <input
-                    className="sr-only"
-                    type="file"
-                    accept={SUPPORTED_PROFILE_PHOTO_TYPES.join(",")}
-                    onChange={(event) => onUploadPhoto(event, index)}
-                    disabled={isUploadingPhoto}
-                  />
-                </label>
-              ) : null}
-
-              {isLockedSlot ? (
-                <div className="absolute inset-0 grid place-items-center bg-surface/50 px-3 text-center text-[11px] font-medium text-ink-500">
-                  Fill previous slot first
-                </div>
-              ) : null}
+      <div className="mt-4 max-w-[240px]">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-[20px] border border-black/[0.06] bg-brand-tint">
+          {photo ? (
+            <ProfilePhotoImage
+              photo={photo}
+              alt={`${displayName} profile photo`}
+              variant="card"
+              sizes="240px"
+              iconSize="md"
+            />
+          ) : (
+            <div className="grid h-full place-items-center px-3 text-center text-brand-strong">
+              <div>
+                <Camera className="mx-auto size-7" aria-hidden="true" />
+                <p className="mt-2 text-xs font-medium">Profile photo</p>
+              </div>
             </div>
-          );
-        })}
+          )}
+
+          <label className="absolute inset-x-3 bottom-3 inline-flex h-9 cursor-pointer items-center justify-center rounded-full bg-surface/95 px-3 text-xs font-semibold text-ink shadow-[0_2px_10px_rgba(0,0,0,0.12)] transition hover:bg-surface">
+            {uploadingPhotoSlot === 0 ? (
+              <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+            ) : photo ? (
+              "Replace photo"
+            ) : (
+              "Add photo"
+            )}
+            <input
+              className="sr-only"
+              type="file"
+              accept={SUPPORTED_PROFILE_PHOTO_TYPES.join(",")}
+              onChange={(event) => onUploadPhoto(event, 0)}
+              disabled={isUploadingPhoto}
+            />
+          </label>
+        </div>
       </div>
     </section>
   );
