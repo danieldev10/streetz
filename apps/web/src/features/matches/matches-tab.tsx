@@ -2,10 +2,11 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { io, type Socket } from "socket.io-client";
-import { ArrowDown, ArrowLeft, CheckCheck, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
+import { ArrowDown, ArrowLeft, CheckCheck, ChevronRight, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
 import { ListSkeleton, MessageThreadSkeleton } from "@/components/skeletons";
 import { useChatAutoScroll } from "@/lib/use-chat-autoscroll";
 import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -17,6 +18,7 @@ import { MemberProfileView } from "@/features/discovery/member-profile-view";
 import { ChatGif } from "@/components/chat/chat-gif";
 import { ChatMediaPicker } from "@/components/chat/chat-media-picker";
 import { CHAT_PANEL_HEIGHT } from "@/lib/chat-layout";
+import { MessageRequestsView, type MessageRequestView } from "./message-requests-view";
 
 function getMatchActivityTime(match: MatchThread) {
   return Date.parse(match.lastMessage?.createdAt ?? match.createdAt) || 0;
@@ -140,6 +142,7 @@ export function MatchesTab({
   user,
   initialMatches = [],
   initialSelectedMatchId = null,
+  requestView = null,
   onMatchesLoaded,
   onMatchOpened,
   onNotificationsChanged,
@@ -148,6 +151,7 @@ export function MatchesTab({
   user: StreetzUser;
   initialMatches?: MatchThread[];
   initialSelectedMatchId?: string | null;
+  requestView?: MessageRequestView | null;
   onMatchesLoaded: (matches: MatchThread[]) => void;
   onMatchOpened: (match: MatchThread) => void;
   onNotificationsChanged: () => void;
@@ -157,17 +161,21 @@ export function MatchesTab({
   const initialCachedMessages = initialSelectedMatchId
     ? queryClient.getQueryData<DirectMessage[]>(queryKeys.directMessages(user.id, initialSelectedMatchId))
     : undefined;
+  const initialCachedRequests = queryClient.getQueryData<ConversationRequests>(queryKeys.conversationRequests(user.id));
   const [matches, setMatches] = useState<MatchThread[]>(initialMatches);
-  const [conversationRequests, setConversationRequests] = useState<ConversationRequests>({ received: [], sent: [] });
+  const [conversationRequests, setConversationRequests] = useState<ConversationRequests>(initialCachedRequests ?? { received: [], sent: [] });
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(initialSelectedMatchId);
   const [viewedMatchProfile, setViewedMatchProfile] = useState<DiscoveryCandidate | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>(initialCachedMessages ?? []);
   const [messageBody, setMessageBody] = useState("");
   const [selectedGifUrl, setSelectedGifUrl] = useState<string | null>(null);
   const [matchSearch, setMatchSearch] = useState("");
-  const [isLoadingMatches, setIsLoadingMatches] = useState(initialMatches.length === 0);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(
+    requestView ? initialCachedRequests === undefined : initialMatches.length === 0 && initialCachedRequests === undefined
+  );
   const [isLoadingMessages, setIsLoadingMessages] = useState(Boolean(initialSelectedMatchId && initialCachedMessages === undefined));
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [respondingRequestId, setRespondingRequestId] = useState<string | null>(null);
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "offline">("connecting");
   const [notice, setNotice] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -257,7 +265,7 @@ export function MatchesTab({
   }
 
   async function loadMatches() {
-    if (matches.length === 0) {
+    if (matches.length === 0 && queryClient.getQueryData(queryKeys.conversationRequests(user.id)) === undefined) {
       setIsLoadingMatches(true);
     }
     setNotice(null);
@@ -273,6 +281,7 @@ export function MatchesTab({
       ]);
       setMatches(response.matches);
       setConversationRequests(requests);
+      queryClient.setQueryData(queryKeys.conversationRequests(user.id), requests);
       setSelectedMatchId((current) => {
         if (current && response.matches.some((match) => match.id === current)) {
           return current;
@@ -324,6 +333,8 @@ export function MatchesTab({
   }
 
   async function acceptRequest(request: MatchThread) {
+    if (respondingRequestId) return;
+    setRespondingRequestId(request.id);
     setNotice(null);
 
     try {
@@ -331,19 +342,20 @@ export function MatchesTab({
         method: "POST",
         headers: authHeaders(token),
       });
-      setConversationRequests((current) => ({
-        ...current,
-        received: current.received.filter((item) => item.id !== request.id),
-      }));
+      removeReceivedRequest(request.id);
       setMatches((current) => [response.conversation, ...current.filter((item) => item.id !== request.id)]);
       onNotificationsChangedRef.current();
       openMatch(response.conversation.id, response.conversation);
     } catch (error) {
       setNotice(getUserErrorMessage(error));
+    } finally {
+      setRespondingRequestId(null);
     }
   }
 
   async function declineRequest(request: MatchThread) {
+    if (respondingRequestId) return;
+    setRespondingRequestId(request.id);
     setNotice(null);
 
     try {
@@ -351,15 +363,25 @@ export function MatchesTab({
         method: "POST",
         headers: authHeaders(token),
       });
-      setConversationRequests((current) => ({
-        ...current,
-        received: current.received.filter((item) => item.id !== request.id),
-      }));
+      removeReceivedRequest(request.id);
       setNotice("Message request declined.");
       onNotificationsChangedRef.current();
     } catch (error) {
       setNotice(getUserErrorMessage(error));
+    } finally {
+      setRespondingRequestId(null);
     }
+  }
+
+  function removeReceivedRequest(requestId: string) {
+    setConversationRequests((current) => ({
+      ...current,
+      received: current.received.filter((request) => request.id !== requestId),
+    }));
+    queryClient.setQueryData<ConversationRequests>(queryKeys.conversationRequests(user.id), (current) => current ? ({
+      ...current,
+      received: current.received.filter((request) => request.id !== requestId),
+    }) : current);
   }
 
   function upsertMessage(message: DirectMessage, options: { appendToMessages?: boolean } = {}) {
@@ -831,6 +853,20 @@ export function MatchesTab({
     );
   }
 
+  if (requestView) {
+    return (
+      <MessageRequestsView
+        view={requestView}
+        requests={conversationRequests[requestView]}
+        isLoading={isLoadingMatches}
+        notice={notice}
+        respondingRequestId={respondingRequestId}
+        onAccept={(request) => void acceptRequest(request)}
+        onDecline={(request) => void declineRequest(request)}
+      />
+    );
+  }
+
   const hasAnyConversation = matches.length > 0 || conversationRequests.received.length > 0 || conversationRequests.sent.length > 0;
 
   return (
@@ -843,62 +879,33 @@ export function MatchesTab({
         ) : hasAnyConversation ? (
           <div className="mx-auto mt-5 max-w-3xl space-y-6">
             {conversationRequests.received.length > 0 ? (
-              <section>
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-ink-400">Requests</h2>
+              <Link
+                href="/messages/requests"
+                className="flex min-h-12 items-center justify-between gap-3 rounded-2xl px-1 transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+              >
+                <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-ink-400">Requests</h2>
+                <div className="flex shrink-0 items-center gap-2">
                   <span className="grid min-w-6 place-items-center rounded-full bg-brand-strong px-1.5 text-xs font-semibold leading-6 text-white">
                     {conversationRequests.received.length}
                   </span>
+                  <ChevronRight className="size-4 text-ink-400" aria-hidden="true" />
                 </div>
-                <div className="mt-3 overflow-hidden rounded-[24px] border border-black/[0.05] bg-surface">
-                  {conversationRequests.received.map((request) => (
-                    <article key={request.id} className="flex gap-3 border-b border-black/[0.05] p-4 last:border-b-0">
-                      <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-brand-tint">
-                        <CandidatePhoto candidate={request.user} variant="thumb" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold">{request.user.displayName}</p>
-                        <p className="mt-1 line-clamp-2 text-sm leading-5 text-ink-600">{request.lastMessage?.body}</p>
-                        <div className="mt-3 flex gap-2">
-                          <button
-                            type="button"
-                            className="h-9 rounded-full bg-ink px-4 text-xs font-semibold text-white"
-                            onClick={() => void acceptRequest(request)}
-                          >
-                            Accept
-                          </button>
-                          <button
-                            type="button"
-                            className="h-9 rounded-full border border-black/[0.08] px-4 text-xs font-semibold"
-                            onClick={() => void declineRequest(request)}
-                          >
-                            Decline
-                          </button>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
+              </Link>
             ) : null}
 
             {conversationRequests.sent.length > 0 ? (
-              <section>
-                <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-ink-400">Pending</h2>
-                <div className="mt-3 overflow-hidden rounded-[24px] border border-black/[0.05] bg-surface">
-                  {conversationRequests.sent.map((request) => (
-                    <article key={request.id} className="flex items-center gap-3 border-b border-black/[0.05] p-4 last:border-b-0">
-                      <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-brand-tint">
-                        <CandidatePhoto candidate={request.user} variant="thumb" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold">{request.user.displayName}</p>
-                        <p className="mt-1 truncate text-sm text-ink-500">Request sent · waiting for a response</p>
-                      </div>
-                    </article>
-                  ))}
+              <Link
+                href="/messages/pending"
+                className="flex min-h-12 items-center justify-between gap-3 rounded-2xl px-1 transition hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+              >
+                <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-ink-400">Pending requests</h2>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="grid min-w-6 place-items-center rounded-full bg-brand-strong px-1.5 text-xs font-semibold leading-6 text-white">
+                    {conversationRequests.sent.length}
+                  </span>
+                  <ChevronRight className="size-4 text-ink-400" aria-hidden="true" />
                 </div>
-              </section>
+              </Link>
             ) : null}
 
             {matches.length > 0 ? (
