@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Heart, ShieldCheck, UserRound } from "lucide-react";
 import { AuthenticatedRoute } from "@/components/app/authenticated-route";
+import { PublicRoute } from "@/components/app/public-route";
+import { useSession } from "@/components/app/session-provider";
 import { DiscoveryLoadingView } from "@/features/discovery/discovery-loading-view";
 import { DiscoveryTab } from "@/features/discovery/discovery-tab";
+import { GuestDiscoveryTab } from "@/features/discovery/guest-discovery-tab";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { formatProfileSetupIssues, getProfileSetupIssues, isProfileReadyForDiscovery } from "@/lib/profile";
 import { queryKeys } from "@/lib/query-keys";
@@ -200,6 +203,16 @@ function DiscoveryProfileGate({
 }
 
 export default function DiscoverPage() {
+  const { status } = useSession();
+
+  if (status === "unauthenticated") {
+    return (
+      <PublicRoute activeTab="discovery">
+        {({ requestAuth }) => <GuestDiscoveryTab onRequireAuth={() => requestAuth("discovery")} />}
+      </PublicRoute>
+    );
+  }
+
   return (
     <AuthenticatedRoute activeTab="discovery">
       {({ token, user, onMatchCreated }) => (

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogIn, X } from "lucide-react";
 import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
@@ -10,9 +10,10 @@ import { bottomTabs, tabRoutes, tabs } from "@/components/app/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { useSession } from "@/components/app/session-provider";
 import { isActiveMember } from "@/lib/api";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import type { ChatRoom, MatchThread, StreetzUser, TabKey } from "@/lib/types";
 
-export type AuthPromptKind = "eventTicket" | "roomJoin" | "protectedTab" | "account";
+export type AuthPromptKind = "eventTicket" | "roomJoin" | "protectedTab" | "account" | "discovery";
 
 export type PublicRouteRenderProps = MemberAppRenderProps & {
   token: string | null;
@@ -22,6 +23,13 @@ export type PublicRouteRenderProps = MemberAppRenderProps & {
 };
 
 function getPromptCopy(kind: AuthPromptKind) {
+  if (kind === "discovery") {
+    return {
+      title: "Log in to discover more",
+      body: "Create an account or log in to view profiles, message people, choose your state and status, and enter the discovery pool.",
+    };
+  }
+
   if (kind === "eventTicket") {
     return {
       title: "Create an account to continue",
@@ -56,21 +64,41 @@ function useReturnPath() {
 function AuthPromptModal({ kind, nextPath, onClose }: { kind: AuthPromptKind; nextPath: string; onClose: () => void }) {
   const copy = getPromptCopy(kind);
   const encodedNext = encodeURIComponent(nextPath);
+  const dialogRef = useRef<HTMLElement | null>(null);
+  useDialogFocus(true, dialogRef);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
+      <button type="button" className="absolute inset-0" tabIndex={-1} onClick={onClose} aria-label="Dismiss login prompt" />
       <section
-        className="w-full max-w-sm rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
+        ref={dialogRef}
+        className="relative w-full max-w-sm rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-prompt-title"
+        aria-describedby="auth-prompt-description"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 id="auth-prompt-title" className="text-xl font-semibold text-ink">
               {copy.title}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-ink-600">{copy.body}</p>
+            <p id="auth-prompt-description" className="mt-2 text-sm leading-6 text-ink-600">{copy.body}</p>
           </div>
           <button
             type="button"
@@ -109,7 +137,7 @@ function PublicNavButton({ tab, active, variant, onRequireAuth }: {
   onRequireAuth: () => void;
 }) {
   const Icon = tab.icon;
-  const isPublicTab = tab.id === "events";
+  const isPublicTab = tab.id === "events" || tab.id === "discovery";
   const base = "inline-flex items-center justify-center gap-2 text-sm font-medium transition";
   const activeClass = active ? "bg-ink text-white" : "text-ink-600 hover:text-ink";
   const className = variant === "side"
@@ -164,7 +192,7 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
               </button>
             </div>
             <div className="mt-5 rounded-[16px] border border-black/[0.05] bg-surface-muted p-4">
-              <p className="text-sm font-medium">Browse upcoming events</p>
+              <p className="text-sm font-medium">Browse events and discover people</p>
               <p className="mt-1 text-xs leading-5 text-ink-600">Create an account when you are ready to buy tickets, join event chats, or meet people.</p>
             </div>
           </div>

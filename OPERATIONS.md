@@ -61,7 +61,9 @@ The API never includes secrets or request bodies in request logs. Sentry is conf
 
 Checked on 22 July 2026: the production path is Vercel → Railway for `/api`, verified by Railway response headers through the Vercel rewrite. Public HTML and JSON negotiate Brotli/gzip. Tiny responses such as health JSON remain uncompressed, which is expected.
 
-Public event data is shared-cacheable for five minutes and event details for one minute. The `/events` HTML uses 60-second ISR. Authenticated, payment, ticket, moderation, chat, and discovery responses remain private and uncached.
+Public event data is shared-cacheable for five minutes and event details for one minute. The `/events` HTML uses 60-second ISR. Authenticated, payment, ticket, moderation, chat, and member discovery responses remain private and uncached.
+
+Guest Discover uses `GET /public/discovery/people`, a read-only preview capped at 12 eligible pool members with no pagination. It exposes only names, ages, states, statuses, and one photo thumbnail. Withdrawn, inactive, expired, incomplete, and (when required) unverified profiles are excluded. The endpoint is limited to 30 requests per minute per IP, sends `Cache-Control: no-store`, and the web app does not persist its results. Guest profile actions and discovery controls prompt for authentication and return to `/discover` after login; member access gates still apply. This preview makes these basic fields public, including to withdrawn members browsing while logged out.
 
 ## Payment and ticket release smoke test
 

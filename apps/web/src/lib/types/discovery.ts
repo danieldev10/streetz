@@ -34,6 +34,16 @@ export type DiscoveryCandidate = {
   photos: ProfilePhoto[];
 };
 
+/** The public preview contains only the fields rendered on a discovery card. */
+export type PublicDiscoveryPerson = Pick<DiscoveryCandidate,
+  "id" | "displayName" | "age" | "state" | "connectionStatus" | "photos"
+>;
+
+export type PublicDiscoveryPreview = {
+  people: PublicDiscoveryPerson[];
+  isPreview: true;
+};
+
 export type BlockedAccount = DiscoveryCandidate & {
   blockedAt: string;
   blockReason: string | null;

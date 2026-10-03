@@ -18,6 +18,7 @@ const DISCOVERY_DECK_SIZE = 12;
 const DISCOVERY_POOL_SIZE = 100;
 const DISCOVERY_ALGORITHM = "mutual-v1";
 const DISCOVERY_PEOPLE_PAGE_SIZE = 20;
+const PUBLIC_DISCOVERY_PREVIEW_SIZE = 12;
 
 type ReadyDiscoveryProfile = {
   birthDate: Date;
@@ -49,6 +50,76 @@ export class DiscoveryService {
     private readonly storage: StorageService,
     private readonly verification: VerificationService
   ) {}
+
+  async getPublicPreview() {
+    const now = new Date();
+    const adultBirthDate = new Date(now.getFullYear() - 18, now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    // This endpoint has no pagination or viewer preferences. Keep the database
+    // read bounded and project public fields explicitly instead of formatting
+    // a full member profile (which includes private details and original URLs).
+    const candidates = await this.prisma.user.findMany({
+      where: {
+        accountStatus: AccountStatus.ACTIVE,
+        role: UserRole.USER,
+        subscriptionStatus: SubscriptionStatus.ACTIVE,
+        subscriptionEndsAt: { gt: now },
+        ...(this.verification.isRequired() ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
+        discoveryPreference: {
+          is: { confirmedAt: { not: null }, interestedInGenders: { isEmpty: false } }
+        },
+        profile: {
+          is: {
+            discoveryLive: true,
+            bio: { not: null, notIn: [""] },
+            city: { not: null, notIn: [""] },
+            state: { not: null, notIn: [""] },
+            birthDate: { lte: adultBirthDate },
+            discoveryGender: { not: null },
+            connectionStatus: { not: null },
+            interests: { isEmpty: false }
+          }
+        },
+        photos: { some: {} }
+      },
+      select: {
+        id: true,
+        displayName: true,
+        profile: {
+          select: { bio: true, city: true, state: true, birthDate: true, connectionStatus: true, interests: true }
+        },
+        photos: {
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          take: 1,
+          select: { id: true, url: true, objectKey: true, thumbUrl: true, thumbObjectKey: true, blurDataUrl: true }
+        }
+      },
+      orderBy: [{ lastDiscoveryActiveAt: "desc" }, { id: "asc" }],
+      take: PUBLIC_DISCOVERY_PREVIEW_SIZE
+    });
+
+    const people = candidates.filter((candidate) => (
+      isProfileSetupComplete(candidate) &&
+      candidate.profile?.birthDate &&
+      calculateAge(candidate.profile.birthDate, now) >= 18
+    )).map((candidate) => {
+      const profile = candidate.profile!;
+      const photo = candidate.photos[0];
+      const thumbnailUrl = photo.thumbObjectKey
+        ? this.storage.buildPublicUrl(photo.thumbObjectKey)
+        : photo.thumbUrl ?? (photo.objectKey ? this.storage.buildPublicUrl(photo.objectKey) : photo.url);
+
+      return {
+        id: candidate.id,
+        displayName: candidate.displayName,
+        age: calculateAge(profile.birthDate!, now),
+        state: profile.state,
+        connectionStatus: profile.connectionStatus,
+        photos: [{ id: photo.id, url: thumbnailUrl, thumbUrl: thumbnailUrl, blurDataUrl: photo.blurDataUrl, sortOrder: 0 }]
+      };
+    });
+
+    return { people, isPreview: true };
+  }
 
   async getPeople(userId: string, cursor?: string) {
     const currentProfile = await this.ensureCurrentProfileReady(userId);
