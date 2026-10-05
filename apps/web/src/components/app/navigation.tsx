@@ -26,6 +26,7 @@ import type { ProfilePhoto, StreetzUser, TabKey } from "@/lib/types";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { BrandLogo } from "@/components/brand-logo";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
+import { PrivacyPolicyLink } from "@/components/privacy-policy-link";
 
 export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "events", label: "Events", icon: Ticket },
@@ -321,6 +322,9 @@ function AccountMenu({
             Logout
           </button>
         </nav>
+        <div className="mt-4 shrink-0 border-t border-black/5 pt-3 pb-[env(safe-area-inset-bottom)]">
+          <PrivacyPolicyLink onClick={closeMenu} tabIndex={isOpen ? 0 : -1} />
+        </div>
       </aside>
     </div>
   );

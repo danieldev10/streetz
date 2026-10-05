@@ -48,6 +48,22 @@ export function isActiveMember(user: StreetzUser | null) {
 }
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}) {
+  return await readJson(await requestApiResponse(path, options)) as T;
+}
+
+export async function downloadApiFile(path: string, filename: string, options: RequestInit = {}) {
+  const response = await requestApiResponse(path, options);
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function requestApiResponse(path: string, options: RequestInit) {
   const hasAuthHeader = hasAuthorizationHeader(options.headers);
   let response = await fetchApi(path, options);
 
@@ -59,9 +75,8 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}) {
     }
   }
 
-  const data = await readJson(response);
-
   if (!response.ok) {
+    const data = await readJson(response);
     if (response.status === 401 && hasAuthHeader && typeof window !== "undefined") {
       window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     }
@@ -69,7 +84,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}) {
     throw new ApiError(data?.message ?? "Request failed.", response.status);
   }
 
-  return data as T;
+  return response;
 }
 
 export async function refreshAccessToken() {

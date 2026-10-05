@@ -8,6 +8,7 @@ import { LogIn, X } from "lucide-react";
 import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
 import { bottomTabs, tabRoutes, tabs } from "@/components/app/navigation";
 import { BrandLogo } from "@/components/brand-logo";
+import { PrivacyPolicyLink } from "@/components/privacy-policy-link";
 import { useSession } from "@/components/app/session-provider";
 import { isActiveMember } from "@/lib/api";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
@@ -174,7 +175,7 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
   return (
     <main className="min-h-screen bg-surface text-ink">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-surface px-4 py-5 md:block">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-black/[0.05] bg-surface px-4 py-5 md:flex">
           <div>
             <div className="flex items-center justify-between">
               <div>
@@ -207,6 +208,9 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
               />
             ))}
           </nav>
+          <div className="mt-auto border-t border-black/5 pt-3">
+            <PrivacyPolicyLink />
+          </div>
         </aside>
 
         <section className="min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">

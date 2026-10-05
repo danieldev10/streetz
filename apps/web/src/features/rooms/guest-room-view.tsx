@@ -15,7 +15,7 @@ type PublicRoomResponse = {
   messages: RoomMessage[];
 };
 
-export function GuestRoomView({ roomId }: { roomId: string }) {
+export function GuestRoomView({ roomId, isMemberPreview = false }: { roomId: string; isMemberPreview?: boolean }) {
   const router = useRouter();
   const [room, setRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
@@ -132,6 +132,8 @@ export function GuestRoomView({ roomId }: { roomId: string }) {
       userId={null}
       isAdmin={false}
       isGuest
+      readOnlyMessage={isMemberPreview ? "Get a ticket for this event to send messages." : undefined}
+      ticketHref={isMemberPreview && room.eventId ? `/events/${room.eventId}` : undefined}
       notice={notice}
       socketStatus={socketStatus}
       messages={messages}

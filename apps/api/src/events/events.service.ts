@@ -3,6 +3,7 @@ import { EventBookingAccess, EventStatus, PaymentPurpose, PaymentStatus, Prisma,
 import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
+import { queueTicketEmail } from "../tickets/ticket-email-queue";
 import { EVENT_IMAGE_UPLOAD_MAX_BYTES, formatUploadLimit } from "../storage/upload-limits";
 import { getAccountAccessBlock } from "../users/account-status";
 import { BookEventDto } from "./dto/book-event.dto";
@@ -441,7 +442,7 @@ export class EventsService {
         maxTicketsPerUser: ticketType.maxTicketsPerUser
       });
 
-      await Promise.all(
+      const issuedTickets = await Promise.all(
         Array.from({ length: quantity }, () =>
           transaction.ticket.create({
             data: {
@@ -454,6 +455,8 @@ export class EventsService {
           })
         )
       );
+
+      await queueTicketEmail(transaction, `free:${issuedTickets[0].id}`, issuedTickets.map((ticket) => ticket.id));
 
       await transaction.ticketType.update({
         where: { id: ticketType.id },
@@ -1001,14 +1004,12 @@ export class EventsService {
     const userTicket = userTickets[0] ?? null;
     const totalPaidAmountKobo = options.includeAdminCounts ? await this.sumSuccessfulEventTicketPayments(event.id) : 0;
     const eventRoomIsAvailable = Boolean(event.room?.isActive && isEventRoomAvailable(event));
-    const eventRoom = eventRoomIsAvailable && (
-      options.includePublicRoom || (options.includeUserTickets && userTickets.length > 0)
-    )
+    const eventRoom = eventRoomIsAvailable && (options.includePublicRoom || options.includeUserTickets)
       ? {
           id: event.room!.id,
           hasJoined: options.includePublicRoom ? false : Boolean(event.room!.memberships?.length),
           availableUntil: getEventRoomClosesAt(event),
-          ...(options.includePublicRoom ? { readOnly: true } : {})
+          readOnly: Boolean(options.includePublicRoom || userTickets.length === 0)
         }
       : null;
 

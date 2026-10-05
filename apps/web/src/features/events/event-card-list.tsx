@@ -162,9 +162,9 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                 >
                   {isHistoryCard ? "View details" : mode === "tickets" ? "View tickets" : getTicketsLabel}
                 </ActionButton>
-                {event.room && (isGuest || isOwnedEventCard) ? (
+                {event.room ? (
                   <ActionButton
-                    trackNavigation isLoading={isRoomBusy} icon={isGuest || event.room.hasJoined ? (
+                    trackNavigation isLoading={isRoomBusy} icon={isGuest || event.room.readOnly || event.room.hasJoined ? (
                       <MessageCircle className="size-4" aria-hidden="true" />
                     ) : (
                       <UsersRound className="size-4" aria-hidden="true" />
@@ -179,7 +179,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                     aria-label={!isGuest && event.room.hasJoined ? `Open ${event.title} chat` : undefined}
                     title={!isGuest && event.room.hasJoined ? "Open event chat" : undefined}
                   >
-                    {isGuest ? (
+                    {isGuest || event.room.readOnly ? (
                       <span>View chat</span>
                     ) : event.room.hasJoined ? (
                       <span className="sr-only">Open event chat</span>

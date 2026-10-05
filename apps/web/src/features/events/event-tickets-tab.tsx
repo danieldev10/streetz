@@ -5,11 +5,11 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, CheckCircle2, MapPin, MessageCircle, Share2, Ticket, UsersRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, Download, MapPin, MessageCircle, Share2, Ticket, UsersRound } from "lucide-react";
 import { type AuthPromptKind } from "@/components/app/public-route";
 import { useToast } from "@/components/app/toast-provider";
 import { MediaDetailSkeleton } from "@/components/skeletons";
-import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { apiRequest, authHeaders, downloadApiFile, getUserErrorMessage } from "@/lib/api";
 import { consumePendingEventCheckoutNotice, savePendingEventCheckout } from "@/lib/pending-event-checkout";
 import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import type { StreetzEvent, StreetzEventTicket, StreetzEventTicketType, StreetzUser, TicketStatus } from "@/lib/types";
@@ -386,6 +386,14 @@ export function EventTicketsTab({
     }
   }
 
+  async function downloadTickets() {
+    if (!event || !token) return;
+    setNotice(null);
+    try {
+      await downloadApiFile(`/events/${encodeURIComponent(event.id)}/tickets/download`, "crushclub-tickets.pdf", { headers: authHeaders(token) });
+    } catch (error) { setNotice(getUserErrorMessage(error)); }
+  }
+
   return (
     <section>
       {!event ? <h1 className="sr-only">Event details</h1> : null}
@@ -534,9 +542,9 @@ export function EventTicketsTab({
                                     ? `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} more ${purchaseNounPlural}`
                                     : `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} ${selectedNoun}`}
                     </ActionButton>
-                    {event.room && ((isGuest && event.room.readOnly) || (!isGuest && tickets.length > 0)) ? (
+                    {event.room ? (
                       <ActionButton
-                        trackNavigation isLoading={isRoomBusy} icon={isGuest || event.room.hasJoined ? (
+                        trackNavigation isLoading={isRoomBusy} icon={isGuest || event.room.readOnly || event.room.hasJoined ? (
                           <MessageCircle className="size-4" aria-hidden="true" />
                         ) : (
                           <UsersRound className="size-4" aria-hidden="true" />
@@ -546,7 +554,7 @@ export function EventTicketsTab({
                         onClick={() => openEventRoom()}
                         disabled={isRoomBusy}
                       >
-                        {isGuest ? "View event chat" : event.room.hasJoined ? "Open event chat" : "Join room"}
+                        {isGuest || event.room.readOnly ? "View event chat" : event.room.hasJoined ? "Open event chat" : "Join room"}
                       </ActionButton>
                     ) : null}
                   </div>
@@ -554,6 +562,12 @@ export function EventTicketsTab({
 
                 {!isGuest ? (
                   <div className="grid gap-3">
+                    {tickets.length > 0 ? (
+                      <ActionButton type="button" onClick={downloadTickets} icon={<Download className="size-4" aria-hidden="true" />}
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-5 text-sm font-medium text-ink">
+                        Download tickets
+                      </ActionButton>
+                    ) : null}
                     {tickets.length > 0 ? (
                     tickets.map((ticket, index) => {
                       const state = getTicketState(ticket);

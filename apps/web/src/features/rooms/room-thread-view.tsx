@@ -1,4 +1,5 @@
 import { ActionButton } from "@/components/action-button";
+import Link from "next/link";
 import type {
   FormEventHandler,
   KeyboardEventHandler,
@@ -29,6 +30,8 @@ export function RoomThreadView({
   userId,
   isAdmin,
   isGuest = false,
+  readOnlyMessage,
+  ticketHref,
   notice,
   socketStatus,
   messages,
@@ -67,6 +70,8 @@ export function RoomThreadView({
   userId: string | null;
   isAdmin: boolean;
   isGuest?: boolean;
+  readOnlyMessage?: string;
+  ticketHref?: string;
   notice: string | null;
   socketStatus: "connecting" | "connected" | "offline";
   messages: RoomMessage[];
@@ -255,7 +260,12 @@ export function RoomThreadView({
 
           {isAdmin || isGuest ? (
             <div className="shrink-0 border-t border-black/5 bg-surface p-4 text-center text-sm font-medium text-ink-600">
-              {isGuest ? "Read-only event chat · Guests cannot send messages" : "Moderator view only"}
+              <p>{readOnlyMessage ?? (isGuest ? "Read-only event chat · Guests cannot send messages" : "Moderator view only")}</p>
+              {ticketHref ? (
+                <Link href={ticketHref} className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-white">
+                  Get tickets
+                </Link>
+              ) : null}
             </div>
           ) : (
             <form onSubmit={onSubmitMessage} className="relative flex shrink-0 items-center gap-2 border-t border-black/5 bg-surface p-4">

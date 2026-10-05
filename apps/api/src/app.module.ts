@@ -17,6 +17,7 @@ import { RoomsModule } from "./rooms/rooms.module";
 import { SupportModule } from "./support/support.module";
 import { UsersModule } from "./users/users.module";
 import { VerificationModule } from "./verification/verification.module";
+import { TicketsModule } from "./tickets/tickets.module";
 import { validateEnvironment } from "./config/environment.validation";
 import { RequestLoggingMiddleware } from "./observability/request-logging.middleware";
 
@@ -41,6 +42,7 @@ import { RequestLoggingMiddleware } from "./observability/request-logging.middle
     ProfilesModule,
     DiscoveryModule,
     EventsModule,
+    TicketsModule,
     MessagesModule,
     RoomsModule,
     AdminModule,

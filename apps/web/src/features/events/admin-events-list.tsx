@@ -21,6 +21,7 @@ import {
 } from "@/features/events/event-display";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import type { StreetzEvent } from "@/lib/types";
+import { TicketCheckInModal } from "./ticket-check-in-modal";
 
 export function AdminEventsList({ token }: { token: string }) {
   const router = useRouter();
@@ -28,6 +29,7 @@ export function AdminEventsList({ token }: { token: string }) {
   const [listMode, setListMode] = useState<AdminEventListMode>("active");
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  const [checkInEvent, setCheckInEvent] = useState<StreetzEvent | null>(null);
 
   const orderedEvents = useMemo(
     () => [...events].sort((first, second) => Date.parse(first.startsAt) - Date.parse(second.startsAt)),
@@ -68,6 +70,7 @@ export function AdminEventsList({ token }: { token: string }) {
 
   return (
     <section>
+      {checkInEvent ? <TicketCheckInModal event={checkInEvent} token={token} onClose={() => setCheckInEvent(null)} /> : null}
       <h1 className="sr-only">Event administration</h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center justify-end gap-2">
@@ -183,6 +186,13 @@ export function AdminEventsList({ token }: { token: string }) {
                     >
                     </ActionButton>
                   </div>
+                  {event.status === "PUBLISHED" || event.status === "COMPLETED" ? (
+                    <ActionButton type="button" icon={<Ticket className="size-4" aria-hidden="true" />}
+                      onClick={() => setCheckInEvent(event)}
+                      className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium text-ink">
+                      Check in tickets
+                    </ActionButton>
+                  ) : null}
                 </article>
               );
             })}

@@ -1,6 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createTransport, Transporter } from "nodemailer";
+import type { Attachment } from "nodemailer/lib/mailer";
+import { formatTicketDate, renderTicketPdf, TicketDocument } from "../tickets/ticket-pdf";
 
 type PasswordResetEmailInput = {
   to: string;
@@ -124,45 +126,41 @@ export class MailService {
   }
 
   async sendGuestTicketConfirmationEmail(input: GuestTicketConfirmationEmailInput) {
-    const formattedDate = new Intl.DateTimeFormat("en-NG", {
-      dateStyle: "full",
-      timeStyle: "short",
-      timeZone: "Africa/Lagos"
-    }).format(input.startsAt);
-    const ticketLines = input.ticketCodes.map((code) => `• ${code}`).join("\n");
-    const ticketHtml = input.ticketCodes
-      .map((code) => `<li style="margin: 8px 0; font-family: monospace; font-size: 18px; font-weight: 700;">${this.escapeHtml(code)}</li>`)
-      .join("");
+    return this.sendTicketConfirmationEmail({
+      ...input,
+      tickets: input.ticketCodes.map((code) => ({ code, tier: input.ticketTier, status: "CONFIRMED" }))
+    });
+  }
+
+  async sendTicketConfirmationEmail(input: TicketDocument & { to: string; manageUrl?: string }) {
+    const formattedDate = formatTicketDate(input.startsAt);
     const subject = `Your tickets for ${input.eventTitle}`;
     const text = [
-      `Hi ${input.displayName},`,
-      "",
-      `Your free ${input.ticketTier} ticket${input.ticketCodes.length === 1 ? " is" : "s are"} confirmed for ${input.eventTitle}.`,
-      formattedDate,
-      input.venue,
-      "",
-      "Ticket codes:",
-      ticketLines,
-      "",
-      "View your tickets anytime:",
-      input.manageUrl,
-      "",
-      "Keep this email and present each ticket code at the event."
+      `Hi ${input.displayName},`, "",
+      `Your ${input.tickets.length === 1 ? "ticket is" : "tickets are"} confirmed for ${input.eventTitle}.`,
+      formattedDate, input.venue, "", "Ticket codes:",
+      ...input.tickets.map((ticket) => `${ticket.tier}: ${ticket.code}`), "",
+      "Download the attached PDF and present each ticket code at the event entrance.",
+      ...(input.manageUrl ? ["", "View your tickets:", input.manageUrl] : []), "",
+      "Each code can only be checked in once. Keep your ticket codes private."
     ].join("\n");
     const html = `
       <div style="font-family: Arial, sans-serif; color: #111111; line-height: 1.6; max-width: 560px;">
         <h1 style="font-size: 24px; margin: 0 0 16px;">Your tickets are confirmed</h1>
         <p>Hi ${this.escapeHtml(input.displayName)},</p>
-        <p>Your free ${this.escapeHtml(input.ticketTier)} ticket${input.ticketCodes.length === 1 ? " is" : "s are"} confirmed for <strong>${this.escapeHtml(input.eventTitle)}</strong>.</p>
+        <p>Your booking for <strong>${this.escapeHtml(input.eventTitle)}</strong> is confirmed.</p>
         <p>${this.escapeHtml(formattedDate)}<br />${this.escapeHtml(input.venue)}</p>
-        <p style="font-weight: 700; margin-bottom: 4px;">Ticket codes</p>
-        <ul style="list-style: none; padding: 0;">${ticketHtml}</ul>
-        <p><a href="${this.escapeHtml(input.manageUrl)}" style="display: inline-block; background: #0d0d0d; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 999px; font-weight: 700;">View my tickets</a></p>
-        <p>Keep this email and present each ticket code at the event.</p>
+        <ul style="list-style: none; padding: 0;">${input.tickets.map((ticket) =>
+          `<li style="margin: 8px 0;"><strong>${this.escapeHtml(ticket.tier)}</strong>: <span style="font-family: monospace; font-size: 18px;">${this.escapeHtml(ticket.code)}</span></li>`).join("")}</ul>
+        <p>Download the attached PDF and present each ticket code at the event entrance.</p>
+        ${input.manageUrl ? `<p><a href="${this.escapeHtml(input.manageUrl)}" style="display: inline-block; background: #0d0d0d; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 999px; font-weight: 700;">View my tickets</a></p>` : ""}
+        <p>Each code can only be checked in once. Keep your ticket codes private.</p>
       </div>
     `;
-
-    return this.sendEmail({ to: input.to, subject, text, html }, "guest ticket confirmation");
+    const pdf = await renderTicketPdf(input);
+    return this.sendEmail({ to: input.to, subject, text, html,
+      attachments: [{ filename: "crushclub-tickets.pdf", content: pdf, contentType: "application/pdf" }]
+    }, "ticket confirmation");
   }
 
   async sendSupportRequestReceivedEmail(input: SupportRequestReceivedEmailInput) {
@@ -220,7 +218,7 @@ export class MailService {
   }
 
   private async sendEmail(
-    input: { to: string; subject: string; text: string; html: string },
+    input: { to: string; subject: string; text: string; html: string; attachments?: Attachment[] },
     description: string
   ) {
     const from = this.config.get<string>("SMTP_FROM");
@@ -255,6 +253,9 @@ export class MailService {
       host,
       port,
       secure,
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 30_000,
       auth: user && pass ? { user, pass } : undefined
     });
 

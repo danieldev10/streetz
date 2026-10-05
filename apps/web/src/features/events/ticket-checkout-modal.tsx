@@ -204,7 +204,7 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
           <p className="mt-1 text-xs leading-5">
             {guestBooking.emailSent
               ? `We sent the details to ${guestBooking.email}.`
-              : "Keep these codes. The confirmation email could not be sent."}
+              : "Your tickets are ready. Email delivery is being retried; you can also download them below."}
           </p>
         </div>
         <div className="mt-4 grid gap-2">

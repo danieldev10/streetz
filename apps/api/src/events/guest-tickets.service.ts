@@ -11,6 +11,7 @@ import { EventStatus, Prisma, TicketStatus } from "@prisma/client";
 import { createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "crypto";
 import { MailService } from "../mail/mail.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { queueTicketEmail } from "../tickets/ticket-email-queue";
 import { ConfirmGuestTicketDto } from "./dto/confirm-guest-ticket.dto";
 import { RequestGuestTicketDto } from "./dto/request-guest-ticket.dto";
 import { assertGuestTicketAvailability, normalizeGuestEmail } from "./guest-ticket-logic";
@@ -188,15 +189,18 @@ export class GuestTicketsService {
         }
       });
 
-      await transaction.ticket.createMany({
-        data: Array.from({ length: request.quantity }, () => ({
-          eventId: request.eventId,
-          guestOrderId: createdOrder.id,
-          ticketTypeId: request.ticketTypeId,
-          code: this.createTicketCode(),
-          status: TicketStatus.CONFIRMED
-        }))
-      });
+      const guestTickets = Array.from({ length: request.quantity }, () => ({
+        id: randomUUID(),
+        eventId: request.eventId,
+        guestOrderId: createdOrder.id,
+        ticketTypeId: request.ticketTypeId,
+        code: this.createTicketCode(),
+        status: TicketStatus.CONFIRMED
+      }));
+      await transaction.ticket.createMany({ data: guestTickets });
+      // Give the immediate confirmation email time to complete before the retry worker takes over.
+      await queueTicketEmail(transaction, `guest:${createdOrder.id}`, guestTickets.map((ticket) => ticket.id),
+        new Date(Date.now() + 120_000));
 
       await transaction.ticketType.update({
         where: { id: request.ticketTypeId },
@@ -235,6 +239,13 @@ export class GuestTicketsService {
       });
     } catch (error) {
       this.logger.error(`Guest ticket confirmation email failed for order ${booking.id}: ${this.errorMessage(error)}`);
+    }
+
+    try {
+      await this.prisma.ticketEmailDelivery.update({ where: { key: `guest:${booking.id}` },
+        data: { sentAt: emailSent ? new Date() : null, nextAttemptAt: new Date() } });
+    } catch {
+      this.logger.warn(`Could not update guest email delivery ${booking.id}; its saved job will retry.`);
     }
 
     return {
@@ -285,6 +296,7 @@ export class GuestTicketsService {
         id: order.event.id,
         title: order.event.title,
         coverImage: order.event.coverImage,
+        status: order.event.status,
         venue: order.event.venue,
         state: order.event.state,
         city: order.event.city,

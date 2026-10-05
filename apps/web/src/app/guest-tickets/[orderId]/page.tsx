@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CalendarDays, LoaderCircle, MapPin, Ticket } from "lucide-react";
-import { apiRequest, getUserErrorMessage } from "@/lib/api";
+import { CalendarDays, Download, LoaderCircle, MapPin, Ticket } from "lucide-react";
+import { ActionButton } from "@/components/action-button";
+import { apiRequest, downloadApiFile, getUserErrorMessage } from "@/lib/api";
 
 type ManagedGuestBooking = {
   orderId: string;
   email: string;
   displayName: string;
-  event: { id: string; title: string; venue: string; state: string | null; city: string; startsAt: string; endsAt: string | null };
+  event: { id: string; title: string; venue: string; state: string | null; city: string; startsAt: string; endsAt: string | null; status: string };
   ticketType: { id: string; name: string; priceKobo: number };
   tickets: Array<{ id: string; code: string; status: string; checkedInAt: string | null; createdAt: string }>;
 };
@@ -25,6 +26,15 @@ export default function GuestTicketsPage() {
   const token = searchParams.get("token");
   const [booking, setBooking] = useState<ManagedGuestBooking | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  async function downloadTickets() {
+    if (!token || !booking) return;
+    setDownloadError(null);
+    try {
+      await downloadApiFile(`/public/guest-ticket-orders/${encodeURIComponent(params.orderId)}/download?token=${encodeURIComponent(token)}`, "crushclub-tickets.pdf");
+    } catch (caught) { setDownloadError(getUserErrorMessage(caught)); }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -59,11 +69,16 @@ export default function GuestTicketsPage() {
             <article key={ticket.id} className="rounded-[20px] border border-black/8 bg-surface-muted p-4">
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400"><Ticket className="size-4" />{booking!.ticketType.name} · Ticket {index + 1}</p>
               <p className="mt-2 break-all font-mono text-xl font-bold tracking-wide">{ticket.code}</p>
-              <p className="mt-1 text-xs text-ink-600">{ticket.status === "CHECKED_IN" ? "Checked in" : "Ready to use"}</p>
+              <p className="mt-1 text-xs text-ink-600">{ticket.status === "CANCELLED" || booking!.event.status === "CANCELLED" ? "Cancelled" : ticket.status === "CHECKED_IN" ? "Checked in" : "Ready to use"}</p>
             </article>
           ))}
         </div>
         <p className="mt-5 text-xs leading-5 text-ink-600">Booked for {booking!.displayName} · {booking!.email}</p>
+        <ActionButton type="button" onClick={downloadTickets} icon={<Download className="size-4" aria-hidden="true" />}
+          className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white">
+          Download tickets
+        </ActionButton>
+        {downloadError ? <p role="alert" className="mt-3 text-sm text-red-700">{downloadError}</p> : null}
         <Link className="mt-5 inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium" href={`/events/${booking!.event.id}`}>View event</Link>
       </section>
     </main>

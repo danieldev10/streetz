@@ -635,6 +635,19 @@ model Ticket {
   @@index([ticketTypeId, status, reservedUntil])
 }
 
+model TicketEmailDelivery {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  ticketIds     String[]
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime @default(now())
+  lockedUntil   DateTime?
+  sentAt        DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([sentAt, nextAttemptAt])
+}
+
 model GuestTicketRequest {
   id           String     @id @default(cuid())
   eventId      String

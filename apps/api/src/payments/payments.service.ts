@@ -28,6 +28,7 @@ import {
 import { BookEventDto } from "../events/dto/book-event.dto";
 import { EVENT_TICKET_TIER_NAMES } from "../events/dto/create-event.dto";
 import { PrismaService } from "../prisma/prisma.service";
+import { queueTicketEmail } from "../tickets/ticket-email-queue";
 import { getAccountAccessBlock } from "../users/account-status";
 
 const SUBSCRIPTION_AMOUNT_KOBO = 100_000;
@@ -807,6 +808,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           event: true
         }
       });
+
+      await queueTicketEmail(transaction, `payment:${payment.id}`, ticketIds);
 
       if (ticketQuantity > 0) {
         await transaction.ticketType.update({

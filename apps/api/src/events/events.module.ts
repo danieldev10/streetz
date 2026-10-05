@@ -9,6 +9,6 @@ import { GuestTicketsService } from "./guest-tickets.service";
   imports: [StorageModule, MailModule],
   controllers: [EventsController],
   providers: [EventsService, GuestTicketsService],
-  exports: [EventsService]
+  exports: [EventsService, GuestTicketsService]
 })
 export class EventsModule {}

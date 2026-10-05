@@ -1,5 +1,7 @@
 "use client";
 
+import { PrivacyPolicyLink } from "@/components/privacy-policy-link";
+
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -258,7 +260,7 @@ export function MemberApp({
   return (
     <main className="min-h-screen bg-surface text-ink">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-surface px-4 py-5 md:block">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-black/[0.05] bg-surface px-4 py-5 md:flex">
           <AppBrand user={user} onLogout={onLogout} />
           <nav className="mt-8 grid gap-2">
             {visibleTabs.map((tab) => (
@@ -271,6 +273,9 @@ export function MemberApp({
               />
             ))}
           </nav>
+          <div className="mt-auto border-t border-black/5 pt-3">
+            <PrivacyPolicyLink />
+          </div>
         </aside>
 
         <section className="min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
