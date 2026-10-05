@@ -1,7 +1,8 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import { useCallback, useEffect, useState } from "react";
-import { LoaderCircle, RefreshCw, ShieldOff, Unlock } from "lucide-react";
+import { RefreshCw, ShieldOff, Unlock } from "lucide-react";
 import { ListSkeleton } from "@/components/skeletons";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -80,15 +81,15 @@ export function BlockedAccountsTab({
       <h1 className="sr-only">Blocked accounts</h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 hidden items-center justify-end md:flex">
-          <button
+          <ActionButton
+            isLoading={isLoadingBlockedAccounts} icon={<RefreshCw className="size-4" aria-hidden="true" />}
             className="inline-flex h-10 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium"
             type="button"
-            onClick={() => void loadBlockedAccounts()}
+            onClick={() => loadBlockedAccounts()}
             disabled={isLoadingBlockedAccounts}
           >
-            {isLoadingBlockedAccounts ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="size-4" aria-hidden="true" />}
             Refresh
-          </button>
+          </ActionButton>
         </div>
 
         {notice ? <p className="mb-4 rounded-[16px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
@@ -121,15 +122,15 @@ export function BlockedAccountsTab({
                     {[account.city, account.state].filter(Boolean).join(", ") || "Nigeria"}
                   </p>
                 </div>
-                <button
+                <ActionButton
+                  isLoading={unblockingUserId === account.id} icon={<Unlock className="size-4" aria-hidden="true" />}
                   className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
-                  onClick={() => void unblockAccount(account)}
+                  onClick={() => unblockAccount(account)}
                   disabled={unblockingUserId === account.id}
                 >
-                  {unblockingUserId === account.id ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Unlock className="size-4" aria-hidden="true" />}
                   Unblock
-                </button>
+                </ActionButton>
               </article>
             ))}
           </div>

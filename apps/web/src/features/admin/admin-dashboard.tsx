@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
@@ -186,14 +187,14 @@ export function AdminDashboard({ token }: { token: string }) {
       <h1 className="sr-only">Admin dashboard</h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 hidden items-center justify-end md:flex">
-          <button
+          <ActionButton
+            isLoading={isLoadingMetrics} icon={<RefreshCw className="size-4" aria-hidden="true" />}
             className="inline-flex h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium"
             type="button"
-            onClick={() => void loadMetrics()}
+            onClick={() => loadMetrics()}
           >
-            <RefreshCw className="size-4" aria-hidden="true" />
             Refresh
-          </button>
+          </ActionButton>
         </div>
 
         {notice ? <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
@@ -226,14 +227,14 @@ export function AdminDashboard({ token }: { token: string }) {
               <Activity className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No metrics available</h2>
               <p className="mt-2 text-sm text-ink-600">Try refreshing the admin overview.</p>
-              <button
+              <ActionButton
+                isLoading={isLoadingMetrics} icon={<RefreshCw className="size-4" aria-hidden="true" />}
                 className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 px-5 text-sm font-medium"
                 type="button"
-                onClick={() => void loadMetrics()}
+                onClick={() => loadMetrics()}
               >
-                <RefreshCw className="size-4" aria-hidden="true" />
                 Refresh
-              </button>
+              </ActionButton>
             </div>
           </div>
         )}

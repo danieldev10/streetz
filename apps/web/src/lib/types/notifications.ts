@@ -1,12 +1,11 @@
 import type { ReportStatus } from "./admin";
-import type { DirectMessage, RoomMessage } from "./chat";
+import type { DirectMessage } from "./chat";
 import type { DiscoveryCandidate } from "./discovery";
 import type { TicketStatus } from "./events";
 import type { PaymentPurpose, PaymentStatus } from "./payments";
 
 export type NotificationSummary = {
   matchesUnreadCount: number;
-  roomsUnreadCount: number;
   notificationsUnreadCount: number;
   totalUnreadCount: number;
 };
@@ -42,25 +41,6 @@ export type NotificationFeedDirectMessage = {
   lastMessage: DirectMessage;
   unreadCount: number;
   updatedAt: string;
-};
-
-export type NotificationFeedRoomMessage = {
-  id: string;
-  roomId: string;
-  name: string;
-  category: string;
-  lastMessage: RoomMessage;
-  unreadCount: number;
-  updatedAt: string;
-};
-
-export type NotificationFeedRoom = {
-  id: string;
-  name: string;
-  description: string | null;
-  category: string;
-  memberCount: number;
-  createdAt: string;
 };
 
 export type NotificationFeedEvent = {
@@ -136,8 +116,6 @@ export type NotificationFeed = {
   likes: NotificationFeedLike[];
   matches: NotificationFeedMatch[];
   directMessages: NotificationFeedDirectMessage[];
-  roomMessages: NotificationFeedRoomMessage[];
-  rooms: NotificationFeedRoom[];
   events: NotificationFeedEvent[];
   tickets: NotificationFeedTicket[];
   eventAlerts: NotificationFeedEventAlert[];

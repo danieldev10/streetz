@@ -47,7 +47,6 @@ export function MemberApp({
   const visibleBottomTabs = user.role === "ADMIN" ? adminBottomTabs : bottomTabs;
   const [notificationSummary, setNotificationSummary] = useState<NotificationSummary>({
     matchesUnreadCount: 0,
-    roomsUnreadCount: 0,
     notificationsUnreadCount: 0,
     totalUnreadCount: 0,
   });
@@ -95,16 +94,6 @@ export function MemberApp({
         return;
       }
 
-      setNotificationSummary((current) => {
-        const roomsUnreadCount = current.roomsUnreadCount + unreadDelta;
-
-        return {
-          ...current,
-          roomsUnreadCount,
-          totalUnreadCount: current.matchesUnreadCount + roomsUnreadCount + current.notificationsUnreadCount,
-        };
-      });
-
       setCachedRooms((current) => {
         const next = current.map((room) =>
           room.id === roomId
@@ -131,7 +120,7 @@ export function MemberApp({
 
       return {
         ...next,
-        totalUnreadCount: next.matchesUnreadCount + next.roomsUnreadCount + next.notificationsUnreadCount,
+        totalUnreadCount: next.matchesUnreadCount + next.notificationsUnreadCount,
       };
     });
   }
@@ -142,7 +131,7 @@ export function MemberApp({
     }
 
     if (tabId === "notifications") {
-      return notificationSummary.roomsUnreadCount + notificationSummary.notificationsUnreadCount;
+      return notificationSummary.notificationsUnreadCount;
     }
 
     return 0;
@@ -170,7 +159,7 @@ export function MemberApp({
         return {
           ...current,
           matchesUnreadCount,
-          totalUnreadCount: matchesUnreadCount + current.roomsUnreadCount + current.notificationsUnreadCount,
+          totalUnreadCount: matchesUnreadCount + current.notificationsUnreadCount,
         };
       });
     }
@@ -179,9 +168,6 @@ export function MemberApp({
   function handleRoomsLoaded(rooms: ChatRoom[]) {
     queryClient.setQueryData(queryKeys.rooms(user.id), rooms);
     setCachedRooms(rooms);
-    updateNotificationSummary({
-      roomsUnreadCount: rooms.reduce((total, room) => total + (room.hasJoined ? room.unreadCount ?? 0 : 0), 0),
-    });
   }
 
   useEffect(() => {
@@ -243,8 +229,10 @@ export function MemberApp({
     });
 
     socket.on("notifications:changed", (event: NotificationChangedEvent = {}) => {
-      if (event.source === "rooms" && event.kind === "room-message") {
-        applyRoomMessageNotification(event);
+      if (event.source === "rooms") {
+        if (event.kind === "room-message") {
+          applyRoomMessageNotification(event);
+        }
         return;
       }
 

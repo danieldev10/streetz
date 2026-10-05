@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -487,14 +488,14 @@ export function UsersTab({ token }: { token: string }) {
       <h1 className="sr-only">User administration</h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center justify-end">
-          <button
+          <ActionButton
+            isLoading={isLoadingUsers} icon={<RefreshCw className="size-4" aria-hidden="true" />}
             className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-ink-600"
-            onClick={() => void loadUsers()}
+            onClick={() => loadUsers()}
             disabled={isLoadingUsers}
             aria-label="Refresh users"
           >
-            <RefreshCw className={`size-4 ${isLoadingUsers ? "animate-spin" : ""}`} aria-hidden="true" />
-          </button>
+          </ActionButton>
         </div>
 
         {notice ? (
@@ -560,21 +561,17 @@ export function UsersTab({ token }: { token: string }) {
             </div>
             <div className="divide-y divide-black/[0.04]">
               {filteredUsers.map((user) => (
-                <button
+                <ActionButton
+                  isLoading={openingUserId === user.id} iconPosition="end" icon={<span className="size-4" aria-hidden="true" />}
                   key={user.id}
                   type="button"
                   className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 text-left transition hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={() => void openUserDetail(user.id)}
+                  onClick={() => openUserDetail(user.id)}
                   disabled={openingUserId !== null}
                 >
                   <p className="truncate text-sm font-medium text-ink">{user.displayName}</p>
                   <p className="truncate text-sm text-ink-600">{user.email}</p>
-                  {openingUserId === user.id ? (
-                    <LoaderCircle className="size-4 animate-spin text-brand" aria-hidden="true" />
-                  ) : (
-                    <span className="size-4" aria-hidden="true" />
-                  )}
-                </button>
+                </ActionButton>
               ))}
             </div>
           </div>

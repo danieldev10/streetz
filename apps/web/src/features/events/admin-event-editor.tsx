@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import Image from "next/image";
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import { ImagePlus, LoaderCircle, Save } from "lucide-react";
@@ -139,7 +140,8 @@ export function AdminEventEditor({
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <label
-              className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white ${
+              aria-busy={isUploadingCoverImage}
+              className={`action-button inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white ${
                 isSaving || isUploadingCoverImage ? "pointer-events-none opacity-60" : ""
               }`}
             >
@@ -378,17 +380,13 @@ export function AdminEventEditor({
         </div>
       </div>
 
-      <button
+      <ActionButton
+        isLoading={isSaving || isUploadingCoverImage} icon={<Save className="size-4" aria-hidden="true" />}
         className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isSaving || isUploadingCoverImage}
       >
-        {isSaving || isUploadingCoverImage ? (
-          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-        ) : (
-          <Save className="size-4" aria-hidden="true" />
-        )}
         {isUploadingCoverImage ? "Uploading image" : isEditing ? "Save event" : "Create event"}
-      </button>
+      </ActionButton>
       {canCancelEditingEvent ? (
         <button
           className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-danger-border px-5 text-sm font-medium text-danger hover:bg-danger-tint disabled:cursor-not-allowed disabled:opacity-60"

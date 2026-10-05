@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { Send, ShieldAlert } from "lucide-react";
@@ -223,14 +224,14 @@ export function SupportContactPage({
             </div>
           ) : null}
 
-          <button
+          <ActionButton
+            isLoading={isSubmitting} icon={<Send className="size-4" aria-hidden="true" />}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
             type="submit"
             disabled={status === "checking" || isSubmitting}
           >
-            <Send className="size-4" aria-hidden="true" />
             {isSubmitting ? "Sending…" : "Send request"}
-          </button>
+          </ActionButton>
         </form>
       </section>
     </SupportShell>

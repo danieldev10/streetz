@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -148,7 +149,7 @@ type FeedSeenItem = {
   entityId: string;
 };
 
-type NotificationTabKey = "messages" | "rooms" | "events" | "notifications";
+type NotificationTabKey = "messages" | "events" | "notifications";
 
 export function NotificationsTab({
   token,
@@ -291,7 +292,9 @@ export function NotificationsTab({
     });
     let refreshTimer: number | null = null;
 
-    socket.on("notifications:changed", () => {
+    socket.on("notifications:changed", (event: { source?: string } = {}) => {
+      if (event.source === "rooms") return;
+
       if (refreshTimer !== null) {
         window.clearTimeout(refreshTimer);
       }
@@ -337,33 +340,28 @@ export function NotificationsTab({
   const tabCounts: Record<NotificationTabKey, number> = feed
     ? {
       messages: feed.directMessages.length,
-      rooms: feed.roomMessages.length,
       events: feed.eventAlerts.length + feed.tickets.length + feed.events.length,
       notifications: feed.subscriptionAlerts.length + feed.reportUpdates.length + feed.paymentAlerts.length,
     }
     : {
       messages: 0,
-      rooms: 0,
       events: 0,
       notifications: 0,
     };
   const tabHasContent: Record<NotificationTabKey, boolean> = feed
     ? {
       messages: feed.directMessages.length > 0,
-      rooms: feed.roomMessages.length > 0,
       events: feed.eventAlerts.length > 0 || feed.tickets.length > 0 || feed.events.length > 0,
       notifications: feed.subscriptionAlerts.length > 0 || feed.reportUpdates.length > 0 || feed.paymentAlerts.length > 0,
     }
-    : { messages: false, rooms: false, events: false, notifications: false };
+    : { messages: false, events: false, notifications: false };
   const notificationTabs: Array<{ id: NotificationTabKey; label: string; count: number }> = [
     { id: "messages", label: "Messages", count: tabCounts.messages },
-    { id: "rooms", label: "Event chats", count: tabCounts.rooms },
     { id: "events", label: "Events", count: tabCounts.events },
     { id: "notifications", label: "Others", count: tabCounts.notifications },
   ];
   const emptyTabCopy: Record<NotificationTabKey, string> = {
     messages: "No message updates right now.",
-    rooms: "No unread event chat messages right now.",
     events: "No event alerts, tickets, or upcoming events right now.",
     notifications: "No membership, payment, or report updates right now.",
   };
@@ -390,14 +388,14 @@ export function NotificationsTab({
               <Bell className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Nothing new</h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">
-                Messages, event chats, events, tickets, payments, and report updates will appear here.
+                Messages, events, tickets, payments, and report updates will appear here.
               </p>
             </div>
           </div>
         ) : feed ? (
           <div className="mx-auto max-w-3xl">
             <div className="mb-5">
-              <div className="grid grid-cols-4 gap-1 rounded-full bg-black/4 p-1.5">
+              <div className="grid grid-cols-3 gap-1 rounded-full bg-black/4 p-1.5">
                 {notificationTabs.map((tab) => {
                   const isActive = activeNotificationTab === tab.id;
 
@@ -438,7 +436,8 @@ export function NotificationsTab({
                     <SectionHeader icon={MessageCircle} label="Direct messages" count={feed.directMessages.length} />
                     <div className="grid gap-3 sm:grid-cols-2">
                       {feed.directMessages.map((message) => (
-                        <button
+                        <ActionButton
+                          trackNavigation
                           key={message.id}
                           type="button"
                           className="group flex items-center gap-4 rounded-[20px] border border-black/5 bg-surface p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
@@ -459,39 +458,7 @@ export function NotificationsTab({
                             </p>
                             <p className="mt-1 text-[11px] text-ink-300">{timeAgo(message.updatedAt)}</p>
                           </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {activeNotificationTab === "rooms" && feed.roomMessages.length > 0 ? (
-                  <div>
-                    <SectionHeader icon={MessageCircle} label="Event chat activity" count={feed.roomMessages.length} />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {feed.roomMessages.map((room) => (
-                        <button
-                          key={room.id}
-                          type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-                          onClick={() => router.push(`/rooms/${room.roomId}`)}
-                        >
-                          <div className="grid size-11 shrink-0 place-items-center rounded-full bg-brand/10">
-                            <MessageCircle className="size-5 text-brand-strong" aria-hidden="true" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="truncate text-sm font-semibold text-ink">{room.name}</p>
-                              <span className="grid min-w-5 place-items-center rounded-full bg-brand-strong px-1.5 text-[10px] font-semibold leading-5 text-white">
-                                {room.unreadCount}
-                              </span>
-                            </div>
-                            <p className="mt-0.5 truncate text-xs text-ink-600">{room.category}</p>
-                            <p className="mt-1 truncate text-[11px] text-ink-300">
-                              {room.lastMessage.authorName}: {room.lastMessage.body}
-                            </p>
-                          </div>
-                        </button>
+                        </ActionButton>
                       ))}
                     </div>
                   </div>
@@ -506,7 +473,8 @@ export function NotificationsTab({
                         const Icon = copy.icon;
 
                         return (
-                          <button
+                          <ActionButton
+                            trackNavigation
                             key={`${alert.kind}:${alert.id}`}
                             type="button"
                             className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
@@ -535,7 +503,7 @@ export function NotificationsTab({
                                 {formatEventDate(alert.startsAt)}
                               </div>
                             </div>
-                          </button>
+                          </ActionButton>
                         );
                       })}
                     </div>
@@ -547,7 +515,8 @@ export function NotificationsTab({
                     <SectionHeader icon={CheckCircle2} label="Tickets" count={feed.tickets.length} />
                     <div className="grid gap-3 sm:grid-cols-2">
                       {feed.tickets.map((ticket) => (
-                        <button
+                        <ActionButton
+                          trackNavigation
                           key={ticket.id}
                           type="button"
                           className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
@@ -567,7 +536,7 @@ export function NotificationsTab({
                               {formatEventDate(ticket.event.startsAt)}
                             </div>
                           </div>
-                        </button>
+                        </ActionButton>
                       ))}
                     </div>
                   </div>
@@ -578,7 +547,8 @@ export function NotificationsTab({
                     <SectionHeader icon={Ticket} label="Upcoming events" count={feed.events.length} />
                     <div className="grid gap-3 sm:grid-cols-2">
                       {feed.events.map((event) => (
-                        <button
+                        <ActionButton
+                          trackNavigation
                           key={event.id}
                           type="button"
                           className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
@@ -598,7 +568,7 @@ export function NotificationsTab({
                               {formatEventDate(event.startsAt)}
                             </div>
                           </div>
-                        </button>
+                        </ActionButton>
                       ))}
                     </div>
                   </div>
@@ -609,7 +579,8 @@ export function NotificationsTab({
                     <SectionHeader icon={Clock} label="Membership" count={feed.subscriptionAlerts.length} />
                     <div className="grid gap-3 sm:grid-cols-2">
                       {feed.subscriptionAlerts.map((alert) => (
-                        <button
+                        <ActionButton
+                          trackNavigation
                           key={alert.id}
                           type="button"
                           className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
@@ -627,7 +598,7 @@ export function NotificationsTab({
                               Renews or expires on {formatEventDate(alert.subscriptionEndsAt)}
                             </p>
                           </div>
-                        </button>
+                        </ActionButton>
                       ))}
                     </div>
                   </div>
@@ -638,7 +609,8 @@ export function NotificationsTab({
                     <SectionHeader icon={ShieldCheck} label="Reports" count={feed.reportUpdates.length} />
                     <div className="grid gap-3 sm:grid-cols-2">
                       {feed.reportUpdates.map((report) => (
-                        <button
+                        <ActionButton
+                          trackNavigation
                           key={report.id}
                           type="button"
                           className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
@@ -655,7 +627,7 @@ export function NotificationsTab({
                             <p className="mt-0.5 truncate text-xs text-ink-600">{report.reason}</p>
                             <p className="mt-1 text-[11px] text-ink-300">{timeAgo(report.updatedAt)}</p>
                           </div>
-                        </button>
+                        </ActionButton>
                       ))}
                     </div>
                   </div>
@@ -669,7 +641,8 @@ export function NotificationsTab({
                         const isSuccess = payment.kind === "SUBSCRIPTION_PAYMENT_SUCCESS";
 
                         return (
-                          <button
+                          <ActionButton
+                            trackNavigation
                             key={`${payment.kind}:${payment.id}`}
                             type="button"
                             className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
@@ -688,7 +661,7 @@ export function NotificationsTab({
                               <p className="mt-0.5 truncate text-xs text-ink-600">{formatNaira(payment.amountKobo)}</p>
                               <p className="mt-1 text-[11px] text-ink-300">{timeAgo(payment.updatedAt)}</p>
                             </div>
-                          </button>
+                          </ActionButton>
                         );
                       })}
                     </div>
@@ -699,16 +672,16 @@ export function NotificationsTab({
           </div>
         ) : null}
       </div>
-      <button
+      <ActionButton
+        isLoading={isLoading} icon={<RefreshCw className="size-4" aria-hidden="true" />}
         type="button"
         className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full border border-black/8 bg-surface text-ink-600 shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition hover:text-ink disabled:opacity-60 md:right-8"
-        onClick={() => void loadFeed()}
+        onClick={() => loadFeed()}
         disabled={isLoading}
         aria-label="Refresh notifications"
         title="Refresh"
       >
-        <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" />
-      </button>
+      </ActionButton>
     </section>
   );
 }

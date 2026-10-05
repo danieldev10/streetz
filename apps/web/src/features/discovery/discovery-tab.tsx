@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -58,7 +59,8 @@ export function DiscoveryTab({
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [viewedProfile, setViewedProfile] = useState<DiscoveryCandidate | null>(null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [loadingProfileId, setLoadingProfileId] = useState<string | null>(null);
+  const isLoadingProfile = loadingProfileId !== null;
   const [messageTarget, setMessageTarget] = useState<DiscoveryCandidate | null>(null);
   const [introMessage, setIntroMessage] = useState("");
   const [isSendingRequest, setIsSendingRequest] = useState(false);
@@ -274,7 +276,8 @@ export function DiscoveryTab({
   }
 
   async function viewProfile(person: DiscoveryCandidate) {
-    setIsLoadingProfile(true);
+    if (isLoadingProfile) return;
+    setLoadingProfileId(person.id);
     setNotice(null);
 
     try {
@@ -285,7 +288,7 @@ export function DiscoveryTab({
     } catch (error) {
       setNotice(getUserErrorMessage(error));
     } finally {
-      setIsLoadingProfile(false);
+      setLoadingProfileId(null);
     }
   }
 
@@ -379,11 +382,6 @@ export function DiscoveryTab({
               <p className="mt-3 text-sm font-medium text-ink-600">Finding people</p>
             </div>
           </div>
-        ) : isLoadingProfile ? (
-          <div className="mt-6 flex min-h-48 items-center justify-center rounded-[24px] border border-black/[0.05]">
-            <LoaderCircle className="size-6 animate-spin text-brand" aria-hidden="true" />
-            <span className="sr-only">Loading profile</span>
-          </div>
         ) : hasSearched && people.length > 0 ? (
           <div className="mt-7">
             <div className="flex items-center justify-between gap-4">
@@ -393,16 +391,16 @@ export function DiscoveryTab({
               </span>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="text-sm font-medium text-ink-400">{people.length} found</span>
-                <button
+                <ActionButton
+                  isLoading={isSearching} appearance="plain" spinnerClassName="size-3.5" icon={<RefreshCw className="size-4" aria-hidden="true" />}
                   type="button"
                   className="inline-flex size-8 items-center justify-center text-ink-400 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => void searchPeople()}
+                  onClick={() => searchPeople()}
                   disabled={isSearching || preferenceRequired || !stateName.trim()}
                   aria-label="Refresh people"
                   title="Refresh people"
                 >
-                  <RefreshCw className={`size-3.5 ${isSearching ? "animate-spin" : ""}`} aria-hidden="true" />
-                </button>
+                </ActionButton>
               </div>
             </div>
 
@@ -411,22 +409,24 @@ export function DiscoveryTab({
                 <DiscoveryPersonCard
                   key={person.id}
                   person={person}
-                  onViewProfile={() => void viewProfile(person)}
+                  isProfileLoading={loadingProfileId === person.id}
+                  isProfileDisabled={isLoadingProfile}
+                  onViewProfile={() => viewProfile(person)}
                   onMessage={() => openMessageComposer(person)}
                 />
               ))}
             </div>
 
             {nextCursor ? (
-              <button
+              <ActionButton
+                isLoading={isLoadingMore}
                 type="button"
                 className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] text-sm font-semibold disabled:opacity-60"
-                onClick={() => void loadMore()}
+                onClick={() => loadMore()}
                 disabled={isLoadingMore}
               >
-                {isLoadingMore ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
                 {isLoadingMore ? "Loading" : "Load more"}
-              </button>
+              </ActionButton>
             ) : null}
           </div>
         ) : hasSearched ? (
@@ -440,27 +440,25 @@ export function DiscoveryTab({
         ) : null}
       </div>
 
-      <button
+      <ActionButton
+        isLoading={isUpdatingVisibility} icon={isInDiscoveryPool ? (
+          <EyeOff className="size-4" aria-hidden="true" />
+        ) : (
+          <Eye className="size-4" aria-hidden="true" />
+        )}
         type="button"
         className={`fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition disabled:cursor-not-allowed disabled:opacity-60 md:bottom-8 md:left-8 ${isInDiscoveryPool
             ? "border-brand/20 bg-brand-tint text-brand-deep"
             : "border-black/[0.08] bg-surface text-ink-600"
           }`}
-        onClick={() => void toggleDiscoveryPool()}
+        onClick={() => toggleDiscoveryPool()}
         disabled={isUpdatingVisibility}
         aria-pressed={isInDiscoveryPool}
         aria-label={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
         title={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
       >
-        {isUpdatingVisibility ? (
-          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-        ) : isInDiscoveryPool ? (
-          <EyeOff className="size-4" aria-hidden="true" />
-        ) : (
-          <Eye className="size-4" aria-hidden="true" />
-        )}
         {isInDiscoveryPool ? "Withdraw" : "Enter pool"}
-      </button>
+      </ActionButton>
 
       <button
         type="button"
@@ -511,6 +509,7 @@ export function DiscoveryTab({
               <div className="grid gap-3">
                 <CustomSelect
                   label={isUpdatingStatus ? "Updating status" : "Your status"}
+                  isLoading={isUpdatingStatus}
                   value={status}
                   options={connectionStatusOptions}
                   onChange={(nextStatus) => void updateStatus(nextStatus)}
@@ -530,14 +529,14 @@ export function DiscoveryTab({
               {notice ? <p className="mt-4 rounded-[18px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
               <div className="mt-5">
-                <button
+                <ActionButton
+                  isLoading={isSearching} icon={<Compass className="size-4" aria-hidden="true" />}
                   type="submit"
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isSearching || preferenceRequired || !isInDiscoveryPool}
                 >
-                  {isSearching ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Compass className="size-4" aria-hidden="true" />}
                   {isSearching ? "Finding people" : "Discover"}
-                </button>
+                </ActionButton>
               </div>
             </form>
           </section>
@@ -574,14 +573,14 @@ export function DiscoveryTab({
               >
                 Cancel
               </button>
-              <button
+              <ActionButton
+                isLoading={isSendingRequest} icon={<MessageCircle className="size-4" aria-hidden="true" />}
                 type="submit"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink text-sm font-semibold text-white disabled:opacity-60"
                 disabled={isSendingRequest || !introMessage.trim()}
               >
-                {isSendingRequest ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <MessageCircle className="size-4" aria-hidden="true" />}
                 Send request
-              </button>
+              </ActionButton>
             </div>
           </form>
         </div>

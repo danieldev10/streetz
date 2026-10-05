@@ -1,3 +1,4 @@
+import { ActionButton } from "@/components/action-button";
 import type {
   FormEventHandler,
   KeyboardEventHandler,
@@ -7,7 +8,6 @@ import type {
 import {
   ArrowDown,
   ArrowLeft,
-  LoaderCircle,
   LogOut,
   MessageCircle,
   SendHorizontal,
@@ -138,7 +138,8 @@ export function RoomThreadView({
             )}
 
             {!isAdmin && !isGuest ? (
-              <button
+              <ActionButton
+                isLoading={isLeavingRoom} icon={<LogOut className="size-4" aria-hidden="true" />}
                 type="button"
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-sm font-medium md:h-10 md:w-auto md:gap-2 md:px-4"
                 onClick={onRequestLeave}
@@ -146,9 +147,8 @@ export function RoomThreadView({
                 aria-label={`Leave ${room.name}`}
                 title="Leave"
               >
-                {isLeavingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <LogOut className="size-4" aria-hidden="true" />}
                 <span className="hidden md:inline">Leave</span>
-              </button>
+              </ActionButton>
             ) : null}
 
             <div className="inline-flex items-center gap-2 rounded-full bg-surface-muted px-3 py-2 text-xs font-medium text-ink-600">
@@ -315,18 +315,14 @@ export function RoomThreadView({
                   maxLength={ROOM_MESSAGE_MAX_LENGTH}
                 />
               </div>
-              <button
+              <ActionButton
+                isLoading={isSendingMessage} icon={<SendHorizontal className="size-4" aria-hidden="true" />}
                 className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-strong text-white disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSendingMessage || (!messageBody.trim() && !selectedGifUrl)}
                 aria-label="Send message"
                 title="Send"
               >
-                {isSendingMessage ? (
-                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <SendHorizontal className="size-4" aria-hidden="true" />
-                )}
-              </button>
+              </ActionButton>
             </form>
           )}
         </article>
@@ -369,15 +365,15 @@ export function RoomThreadView({
               >
                 Cancel
               </button>
-              <button
+              <ActionButton
+                isLoading={isLeavingRoom}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={onConfirmLeave}
                 disabled={isLeavingRoom}
               >
-                {isLeavingRoom ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
                 Leave
-              </button>
+              </ActionButton>
             </div>
           </section>
         </div>

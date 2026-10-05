@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -8,7 +9,6 @@ import {
   ArrowRight,
   Ban,
   ChevronRight,
-  LoaderCircle,
   Mail,
   MapPin,
   RefreshCw,
@@ -491,14 +491,14 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Link>
-          <button
+          <ActionButton
+            isLoading={isLoadingReport} icon={<RefreshCw className="size-4" aria-hidden="true" />}
             className="hidden h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium md:inline-flex"
             type="button"
-            onClick={() => void loadReport()}
+            onClick={() => loadReport()}
           >
-            <RefreshCw className="size-4" aria-hidden="true" />
             Refresh
-          </button>
+          </ActionButton>
         </div>
 
         {notice ? <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
@@ -559,19 +559,19 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-                <ActionButton
+                <ReportActionButton
                   icon={X}
                   label="Dismiss"
                   disabled={isModerating || report.status === "DISMISSED" || report.status === "ACTIONED"}
                   onClick={requestDismissReport}
                 />
-                <ActionButton
+                <ReportActionButton
                   icon={Timer}
                   label="Suspend 7d"
                   disabled={isModerating || report.reported.accountStatus === "DELETED"}
                   onClick={() => requestModeration("SUSPEND", 7)}
                 />
-                <ActionButton
+                <ReportActionButton
                   icon={Timer}
                   label="Suspend custom"
                   disabled={isModerating || report.reported.accountStatus === "DELETED" || !customSuspensionDays}
@@ -581,20 +581,20 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
                     }
                   }}
                 />
-                <ActionButton
+                <ReportActionButton
                   icon={Ban}
                   label="Ban"
                   tone="danger"
                   disabled={isModerating || report.reported.accountStatus === "DELETED"}
                   onClick={() => requestModeration("BAN")}
                 />
-                <ActionButton
+                <ReportActionButton
                   icon={RotateCcw}
                   label="Restore"
                   disabled={isModerating || !canRestoreReportedAccount}
                   onClick={() => requestModeration("RESTORE")}
                 />
-                <ActionButton
+                <ReportActionButton
                   icon={Trash2}
                   label="Delete"
                   tone="solidDanger"
@@ -815,7 +815,7 @@ function ProfileField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ActionButton({
+function ReportActionButton({
   icon: Icon,
   label,
   disabled,
@@ -890,16 +890,16 @@ function ConfirmationModal({
           >
             Cancel
           </button>
-          <button
+          <ActionButton
+            isLoading={isSubmitting}
             className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${isDanger ? "bg-danger text-white" : "bg-ink text-white"
               }`}
             type="button"
             onClick={onConfirm}
             disabled={isSubmitting}
           >
-            {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
             {action.confirmLabel}
-          </button>
+          </ActionButton>
         </div>
       </section>
     </div>

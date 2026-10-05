@@ -16,20 +16,16 @@ import { calculateAge } from "../common/age";
 import { countCheckedInStandardEvents } from "../common/attendance";
 import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "../events/ticket-reservations";
 import { PrismaService } from "../prisma/prisma.service";
-import { getAvailableEventRoomWhere } from "../rooms/event-room-lifecycle";
 import { StorageService } from "../storage/storage.service";
 import { MarkNotificationsSeenDto } from "./dto/mark-notifications-seen.dto";
 import {
   countUnreadDirectMessages,
-  countUnreadRoomMessages,
-  getUnreadDirectMessageCountsByMatch,
-  getUnreadRoomMessageCountsByRoom
+  getUnreadDirectMessageCountsByMatch
 } from "./unread-message-counts";
 
 const FEED_LIKES_LIMIT = 20;
 const FEED_MATCHES_LIMIT = 10;
 const FEED_DIRECT_MESSAGES_LIMIT = 10;
-const FEED_ROOM_MESSAGES_LIMIT = 10;
 const FEED_EVENTS_LIMIT = 10;
 const FEED_TICKETS_LIMIT = 10;
 const FEED_EVENT_ALERTS_LIMIT = 10;
@@ -87,19 +83,6 @@ type DirectMessageSource = {
   };
 };
 
-type RoomMessageSource = {
-  id: string;
-  roomId: string;
-  authorId: string;
-  body: string;
-  gifUrl: string | null;
-  createdAt: Date;
-  author: {
-    id: string;
-    displayName: string;
-  };
-};
-
 type EventAlertSource = {
   id: string;
   title: string;
@@ -138,7 +121,7 @@ export class NotificationsService {
     }
 
     const userCreatedAt = user?.createdAt ?? new Date(0);
-    const [directMessagesUnreadCount, messageRequestCount, roomsUnreadCount, notificationsUnreadCount] = await Promise.all([
+    const [directMessagesUnreadCount, messageRequestCount, notificationsUnreadCount] = await Promise.all([
       countUnreadDirectMessages(this.prisma, userId),
       this.prisma.match.count({
         where: {
@@ -147,16 +130,16 @@ export class NotificationsService {
           OR: [{ userAId: userId }, { userBId: userId }]
         }
       }),
-      countUnreadRoomMessages(this.prisma, userId),
       this.getUnreadFeedNotificationCount(userId, userCreatedAt)
     ]);
     const matchesUnreadCount = directMessagesUnreadCount + messageRequestCount;
 
     return {
       matchesUnreadCount,
-      roomsUnreadCount,
+      // Keep this legacy field at zero during independent API/web deployments.
+      roomsUnreadCount: 0,
       notificationsUnreadCount,
-      totalUnreadCount: matchesUnreadCount + roomsUnreadCount + notificationsUnreadCount
+      totalUnreadCount: matchesUnreadCount + notificationsUnreadCount
     };
   }
 
@@ -171,7 +154,6 @@ export class NotificationsService {
       likes,
       matches,
       directMessages,
-      roomMessages,
       events,
       tickets,
       eventAlerts,
@@ -182,7 +164,6 @@ export class NotificationsService {
       Promise.resolve([]),
       Promise.resolve([]),
       this.getUnreadDirectMessageSummaries(userId),
-      this.getUnreadRoomMessageSummaries(userId),
       this.getUpcomingEvents(userId, userCreatedAt),
       this.getConfirmedTickets(userId),
       this.getEventAlerts(userId),
@@ -195,7 +176,9 @@ export class NotificationsService {
       likes,
       matches,
       directMessages,
-      roomMessages,
+      // Older web deployments can still read these fields, but room activity
+      // no longer belongs in the alerts feed or triggers database reads here.
+      roomMessages: [],
       rooms: [],
       events,
       tickets,
@@ -374,79 +357,6 @@ export class NotificationsService {
       .filter(isDefined)
       .sort((first, second) => Date.parse(second.updatedAt) - Date.parse(first.updatedAt))
       .slice(0, FEED_DIRECT_MESSAGES_LIMIT);
-  }
-
-  private async getUnreadRoomMessageSummaries(userId: string) {
-    const [memberships, unreadCounts] = await Promise.all([
-      this.prisma.roomMembership.findMany({
-        where: {
-          userId,
-          room: {
-            isActive: true,
-            event: {
-              is: {
-                ...getAvailableEventRoomWhere(),
-                tickets: {
-                  some: {
-                    userId,
-                    status: { in: CONFIRMED_TICKET_STATUSES }
-                  }
-                }
-              }
-            }
-          }
-        },
-        include: {
-          room: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              messages: {
-                where: { deletedAt: null },
-                orderBy: { createdAt: "desc" },
-                take: 1,
-                include: {
-                  author: {
-                    select: {
-                      id: true,
-                      displayName: true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }),
-      getUnreadRoomMessageCountsByRoom(this.prisma, userId)
-    ]);
-
-    const summaries = await Promise.all(
-      memberships.map(async (membership) => {
-        const lastMessage = membership.room.messages[0] ?? null;
-        const unreadCount = unreadCounts.get(membership.roomId) ?? 0;
-
-        if (unreadCount === 0 || !lastMessage) {
-          return null;
-        }
-
-        return {
-          id: membership.roomId,
-          roomId: membership.roomId,
-          name: membership.room.name,
-          category: membership.room.category,
-          lastMessage: this.formatRoomMessage(lastMessage),
-          unreadCount,
-          updatedAt: lastMessage.createdAt.toISOString()
-        };
-      })
-    );
-
-    return summaries
-      .filter(isDefined)
-      .sort((first, second) => Date.parse(second.updatedAt) - Date.parse(first.updatedAt))
-      .slice(0, FEED_ROOM_MESSAGES_LIMIT);
   }
 
   private async getUpcomingEvents(userId: string, userCreatedAt: Date) {
@@ -983,18 +893,6 @@ export class NotificationsService {
       body: message.body,
       gifUrl: message.gifUrl,
       readAt: message.readAt?.toISOString() ?? null,
-      createdAt: message.createdAt.toISOString()
-    };
-  }
-
-  private formatRoomMessage(message: RoomMessageSource) {
-    return {
-      id: message.id,
-      roomId: message.roomId,
-      authorId: message.authorId,
-      authorName: message.author.displayName,
-      body: message.body,
-      gifUrl: message.gifUrl,
       createdAt: message.createdAt.toISOString()
     };
   }

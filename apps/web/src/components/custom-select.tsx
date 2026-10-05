@@ -3,7 +3,7 @@
 import type { KeyboardEvent } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, LoaderCircle } from "lucide-react";
 
 export type CustomSelectOption<T extends string> = {
   value: T;
@@ -18,6 +18,7 @@ export function CustomSelect<T extends string>({
   icon: Icon,
   placeholder = "Choose one",
   menuClassName,
+  isLoading = false,
 }: {
   label: string;
   value: T | "";
@@ -26,6 +27,7 @@ export function CustomSelect<T extends string>({
   icon: LucideIcon;
   placeholder?: string;
   menuClassName?: string;
+  isLoading?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuId = useId();
@@ -70,6 +72,7 @@ export function CustomSelect<T extends string>({
   }
 
   function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (isLoading) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       setIsOpen(true);
@@ -103,18 +106,20 @@ export function CustomSelect<T extends string>({
       <button
         ref={triggerRef}
         type="button"
-        className={`group flex h-14 w-full min-w-0 items-center gap-2 rounded-[18px] border bg-surface px-2.5 text-left shadow-[0_2px_8px_rgba(0,0,0,0.035)] outline-none transition focus-visible:ring-2 focus-visible:ring-brand/30 ${
+        className={`action-button group flex h-14 w-full min-w-0 items-center gap-2 rounded-[18px] border bg-surface px-2.5 text-left shadow-[0_2px_8px_rgba(0,0,0,0.035)] outline-none transition focus-visible:ring-2 focus-visible:ring-brand/30 ${
           isOpen ? "border-brand/50 shadow-[0_8px_24px_rgba(163,33,154,0.10)]" : "border-black/[0.07] hover:border-black/[0.14]"
         }`}
         aria-label={`${label}: ${selectedOption?.label ?? placeholder}`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={isOpen ? menuId : undefined}
+        aria-busy={isLoading}
+        disabled={isLoading}
         onClick={() => setIsOpen((current) => !current)}
         onKeyDown={handleTriggerKeyDown}
       >
         <span className={`grid size-8 shrink-0 place-items-center rounded-xl transition ${isOpen ? "bg-brand-strong text-white" : "bg-brand-tint text-brand-strong"}`}>
-          <Icon className="size-4" aria-hidden="true" />
+          {isLoading ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Icon className="size-4" aria-hidden="true" />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[9px] font-semibold uppercase leading-3 tracking-[0.1em] text-ink-400">{label}</span>

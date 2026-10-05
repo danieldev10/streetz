@@ -1,3 +1,4 @@
+import { ActionButton } from "@/components/action-button";
 import Link from "next/link";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { ListSkeleton } from "@/components/skeletons";
@@ -20,8 +21,8 @@ export function MessageRequestsView({
   isLoading: boolean;
   notice: string | null;
   respondingRequestId: string | null;
-  onAccept: (request: MatchThread) => void;
-  onDecline: (request: MatchThread) => void;
+  onAccept: (request: MatchThread) => void | Promise<void>;
+  onDecline: (request: MatchThread) => void | Promise<void>;
 }) {
   const isReceived = view === "received";
   const title = isReceived ? "Requests" : "Pending requests";
@@ -66,24 +67,26 @@ export function MessageRequestsView({
                       <div className="mt-1 flex min-w-0 items-center gap-2">
                         <p className="min-w-0 flex-1 truncate text-sm text-ink-600" title={preview}>{preview}</p>
                         <div className="flex shrink-0 items-center gap-1.5" aria-busy={isResponding}>
-                          <button
+                          <ActionButton
+                            spinnerClassName="size-3"
                             type="button"
-                            className="inline-flex h-8 items-center justify-center rounded-full bg-ink px-2.5 text-[11px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex h-8 items-center justify-center gap-1 rounded-full bg-ink px-2.5 text-[11px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                             disabled={respondingRequestId !== null}
                             onClick={() => onAccept(request)}
                             aria-label={`Accept request from ${request.user.displayName}`}
                           >
                             Accept
-                          </button>
-                          <button
+                          </ActionButton>
+                          <ActionButton
+                            spinnerClassName="size-3"
                             type="button"
-                            className="inline-flex h-8 items-center justify-center rounded-full border border-black/[0.08] px-2.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex h-8 items-center justify-center gap-1 rounded-full border border-black/[0.08] px-2.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                             disabled={respondingRequestId !== null}
                             onClick={() => onDecline(request)}
                             aria-label={`Decline request from ${request.user.displayName}`}
                           >
                             Decline
-                          </button>
+                          </ActionButton>
                         </div>
                       </div>
                     ) : (

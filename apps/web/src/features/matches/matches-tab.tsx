@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -834,18 +835,14 @@ export function MatchesTab({
                 onChange={(event) => setMessageBody(event.target.value)}
                 maxLength={DIRECT_MESSAGE_MAX_LENGTH}
               />
-              <button
+              <ActionButton
+                isLoading={isSendingMessage} icon={<SendHorizontal className="size-4" aria-hidden="true" />}
                 className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-strong text-white disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSendingMessage || (!messageBody.trim() && !selectedGifUrl)}
                 aria-label="Send message"
                 title="Send"
               >
-                {isSendingMessage ? (
-                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <SendHorizontal className="size-4" aria-hidden="true" />
-                )}
-              </button>
+              </ActionButton>
             </form>
           )}
         </article>
@@ -861,8 +858,8 @@ export function MatchesTab({
         isLoading={isLoadingMatches}
         notice={notice}
         respondingRequestId={respondingRequestId}
-        onAccept={(request) => void acceptRequest(request)}
-        onDecline={(request) => void declineRequest(request)}
+        onAccept={acceptRequest}
+        onDecline={declineRequest}
       />
     );
   }
@@ -965,13 +962,13 @@ export function MatchesTab({
               <MessagesSquare className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No messages yet</h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">Discover people nearby and send an introduction to start a conversation.</p>
-              <button
+              <ActionButton
+                isLoading={isLoadingMatches} icon={<RefreshCw className="size-4" aria-hidden="true" />}
                 className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/[0.08] px-5 text-sm font-medium"
                 onClick={loadMatches}
               >
-                <RefreshCw className="size-4" aria-hidden="true" />
                 Refresh
-              </button>
+              </ActionButton>
             </div>
           </div>
         )}

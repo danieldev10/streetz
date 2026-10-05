@@ -1,3 +1,4 @@
+import { ActionButton } from "@/components/action-button";
 import type { ChangeEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
 import { Camera, LoaderCircle, MapPin, Sparkles, X } from "lucide-react";
 import { CustomSelect } from "@/components/custom-select";
@@ -205,19 +206,15 @@ export function ProfileEditorView({
                   {hasGpsLocation ? "Ready for exact distance" : "Optional for distance"}
                 </p>
               </div>
-              <button
+              <ActionButton
+                isLoading={isDetectingLocation} icon={<MapPin className="size-4" aria-hidden="true" />}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={onDetectLocation}
                 disabled={isDetectingLocation || isSaving}
               >
-                {isDetectingLocation ? (
-                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <MapPin className="size-4" aria-hidden="true" />
-                )}
                 {hasGpsLocation ? "Update GPS" : "Use GPS"}
-              </button>
+              </ActionButton>
             </div>
           </div>
           <InterestsEditor
@@ -233,13 +230,13 @@ export function ProfileEditorView({
         </div>
 
         <div className="mt-4 flex justify-end">
-          <button
+          <ActionButton
+            isLoading={isSaving}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSaving}
           >
-            {isSaving ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
             {isSetupMode ? "Complete setup" : "Save"}
-          </button>
+          </ActionButton>
         </div>
       </section>
     </form>
@@ -292,14 +289,11 @@ function ProfilePhotosEditor({
             </div>
           )}
 
-          <label className="absolute inset-x-3 bottom-3 inline-flex h-9 cursor-pointer items-center justify-center rounded-full bg-surface/95 px-3 text-xs font-semibold text-ink shadow-[0_2px_10px_rgba(0,0,0,0.12)] transition hover:bg-surface">
+          <label className="action-button absolute inset-x-3 bottom-3 inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-full bg-surface/95 px-3 text-xs font-semibold text-ink shadow-[0_2px_10px_rgba(0,0,0,0.12)] transition hover:bg-surface" aria-busy={isUploadingPhoto}>
             {uploadingPhotoSlot === 0 ? (
               <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-            ) : photo ? (
-              "Replace photo"
-            ) : (
-              "Add photo"
-            )}
+            ) : null}
+            {photo ? "Replace photo" : "Add photo"}
             <input
               className="sr-only"
               type="file"

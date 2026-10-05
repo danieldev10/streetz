@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import { useEffect, useState } from "react";
 import { LoaderCircle, X } from "lucide-react";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -143,10 +144,10 @@ export function DiscoveryPreferencesForm({
         )}
 
         {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
-        <button className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50" type="button" disabled={!preference || isSaving} onClick={() => void save()}>
-          {isSaving ? <LoaderCircle className="size-4 animate-spin" /> : null}
+        <ActionButton
+          isLoading={isSaving} className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-white disabled:opacity-50" type="button" disabled={!preference || isSaving} onClick={() => save()}>
           Confirm discovery preferences
-        </button>
+        </ActionButton>
       </div>
     </div>
   );

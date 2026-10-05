@@ -1,7 +1,8 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import Image from "next/image";
-import { CalendarDays, LoaderCircle, MapPin, MessageCircle, Share2, Ticket, UsersRound } from "lucide-react";
+import { CalendarDays, MapPin, MessageCircle, Share2, Ticket, UsersRound } from "lucide-react";
 import {
   FALLBACK_EVENT_IMAGE,
   formatEventDate,
@@ -28,10 +29,10 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
   activeRoomEventId: string | null;
   emptyTitle: string;
   emptyDescription: string;
-  onOpenCheckout: (event: StreetzEvent) => void;
+  onOpenCheckout: (event: StreetzEvent) => void | Promise<void>;
   onOpenDetails: (event: StreetzEvent) => void;
-  onOpenRoom: (event: StreetzEvent) => void;
-  onShare: (event: StreetzEvent) => void;
+  onOpenRoom: (event: StreetzEvent) => void | Promise<void>;
+  onShare: (event: StreetzEvent) => void | Promise<void>;
 }) {
   if (events.length === 0) {
     return (
@@ -98,18 +99,18 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover"
               />
-              <button
+              <ActionButton
+                icon={<Share2 className="size-4" aria-hidden="true" />}
                 className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-surface/90 text-ink shadow-sm backdrop-blur transition hover:bg-surface"
                 type="button"
                 onClick={(clickEvent) => {
                   clickEvent.stopPropagation();
-                  onShare(event);
+                  return onShare(event);
                 }}
                 aria-label={`Share ${event.title}`}
                 title="Share event"
               >
-                <Share2 className="size-4" aria-hidden="true" />
-              </button>
+              </ActionButton>
             </div>
             <div className="p-4">
               <h2 className="text-lg font-semibold leading-snug">{event.title}</h2>
@@ -145,42 +146,39 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                 </div>
               ) : null}
               <div className="mt-4 flex gap-2">
-                <button
+                <ActionButton
+                  trackNavigation={isOwnedEventCard} isLoading={isBusy} icon={<Ticket className="size-4" aria-hidden="true" />}
                   className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
                   disabled={!isOwnedEventCard && (!ticketType || !canBookMore || isBusy)}
                   onClick={(clickEvent) => {
                     clickEvent.stopPropagation();
                     if (isOwnedEventCard) {
-                      onOpenDetails(event);
-                      return;
+                      return onOpenDetails(event);
                     }
 
-                    onOpenCheckout(event);
+                    return onOpenCheckout(event);
                   }}
                 >
-                  {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
                   {isHistoryCard ? "View details" : mode === "tickets" ? "View tickets" : getTicketsLabel}
-                </button>
+                </ActionButton>
                 {event.room && (isGuest || isOwnedEventCard) ? (
-                  <button
+                  <ActionButton
+                    trackNavigation isLoading={isRoomBusy} icon={isGuest || event.room.hasJoined ? (
+                      <MessageCircle className="size-4" aria-hidden="true" />
+                    ) : (
+                      <UsersRound className="size-4" aria-hidden="true" />
+                    )}
                     className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface text-sm font-medium text-ink transition hover:border-brand ${!isGuest && event.room.hasJoined ? "w-11 shrink-0" : "min-w-0 flex-1 px-4"}`}
                     type="button"
                     onClick={(clickEvent) => {
                       clickEvent.stopPropagation();
-                      onOpenRoom(event);
+                      return onOpenRoom(event);
                     }}
                     disabled={isRoomBusy}
                     aria-label={!isGuest && event.room.hasJoined ? `Open ${event.title} chat` : undefined}
                     title={!isGuest && event.room.hasJoined ? "Open event chat" : undefined}
                   >
-                    {isRoomBusy ? (
-                      <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                    ) : isGuest || event.room.hasJoined ? (
-                      <MessageCircle className="size-4" aria-hidden="true" />
-                    ) : (
-                      <UsersRound className="size-4" aria-hidden="true" />
-                    )}
                     {isGuest ? (
                       <span>View chat</span>
                     ) : event.room.hasJoined ? (
@@ -188,7 +186,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                     ) : (
                       <span>Join room</span>
                     )}
-                  </button>
+                  </ActionButton>
                 ) : null}
               </div>
             </div>

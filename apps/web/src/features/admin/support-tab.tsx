@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Inbox, RefreshCw, Send } from "lucide-react";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -150,15 +151,15 @@ export function SupportTab({ token }: { token: string }) {
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">Support inbox</h1>
             <p className="mt-2 text-sm text-ink-600">Review requests, reply by email and manage resolution status.</p>
           </div>
-          <button
+          <ActionButton
+            isLoading={isLoading} icon={<RefreshCw className="size-4" aria-hidden="true" />}
             className="inline-flex h-11 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium"
             type="button"
-            onClick={() => void loadRequests()}
+            onClick={() => loadRequests()}
             disabled={isLoading}
           >
-            <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" />
             Refresh
-          </button>
+          </ActionButton>
         </div>
 
         <div className="mt-6 grid gap-3 rounded-[22px] border border-black/[0.06] bg-surface p-4 md:grid-cols-3">
@@ -217,13 +218,15 @@ export function SupportTab({ token }: { token: string }) {
                 <p className="p-7 text-center text-sm text-ink-500">No requests match these filters.</p>
               ) : (
                 requests.map((request) => (
-                  <button
+                  <ActionButton
+                    iconPosition="end"
+                    spinnerClassName="absolute right-4 top-5 size-4"
                     key={request.id}
-                    className={`block w-full border-b border-black/[0.05] p-4 text-left transition last:border-b-0 hover:bg-surface-muted ${
+                    className={`relative block w-full border-b border-black/[0.05] p-4 pr-12 text-left transition last:border-b-0 hover:bg-surface-muted ${
                       selected?.id === request.id ? "bg-surface-sunken" : ""
                     }`}
                     type="button"
-                    onClick={() => void openRequest(request.id)}
+                    onClick={() => openRequest(request.id)}
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-semibold text-ink-500">{request.reference}</span>
@@ -235,7 +238,7 @@ export function SupportTab({ token }: { token: string }) {
                     <h2 className="mt-2 truncate font-semibold">{request.subject}</h2>
                     <p className="mt-1 truncate text-sm text-ink-500">{request.displayName} · {getSupportCategoryLabel(request.category)}</p>
                     <p className="mt-2 text-xs text-ink-300">{formatDate(request.lastMessageAt)}</p>
-                  </button>
+                  </ActionButton>
                 ))
               )}
             </div>
@@ -329,14 +332,14 @@ export function SupportTab({ token }: { token: string }) {
                           <option key={status} value={status}>{supportStatusLabels[status]}</option>
                         ))}
                       </select>
-                      <button
+                      <ActionButton
+                        isLoading={isReplying} icon={<Send className="size-4" aria-hidden="true" />}
                         className="inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:opacity-40"
                         type="submit"
                         disabled={!reply.trim() || isReplying}
                       >
-                        <Send className="size-4" aria-hidden="true" />
                         {isReplying ? "Sending…" : "Send reply"}
-                      </button>
+                      </ActionButton>
                     </div>
                   </form>
                 ) : (

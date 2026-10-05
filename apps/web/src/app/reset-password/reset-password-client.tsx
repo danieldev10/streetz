@@ -1,10 +1,11 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { ArrowLeft, LoaderCircle, LockKeyhole } from "lucide-react";
+import { ArrowLeft, LockKeyhole } from "lucide-react";
 import { apiRequest, getUserErrorMessage } from "@/lib/api";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 
@@ -118,13 +119,13 @@ export function ResetPasswordClient() {
 
           {message ? <p className="rounded-2xl bg-warning-tint p-3 text-sm font-medium text-warning">{message}</p> : null}
 
-          <button
+          <ActionButton
+            isLoading={isSubmitting}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting || !token}
           >
-            {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
             Save password
-          </button>
+          </ActionButton>
         </form>
       </section>
     </main>

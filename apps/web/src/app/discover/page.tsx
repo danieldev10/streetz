@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -165,14 +166,14 @@ function DiscoveryProfileGate({
                 Discover is available after a quick live selfie check.
               </p>
               {notice ? <p className="mt-3 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{notice}</p> : null}
-              <button
+              <ActionButton
+                trackNavigation icon={<ShieldCheck className="size-4" aria-hidden="true" />}
                 className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
                 type="button"
                 onClick={() => router.push("/profile/verify?next=/discover")}
               >
-                <ShieldCheck className="size-4" aria-hidden="true" />
                 Verify now
-              </button>
+              </ActionButton>
             </div>
           </article>
         ) : (
@@ -186,14 +187,14 @@ function DiscoveryProfileGate({
                 Discover is available after you {formatProfileSetupIssues(profileIssues)}.
               </p>
               {notice ? <p className="mt-3 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{notice}</p> : null}
-              <button
+              <ActionButton
+                trackNavigation icon={<UserRound className="size-4" aria-hidden="true" />}
                 className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
                 type="button"
                 onClick={() => router.push("/profile?mode=setup")}
               >
-                <UserRound className="size-4" aria-hidden="true" />
                 Complete profile
-              </button>
+              </ActionButton>
             </div>
           </article>
         )}

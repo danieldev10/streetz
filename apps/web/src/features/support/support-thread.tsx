@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import Link from "next/link";
 import { FormEvent, useRef, useState } from "react";
 import { ArrowDown, ArrowLeft, Send } from "lucide-react";
@@ -155,14 +156,14 @@ export function SupportThread({
               value={reply}
               onChange={(event) => setReply(event.target.value)}
             />
-            <button
+            <ActionButton
+              isLoading={isReplying} icon={<Send className="size-4" aria-hidden="true" />}
               className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-ink text-white disabled:cursor-not-allowed disabled:opacity-40"
               type="submit"
               disabled={!reply.trim() || isReplying}
               aria-label="Send reply"
             >
-              <Send className="size-4" aria-hidden="true" />
-            </button>
+            </ActionButton>
           </div>
           {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
         </form>

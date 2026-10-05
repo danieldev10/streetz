@@ -1,10 +1,11 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, CheckCircle2, LoaderCircle, MapPin, MessageCircle, Share2, Ticket, UsersRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, MapPin, MessageCircle, Share2, Ticket, UsersRound } from "lucide-react";
 import { type AuthPromptKind } from "@/components/app/public-route";
 import { useToast } from "@/components/app/toast-provider";
 import { MediaDetailSkeleton } from "@/components/skeletons";
@@ -274,7 +275,16 @@ export function EventTicketsTab({
 
     if (isGuest) {
       if (selectedTicketType.priceKobo <= 0) {
-        setIsGuestCheckoutOpen(true);
+        setActiveEventId(event.id);
+        setNotice(null);
+        try {
+          await import("@/features/events/ticket-checkout-modal");
+          setIsGuestCheckoutOpen(true);
+        } catch (error) {
+          setNotice(getUserErrorMessage(error));
+        } finally {
+          setActiveEventId(null);
+        }
         return;
       }
 
@@ -393,15 +403,15 @@ export function EventTicketsTab({
       ) : null}
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center">
-          <button
+          <ActionButton
+            trackNavigation icon={<ArrowLeft className="size-4" aria-hidden="true" />}
             className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
             type="button"
             onClick={() => router.push("/events")}
             aria-label="Back to events"
             title="Back"
           >
-            <ArrowLeft className="size-4" aria-hidden="true" />
-          </button>
+          </ActionButton>
         </div>
 
         {isAdmin ? (
@@ -435,15 +445,15 @@ export function EventTicketsTab({
                     <span className="absolute left-3 top-3 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-ink">
                       {selectedTicketType ? `${normalizeTicketTierName(selectedTicketType.name)} · ${formatPrice(selectedTicketType.priceKobo)}` : "No ticket"}
                     </span>
-                    <button
+                    <ActionButton
+                      icon={<Share2 className="size-4" aria-hidden="true" />}
                       className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-surface/90 text-ink shadow-sm backdrop-blur transition hover:bg-surface"
                       type="button"
-                      onClick={() => void shareEvent()}
+                      onClick={() => shareEvent()}
                       aria-label={`Share ${event.title}`}
                       title="Share event"
                     >
-                      <Share2 className="size-4" aria-hidden="true" />
-                    </button>
+                    </ActionButton>
                   </div>
                   <div className="p-4">
                     <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
@@ -503,13 +513,13 @@ export function EventTicketsTab({
                         </select>
                       </label>
                     ) : null}
-                    <button
+                    <ActionButton
+                      isLoading={isBusy} icon={<Ticket className="size-4" aria-hidden="true" />}
                       className={`${canBookMore && maxPurchaseQuantity > 1 ? "mt-3" : "mt-4"} inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60`}
                       type="button"
-                      onClick={() => void bookEvent()}
+                      onClick={() => bookEvent()}
                       disabled={!canBookMore || isBusy}
                     >
-                      {isBusy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
                       {!selectedTicketType
                         ? "No tickets available"
                         : isSoldOut
@@ -523,23 +533,21 @@ export function EventTicketsTab({
                                   : isBooked
                                     ? `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} more ${purchaseNounPlural}`
                                     : `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} ${selectedNoun}`}
-                    </button>
+                    </ActionButton>
                     {event.room && ((isGuest && event.room.readOnly) || (!isGuest && tickets.length > 0)) ? (
-                      <button
-                        className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium text-ink transition hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
-                        type="button"
-                        onClick={() => void openEventRoom()}
-                        disabled={isRoomBusy}
-                      >
-                        {isRoomBusy ? (
-                          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                        ) : isGuest || event.room.hasJoined ? (
+                      <ActionButton
+                        trackNavigation isLoading={isRoomBusy} icon={isGuest || event.room.hasJoined ? (
                           <MessageCircle className="size-4" aria-hidden="true" />
                         ) : (
                           <UsersRound className="size-4" aria-hidden="true" />
                         )}
+                        className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium text-ink transition hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
+                        type="button"
+                        onClick={() => openEventRoom()}
+                        disabled={isRoomBusy}
+                      >
                         {isGuest ? "View event chat" : event.room.hasJoined ? "Open event chat" : "Join room"}
-                      </button>
+                      </ActionButton>
                     ) : null}
                   </div>
                 </article>
@@ -566,15 +574,15 @@ export function EventTicketsTab({
                               ) : null}
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
-                              <button
+                              <ActionButton
+                                icon={<Share2 className="size-4" aria-hidden="true" />}
                                 className="inline-flex size-9 items-center justify-center rounded-full border border-black/8 text-ink-600 transition hover:border-brand hover:text-ink"
                                 type="button"
-                                onClick={() => void shareEvent(ticket)}
+                                onClick={() => shareEvent(ticket)}
                                 aria-label={`Share ${event.title} ticket`}
                                 title="Share ticket"
                               >
-                                <Share2 className="size-4" aria-hidden="true" />
-                              </button>
+                              </ActionButton>
                               <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${state.tone}`}>
                                 <Icon className="size-3.5" aria-hidden="true" />
                                 {state.label}

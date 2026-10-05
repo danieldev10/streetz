@@ -1,8 +1,9 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import type { FormEvent, ReactNode } from "react";
 import { useState } from "react";
-import { ArrowLeft, Ban, Flag, HeartOff, LoaderCircle, MapPin, Ticket, X } from "lucide-react";
+import { ArrowLeft, Ban, Flag, HeartOff, MapPin, Ticket, X } from "lucide-react";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { formatDistanceKm } from "@/lib/location";
@@ -314,15 +315,15 @@ export function MemberProfileView({
               >
                 Cancel
               </button>
-              <button
+              <ActionButton
+                isLoading={isSubmittingSafetyAction}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={blockProfile}
                 disabled={isSubmittingSafetyAction}
               >
-                {isSubmittingSafetyAction ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
                 Block
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>
@@ -351,15 +352,15 @@ export function MemberProfileView({
               >
                 Cancel
               </button>
-              <button
+              <ActionButton
+                isLoading={isSubmittingSafetyAction}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={unmatchProfile}
                 disabled={isSubmittingSafetyAction}
               >
-                {isSubmittingSafetyAction ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
                 Close
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>
@@ -427,14 +428,14 @@ export function MemberProfileView({
               disabled={isSubmittingSafetyAction}
             />
             {reportError ? <p className="mt-2 text-xs font-medium text-danger">{reportError}</p> : null}
-            <button
+            <ActionButton
+              isLoading={isSubmittingSafetyAction}
               className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               type="submit"
               disabled={isSubmittingSafetyAction || !reportReason}
             >
-              {isSubmittingSafetyAction ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
               Send report
-            </button>
+            </ActionButton>
           </form>
         </div>
       ) : null}

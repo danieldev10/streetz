@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import "@aws-amplify/ui-react/styles.css";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -171,14 +172,14 @@ function FaceVerificationContent({ token }: { token: string }) {
   return (
     <section>
       <div className="px-5 pt-5 md:px-8 md:pt-8">
-        <button
+        <ActionButton
+          trackNavigation icon={<ArrowLeft className="size-4" aria-hidden="true" />}
           className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-surface text-ink"
           onClick={() => router.push("/profile")}
           aria-label="Back to profile"
           title="Back"
         >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-        </button>
+        </ActionButton>
       </div>
       <div className="px-5 pb-8 pt-4 md:px-8">
         <div className="mx-auto max-w-130">
@@ -261,24 +262,25 @@ function FaceVerificationContent({ token }: { token: string }) {
 
               <div className="mt-5 grid gap-3">
                 {state?.enabled && !isVerified ? (
-                  <button
+                  <ActionButton
+                    isLoading={isStarting} icon={<Camera className="size-4" aria-hidden="true" />}
                     className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                     type="button"
-                    onClick={() => void startVerification()}
+                    onClick={() => startVerification()}
                     disabled={isStarting}
                   >
-                    {isStarting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Camera className="size-4" aria-hidden="true" />}
                     Start live selfie
-                  </button>
+                  </ActionButton>
                 ) : null}
-                <button
+                <ActionButton
+                  trackNavigation
                   className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 bg-surface px-5 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
                   type="button"
                   disabled={!canContinue}
                   onClick={() => router.replace(nextPath)}
                 >
                   Continue
-                </button>
+                </ActionButton>
               </div>
             </article>
           )}

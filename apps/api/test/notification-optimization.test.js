@@ -9,6 +9,7 @@ const {
   getUnreadRoomMessageCountsByRoom,
 } = require("../dist/src/notifications/unread-message-counts.js");
 const { RoomsGateway } = require("../dist/src/rooms/rooms.gateway.js");
+const { NotificationsService } = require("../dist/src/notifications/notifications.service.js");
 const { getDatabasePoolSettings } = require("../dist/src/prisma/database-pool-settings.js");
 
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -82,6 +83,61 @@ test("room message notifications batch recipients and never notify the author", 
       roomId: "room-1",
     },
   });
+});
+
+test("alerts summaries count direct messages and requests without reading event chat messages", async () => {
+  const rawQueries = [];
+  const prisma = {
+    user: { findUnique: async () => ({ role: "USER", createdAt: new Date("2026-01-01") }) },
+    match: { count: async () => 1 },
+    async $queryRaw(strings) {
+      const sql = strings.join("");
+      assert.match(sql, /DirectMessage/);
+      assert.doesNotMatch(sql, /ChatMessage|RoomMembership/);
+      rawQueries.push(sql);
+      return [{ count: 2n }];
+    },
+  };
+  const service = new NotificationsService(prisma, {});
+  service.getUnreadFeedNotificationCount = async () => 3;
+
+  assert.deepEqual(await service.getSummary("reader-1"), {
+    matchesUnreadCount: 3,
+    roomsUnreadCount: 0,
+    notificationsUnreadCount: 3,
+    totalUnreadCount: 6,
+  });
+  assert.equal(rawQueries.length, 1);
+});
+
+test("alerts feed keeps event and account updates without querying event chat memberships", async () => {
+  const prisma = {
+    user: { findUnique: async () => ({ createdAt: new Date("2026-01-01") }) },
+    match: { findMany: async () => [] },
+    roomMembership: { findMany: async () => { throw new Error("Alerts must not load event chats"); } },
+    async $queryRaw(strings) {
+      assert.match(strings.join(""), /DirectMessage/);
+      return [];
+    },
+  };
+  const service = new NotificationsService(prisma, {});
+  service.getUpcomingEvents = async () => [{ id: "event-1" }];
+  service.getConfirmedTickets = async () => [{ id: "ticket-1" }];
+  service.getEventAlerts = async () => [{ id: "event-alert-1" }];
+  service.getSubscriptionAlerts = async () => [{ id: "subscription-1" }];
+  service.getReportUpdates = async () => [{ id: "report-1" }];
+  service.getPaymentAlerts = async () => [{ id: "payment-1" }];
+
+  const feed = await service.getFeed("reader-1");
+  assert.deepEqual(feed.roomMessages, []);
+  assert.deepEqual(feed.rooms, []);
+  assert.deepEqual(feed.directMessages, []);
+  assert.deepEqual(feed.events, [{ id: "event-1" }]);
+  assert.deepEqual(feed.tickets, [{ id: "ticket-1" }]);
+  assert.deepEqual(feed.eventAlerts, [{ id: "event-alert-1" }]);
+  assert.deepEqual(feed.subscriptionAlerts, [{ id: "subscription-1" }]);
+  assert.deepEqual(feed.reportUpdates, [{ id: "report-1" }]);
+  assert.deepEqual(feed.paymentAlerts, [{ id: "payment-1" }]);
 });
 
 test("aggregate unread queries count all conversations in constant query count", { skip: !connectionString }, async () => {

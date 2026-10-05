@@ -1,7 +1,8 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import { useMemo, useState } from "react";
-import { CheckCircle2, LoaderCircle, Mail, Ticket, X } from "lucide-react";
+import { CheckCircle2, Mail, Ticket, X } from "lucide-react";
 import { apiRequest, getUserErrorMessage } from "@/lib/api";
 import type { StreetzEvent, StreetzEventTicketType, TicketStatus } from "@/lib/types";
 
@@ -109,7 +110,7 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
   initialTicketTypeId?: string | null;
   initialQuantity?: number;
   onClose: () => void;
-  onSubmit: (ticketType: StreetzEventTicketType, quantity: number) => void;
+  onSubmit: (ticketType: StreetzEventTicketType, quantity: number) => void | Promise<void>;
   onGuestBooked?: (booking: GuestTicketBooking) => void;
 }) {
   const ticketTypes = useMemo(() => getTicketTypes(event), [event]);
@@ -339,21 +340,21 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
       {statusCopy ? <p className="mt-4 rounded-2xl bg-warning-tint p-3 text-sm font-medium text-warning">{statusCopy}</p> : null}
       {error ? <p className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{error}</p> : null}
 
-      <button
+      <ActionButton
+        isLoading={isWorking} icon={<Ticket className="size-4" aria-hidden="true" />}
         className="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
         type="button"
         disabled={!ticketType || maxQuantity <= 0 || isWorking}
         onClick={() => {
           if (guestRequest) {
-            void confirmGuestTicket();
+            return confirmGuestTicket();
           } else if (isPublicGuestBooking) {
-            void requestGuestTicket();
+            return requestGuestTicket();
           } else if (ticketType) {
-            onSubmit(ticketType, selectedQuantity);
+            return onSubmit(ticketType, selectedQuantity);
           }
         }}
       >
-        {isWorking ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Ticket className="size-4" aria-hidden="true" />}
         {guestRequest
           ? "Confirm free tickets"
           : isPublicGuestBooking
@@ -361,7 +362,7 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
             : isPaidEvent
               ? `Buy ${selectedQuantity} ${selectedNoun}`
               : `Book ${selectedQuantity} ${selectedNoun}`}
-      </button>
+      </ActionButton>
     </ModalShell>
   );
 }

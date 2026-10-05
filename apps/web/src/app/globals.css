@@ -73,6 +73,21 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.action-button[aria-busy="true"] {
+  background-color: var(--color-surface-shade);
+  border-color: var(--color-ink-200);
+  color: var(--color-ink-600);
+  opacity: 1;
+  cursor: wait;
+}
+
+/* Icon-only refresh controls retain their borderless appearance while working. */
+.action-button[aria-busy="true"][data-loading-appearance="plain"] {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--color-ink-400);
+}
+
 /* Comfortable touch target for controls. Anchors only qualify when they are laid
    out as controls -- a plain text link keeps its line box instead of gaining
    dead space below it. */

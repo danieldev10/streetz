@@ -1,7 +1,7 @@
+import { ActionButton } from "@/components/action-button";
 import type { FormEvent, ReactNode } from "react";
 import {
   Heart,
-  LoaderCircle,
   MapPin,
   Power,
   ShieldCheck,
@@ -137,10 +137,10 @@ export function ProfileOverviewView({
       </article>
 
       <div className="mt-5 grid gap-3">
-        <ActionButton onClick={onOpenDiscoveryPreferences}>
+        <ProfileMenuButton onClick={onOpenDiscoveryPreferences}>
           <Heart className="size-4" aria-hidden="true" />
           Discovery preferences
-        </ActionButton>
+        </ProfileMenuButton>
         {isFaceVerified ? (
           <div className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-brand-tint px-5 text-sm font-medium text-brand-strong">
             <ShieldCheck className="size-4" aria-hidden="true" />
@@ -155,10 +155,10 @@ export function ProfileOverviewView({
             Verify Profile
           </a>
         )}
-        <ActionButton onClick={onPreview}>
+        <ProfileMenuButton onClick={onPreview}>
           <Heart className="size-4" aria-hidden="true" />
           Preview Card
-        </ActionButton>
+        </ProfileMenuButton>
         <button
           className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
           type="button"
@@ -167,7 +167,8 @@ export function ProfileOverviewView({
           <UserRound className="size-4" aria-hidden="true" />
           Edit Profile
         </button>
-        <ActionButton onClick={onOpenDeactivate}>
+        <ActionButton
+          onClick={onOpenDeactivate}>
           <Power className="size-4" aria-hidden="true" />
           Deactivate Profile
         </ActionButton>
@@ -185,18 +186,14 @@ export function ProfileOverviewView({
                 required
               />
             </label>
-            <button
+            <ActionButton
+              isLoading={isSubmittingAccountAction} icon={<Trash2 className="size-4" aria-hidden="true" />}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-danger px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-55"
               type="submit"
               disabled={isSubmittingAccountAction}
             >
-              {isSubmittingAccountAction ? (
-                <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Trash2 className="size-4" aria-hidden="true" />
-              )}
               Delete Profile
-            </button>
+            </ActionButton>
           </form>
         ) : (
           <button
@@ -230,7 +227,7 @@ function ProfileDetail({ label, children }: { label: string; children: ReactNode
   );
 }
 
-function ActionButton({
+function ProfileMenuButton({
   children,
   onClick,
 }: {
@@ -295,15 +292,15 @@ function DeactivateProfileDialog({
           >
             Cancel
           </button>
-          <button
+          <ActionButton
+            isLoading={isSubmitting}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onConfirm}
             disabled={isSubmitting}
           >
-            {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
             Deactivate
-          </button>
+          </ActionButton>
         </div>
       </section>
     </div>

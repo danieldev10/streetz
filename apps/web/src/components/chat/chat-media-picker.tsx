@@ -1,8 +1,9 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import Image from "next/image";
 import { useState } from "react";
-import { Laugh, LoaderCircle, Search, X } from "lucide-react";
+import { Laugh, Search, X } from "lucide-react";
 
 const EMOJIS = ["😀", "😂", "🥰", "😍", "😘", "😊", "😎", "🥳", "😭", "😅", "🙃", "😉", "🤔", "😳", "😡", "❤️", "🔥", "✨", "🎉", "👏", "🙌", "👍", "👀", "💯"];
 
@@ -95,7 +96,8 @@ export function ChatMediaPicker({ onEmoji, onGif, disabled }: {
                   placeholder="Search GIPHY"
                   maxLength={50}
                 />
-                <button type="button" className="inline-flex size-10 items-center justify-center rounded-full bg-ink text-white" onClick={() => void searchGifs()} aria-label="Search GIFs">{isSearching ? <LoaderCircle className="size-4 animate-spin" /> : <Search className="size-4" />}</button>
+                <ActionButton
+                  isLoading={isSearching} icon={<Search className="size-4" />} type="button" className="inline-flex size-10 items-center justify-center rounded-full bg-ink text-white" onClick={() => searchGifs()} aria-label="Search GIFs"></ActionButton>
               </div>
               {error ? <p className="rounded-xl bg-danger-tint p-3 text-xs text-danger">{error}</p> : null}
               <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto">

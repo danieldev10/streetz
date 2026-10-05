@@ -1,9 +1,10 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, LoaderCircle, Mail } from "lucide-react";
+import { ArrowLeft, Mail } from "lucide-react";
 import { apiRequest, getUserErrorMessage } from "@/lib/api";
 
 function isValidEmail(value: string) {
@@ -85,13 +86,13 @@ export default function ForgotPasswordPage() {
             </Link>
           ) : null}
 
-          <button
+          <ActionButton
+            isLoading={isSubmitting}
             className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
           >
-            {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
             Send reset link
-          </button>
+          </ActionButton>
         </form>
       </section>
     </main>

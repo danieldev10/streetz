@@ -263,6 +263,16 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
     };
   }, [isEventFilterOpen]);
 
+  async function openTicketCheckout(event: StreetzEvent) {
+    setNotice(null);
+    try {
+      await import("@/features/events/ticket-checkout-modal");
+      setTicketModalEventId(event.id);
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    }
+  }
+
   async function shareEvent(event: StreetzEvent) {
     try {
       const result = await shareOrCopyLink({
@@ -404,10 +414,10 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
     activeRoomEventId,
     emptyTitle: emptyMemberTitle,
     emptyDescription: emptyMemberDescription,
-    onOpenCheckout: (event: StreetzEvent) => setTicketModalEventId(event.id),
+    onOpenCheckout: openTicketCheckout,
     onOpenDetails: (event: StreetzEvent) => router.push(`/events/${event.id}`),
-    onOpenRoom: (event: StreetzEvent) => void openEventRoom(event),
-    onShare: (event: StreetzEvent) => void shareEvent(event),
+    onOpenRoom: openEventRoom,
+    onShare: shareEvent,
   };
 
   return (
@@ -484,7 +494,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
           isGuest={isGuest}
           isBusy={activeEventId === ticketModalEvent.id}
           onClose={() => setTicketModalEventId(null)}
-          onSubmit={(ticketType, quantity) => void bookEvent(ticketModalEvent, ticketType, quantity)}
+          onSubmit={(ticketType, quantity) => bookEvent(ticketModalEvent, ticketType, quantity)}
           onGuestBooked={applyGuestBooking}
         />
       ) : null}

@@ -1,7 +1,8 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import type { FormEvent, ReactNode } from "react";
-import { LoaderCircle, LogOut, RotateCcw } from "lucide-react";
+import { LogOut, RotateCcw } from "lucide-react";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import { BrandLogo } from "@/components/brand-logo";
 import type { StreetzUser } from "@/lib/types";
@@ -133,14 +134,14 @@ export function AuthShell({
 
           {message ? <p className="mt-4 rounded-2xl bg-warning-tint p-3 text-sm font-medium text-warning">{message}</p> : null}
 
-          <button
+          <ActionButton
+            isLoading={isSubmitting}
             type="submit"
             className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
           >
-            {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
             {authMode === "register" ? "Create account" : "Login"}
-          </button>
+          </ActionButton>
           {authMode === "login" ? (
             <a
               className="mt-2 inline-flex h-11 w-full items-center justify-center text-sm font-medium text-ink-600 hover:text-ink"
@@ -202,14 +203,14 @@ export function PaywallShell({
 
           {message ? <p className="mb-4 rounded-2xl bg-warning-tint p-3 text-sm font-medium text-warning">{message}</p> : null}
 
-          <button
+          <ActionButton
+            isLoading={isStartingPayment}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand-strong px-5 text-sm font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onStartSubscription}
             disabled={isStartingPayment || isActionDisabled}
           >
-            {isStartingPayment ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
             {isStartingPayment ? "Opening Paystack" : buttonLabel}
-          </button>
+          </ActionButton>
         </div>
       </section>
     </main>
@@ -305,15 +306,15 @@ export function AccountStatusShell({
 
         {canReactivate ? (
           <div className="mt-6">
-            <button
+            <ActionButton
+              isLoading={isSubmitting} icon={<RotateCcw className="size-4" aria-hidden="true" />}
               className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand-strong px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               type="button"
               onClick={onReactivate}
               disabled={isSubmitting}
             >
-              {isSubmitting ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <RotateCcw className="size-4" aria-hidden="true" />}
               Reactivate account
-            </button>
+            </ActionButton>
           </div>
         ) : null}
       </section>

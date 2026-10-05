@@ -1,6 +1,7 @@
 "use client";
 
-import { LoaderCircle, X } from "lucide-react";
+import { ActionButton } from "@/components/action-button";
+import { X } from "lucide-react";
 import {
   EVENT_CANCELLATION_REASON_MAX_LENGTH,
   getCancellationImpact,
@@ -107,17 +108,15 @@ export function AdminEventCancellationModal({
           >
             Keep event
           </button>
-          <button
+          <ActionButton
+            isLoading={isCancelling}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-danger px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onConfirm}
             disabled={!canConfirm}
           >
-            {isCancelling ? (
-              <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-            ) : null}
             Cancel event
-          </button>
+          </ActionButton>
         </div>
       </section>
     </div>

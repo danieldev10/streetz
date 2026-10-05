@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Pencil, Plus, RefreshCw, Ticket } from "lucide-react";
@@ -70,22 +71,22 @@ export function AdminEventsList({ token }: { token: string }) {
       <h1 className="sr-only">Event administration</h1>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center justify-end gap-2">
-          <button
+          <ActionButton
+            isLoading={isLoading} icon={<RefreshCw className="size-3.5" aria-hidden="true" />}
             className="hidden h-9 items-center gap-2 rounded-full border border-black/8 px-3 text-sm font-medium md:inline-flex"
             type="button"
-            onClick={() => void loadEvents()}
+            onClick={() => loadEvents()}
           >
-            <RefreshCw className="size-3.5" aria-hidden="true" />
             Refresh
-          </button>
-          <button
+          </ActionButton>
+          <ActionButton
+            trackNavigation icon={<Plus className="size-3.5" aria-hidden="true" />}
             className="inline-flex h-9 items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white"
             type="button"
             onClick={() => router.push("/events/create")}
           >
-            <Plus className="size-3.5" aria-hidden="true" />
             Create Event
-          </button>
+          </ActionButton>
         </div>
 
         <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium md:max-w-sm">
@@ -172,15 +173,15 @@ export function AdminEventsList({ token }: { token: string }) {
                         </span>
                       </div>
                     </div>
-                    <button
+                    <ActionButton
+                      trackNavigation icon={<Pencil className="size-4" aria-hidden="true" />}
                       className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
                       type="button"
                       onClick={() => router.push(`/events/${event.id}/edit`)}
                       aria-label={`Edit ${event.title}`}
                       title="Edit"
                     >
-                      <Pencil className="size-4" aria-hidden="true" />
-                    </button>
+                    </ActionButton>
                   </div>
                 </article>
               );
