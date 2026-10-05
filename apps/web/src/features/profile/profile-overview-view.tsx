@@ -168,8 +168,11 @@ export function ProfileOverviewView({
           Edit Profile
         </button>
         <ActionButton
-          onClick={onOpenDeactivate}>
-          <Power className="size-4" aria-hidden="true" />
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-5 text-sm font-medium text-ink"
+          type="button"
+          icon={<Power className="size-4 shrink-0" aria-hidden="true" />}
+          onClick={onOpenDeactivate}
+        >
           Deactivate Profile
         </ActionButton>
         {isDeleteAccountOpen ? (

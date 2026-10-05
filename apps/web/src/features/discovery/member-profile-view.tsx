@@ -241,10 +241,10 @@ export function MemberProfileView({
 
               {canUseSafetyActions ? (
                 <div
-                  className={`mt-5 grid gap-2 border-t border-black/[0.05] pt-5 ${canUseUnmatchAction ? "grid-cols-3" : "grid-cols-2"}`}
+                  className={`mt-5 grid gap-2 border-t border-black/[0.05] pt-5 ${canUseUnmatchAction ? "grid-cols-[1fr_1.3fr_1fr]" : "grid-cols-2"}`}
                 >
                   <button
-                    className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full border border-black/[0.08] px-2 text-[13px] font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-10 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-black/[0.08] px-1 text-xs font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-60 sm:gap-1.5 sm:px-2 sm:text-[13px]"
                     type="button"
                     onClick={() => {
                       setActionNotice(null);
@@ -255,12 +255,12 @@ export function MemberProfileView({
                     }}
                     disabled={isSubmittingSafetyAction}
                   >
-                    <Flag className="size-[18px] shrink-0 stroke-[2.2]" aria-hidden="true" />
+                    <Flag className="size-4 shrink-0 stroke-[2.2] sm:size-[18px]" aria-hidden="true" />
                     Report
                   </button>
                   {canUseUnmatchAction ? (
                     <button
-                      className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full border border-black/[0.08] bg-surface-muted px-2 text-[13px] font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex h-10 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-black/[0.08] bg-surface-muted px-1 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60 sm:gap-1.5 sm:px-2 sm:text-[13px]"
                       type="button"
                       onClick={() => {
                         setActionNotice(null);
@@ -268,12 +268,12 @@ export function MemberProfileView({
                       }}
                       disabled={isSubmittingSafetyAction}
                     >
-                      <HeartOff className="size-[18px] shrink-0 stroke-[2.2]" aria-hidden="true" />
+                      <HeartOff className="size-4 shrink-0 stroke-[2.2] sm:size-[18px]" aria-hidden="true" />
                       Close chat
                     </button>
                   ) : null}
                   <button
-                    className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full border border-danger-tint bg-danger-tint px-2 text-[13px] font-medium text-danger disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-10 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-danger-tint bg-danger-tint px-1 text-xs font-medium text-danger disabled:cursor-not-allowed disabled:opacity-60 sm:gap-1.5 sm:px-2 sm:text-[13px]"
                     type="button"
                     onClick={() => {
                       setActionNotice(null);
@@ -281,7 +281,7 @@ export function MemberProfileView({
                     }}
                     disabled={isSubmittingSafetyAction}
                   >
-                    <Ban className="size-[18px] shrink-0 stroke-[2.2]" aria-hidden="true" />
+                    <Ban className="size-4 shrink-0 stroke-[2.2] sm:size-[18px]" aria-hidden="true" />
                     Block
                   </button>
                 </div>
