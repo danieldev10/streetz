@@ -868,13 +868,13 @@ export function MatchesTab({
 
   return (
     <section>
-      <div className="px-5 pt-6 md:px-8 md:pt-8">
+      <div className="px-5 pt-3 md:px-8 md:pt-8">
         {notice ? <p className="mx-auto mb-4 max-w-3xl rounded-[16px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {isLoadingMatches ? (
-          <ListSkeleton label="Loading messages" className="mx-auto mt-5 grid max-w-3xl gap-3" hasAction={false} />
+          <ListSkeleton label="Loading messages" className="mx-auto grid max-w-3xl gap-3" hasAction={false} />
         ) : hasAnyConversation ? (
-          <div className="mx-auto mt-5 max-w-3xl space-y-6">
+          <div className="mx-auto max-w-3xl space-y-6">
             {conversationRequests.received.length > 0 ? (
               <Link
                 href="/messages/requests"
@@ -957,7 +957,7 @@ export function MatchesTab({
             ) : null}
           </div>
         ) : (
-          <div className="mx-auto mt-5 grid min-h-[420px] max-w-3xl place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
+          <div className="mx-auto grid min-h-[420px] max-w-3xl place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
             <div>
               <MessagesSquare className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No messages yet</h2>

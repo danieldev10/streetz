@@ -361,12 +361,12 @@ export function DiscoveryTab({
   }
 
   return (
-    <section className="px-5 pb-24 pt-6 md:px-8 md:pt-8">
-      <div className="mx-auto max-w-4xl">
-        {notice ? <p className="mt-4 rounded-[18px] bg-brand-tint p-4 text-sm font-medium text-brand-deep">{notice}</p> : null}
+    <section className="px-5 pb-24 pt-3 md:px-8 md:pt-8">
+      <div className="mx-auto flex max-w-4xl flex-col gap-4">
+        {notice ? <p className="rounded-[18px] bg-brand-tint p-4 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {!isInDiscoveryPool ? (
-          <div className="mt-7 grid min-h-64 place-items-center rounded-[28px] border border-black/[0.05] bg-surface-muted p-6 text-center">
+          <div className="grid min-h-64 place-items-center rounded-[28px] border border-black/[0.05] bg-surface-muted p-6 text-center">
             <div>
               <EyeOff className="mx-auto size-8 text-ink-400" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">You are out of the pool</h2>
@@ -376,14 +376,14 @@ export function DiscoveryTab({
             </div>
           </div>
         ) : isInitializing || (isSearching && !hasSearched) ? (
-          <div className="mt-7 flex min-h-64 items-center justify-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center">
+          <div className="flex min-h-64 items-center justify-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center">
             <div>
               <LoaderCircle className="mx-auto size-6 animate-spin text-brand" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium text-ink-600">Finding people</p>
             </div>
           </div>
         ) : hasSearched && people.length > 0 ? (
-          <div className="mt-7">
+          <div>
             <div className="flex items-center justify-between gap-4">
               <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-ink-400">
                 <MapPin className="size-4 shrink-0" aria-hidden="true" />
@@ -430,7 +430,7 @@ export function DiscoveryTab({
             ) : null}
           </div>
         ) : hasSearched ? (
-          <div className="mt-7 grid min-h-64 place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
+          <div className="grid min-h-64 place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
             <div>
               <UserRoundSearch className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No one found yet</h2>
