@@ -6,6 +6,7 @@ import {
   ModerationActionType,
   PaymentPurpose,
   PaymentStatus,
+  Prisma,
   ReportStatus,
   SubscriptionStatus,
   TicketStatus,
@@ -17,6 +18,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { UsersService } from "../users/users.service";
 import { ModerateReportUserDto } from "./dto/moderate-report-user.dto";
+import { AdminUsersListDto } from "./dto/admin-users-list.dto";
 
 type AdminReportPhotoForFormat = {
   id: string;
@@ -458,11 +460,23 @@ export class AdminService {
     });
   }
 
-  async getUsers() {
+  async getUsers(query: AdminUsersListDto = new AdminUsersListDto()) {
+    const where: Prisma.UserWhereInput = {
+      accountStatus: query.status ?? { not: AccountStatus.DELETED },
+      ...(query.search ? {
+        OR: [
+          { displayName: { contains: query.search, mode: "insensitive" } },
+          { email: { contains: query.search, mode: "insensitive" } }
+        ]
+      } : {})
+    };
+    const total = await this.prisma.user.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
+    const page = Math.min(query.page, totalPages);
     const users = await this.prisma.user.findMany({
-      where: {
-        accountStatus: { not: AccountStatus.DELETED }
-      },
+      where,
+      skip: (page - 1) * query.pageSize,
+      take: query.pageSize,
       select: {
         id: true,
         displayName: true,
@@ -490,7 +504,7 @@ export class AdminService {
           }
         }
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }]
     });
 
     return {
@@ -508,7 +522,8 @@ export class AdminService {
         matchCount: user._count.matchesA + user._count.matchesB,
         ticketCount: user._count.tickets,
         roomCount: user._count.roomMemberships
-      }))
+      })),
+      pagination: { page, pageSize: query.pageSize, total, totalPages }
     };
   }
 

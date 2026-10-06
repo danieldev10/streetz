@@ -1,354 +1,147 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { ChevronRight, Inbox, RefreshCw } from "lucide-react";
 import { ActionButton } from "@/components/action-button";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Inbox, RefreshCw, Send } from "lucide-react";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
-import type {
-  SupportPriority,
-  SupportRequest,
-  SupportRequestCategory,
-  SupportRequestStatus,
-  SupportRequestSummary
-} from "@/lib/types";
-import {
-  getSupportCategoryLabel,
-  supportCategories,
-  supportStatusLabels
-} from "@/features/support/support-content";
-
-const statuses: SupportRequestStatus[] = ["OPEN", "IN_PROGRESS", "WAITING_ON_USER", "RESOLVED", "CLOSED"];
-const priorities: SupportPriority[] = ["URGENT", "HIGH", "NORMAL"];
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-NG", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Africa/Lagos"
-  }).format(new Date(value));
-}
-
-function priorityClass(priority: SupportPriority) {
-  if (priority === "URGENT") return "bg-danger-tint text-danger";
-  if (priority === "HIGH") return "bg-warning-tint text-warning";
-  return "bg-black/5 text-ink-600";
-}
+import type { SupportRequestSummary } from "@/lib/types";
+import { getSupportCategoryLabel, supportCategories } from "@/features/support/support-content";
+import { adminSupportQuery, adminSupportStatusLabels, formatSupportDate, getAdminSupportFilters, supportPriorities, supportPriorityClass, supportStatuses } from "./support-ui";
 
 export function SupportTab({ token }: { token: string }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const filters = getAdminSupportFilters(searchParams);
+  const query = adminSupportQuery(filters);
   const [requests, setRequests] = useState<SupportRequestSummary[]>([]);
-  const [selected, setSelected] = useState<SupportRequest | null>(null);
-  const [statusFilter, setStatusFilter] = useState<SupportRequestStatus | "">("");
-  const [categoryFilter, setCategoryFilter] = useState<SupportRequestCategory | "">("");
-  const [priorityFilter, setPriorityFilter] = useState<SupportPriority | "">("");
-  const [reply, setReply] = useState("");
-  const [replyStatus, setReplyStatus] = useState<SupportRequestStatus>("WAITING_ON_USER");
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [isReplying, setIsReplying] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const query = useMemo(() => {
-    const params = new URLSearchParams();
-    if (statusFilter) params.set("status", statusFilter);
-    if (categoryFilter) params.set("category", categoryFilter);
-    if (priorityFilter) params.set("priority", priorityFilter);
-    const value = params.toString();
-    return value ? `?${value}` : "";
-  }, [categoryFilter, priorityFilter, statusFilter]);
-
-  const loadRequests = useCallback(async () => {
+  const loadRequests = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setError(null);
     try {
       const result = await apiRequest<SupportRequestSummary[]>(`/admin/support/requests${query}`, {
-        headers: authHeaders(token)
+        headers: authHeaders(token),
+        signal,
       });
-      setRequests(result);
+      if (!signal?.aborted) setRequests(result);
     } catch (loadError) {
-      setError(getUserErrorMessage(loadError));
+      if (!signal?.aborted) setError(getUserErrorMessage(loadError));
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) setIsLoading(false);
     }
   }, [query, token]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadRequests();
-    }, 0);
-
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void loadRequests(controller.signal), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadRequests]);
 
-  async function openRequest(requestId: string) {
-    setIsLoadingDetail(true);
-    setError(null);
-    try {
-      const request = await apiRequest<SupportRequest>(`/admin/support/requests/${requestId}`, {
-        headers: authHeaders(token)
-      });
-      setSelected(request);
-      setReplyStatus(request.status === "RESOLVED" ? "RESOLVED" : "WAITING_ON_USER");
-    } catch (loadError) {
-      setError(getUserErrorMessage(loadError));
-    } finally {
-      setIsLoadingDetail(false);
-    }
-  }
-
-  async function submitReply(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selected || !reply.trim() || isReplying) return;
-    setIsReplying(true);
-    setError(null);
-    try {
-      const request = await apiRequest<SupportRequest>(
-        `/admin/support/requests/${selected.id}/messages`,
-        {
-          method: "POST",
-          headers: authHeaders(token),
-          body: JSON.stringify({ message: reply.trim(), status: replyStatus })
-        }
-      );
-      setSelected(request);
-      setReply("");
-      await loadRequests();
-    } catch (replyError) {
-      setError(getUserErrorMessage(replyError));
-    } finally {
-      setIsReplying(false);
-    }
-  }
-
-  async function updateRequest(update: {
-    status?: SupportRequestStatus;
-    priority?: SupportPriority;
-  }) {
-    if (!selected || isUpdating) return;
-    setIsUpdating(true);
-    setError(null);
-    try {
-      const request = await apiRequest<SupportRequest>(`/admin/support/requests/${selected.id}`, {
-        method: "POST",
-        headers: authHeaders(token),
-        body: JSON.stringify(update)
-      });
-      setSelected(request);
-      await loadRequests();
-    } catch (updateError) {
-      setError(getUserErrorMessage(updateError));
-    } finally {
-      setIsUpdating(false);
-    }
+  function changeFilter(name: keyof typeof filters, value: string) {
+    const params = new URLSearchParams(query);
+    if (value) params.set(name, value);
+    else params.delete(name);
+    router.replace(`/admin/support${adminSupportQuery(getAdminSupportFilters(params))}`, { scroll: false });
   }
 
   return (
-    <section className="px-5 pb-28 pt-6 md:px-8 md:pb-10">
-      <div className="mx-auto w-full max-w-6xl">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+    <section className="px-5 pb-8 pt-6 md:px-8">
+      <div className="mx-auto w-full max-w-4xl">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Admin</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight">Support inbox</h1>
-            <p className="mt-2 text-sm text-ink-600">Review requests, reply by email and manage resolution status.</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Support inbox</h1>
+            <p className="mt-1 text-sm text-ink-600">Open a request to view its conversation.</p>
           </div>
           <ActionButton
-            isLoading={isLoading} icon={<RefreshCw className="size-4" aria-hidden="true" />}
-            className="inline-flex h-11 items-center gap-2 rounded-full border border-black/[0.08] px-4 text-sm font-medium"
+            isLoading={isLoading}
+            icon={<RefreshCw className="size-4" aria-hidden="true" />}
+            className="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink-600 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
             type="button"
+            aria-label="Refresh support inbox"
             onClick={() => loadRequests()}
-            disabled={isLoading}
           >
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </ActionButton>
         </div>
 
-        <div className="mt-6 grid gap-3 rounded-[22px] border border-black/[0.06] bg-surface p-4 md:grid-cols-3">
-          <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-ink-500">
+        <div className="mt-5 grid gap-3 rounded-[22px] border border-black/[0.06] bg-surface p-4 sm:grid-cols-3">
+          <label className="grid gap-1.5 text-xs font-medium text-ink-500">
             Status
             <select
-              className="h-11 rounded-[14px] border border-black/[0.1] bg-surface px-3 text-sm font-normal normal-case tracking-normal text-ink"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as SupportRequestStatus | "")}
+              className="h-11 min-w-0 rounded-[14px] border border-black/[0.1] bg-surface px-3 text-sm text-ink"
+              value={filters.status}
+              onChange={(event) => changeFilter("status", event.target.value)}
             >
               <option value="">All statuses</option>
-              {statuses.map((status) => <option key={status} value={status}>{supportStatusLabels[status]}</option>)}
+              {supportStatuses.map((status) => <option key={status} value={status}>{adminSupportStatusLabels[status]}</option>)}
             </select>
           </label>
-          <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-ink-500">
+          <label className="grid gap-1.5 text-xs font-medium text-ink-500">
             Category
             <select
-              className="h-11 rounded-[14px] border border-black/[0.1] bg-surface px-3 text-sm font-normal normal-case tracking-normal text-ink"
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value as SupportRequestCategory | "")}
+              className="h-11 min-w-0 rounded-[14px] border border-black/[0.1] bg-surface px-3 text-sm text-ink"
+              value={filters.category}
+              onChange={(event) => changeFilter("category", event.target.value)}
             >
               <option value="">All categories</option>
               {supportCategories.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
             </select>
           </label>
-          <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-ink-500">
+          <label className="grid gap-1.5 text-xs font-medium text-ink-500">
             Priority
             <select
-              className="h-11 rounded-[14px] border border-black/[0.1] bg-surface px-3 text-sm font-normal normal-case tracking-normal text-ink"
-              value={priorityFilter}
-              onChange={(event) => setPriorityFilter(event.target.value as SupportPriority | "")}
+              className="h-11 min-w-0 rounded-[14px] border border-black/[0.1] bg-surface px-3 text-sm text-ink"
+              value={filters.priority}
+              onChange={(event) => changeFilter("priority", event.target.value)}
             >
               <option value="">All priorities</option>
-              {priorities.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
+              {supportPriorities.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
             </select>
           </label>
         </div>
 
-        {error ? <p className="mt-4 rounded-[16px] bg-danger-tint p-4 text-sm text-danger">{error}</p> : null}
+        {error ? <p className="mt-4 rounded-2xl bg-danger-tint p-4 text-sm text-danger" role="alert">{error}</p> : null}
 
-        <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-surface">
-            <div className="flex items-center justify-between border-b border-black/[0.06] p-4">
-              <span className="inline-flex items-center gap-2 font-semibold">
-                <Inbox className="size-4" aria-hidden="true" />
-                Requests
-              </span>
-              <span className="text-sm text-ink-500">{requests.length}</span>
-            </div>
-            <div className="max-h-[70vh] overflow-y-auto">
-              {isLoading ? (
-                <div className="grid gap-3 p-4">
-                  {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-24 animate-pulse rounded-2xl bg-black/5" />)}
-                </div>
-              ) : requests.length === 0 ? (
-                <p className="p-7 text-center text-sm text-ink-500">No requests match these filters.</p>
-              ) : (
-                requests.map((request) => (
-                  <ActionButton
-                    iconPosition="end"
-                    spinnerClassName="absolute right-4 top-5 size-4"
-                    key={request.id}
-                    className={`relative block w-full border-b border-black/[0.05] p-4 pr-12 text-left transition last:border-b-0 hover:bg-surface-muted ${
-                      selected?.id === request.id ? "bg-surface-sunken" : ""
-                    }`}
-                    type="button"
-                    onClick={() => openRequest(request.id)}
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-ink-500">{request.reference}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${priorityClass(request.priority)}`}>
-                        {request.priority}
-                      </span>
-                      <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px]">{supportStatusLabels[request.status]}</span>
-                    </div>
-                    <h2 className="mt-2 truncate font-semibold">{request.subject}</h2>
-                    <p className="mt-1 truncate text-sm text-ink-500">{request.displayName} · {getSupportCategoryLabel(request.category)}</p>
-                    <p className="mt-2 text-xs text-ink-300">{formatDate(request.lastMessageAt)}</p>
-                  </ActionButton>
-                ))
-              )}
-            </div>
+        <section className="mt-5 overflow-hidden rounded-[24px] border border-black/[0.07] bg-surface" aria-label="Support requests">
+          <div className="flex items-center justify-between border-b border-black/[0.06] p-4">
+            <h2 className="inline-flex items-center gap-2 font-semibold"><Inbox className="size-4" aria-hidden="true" />Requests</h2>
+            <span className="text-sm text-ink-500">{isLoading ? "…" : requests.length}</span>
           </div>
-
-          <div>
-            {isLoadingDetail ? <div className="h-[560px] animate-pulse rounded-[24px] bg-black/5" /> : null}
-            {!isLoadingDetail && !selected ? (
-              <div className="grid min-h-80 place-items-center rounded-[24px] border border-dashed border-black/10 bg-surface p-7 text-center text-sm text-ink-500">
-                Choose a request to open the conversation.
+          {isLoading ? (
+            <div className="grid gap-3 p-4" role="status" aria-label="Loading support requests">
+              {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-24 animate-pulse rounded-2xl bg-black/5" aria-hidden="true" />)}
+            </div>
+          ) : error ? (
+            <div className="p-7 text-center"><ActionButton className="rounded-full border border-black/10 px-4 py-2 text-sm" type="button" onClick={() => loadRequests()}>Try again</ActionButton></div>
+          ) : requests.length === 0 ? (
+            <p className="p-7 text-center text-sm text-ink-500">No requests match these filters.</p>
+          ) : requests.map((request) => (
+            <Link
+              key={request.id}
+              className="flex items-center gap-3 border-b border-black/[0.05] p-4 transition last:border-b-0 hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-brand"
+              href={`/admin/support/requests/${encodeURIComponent(request.id)}${query}`}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-ink-500">{request.reference}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${supportPriorityClass(request.priority)}`}>{request.priority}</span>
+                  <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px]">{adminSupportStatusLabels[request.status]}</span>
+                </div>
+                <h3 className="mt-2 truncate font-semibold">{request.subject}</h3>
+                <p className="mt-1 truncate text-sm text-ink-500">{request.displayName} · {getSupportCategoryLabel(request.category)}</p>
+                <p className="mt-2 text-xs text-ink-400">{formatSupportDate(request.lastMessageAt)}</p>
               </div>
-            ) : null}
-            {!isLoadingDetail && selected ? (
-              <section className="overflow-hidden rounded-[24px] border border-black/[0.07] bg-surface">
-                <div className="border-b border-black/[0.06] p-5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold text-ink-500">{selected.reference}</span>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${priorityClass(selected.priority)}`}>
-                      {selected.priority}
-                    </span>
-                  </div>
-                  <h2 className="mt-3 text-xl font-semibold">{selected.subject}</h2>
-                  <p className="mt-1 text-sm text-ink-600">{selected.displayName} · {selected.email}</p>
-                  <p className="mt-1 text-sm text-ink-500">{getSupportCategoryLabel(selected.category)}</p>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-ink-500">
-                      Status
-                      <select
-                        className="h-10 rounded-[12px] border border-black/[0.1] bg-surface px-3 text-sm font-normal normal-case tracking-normal text-ink"
-                        value={selected.status}
-                        disabled={isUpdating}
-                        onChange={(event) => void updateRequest({ status: event.target.value as SupportRequestStatus })}
-                      >
-                        {statuses.map((status) => <option key={status} value={status}>{supportStatusLabels[status]}</option>)}
-                      </select>
-                    </label>
-                    <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-ink-500">
-                      Priority
-                      <select
-                        className="h-10 rounded-[12px] border border-black/[0.1] bg-surface px-3 text-sm font-normal normal-case tracking-normal text-ink"
-                        value={selected.priority}
-                        disabled={isUpdating}
-                        onChange={(event) => void updateRequest({ priority: event.target.value as SupportPriority })}
-                      >
-                        {priorities.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
-                      </select>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="grid max-h-[48vh] gap-4 overflow-y-auto bg-surface-muted p-5">
-                  {selected.messages.map((message) => {
-                    const fromAdmin = message.authorType === "ADMIN" || message.authorType === "SYSTEM";
-                    return (
-                      <article
-                        key={message.id}
-                        className={`max-w-[90%] rounded-[18px] p-4 ${
-                          fromAdmin
-                            ? "justify-self-end bg-ink text-white"
-                            : "justify-self-start border border-black/[0.06] bg-surface"
-                        }`}
-                      >
-                        <div className="flex flex-wrap gap-2 text-xs">
-                          <strong>{message.authorName}</strong>
-                          <span className={fromAdmin ? "text-white/60" : "text-ink-400"}>{formatDate(message.createdAt)}</span>
-                        </div>
-                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.body}</p>
-                      </article>
-                    );
-                  })}
-                </div>
-
-                {selected.status !== "CLOSED" ? (
-                  <form className="border-t border-black/[0.06] p-4" onSubmit={submitReply}>
-                    <textarea
-                      className="min-h-24 w-full resize-y rounded-[16px] border border-black/[0.1] px-4 py-3 text-sm outline-none focus:border-black/30"
-                      maxLength={4_000}
-                      placeholder="Reply to this request"
-                      required
-                      value={reply}
-                      onChange={(event) => setReply(event.target.value)}
-                    />
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                      <select
-                        className="h-10 rounded-full border border-black/[0.1] bg-surface px-3 text-sm"
-                        value={replyStatus}
-                        onChange={(event) => setReplyStatus(event.target.value as SupportRequestStatus)}
-                      >
-                        {statuses.filter((status) => status !== "CLOSED").map((status) => (
-                          <option key={status} value={status}>{supportStatusLabels[status]}</option>
-                        ))}
-                      </select>
-                      <ActionButton
-                        isLoading={isReplying} icon={<Send className="size-4" aria-hidden="true" />}
-                        className="inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:opacity-40"
-                        type="submit"
-                        disabled={!reply.trim() || isReplying}
-                      >
-                        {isReplying ? "Sending…" : "Send reply"}
-                      </ActionButton>
-                    </div>
-                  </form>
-                ) : (
-                  <p className="border-t border-black/[0.06] p-4 text-center text-sm text-ink-500">Reopen the request to reply.</p>
-                )}
-              </section>
-            ) : null}
-          </div>
-        </div>
+              <ChevronRight className="size-5 shrink-0 text-ink-400" aria-hidden="true" />
+            </Link>
+          ))}
+        </section>
       </div>
     </section>
   );

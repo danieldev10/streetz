@@ -163,7 +163,7 @@ export function MessageThreadSkeleton({
 /** A grid of small stat tiles, matching the admin metrics dashboard. */
 export function StatGridSkeleton({
   label,
-  tiles = 6,
+  tiles = 11,
   className = "",
 }: {
   label: string;
@@ -172,7 +172,7 @@ export function StatGridSkeleton({
 }) {
   return (
     <div
-      className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${className}`}
+      className={`grid grid-cols-2 gap-3 ${className}`}
       role="status"
       aria-live="polite"
       aria-label={label}
@@ -180,11 +180,15 @@ export function StatGridSkeleton({
       {Array.from({ length: tiles }, (_, index) => (
         <div
           key={index}
-          className="animate-pulse rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+          className="min-w-0 animate-pulse rounded-[20px] border border-black/5 bg-surface p-3 sm:p-4"
           aria-hidden="true"
         >
-          <div className="h-4 w-24 rounded-full bg-black/5" />
-          <div className="mt-3 h-8 w-20 rounded-full bg-black/5" />
+          <div className="flex h-8 items-center justify-between gap-2">
+            <div className="h-3 w-3/5 rounded-full bg-black/5" />
+            <div className="size-8 shrink-0 rounded-xl bg-black/5" />
+          </div>
+          <div className="mt-2 h-7 w-3/5 rounded-full bg-black/5" />
+          <div className="mt-2 h-8 w-full rounded-lg bg-black/5" />
         </div>
       ))}
       <span className="sr-only">{label}</span>

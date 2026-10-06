@@ -1,10 +1,12 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Heart,
   LoaderCircle,
@@ -20,7 +22,7 @@ import {
 } from "lucide-react";
 import { ListSkeleton } from "@/components/skeletons";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
-import type { AccountStatus, AdminUserActivity, AdminUserSummary } from "@/lib/types";
+import type { AccountStatus, AdminUserActivity, AdminUserSummary, AdminUsersPage } from "@/lib/types";
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
@@ -424,25 +426,44 @@ export function UsersTab({ token }: { token: string }) {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [openingUserId, setOpeningUserId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<AccountStatus | "">("");
+  const [query, setQuery] = useState<{ page: number; search: string; status: AccountStatus | "" }>({ page: 1, search: "", status: "" });
+  const [pagination, setPagination] = useState<AdminUsersPage["pagination"] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const usersRequestRef = useRef<AbortController | null>(null);
   const openingUser = openingUserId ? users.find((user) => user.id === openingUserId) : null;
+  const isSearchPending = search.trim() !== query.search;
+  const isListBusy = isLoadingUsers || isSearchPending;
 
   const loadUsers = useCallback(async () => {
+    usersRequestRef.current?.abort();
+    const controller = new AbortController();
+    usersRequestRef.current = controller;
     setIsLoadingUsers(true);
     setNotice(null);
 
     try {
-      const response = await apiRequest<{ users: AdminUserSummary[] }>("/admin/users", {
+      const params = new URLSearchParams({ page: String(query.page), pageSize: "25" });
+      if (query.search) params.set("search", query.search);
+      if (query.status) params.set("status", query.status);
+      const response = await apiRequest<AdminUsersPage>(`/admin/users?${params}`, {
         headers: authHeaders(token),
+        signal: controller.signal,
       });
+      if (controller.signal.aborted) return;
       setUsers(response.users);
+      setPagination(response.pagination);
+      if (response.pagination.page !== query.page) {
+        setQuery((current) => ({ ...current, page: response.pagination.page }));
+      }
     } catch (error) {
+      if (controller.signal.aborted) return;
+      setUsers([]);
+      setPagination(null);
       setNotice(getUserErrorMessage(error));
     } finally {
-      setIsLoadingUsers(false);
+      if (!controller.signal.aborted) setIsLoadingUsers(false);
     }
-  }, [token]);
+  }, [token, query]);
 
   async function openUserDetail(userId: string) {
     setOpeningUserId(userId);
@@ -465,19 +486,23 @@ export function UsersTab({ token }: { token: string }) {
       void loadUsers();
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      usersRequestRef.current?.abort();
+    };
   }, [loadUsers]);
 
-  const filteredUsers = useMemo(() => {
-    const q = search.trim().toLowerCase();
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setQuery((current) => current.search === search.trim() ? current : { ...current, search: search.trim(), page: 1 });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
-    return users.filter((user) => {
-      if (user.accountStatus === "DELETED") return false;
-      if (statusFilter && user.accountStatus !== statusFilter) return false;
-      if (q && !user.displayName.toLowerCase().includes(q) && !user.email.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [users, search, statusFilter]);
+  function changePage(page: number) {
+    setIsLoadingUsers(true);
+    setQuery((current) => ({ ...current, page }));
+  }
 
   if (selectedUser) {
     return <UserDetailView user={selectedUser} onBack={() => setSelectedUser(null)} />;
@@ -492,7 +517,7 @@ export function UsersTab({ token }: { token: string }) {
             isLoading={isLoadingUsers} icon={<RefreshCw className="size-4" aria-hidden="true" />}
             className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-ink-600"
             onClick={() => loadUsers()}
-            disabled={isLoadingUsers}
+            disabled={isListBusy}
             aria-label="Refresh users"
           >
           </ActionButton>
@@ -508,14 +533,20 @@ export function UsersTab({ token }: { token: string }) {
             <input
               className="h-11 w-full rounded-full border border-black/8 bg-surface pl-10 pr-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               placeholder="Search name or email"
+              aria-label="Search users by name or email"
+              maxLength={200}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <select
             className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as AccountStatus | "")}
+            aria-label="Filter users by account status"
+            value={query.status}
+            onChange={(e) => {
+              setIsLoadingUsers(true);
+              setQuery((current) => ({ ...current, status: e.target.value as AccountStatus | "", page: 1 }));
+            }}
           >
             <option value="">All statuses</option>
             <option value="ACTIVE">Active</option>
@@ -532,7 +563,7 @@ export function UsersTab({ token }: { token: string }) {
           </div>
         ) : null}
 
-        {isLoadingUsers ? (
+        {isListBusy ? (
           <ListSkeleton
             label="Loading users"
             rows={8}
@@ -542,25 +573,25 @@ export function UsersTab({ token }: { token: string }) {
             hasAction={false}
             lines={1}
           />
-        ) : filteredUsers.length === 0 ? (
+        ) : users.length === 0 ? (
           <div className="grid min-h-80 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>
               <UserRound className="mx-auto size-8 text-brand" aria-hidden="true" />
-              <h2 className="mt-3 text-2xl font-semibold">No users found</h2>
-              <p className="mt-2 text-sm text-ink-600">Try adjusting the search or filter.</p>
+              <h2 className="mt-3 text-2xl font-semibold">{notice ? "Unable to load users" : "No users found"}</h2>
+              <p className="mt-2 text-sm text-ink-600">{notice ? "Try refreshing the user list." : "Try adjusting the search or filter."}</p>
             </div>
           </div>
         ) : (
           <div className="overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
             <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-4 border-b border-black/5 px-4 py-2.5">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
-                Name ({filteredUsers.length})
+                Name ({pagination?.total ?? users.length})
               </p>
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Email</p>
               <span className="size-4" aria-hidden="true" />
             </div>
             <div className="divide-y divide-black/[0.04]">
-              {filteredUsers.map((user) => (
+              {users.map((user) => (
                 <ActionButton
                   isLoading={openingUserId === user.id} iconPosition="end" icon={<span className="size-4" aria-hidden="true" />}
                   key={user.id}
@@ -576,6 +607,31 @@ export function UsersTab({ token }: { token: string }) {
             </div>
           </div>
         )}
+
+        {pagination ? (
+          <nav aria-label="User pagination" className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p aria-live="polite" className="text-sm text-ink-600">
+              Showing {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total} users
+            </p>
+            <div className="flex items-center justify-between gap-2 sm:justify-end">
+              <ActionButton type="button" icon={<ChevronLeft className="size-4" aria-hidden="true" />}
+                isLoading={isLoadingUsers && query.page < pagination.page}
+                disabled={isListBusy || openingUserId !== null || pagination.page <= 1}
+                onClick={() => changePage(pagination.page - 1)}
+                className="inline-flex h-10 items-center justify-center gap-1 rounded-full border border-black/8 px-3 text-sm font-medium text-ink disabled:opacity-50">
+                Previous
+              </ActionButton>
+              <span className="whitespace-nowrap text-xs text-ink-600">Page {pagination.page} of {pagination.totalPages}</span>
+              <ActionButton type="button" iconPosition="end" icon={<ChevronRight className="size-4" aria-hidden="true" />}
+                isLoading={isLoadingUsers && query.page > pagination.page}
+                disabled={isListBusy || openingUserId !== null || pagination.page >= pagination.totalPages}
+                onClick={() => changePage(pagination.page + 1)}
+                className="inline-flex h-10 items-center justify-center gap-1 rounded-full border border-black/8 px-3 text-sm font-medium text-ink disabled:opacity-50">
+                Next
+              </ActionButton>
+            </div>
+          </nav>
+        ) : null}
       </div>
     </section>
   );

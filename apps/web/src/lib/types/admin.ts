@@ -97,6 +97,11 @@ export type AdminUserSummary = {
   roomCount: number;
 };
 
+export type AdminUsersPage = {
+  users: AdminUserSummary[];
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
+};
+
 export type AdminUserActivity = {
   id: string;
   displayName: string;

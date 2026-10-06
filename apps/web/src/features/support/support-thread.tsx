@@ -2,7 +2,7 @@
 
 import { ActionButton } from "@/components/action-button";
 import Link from "next/link";
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowLeft, Send } from "lucide-react";
 import type { SupportMessageAuthorType, SupportRequest } from "@/lib/types";
 import { getSupportCategoryLabel, supportStatusLabels } from "./support-content";
@@ -34,6 +34,9 @@ export function SupportThread({
   backLabel = "Back to requests",
   variant = "card",
   viewerAuthorType,
+  headerContent,
+  replyControls,
+  closedMessage = "This request is closed. Start a new request if you still need help.",
 }: {
   request: SupportRequest;
   isReplying: boolean;
@@ -43,6 +46,9 @@ export function SupportThread({
   backLabel?: string;
   variant?: "card" | "conversation";
   viewerAuthorType: Exclude<SupportMessageAuthorType, "SYSTEM">;
+  headerContent?: ReactNode;
+  replyControls?: ReactNode;
+  closedMessage?: string;
 }) {
   const [reply, setReply] = useState("");
   const messageScrollerRef = useRef<HTMLDivElement>(null);
@@ -61,8 +67,12 @@ export function SupportThread({
     event.preventDefault();
     const body = reply.trim();
     if (!body || isReplying || !canReply) return;
-    await onReply(body);
-    setReply("");
+    try {
+      await onReply(body);
+      setReply("");
+    } catch {
+      // The caller displays the error; keep the draft so it can be retried.
+    }
   }
 
   return (
@@ -88,7 +98,7 @@ export function SupportThread({
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">{request.reference}</span>
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(request.status)}`}>
-              {supportStatusLabels[request.status]}
+              {viewerAuthorType === "ADMIN" && request.status === "WAITING_ON_USER" ? "Waiting on user" : supportStatusLabels[request.status]}
             </span>
             {request.priority === "URGENT" ? (
               <span className="rounded-full bg-danger-tint px-2.5 py-1 text-xs font-semibold text-danger">Urgent</span>
@@ -98,6 +108,7 @@ export function SupportThread({
           <p className="mt-1 text-sm text-ink-500">
             {getSupportCategoryLabel(request.category)} · Started {formatSupportDate(request.createdAt)}
           </p>
+          {headerContent}
         </div>
       </div>
 
@@ -121,22 +132,23 @@ export function SupportThread({
         >
           {request.messages.map((message) => {
             const fromSupport = message.authorType === "ADMIN" || message.authorType === "SYSTEM";
+            const isOwnMessage = viewerAuthorType === "ADMIN" ? fromSupport : !fromSupport;
             return (
               <article
                 key={message.id}
                 className={`max-w-[88%] rounded-[20px] p-4 ${
-                  fromSupport
-                    ? "justify-self-start border border-black/[0.06] bg-surface"
-                    : "justify-self-end bg-ink text-white"
+                  isOwnMessage
+                    ? "justify-self-end bg-ink text-white"
+                    : "justify-self-start border border-black/[0.06] bg-surface"
                 }`}
               >
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <strong className="text-sm">{message.authorName}</strong>
-                  <span className={`text-xs ${fromSupport ? "text-ink-400" : "text-white/60"}`}>
+                  <span className={`text-xs ${isOwnMessage ? "text-white/60" : "text-ink-400"}`}>
                     {formatSupportDate(message.createdAt)}
                   </span>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{message.body}</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 [overflow-wrap:anywhere]">{message.body}</p>
               </article>
             );
           })}
@@ -145,14 +157,16 @@ export function SupportThread({
 
       {canReply ? (
         <form className="shrink-0 border-t border-black/[0.06] p-4" onSubmit={submitReply}>
+          {replyControls ? <div className="mb-3">{replyControls}</div> : null}
           <label className="sr-only" htmlFor={`support-reply-${request.id}`}>Reply</label>
           <div className="flex items-end gap-2">
             <textarea
               id={`support-reply-${request.id}`}
-              className="min-h-12 flex-1 resize-none rounded-[18px] border border-black/[0.1] px-4 py-3 text-sm outline-none transition focus:border-black/30"
+              className="min-h-12 min-w-0 flex-1 resize-none rounded-[18px] border border-black/[0.1] px-4 py-3 text-sm outline-none transition focus:border-black/30"
               maxLength={4_000}
               placeholder="Write a reply"
               rows={2}
+              disabled={isReplying}
               value={reply}
               onChange={(event) => setReply(event.target.value)}
             />
@@ -169,7 +183,7 @@ export function SupportThread({
         </form>
       ) : (
         <p className="shrink-0 border-t border-black/[0.06] p-4 text-center text-sm text-ink-500">
-          This request is closed. Start a new request if you still need help.
+          {closedMessage}
         </p>
       )}
     </section>

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { UserRole } from "@prisma/client";
@@ -10,6 +10,7 @@ import { AuthUser } from "../auth/types/auth-user";
 import { NotificationsGateway } from "../notifications/notifications.gateway";
 import { AdminService } from "./admin.service";
 import { CheckInTicketDto } from "./dto/check-in-ticket.dto";
+import { AdminUsersListDto } from "./dto/admin-users-list.dto";
 import { ModerateReportUserDto } from "./dto/moderate-report-user.dto";
 import { UpdateReportStatusDto } from "./dto/update-report-status.dto";
 
@@ -30,8 +31,8 @@ export class AdminController {
   }
 
   @Get("users")
-  getUsers() {
-    return this.adminService.getUsers();
+  getUsers(@Query() query: AdminUsersListDto) {
+    return this.adminService.getUsers(query);
   }
 
   @Get("users/:userId")
