@@ -1,18 +1,25 @@
-const webUrl = (process.env.SMOKE_WEB_URL ?? "https://crushclub-v1.vercel.app").replace(/\/+$/, "");
+import { getOpsTarget, opsFetch } from "./ops-target.mjs";
+const target = getOpsTarget();
+const { webUrl, apiUrl } = target;
 
-async function request(path, type = "json") {
-  const response = await fetch(`${webUrl}${path}`, { headers: { "accept-encoding": "gzip, br" } });
+async function request(path, type = "json", base = webUrl) {
+  const response = await opsFetch(target, base, path);
   const body = type === "json" ? await response.json().catch(() => null) : await response.text();
 
   if (!response.ok) throw new Error(`${path} returned HTTP ${response.status}`);
   return { response, body };
 }
 
-const health = await request("/api/health");
+const directHealth = await request("/api/health/ready", "json", apiUrl);
+if (directHealth.body?.status !== "ok") throw new Error("Direct API readiness was not ok");
+const health = await request("/api/health/ready");
 if (health.body?.status !== "ok") throw new Error("Health response was not ok");
 
 const events = await request("/api/public/events");
 if (!Array.isArray(events.body?.events)) throw new Error("Public events response has an invalid shape");
+
+const discovery = await request("/api/public/discovery/people");
+if (!Array.isArray(discovery.body?.people)) throw new Error("Public discovery response has an invalid shape");
 
 const eventsPage = await request("/events", "text");
 if (!eventsPage.body.includes("<!DOCTYPE html") && !eventsPage.body.includes("<!doctype html")) {
@@ -30,7 +37,12 @@ if (firstEvent?.id) {
 console.log(JSON.stringify({
   ok: true,
   checkedAt: new Date().toISOString(),
+  environment: target.environment,
+  release: target.release,
   webUrl,
+  apiUrl,
+  directApiReady: true,
+  webApiReady: true,
   publicEvents: events.body.events.length,
   apiRequestId: health.response.headers.get("x-request-id") ?? health.response.headers.get("x-railway-request-id"),
 }, null, 2));

@@ -1,9 +1,12 @@
-const webUrl = (process.env.SMOKE_WEB_URL ?? "https://crushclub-v1.vercel.app").replace(/\/+$/, "");
-const samples = Math.max(1, Number.parseInt(process.env.PERFORMANCE_SAMPLES ?? "3", 10) || 3);
+import { getOpsTarget, opsFetch } from "./ops-target.mjs";
+const target = getOpsTarget();
+const { webUrl } = target;
+const samples = Number(process.env.PERFORMANCE_SAMPLES ?? "3");
+if (!Number.isInteger(samples) || samples < 1 || samples > 10) throw new Error("PERFORMANCE_SAMPLES must be between 1 and 10; this is a small baseline, not a load test.");
 
 async function measure(path) {
   const startedAt = performance.now();
-  const response = await fetch(`${webUrl}${path}`, { headers: { "accept-encoding": "gzip, br" } });
+  const response = await opsFetch(target, webUrl, path);
   const headersAt = performance.now();
   const body = await response.arrayBuffer();
   const endedAt = performance.now();
@@ -28,7 +31,7 @@ function median(values) {
   return ordered[Math.floor(ordered.length / 2)];
 }
 
-const paths = ["/events", "/api/public/events", "/api/health"];
+const paths = ["/events", "/api/public/events", "/api/health/ready", "/api/public/discovery/people"];
 const report = [];
 
 for (const path of paths) {
@@ -42,19 +45,20 @@ for (const path of paths) {
   });
 }
 
-const eventsHtml = await (await fetch(`${webUrl}/events`)).text();
+const eventsHtml = await (await opsFetch(target, webUrl, "/events")).text();
 const assetPaths = [...new Set(eventsHtml.match(/\/_next\/static\/[^"' ]+\.(?:js|css)/g) ?? [])];
-const assets = await Promise.all(assetPaths.map(async (path) => {
-  const response = await fetch(`${webUrl}${path}`, { headers: { "accept-encoding": "gzip, br" } });
+const assets = [];
+for (const path of assetPaths) {
+  const response = await opsFetch(target, webUrl, path);
   const body = await response.arrayBuffer();
-  return {
+  assets.push({
     path,
     type: path.endsWith(".css") ? "css" : "js",
     decodedBytes: body.byteLength,
     transferredBytes: Number(response.headers.get("content-length")) || null,
     contentEncoding: response.headers.get("content-encoding") ?? "identity",
-  };
-}));
+  });
+}
 const eventAssets = {
   count: assets.length,
   decodedBytes: assets.reduce((total, asset) => total + asset.decodedBytes, 0),
@@ -67,4 +71,4 @@ const eventAssets = {
 
 console.table(report);
 console.table([eventAssets]);
-console.log(JSON.stringify({ measuredAt: new Date().toISOString(), webUrl, report, eventAssets }, null, 2));
+console.log(JSON.stringify({ measuredAt: new Date().toISOString(), environment: target.environment, release: target.release, webUrl, apiUrl: target.apiUrl, report, eventAssets }, null, 2));
