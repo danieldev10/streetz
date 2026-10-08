@@ -6,7 +6,8 @@
     "dev": "rm -rf .next && next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "engines": {
     "node": ">=22.13.0 <23",

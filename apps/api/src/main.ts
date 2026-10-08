@@ -7,6 +7,7 @@ import compression = require("compression");
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { RedisIoAdapter } from "./realtime/redis-io.adapter";
+import { RedisConnectionsService } from "./realtime/redis-connections.service";
 import { StructuredLogger } from "./observability/structured-logger";
 
 async function bootstrap() {
@@ -15,6 +16,7 @@ async function bootstrap() {
     ...(process.env.NODE_ENV === "production" ? { logger: new StructuredLogger() } : {})
   });
   const config = app.get(ConfigService);
+  app.enableShutdownHooks();
   const webAppUrl = config.getOrThrow<string>("WEB_APP_URL");
 
   app.getHttpAdapter().getInstance().set("trust proxy", 1);
@@ -23,7 +25,7 @@ async function bootstrap() {
     origin: [webAppUrl],
     credentials: true
   });
-  const redisIoAdapter = new RedisIoAdapter(app, config);
+  const redisIoAdapter = new RedisIoAdapter(app, config, app.get(RedisConnectionsService));
   await redisIoAdapter.connectToRedis();
   app.useWebSocketAdapter(redisIoAdapter);
   app.use(compression());

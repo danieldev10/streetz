@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { PrismaPg } = require("@prisma/adapter-pg");
-const { MatchStatus, PrismaClient } = require("@prisma/client");
+const { EventStatus, MatchStatus, PrismaClient, TicketStatus } = require("@prisma/client");
 const {
   countUnreadDirectMessages,
   countUnreadRoomMessages,
@@ -189,11 +189,23 @@ test("aggregate unread queries count all conversations in constant query count",
     ],
   });
 
-  const rooms = await Promise.all([
-    prisma.chatRoom.create({ data: { name: `Active one ${unique}`, category: "Test", isActive: true } }),
-    prisma.chatRoom.create({ data: { name: `Inactive ${unique}`, category: "Test", isActive: false } }),
-    prisma.chatRoom.create({ data: { name: `Active two ${unique}`, category: "Test", isActive: true } }),
-  ]);
+  // Event chat counts require a valid ticket. Generic rooms are no longer eligible.
+  const events = await Promise.all([0, 1, 2, 3].map((index) => prisma.event.create({
+    data: {
+      title: `Unread event ${index} ${unique}`, slug: `unread-${index}-${unique}`,
+      category: "Test", venue: "Test venue", city: "Lagos",
+      startsAt: new Date(Date.now() + 86_400_000), status: EventStatus.PUBLISHED,
+      ticketTypes: { create: { name: "Free", priceKobo: 0, capacity: 10 } }
+    },
+    include: { ticketTypes: true }
+  })));
+  await prisma.ticket.createMany({ data: events.slice(0, 3).map((event, index) => ({
+    eventId: event.id, ticketTypeId: event.ticketTypes[0].id, userId: reader.id,
+    code: `unread-${index}-${unique}`, status: TicketStatus.CONFIRMED
+  })) });
+  const rooms = await Promise.all(events.map((event, index) => prisma.chatRoom.create({
+    data: { name: `Room ${index} ${unique}`, category: "Test", isActive: index !== 1, eventId: event.id }
+  })));
   await prisma.roomMembership.createMany({
     data: rooms.map((room) => ({
       roomId: room.id,
@@ -209,6 +221,7 @@ test("aggregate unread queries count all conversations in constant query count",
       { roomId: rooms[0].id, authorId: first.id, body: "deleted", deletedAt: new Date(), createdAt: new Date(base + 5_000) },
       { roomId: rooms[1].id, authorId: first.id, body: "inactive", createdAt: new Date(base + 3_000) },
       { roomId: rooms[2].id, authorId: second.id, body: "new", createdAt: new Date(base + 3_000) },
+      { roomId: rooms[3].id, authorId: second.id, body: "no ticket", createdAt: new Date(base + 3_000) },
     ],
   });
 
@@ -227,8 +240,9 @@ test("aggregate unread queries count all conversations in constant query count",
     assert.equal(roomByRoom.get(rooms[0].id), 1);
     assert.equal(roomByRoom.get(rooms[2].id), 1);
     assert.equal(roomByRoom.has(rooms[1].id), false);
+    assert.equal(roomByRoom.has(rooms[3].id), false);
   } finally {
-    await prisma.chatRoom.deleteMany({ where: { id: { in: rooms.map((room) => room.id) } } });
+    await prisma.event.deleteMany({ where: { id: { in: events.map((event) => event.id) } } });
     await prisma.user.deleteMany({ where: { id: { in: users.map((user) => user.id) } } });
     await prisma.$disconnect();
   }
