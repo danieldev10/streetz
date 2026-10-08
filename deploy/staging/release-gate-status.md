@@ -8,13 +8,28 @@
 - The owner reports staging customer journeys working and Sentry alerts arriving by email. Exact tested API/web deployment SHAs have not yet been recorded.
 - Staging web: `https://staging.crushclub.ng`; staging API: `https://crushclub-staging.up.railway.app`.
 
-## CI is blocked before code executes
+## Hosted CI passed
 
-The [latest staging CI run](https://github.com/danieldev10/streetz/actions/runs/37700743207) is for commit `4d6a61aff26e218449f13c20380e448b9314832f`. GitHub's API and operational-job annotations both say:
+The owner resolved GitHub's billing restriction on 8 October 2026. The candidate at commit `60dfd75e5816a49c946e1659b23dfc8c105f1bd8` then passed both the [push CI run](https://github.com/danieldev10/streetz/actions/runs/37743865295/attempts/2) and the [pull-request CI run](https://github.com/danieldev10/streetz/actions/runs/37743875493/attempts/2), completing at 07:44 UTC:
 
-> The job was not started because your account is locked due to a billing issue.
+- API: Prisma validation/generation, all 57 migrations applied to disposable PostgreSQL/PostGIS, lint/build, and 67 tests passed with zero failures or skips.
+- Web: lint, TypeScript checks and the Next.js production build passed.
+- Operational checks: all four tests passed.
+- The aggregate `Release checks` job succeeded in both runs.
 
-This is not a failing application test. The account owner must resolve the billing lock in GitHub account settings. No payment details or billing settings were changed during this work. Once unlocked, rerun the candidate branch's CI; if code errors then appear, fix them and run again. A green local run does not substitute for this hosted check.
+Earlier runs failed before jobs started because of the account restriction. The completed reruns above supersede that blocker. No billing settings were changed during this work.
+
+## Failed-check merge block demonstrated
+
+[Temporary proof PR #5](https://github.com/danieldev10/streetz/pull/5), at commit `62cec9ea1c319a9b90ed5cc84df7444b016e6c33`, added one intentionally failing operational test. The [push run](https://github.com/danieldev10/streetz/actions/runs/37743395818/attempts/2) and [pull-request run](https://github.com/danieldev10/streetz/actions/runs/37743478050/attempts/2) executed it on GitHub:
+
+- API and web checks passed; the four normal operational tests passed.
+- The temporary fifth test failed with `ERR_ASSERTION`: `Expected gate-proof failure: Release checks must prevent this branch from merging.`
+- `Release checks` failed because the operational job failed.
+- GitHub reported `isDraft=false`, `mergeable=MERGEABLE` (no conflicts), and `mergeStateStatus=BLOCKED`, with both required-check results completed and failed. A draft restriction or merge conflict did not cause the block.
+- No merge was attempted. After capturing this evidence, PR #5 was closed and its remote branch deleted. The intentional failure is absent from the candidate.
+
+Main's required check, strict up-to-date requirement, pull-request requirement and administrator enforcement were independently read back after the drill. This proves the GitHub merge gate; it does not prove Railway or Vercel deployment gates.
 
 ## Railway dashboard steps
 
@@ -32,18 +47,16 @@ The staging project's Vercel Production tier serves staging users; it needs the 
 
 Source: [Vercel Deployment Checks](https://vercel.com/docs/deployment-checks).
 
-## Required proof before closing this item
+## Remaining provider proof
 
-1. A clean candidate runs all API, web and operational jobs on GitHub, with `Release checks` successful and zero skipped API tests.
-2. A temporary, non-draft pull request containing an intentionally failing operational test has a failed `Release checks` result and GitHub reports it blocked from merging. Do not attempt a real merge. Close this proof PR afterward.
-3. With staging's provider gates enabled, a staging-only failing commit must not replace the current Railway API or Vercel staging domain deployment. Record the failed CI run and the unchanged active deployment IDs. Restore the good staging commit without rewriting branch history and verify it can deploy.
-4. Read back both live provider gate settings. Record the tested API/web SHAs and promote only an approved, passing release through the protected `main` branch.
+1. Read back Railway's Wait for CI and Vercel's Release checks settings for both live and staging projects. These dashboards have not been accessible through this session.
+2. With staging's provider gates enabled, a staging-only failing commit must not replace the current Railway API or Vercel staging domain deployment. Record the failed CI run and the unchanged active deployment IDs. Restore the good staging commit without rewriting branch history and verify it can deploy.
+3. Record the tested API/web deployment SHAs and promote only an approved, passing release through the protected `main` branch.
 
-Only GitHub branch protection is currently verified. Hosted passing CI, intentional failure proof, Railway Wait for CI, and Vercel Deployment Checks remain pending; no production deployment or failure drill has been performed.
+Hosted passing CI and the intentional GitHub merge-block proof are complete. Railway Wait for CI, Vercel Deployment Checks and the staging provider failure drill remain unverified; no production release has been performed.
 
 ## Candidate and isolated proof
 
-- [Draft candidate PR #4](https://github.com/danieldev10/streetz/pull/4) contains the initial reliability batch and the CI concurrency change. It has not been merged or deployed to `main`/`staging` by this work.
-- [Temporary proof PR #5](https://github.com/danieldev10/streetz/pull/5) is non-draft, has no merge conflict, and GitHub reports `mergeStateStatus=BLOCKED` with `Release checks=FAILURE`. This confirms the required-check merge block is active. Never merge this PR.
-- The intentional operational failure on the proof branch was executed locally on Node 22.13.0 and exited with the expected assertion failure. The good candidate's four operational tests all passed with zero skips; workflow YAML and required-check dependencies also validated.
-- Hosted jobs have not started, so the temporary PR's current CI failure does not yet prove that the intentional assertion was executed on GitHub. Resolve the runner/account restriction, rerun both branches, then verify the candidate passes and the proof fails for its intended reason. Close and delete the proof branch after that demonstration.
+- [Candidate PR #4](https://github.com/danieldev10/streetz/pull/4) contains the initial reliability batch, CI concurrency change and evidence. It has not been merged or deployed to `main`/`staging` by this work. Subsequent candidate commits, including evidence updates, must also pass CI before merging.
+- [Proof PR #5](https://github.com/danieldev10/streetz/pull/5) is closed and was never merged. Its run history retains the deliberately failed check and the proof assertion.
+- Local operational tests and workflow structure validation passed before hosted execution. See [local-validation.md](local-validation.md) for the first batch's earlier local database, health and recovery checks.
