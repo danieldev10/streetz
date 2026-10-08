@@ -124,8 +124,8 @@ Provider checks remain pending until verified and recorded. Current release-gate
 | AWS resources, payment keys, email and secrets isolated | Pending account setup |
 | Railway readiness gate and continuous outage/recovery alerts demonstrated | Pending staging drill |
 | Sentry error alert received by designated owner | Confirmed by owner: email alerts received, 8 October 2026 |
-| Failed CI prevents the configured production release path | GitHub main protection and deliberate failed-check merge block confirmed; Railway/Vercel gates and provider drill remain unverified |
-| Browser journeys pass for the tested API/web SHA | Owner reports all flows pass, 8 October 2026; exact deployment SHAs not yet recorded |
+| Failed CI prevents the configured production release path | GitHub merge block and Vercel staging deployment block demonstrated; both provider settings owner-confirmed; Railway CI skip reason awaiting dashboard confirmation |
+| Browser journeys pass for the tested API/web SHA | Owner reports all flows pass, 8 October 2026; staging baseline `4d6a61a`, identical-source cleanup `139b89a`, provider records and passing smoke checks captured |
 | Backup retention/PITR checked against the actual provider plan | Pending provider inspection |
 | Encrypted backup restored and relationships verified in isolation | Pending provider recovery drill |
 | Previous API/web deployment restored with compatible schema | Pending staging rollback drill |
