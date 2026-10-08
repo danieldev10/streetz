@@ -27,6 +27,7 @@ export class HealthController {
 
   @Get("ready")
   @Header("Cache-Control", "no-store")
+  @Header("X-Crushclub-Gate-Proof", "staging-ci-failure-20261008")
   async ready() {
     if (!await this.health.isReady()) {
       throw new ServiceUnavailableException({ status: "unavailable", service: "crushclub-api" });
