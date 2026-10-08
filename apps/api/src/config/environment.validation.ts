@@ -72,6 +72,15 @@ export function validateEnvironment(config: Record<string, unknown>) {
   validateInteger(config, "DB_POOL_IDLE_TIMEOUT_MS", 1_000, 600_000, errors);
   validateInteger(config, "DB_POOL_MAX_LIFETIME_SECONDS", 60, 86_400, errors);
   validateInteger(config, "DB_STATEMENT_TIMEOUT_MS", 1_000, 120_000, errors);
+  validateInteger(config, "WORKER_CONCURRENCY", 1, 10, errors);
+  validateInteger(config, "WORKER_POLL_MS", 100, 30_000, errors);
+  validateInteger(config, "WORKER_LEASE_MS", 60_000, 600_000, errors);
+  const workerEnabled = read(config, "WORKER_ENABLED");
+  if (workerEnabled && !["true", "false"].includes(workerEnabled)) errors.push("WORKER_ENABLED must be true or false");
+  const jobsKey = read(config, "JOBS_ENCRYPTION_KEY");
+  if (jobsKey && (!/^[A-Za-z0-9+/]{43}=$/.test(jobsKey) || Buffer.from(jobsKey, "base64").length !== 32)) {
+    errors.push("JOBS_ENCRYPTION_KEY must be a base64-encoded 32-byte key");
+  }
 
   const faceMode = read(config, "FACE_VERIFICATION_MODE") || "off";
   if (!["off", "observe", "prototype-pass", "enforce"].includes(faceMode)) {

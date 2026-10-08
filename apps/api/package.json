@@ -9,6 +9,7 @@
     "test:ci": "node scripts/ci/run-tests.mjs",
     "ci:prepare": "node scripts/ci/prepare-database.mjs",
     "start": "node dist/src/main.js",
+    "start:worker": "node dist/src/worker.js",
     "lint": "eslint \"src/**/*.ts\"",
     "media:backfill": "ts-node -r tsconfig-paths/register src/profiles/backfill-profile-photo-variants.ts",
     "profile-photos:consolidate": "ts-node -r tsconfig-paths/register src/profiles/consolidate-profile-photos.ts",

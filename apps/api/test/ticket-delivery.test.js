@@ -6,6 +6,9 @@ const { PaymentsService } = require("../dist/src/payments/payments.service.js");
 const { MailService } = require("../dist/src/mail/mail.service.js");
 const { TicketDeliveryService } = require("../dist/src/tickets/ticket-delivery.service.js");
 const { TicketDownloadsService } = require("../dist/src/tickets/ticket-downloads.service.js");
+const { MailQueueService } = require("../dist/src/mail/mail-queue.service.js");
+const { JobPayloadService } = require("../dist/src/jobs/job-payload.service.js");
+const payloads = new JobPayloadService({ get: () => undefined, getOrThrow: () => "test-refresh-secret" });
 const { GuestTicketsService } = require("../dist/src/events/guest-tickets.service.js");
 
 const event = { id: "event-1", title: "Island Social Night", venue: "The House", city: "Lagos", state: "Lagos",
@@ -23,7 +26,7 @@ test("a free member booking queues exactly its newly issued tickets in the issua
     $queryRaw: async () => [],
     ticket: { count: async () => 0, create: async ({ data }) => { const row = { ...data, id: `ticket-${issued.length + 1}` }; issued.push(row); return row; } },
     ticketType: { update: async () => ({}) },
-    ticketEmailDelivery: { upsert: async ({ create }) => { jobs.push(create); return create; } }
+    backgroundJob: { upsert: async ({ create }) => { jobs.push(create); return create; } }
   };
   const service = new EventsService({ $transaction: async (callback) => callback(transaction) }, {});
   service.ensureMemberOrAdmin = async () => ({ role: UserRole.USER });
@@ -32,16 +35,16 @@ test("a free member booking queues exactly its newly issued tickets in the issua
   await service.bookFreeEvent(holder.id, event.id, { quantity: 2 });
   assert.equal(issued.length, 2);
   assert.ok(issued.every((row) => row.status === TicketStatus.PAID));
-  assert.deepEqual(jobs, [{ key: "free:ticket-1", ticketIds: ["ticket-1", "ticket-2"], nextAttemptAt: undefined }]);
+  assert.ok(jobs[0].runAt instanceof Date);
+  assert.deepEqual(jobs.map(({ createdAt, runAt, ...row }) => row), [{ key: "ticket-email:free:ticket-1", type: "TICKET_EMAIL", payload: { ticketIds: ["ticket-1", "ticket-2"] } }]);
 });
 
-test("a guest booking remains downloadable and has a durable retry when its confirmation email fails", async () => {
+test("a guest booking queues its encrypted private link and remains immediately downloadable", async () => {
   const request = { id: "request-1", eventId: event.id, ticketTypeId: tier.id, email: holder.email,
     displayName: holder.displayName, quantity: 2, attempts: 0, consumedAt: null,
     expiresAt: new Date("2099-01-01"), event, ticketType: { ...tier, priceKobo: 0 } };
   const issued = [], jobs = [];
   let order;
-  let deliveryUpdate;
   const transaction = {
     $queryRaw: async () => [],
     guestTicketRequest: { findUnique: async () => request, updateMany: async () => ({ count: 1 }) },
@@ -51,14 +54,13 @@ test("a guest booking remains downloadable and has a durable retry when its conf
     },
     ticket: { count: async () => 0, createMany: async ({ data }) => { issued.push(...data); return { count: data.length }; } },
     ticketType: { update: async () => ({}) },
-    ticketEmailDelivery: { upsert: async ({ create }) => { jobs.push(create); return create; } }
+    backgroundJob: { upsert: async ({ create }) => { jobs.push(create); return create; } }
   };
   const service = new GuestTicketsService({
     guestTicketRequest: transaction.guestTicketRequest,
     $transaction: async (callback) => callback(transaction),
-    guestTicketOrder: { findUniqueOrThrow: async () => ({ ...order, event, ticketType: request.ticketType, tickets: issued }) },
-    ticketEmailDelivery: { update: async ({ data }) => { deliveryUpdate = data; } }
-  }, { sendGuestTicketConfirmationEmail: async () => false }, {
+    guestTicketOrder: { findUniqueOrThrow: async () => ({ ...order, event, ticketType: request.ticketType, tickets: issued }) }
+  }, new MailQueueService(payloads), {
     get: () => "guest-ticket-test-secret", getOrThrow: () => "https://crushclub.ng"
   });
   request.codeHash = service.hashVerificationCode(request.id, "123456");
@@ -68,12 +70,12 @@ test("a guest booking remains downloadable and has a durable retry when its conf
   assert.match(result.manageUrl, /^https:\/\/crushclub\.ng\/guest-tickets\/order-1\?token=/);
   assert.ok(service.matchesManageToken(result.manageToken, order.manageTokenHash));
   assert.equal(jobs.length, 1);
-  assert.deepEqual(jobs[0].ticketIds, issued.map((row) => row.id));
-  assert.ok(jobs[0].nextAttemptAt > new Date());
-  assert.equal(jobs[0].key, "guest:order-1");
+  assert.deepEqual(jobs[0].payload.ticketIds, issued.map((row) => row.id));
+  assert.ok(jobs[0].runAt instanceof Date);
+  assert.equal(jobs[0].key, "ticket-email:guest:order-1");
+  assert.equal(result.emailQueued, true);
+  assert.equal(payloads.decrypt(jobs[0].encryptedPayload, jobs[0].key).manageUrl, result.manageUrl);
   assert.ok(!JSON.stringify(jobs).includes(result.manageToken), "The private guest link is not persisted in the email queue");
-  assert.equal(deliveryUpdate.sentAt, null);
-  assert.ok(deliveryUpdate.nextAttemptAt <= new Date());
 });
 
 function paymentFixture(purpose = PaymentPurpose.EVENT_TICKET) {
@@ -91,7 +93,7 @@ function paymentFixture(purpose = PaymentPurpose.EVENT_TICKET) {
       deleteMany: async () => { tickets = []; return { count: 2 }; }
     },
     ticketType: { update: async () => ({}) },
-    ticketEmailDelivery: { upsert: async ({ create }) => { jobs.push(create); return create; } }
+    backgroundJob: { upsert: async ({ create }) => { jobs.push(create); return create; } }
   };
   const service = new PaymentsService({ ...transaction, payment: { ...transaction.payment, findUnique: async () => payment },
     $transaction: async (callback) => Array.isArray(callback) ? Promise.all(callback) : callback(transaction) }, {});
@@ -108,8 +110,8 @@ for (const purpose of [PaymentPurpose.EVENT_TICKET, PaymentPurpose.MEMBERSHIP_EV
     assert.equal(first.status, PaymentStatus.SUCCESS);
     assert.equal(second.tickets.length, 2);
     assert.equal(jobs.length, 1);
-    assert.equal(jobs[0].key, "payment:payment-1");
-    assert.deepEqual(jobs[0].ticketIds, ["ticket-1", "ticket-2"]);
+    assert.equal(jobs[0].key, "ticket-email:payment:payment-1");
+    assert.deepEqual(jobs[0].payload.ticketIds, ["ticket-1", "ticket-2"]);
   });
 }
 
@@ -127,58 +129,40 @@ test("failed payment and expired sold-out reservations never queue admission ema
 });
 
 function deliveryFixture(rows = [ticket()], send = async () => true) {
-  const job = { id: "job-1", key: "free:ticket-1", ticketIds: rows.map((row) => row.id), attempts: 0,
-    sentAt: null, lockedUntil: null, nextAttemptAt: new Date(0), createdAt: new Date() };
   const sent = [];
   const prisma = {
-    ticketEmailDelivery: {
-      findMany: async () => !job.sentAt && job.nextAttemptAt <= new Date() && (!job.lockedUntil || job.lockedUntil <= new Date()) ? [{ ...job }] : [],
-      updateMany: async () => {
-        if (job.sentAt || (job.lockedUntil && job.lockedUntil > new Date())) return { count: 0 };
-        job.lockedUntil = new Date(Date.now() + 120000); job.attempts++; return { count: 1 };
-      },
-      update: async ({ data }) => Object.assign(job, data)
-    },
     ticket: { findMany: async ({ where }) => rows.filter((row) => where.status.in.includes(row.status) && row.event.status !== where.event.status.not) }
   };
   const mail = { sendTicketConfirmationEmail: async (input) => { sent.push(input); return send(input); } };
   const service = new TicketDeliveryService(prisma, mail, { getOrThrow: () => "https://crushclub.ng/" });
-  return { service, prisma, mail, job, sent };
+  return { service, sent };
 }
 
-test("concurrent workers claim an email once, and successful jobs are not resent", async () => {
-  const { service, prisma, mail, job, sent } = deliveryFixture();
-  const competing = new TicketDeliveryService(prisma, mail, { getOrThrow: () => "https://crushclub.ng" });
-  await Promise.all([service.runPendingDeliveries(), competing.runPendingDeliveries()]);
-  await service.runPendingDeliveries();
-  assert.equal(sent.length, 1);
+test("ticket delivery preserves holder, event link, and stable message ID", async () => {
+  const { service, sent } = deliveryFixture();
+  await service.deliver(["ticket-1"], "<stable-message@jobs.crushclub.ng>");
   assert.equal(sent[0].to, holder.email);
   assert.equal(sent[0].manageUrl, "https://crushclub.ng/events/event-1");
-  assert.ok(job.sentAt);
+  assert.equal(sent[0].messageId, "<stable-message@jobs.crushclub.ng>");
 });
 
-test("an SMTP failure keeps the job for a later retry", async () => {
-  let attempts = 0;
-  const { service, job, sent } = deliveryFixture([ticket()], async () => ++attempts > 1);
-  await service.runPendingDeliveries();
-  assert.equal(job.sentAt, null);
-  assert.equal(job.lockedUntil, null);
-  assert.ok(job.nextAttemptAt > new Date());
-  await service.runPendingDeliveries();
-  assert.equal(sent.length, 1);
-  job.nextAttemptAt = new Date(0);
-  await service.runPendingDeliveries();
-  assert.equal(sent.length, 2);
-  assert.ok(job.sentAt);
+test("SMTP failure is surfaced to the durable retry owner", async () => {
+  const { service } = deliveryFixture([ticket()], async () => false);
+  await assert.rejects(service.deliver(["ticket-1"], "<test>"), { code: "SMTP_NOT_CONFIGURED" });
 });
 
 test("cancelled tickets and cancelled events are discarded before email delivery", async () => {
   for (const row of [ticket("cancelled", TicketStatus.CANCELLED), { ...ticket(), event: { ...event, status: EventStatus.CANCELLED } }]) {
-    const { service, job, sent } = deliveryFixture([row]);
-    await service.runPendingDeliveries();
+    const { service, sent } = deliveryFixture([row]);
+    await service.deliver([row.id], "<test>");
     assert.equal(sent.length, 0);
-    assert.ok(job.sentAt);
   }
+});
+
+test("a worker must still own the lease immediately before sending ticket email", async () => {
+  const { service, sent } = deliveryFixture();
+  await assert.rejects(service.deliver(["ticket-1"], "<test>", undefined, async () => { throw new Error("lease lost"); }), /lease lost/);
+  assert.equal(sent.length, 0);
 });
 
 test("free guest confirmation and paid member confirmation both attach a downloadable PDF", async () => {

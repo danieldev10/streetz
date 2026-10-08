@@ -22,6 +22,7 @@ export type GuestTicketBooking = {
   email: string;
   displayName: string;
   emailSent: boolean;
+  emailQueued?: boolean;
   manageUrl: string;
   event: {
     id: string;
@@ -202,7 +203,9 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
           <CheckCircle2 className="size-7" aria-hidden="true" />
           <p className="mt-2 text-sm font-semibold">Your {guestBooking.tickets.length === 1 ? "ticket is" : "tickets are"} ready.</p>
           <p className="mt-1 text-xs leading-5">
-            {guestBooking.emailSent
+            {guestBooking.emailQueued
+              ? `Your tickets will be emailed to ${guestBooking.email} shortly. You can also download them below.`
+              : guestBooking.emailSent
               ? `We sent the details to ${guestBooking.email}.`
               : "Your tickets are ready. Email delivery is being retried; you can also download them below."}
           </p>

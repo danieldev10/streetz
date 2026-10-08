@@ -85,7 +85,9 @@ export function SupportContactPage({
       }));
       setFormMessage({
         tone: "success",
-        text: response.emailSent
+        text: response.emailQueued
+          ? `Request ${response.request.reference} was sent. Your private link will arrive by email shortly.`
+          : response.emailSent
           ? `Request ${response.request.reference} was sent. We also emailed you a private link.`
           : `Request ${response.request.reference} was sent. Email delivery is unavailable, so keep this reference.`,
       });

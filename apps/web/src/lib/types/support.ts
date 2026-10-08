@@ -60,4 +60,5 @@ export type SupportRequest = Omit<SupportRequestSummary, "latestMessage"> & {
 export type CreateSupportResponse = {
   request: SupportRequest;
   emailSent: boolean;
+  emailQueued?: boolean;
 };

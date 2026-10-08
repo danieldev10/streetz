@@ -7,6 +7,7 @@ import {
   RekognitionClient
 } from "@aws-sdk/client-rekognition";
 import { FaceVerificationStatus } from "@prisma/client";
+import sharp = require("sharp");
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 
@@ -154,6 +155,14 @@ export class VerificationService {
       })
     );
 
+    if (result.Status !== "SUCCEEDED" && result.Status !== "FAILED") {
+      throw new BadRequestException(
+        result.Status === "EXPIRED"
+          ? "Face verification session expired. Please start a new check."
+          : "Face verification is not complete. Please finish the camera check before continuing."
+      );
+    }
+
     const providerStatus = await this.getProviderStatus(userId, result.Status, result.Confidence, result.ReferenceImage as VerificationImage | undefined);
     const effectiveStatus = this.getEffectiveStatus(providerStatus.status);
     const overrideReason = effectiveStatus !== providerStatus.status ? "PROTOTYPE_BYPASS" : null;
@@ -212,9 +221,10 @@ export class VerificationService {
     livenessConfidence: number | undefined,
     referenceImage: VerificationImage | undefined
   ) {
-    const sourceImage = this.getReferenceImageInput(referenceImage);
-    const referenceImageBucket = sourceImage.S3Object?.Bucket ?? null;
-    const referenceImageKey = sourceImage.S3Object?.Name ?? null;
+    const referenceImageKey = referenceImage?.S3Object?.Name ?? null;
+    const referenceImageBucket = referenceImageKey
+      ? referenceImage?.S3Object?.Bucket ?? this.getVerificationBucket()
+      : null;
 
     if (livenessStatus !== "SUCCEEDED") {
       return {
@@ -240,6 +250,7 @@ export class VerificationService {
       };
     }
 
+    const sourceImage = this.getReferenceImageInput(referenceImage);
     const bestMatch = await this.findBestProfilePhotoMatch(userId, sourceImage);
     const matchThreshold = this.getNumberConfig("FACE_VERIFICATION_FACE_MATCH_THRESHOLD", DEFAULT_FACE_MATCH_THRESHOLD);
 
@@ -298,14 +309,33 @@ export class VerificationService {
         continue;
       }
 
-      const targetImageBytes = await this.storage.getObjectBuffer(objectKey);
-      const response = await this.getClient().send(
-        new CompareFacesCommand({
-          SourceImage: sourceImage,
-          TargetImage: { Bytes: targetImageBytes },
-          SimilarityThreshold: 0
-        })
-      );
+      const storedImageBytes = await this.storage.getObjectBuffer(objectKey);
+      // Delivery variants are WebP; Rekognition accepts only JPEG or PNG.
+      const targetImageBytes = await sharp(storedImageBytes)
+        .rotate()
+        .flatten({ background: "#ffffff" })
+        .jpeg({ quality: 90 })
+        .toBuffer();
+      let response;
+
+      try {
+        response = await this.getClient().send(
+          new CompareFacesCommand({
+            SourceImage: sourceImage,
+            TargetImage: { Bytes: targetImageBytes },
+            SimilarityThreshold: 0
+          })
+        );
+      } catch (error) {
+        // CompareFaces rejects images without detectable faces with this error.
+        // Record an unsuccessful comparison so prototype mode can still complete.
+        // Permission, storage and provider availability errors must still surface.
+        if (error instanceof Error && error.name === "InvalidParameterException") {
+          continue;
+        }
+
+        throw error;
+      }
       const similarity = response.FaceMatches?.[0]?.Similarity ?? null;
 
       if (similarity !== null && (bestSimilarity === null || similarity > bestSimilarity)) {

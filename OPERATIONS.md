@@ -11,7 +11,7 @@ Use [STAGING.md](STAGING.md) to create the new staging resources and complete th
    npm --prefix apps/api run prisma:deploy
    ```
 
-3. Start the API, check `/api/health/ready` directly, and then deploy the web application from the same tested SHA with production variables.
+3. Start the API, check `/api/health/ready` directly, and deploy the background worker using [the Release 4 rollout order](deploy/staging/release-4-background-jobs.md). Verify its `/health/ready` and recent heartbeat, then deploy the web application from the same tested SHA with production variables.
 4. Run the read-only production checks:
 
    ```bash
@@ -63,7 +63,7 @@ Configure Railway's deployment health path and independent continuous monitoring
 
 ## Application rollback
 
-Before each release, record both known-good deployment IDs, their SHAs, configuration versions, migration names, and the backup timestamp. For this reliability batch there is no new application-schema migration.
+Before each release, record known-good API, worker and web deployment IDs, their SHAs, configuration versions, migration names, and the backup timestamp. Release 4 adds the durable-job tables with an additive migration; keep them in place during a code rollback. Stop/drain the worker before restoring an older API containing the legacy email timer, and follow the queue rollback notes in [the worker guide](deploy/staging/release-4-background-jobs.md).
 
 1. Stop further production promotions during the incident. Determine whether it is an application regression or a dependency/provider outage.
 2. For a compatible application regression, restore the recorded previous Railway API deployment and previous Vercel production deployment using the providers' deployment controls. If using a rebuild, choose the recorded SHA with production variables, not the current latest branch commit.
@@ -232,6 +232,6 @@ psql "$RESTORE_DATABASE_URL" -c 'SELECT COUNT(*) FROM "Payment";'
 psql "$RESTORE_DATABASE_URL" -c 'SELECT COUNT(*) FROM "Ticket";'
 ```
 
-Before restoring, inspect the destination host/project and assert it is a new empty database. Do not use production credentials or `--clean`. A recovery database containing customer data needs restricted access and blocked outbound email, payment requests and background jobs before any application is started; the API currently runs scheduled work internally. Do not connect a normal staging API to restored customer data.
+Before restoring, inspect the destination host/project and assert it is a new empty database. Do not use production credentials or `--clean`. A recovery database containing customer data needs restricted access and blocked outbound email, payment requests and background jobs before any application is started. Keep the standalone worker stopped; the API can create durable jobs even while no worker is running. Do not connect a normal staging API to restored customer data.
 
 Compare migration history and representative user/event/ticket/payment relationships with the backup record. Then verify critical reads and application health in the isolated recovery environment; check login only with an approved test account. Record backup time, encrypted checksum, schema/migration versions, source/destination resource IDs, duration, row counts, operator, recovery point and result. Retire the recovery database and plaintext dump after the evidence is recorded. Schedule and prove the automation, retention and alert on failed backups separately.

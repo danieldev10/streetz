@@ -4,6 +4,9 @@ const { PrismaPg } = require("@prisma/adapter-pg");
 const { EventBookingAccess, EventStatus, PrismaClient } = require("@prisma/client");
 const { GuestTicketsService } = require("../dist/src/events/guest-tickets.service.js");
 
+const { MailQueueService } = require("../dist/src/mail/mail-queue.service.js");
+const { JobPayloadService } = require("../dist/src/jobs/job-payload.service.js");
+
 const connectionString = process.env.TEST_DATABASE_URL;
 
 test("two guests competing for the final ticket cannot oversell", { skip: !connectionString }, async () => {
@@ -16,15 +19,13 @@ test("two guests competing for the final ticket cannot oversell", { skip: !conne
       return undefined;
     },
     getOrThrow(key) {
+      if (key === "JWT_REFRESH_SECRET") return "jobs-test-secret";
       if (key === "JWT_ACCESS_SECRET") return "fallback-test-secret";
       if (key === "WEB_APP_URL") return "http://localhost:3000";
       throw new Error(`Unexpected configuration key: ${key}`);
     }
   };
-  const mail = {
-    sendGuestTicketVerificationEmail: async () => true,
-    sendGuestTicketConfirmationEmail: async () => true
-  };
+  const mail = new MailQueueService(new JobPayloadService(config));
   const service = new GuestTicketsService(prisma, mail, config);
   const competingService = new GuestTicketsService(competingPrisma, mail, config);
   const event = await prisma.event.create({
