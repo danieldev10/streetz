@@ -82,9 +82,9 @@ Use separate staging Sentry projects for web/API, or a verified environment filt
 
 After publishing the change set and completing its first GitHub Actions run, configure the release branch ruleset to require **`Release checks`** and prevent unchecked direct pushes. CI includes API, web and operational checks; database tests cannot silently skip.
 
-Enable **Wait for CI** on the Railway API service. It requires the GitHub workflow and appropriate GitHub App permissions. [Railway's documentation](https://docs.railway.com/deployments/github-autodeploys#wait-for-ci) explains that workflow conclusions gate deployment. A cancelled check can behave differently from a failed one, so prove the configured release path with an intentionally failing check on a staging-only commit.
+Enable **Wait for CI** on both Railway API services. It requires the GitHub workflow and appropriate GitHub App permissions. [Railway's documentation](https://docs.railway.com/deployments/github-autodeploys#wait-for-ci) explains that workflow conclusions gate deployment. Push/dispatch CI runs are not automatically cancelled; only superseded pull-request runs may be cancelled. Prove the configured release path with an intentionally failing check on an isolated test branch, then a staging-only commit after the staging deployment gate is enabled.
 
-Vercel's Git integration can deploy commits automatically; a checked-in GitHub workflow alone does not establish a Vercel gate. Use the protected release branch and promote only a commit which passed CI and staging validation. Until both provider paths are demonstrated, disable uncontrolled production autodeploys and deliberately release the recorded tested commit. Build with each environment's own variables; do not promote a staging web artifact with staging API endpoints to the live domain.
+Vercel's Git integration can deploy commits automatically; a checked-in GitHub workflow alone does not establish a Vercel gate. In each project's Settings → Deployment Checks, add GitHub's `Release checks` as a required check. [Vercel's deployment-check documentation](https://vercel.com/docs/deployment-checks) explains that production builds remain unpromoted until the selected checks pass. The dedicated staging project's Production tier also needs this setting. If the setting is unavailable, use deliberate promotion of the recorded tested commit and disable uncontrolled production autodeploys. Build with each environment's own variables; do not promote a staging web artifact with staging API endpoints to the live domain.
 
 Record the API and web deployment SHAs and confirm they match the approved release SHA. Do not deploy "latest" if newer unchecked commits have arrived. No repository file changes branch protection or dashboard settings by itself.
 
@@ -115,17 +115,17 @@ Perform a backup restore and previous-deployment rollback using [OPERATIONS.md](
 
 ## Completion evidence
 
-All provider checks remain pending until an account owner completes and records them. The repository work does not certify a cloud feature is active.
+Provider checks remain pending until verified and recorded. Current release-gate evidence and remaining dashboard steps are in [deploy/staging/release-gate-status.md](deploy/staging/release-gate-status.md). The repository work does not certify a cloud feature is active.
 
 | Evidence | Initial status |
 | --- | --- |
-| Fresh GitHub runner: API/web/ops pass, zero skipped DB tests | Pending first remote run |
-| New Supabase, Railway Redis/API and Vercel project URLs recorded | Pending account setup |
+| Fresh GitHub runner: API/web/ops pass, zero skipped DB tests | Blocked: GitHub account billing lock; jobs did not start |
+| New Supabase, Railway Redis/API and Vercel project URLs recorded | Staging website/API reachable; isolated database and Redis provisioned |
 | AWS resources, payment keys, email and secrets isolated | Pending account setup |
 | Railway readiness gate and continuous outage/recovery alerts demonstrated | Pending staging drill |
-| Sentry error alert received by designated owner | Pending staging drill |
-| Failed CI prevents the configured production release path | Pending gate drill |
-| Browser journeys pass for the tested API/web SHA | Pending staging deployment |
+| Sentry error alert received by designated owner | Confirmed by owner: email alerts received, 8 October 2026 |
+| Failed CI prevents the configured production release path | GitHub main protection enabled; failed-check and provider drills pending |
+| Browser journeys pass for the tested API/web SHA | Owner reports all flows pass, 8 October 2026; exact deployment SHAs not yet recorded |
 | Backup retention/PITR checked against the actual provider plan | Pending provider inspection |
 | Encrypted backup restored and relationships verified in isolation | Pending provider recovery drill |
 | Previous API/web deployment restored with compatible schema | Pending staging rollback drill |
