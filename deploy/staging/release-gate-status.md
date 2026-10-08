@@ -40,3 +40,10 @@ Source: [Vercel Deployment Checks](https://vercel.com/docs/deployment-checks).
 4. Read back both live provider gate settings. Record the tested API/web SHAs and promote only an approved, passing release through the protected `main` branch.
 
 Only GitHub branch protection is currently verified. Hosted passing CI, intentional failure proof, Railway Wait for CI, and Vercel Deployment Checks remain pending; no production deployment or failure drill has been performed.
+
+## Candidate and isolated proof
+
+- [Draft candidate PR #4](https://github.com/danieldev10/streetz/pull/4) contains the initial reliability batch and the CI concurrency change. It has not been merged or deployed to `main`/`staging` by this work.
+- [Temporary proof PR #5](https://github.com/danieldev10/streetz/pull/5) is non-draft, has no merge conflict, and GitHub reports `mergeStateStatus=BLOCKED` with `Release checks=FAILURE`. This confirms the required-check merge block is active. Never merge this PR.
+- The intentional operational failure on the proof branch was executed locally on Node 22.13.0 and exited with the expected assertion failure. The good candidate's four operational tests all passed with zero skips; workflow YAML and required-check dependencies also validated.
+- Hosted jobs have not started, so the temporary PR's current CI failure does not yet prove that the intentional assertion was executed on GitHub. Resolve the runner/account restriction, rerun both branches, then verify the candidate passes and the proof fails for its intended reason. Close and delete the proof branch after that demonstration.
