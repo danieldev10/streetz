@@ -1,5 +1,7 @@
 # New Crushclub staging environment
 
+Release 4 adds a separate Railway worker. Follow [the background-jobs deployment guide](deploy/staging/release-4-background-jobs.md) after the base services below are ready. API deployment now queues emails and requires that worker to deliver them.
+
 This is the account-owner setup guide for the first reliability batch. The repository includes CI, dependency health checks, isolated test fixtures, and target-specific smoke checks. No staging cloud resources, deployment gates, alerts, or provider backups have been created by these files. Mark the evidence table at the end as each provider step is verified.
 
 ## 1. Create the staging database first
@@ -31,6 +33,10 @@ Once the staging web URL is known, configure the staging media bucket's upload C
 For the initial API bootstrap use `FACE_VERIFICATION_MODE=off` and `FACE_VERIFICATION_REQUIRED=false`. Before release acceptance, create a separate private staging verification bucket and Cognito identity pool in `eu-west-1`, configure its guest role for `rekognition:StartFaceLivenessSession`, and give the API staging-only liveness/session/result/face comparison permissions plus access to the staging `face-liveness/*` objects. Follow the same working production flow with **new resource IDs and scoped credentials**. Set `NEXT_PUBLIC_AWS_LIVENESS_IDENTITY_POOL_ID` in the staging web project. Switch staging to the same verification mode/required setting intended for production and verify the full browser flow; an off-mode bootstrap is not a liveness acceptance test.
 
 Use [AWS's Face Liveness integration guide](https://docs.aws.amazon.com/rekognition/latest/dg/face-liveness.html) when configuring the new resources. Staging liveness calls still use AWS resources and may incur charges.
+
+For flow testing with synthetic profile photos, set the **staging API** to `FACE_VERIFICATION_MODE=prototype-pass` and `FACE_VERIFICATION_REQUIRED=true`. Complete the real camera check: the attempt keeps its actual failure/review status and scores, while the user receives test access with `PROTOTYPE_BYPASS` recorded separately. Unfinished/expired sessions and AWS permission, storage or network errors do not grant access. Before checking production verification behavior, switch staging back to the mode intended for release and test both matching and nonmatching faces.
+
+If upload succeeds but photos display as placeholders, check the image URL returned by `/api/profiles/me`. Its host must be the **staging media CloudFront distribution** and that distribution's S3 origin must be the staging media bucket. Set Railway staging's `MEDIA_CDN_BASE_URL` and Vercel staging's `NEXT_PUBLIC_MEDIA_CDN_BASE_URL` to the same staging HTTPS CDN URL, then redeploy both. An upload can succeed against staging S3 while an incorrect CDN URL reads a different bucket. Also verify the staging distribution's origin access control and its exact distribution ARN in the staging bucket's read policy; changing upload CORS does not fix CloudFront read access.
 
 ## 3. Create the Railway staging API and Redis
 

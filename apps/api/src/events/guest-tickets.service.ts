@@ -2,14 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  Logger,
-  NotFoundException,
-  ServiceUnavailableException
+  NotFoundException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EventStatus, Prisma, TicketStatus } from "@prisma/client";
+import { BackgroundJobType, EventStatus, Prisma, TicketStatus } from "@prisma/client";
 import { createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from "crypto";
-import { MailService } from "../mail/mail.service";
+import { MailQueueService } from "../mail/mail-queue.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { queueTicketEmail } from "../tickets/ticket-email-queue";
 import { ConfirmGuestTicketDto } from "./dto/confirm-guest-ticket.dto";
@@ -22,11 +20,9 @@ const MAX_VERIFICATION_ATTEMPTS = 5;
 
 @Injectable()
 export class GuestTicketsService {
-  private readonly logger = new Logger(GuestTicketsService.name);
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mail: MailService,
+    private readonly mail: MailQueueService,
     private readonly config: ConfigService
   ) {}
 
@@ -43,16 +39,16 @@ export class GuestTicketsService {
     const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
     const expiresAt = new Date(Date.now() + VERIFICATION_MINUTES * 60_000);
 
-    await this.prisma.$transaction([
-      this.prisma.guestTicketRequest.deleteMany({
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.guestTicketRequest.deleteMany({
         where: {
           eventId: event.id,
           ticketTypeId: ticketType.id,
           email,
           consumedAt: null
         }
-      }),
-      this.prisma.guestTicketRequest.create({
+      });
+      await transaction.guestTicketRequest.create({
         data: {
           id: requestId,
           eventId: event.id,
@@ -63,27 +59,15 @@ export class GuestTicketsService {
           codeHash: this.hashVerificationCode(requestId, code),
           expiresAt
         }
-      })
-    ]);
-
-    let emailSent = false;
-
-    try {
-      emailSent = await this.mail.sendGuestTicketVerificationEmail({
+      });
+      await this.mail.queue(transaction, `guest-verification:${requestId}`, BackgroundJobType.GUEST_VERIFICATION_EMAIL, {
         to: email,
         displayName,
         eventTitle: event.title,
         code,
         expiresInMinutes: VERIFICATION_MINUTES
-      });
-    } catch (error) {
-      this.logger.error(`Guest ticket verification email failed for request ${requestId}: ${this.errorMessage(error)}`);
-    }
-
-    if (!emailSent && process.env.NODE_ENV === "production") {
-      await this.prisma.guestTicketRequest.deleteMany({ where: { id: requestId, consumedAt: null } });
-      throw new ServiceUnavailableException("We could not send the verification email. Please try again shortly.");
-    }
+      }, requestId, expiresAt);
+    });
 
     return {
       requestId,
@@ -198,9 +182,8 @@ export class GuestTicketsService {
         status: TicketStatus.CONFIRMED
       }));
       await transaction.ticket.createMany({ data: guestTickets });
-      // Give the immediate confirmation email time to complete before the retry worker takes over.
-      await queueTicketEmail(transaction, `guest:${createdOrder.id}`, guestTickets.map((ticket) => ticket.id),
-        new Date(Date.now() + 120_000));
+      await queueTicketEmail(transaction, `guest:${createdOrder.id}`, guestTickets.map((ticket) => ticket.id), undefined,
+        this.mail.encryptTicketLink(`guest:${createdOrder.id}`, this.createManageUrl(createdOrder.id, manageToken)));
 
       await transaction.ticketType.update({
         where: { id: request.ticketTypeId },
@@ -225,36 +208,14 @@ export class GuestTicketsService {
 
     const manageUrl = this.createManageUrl(booking.id, manageToken);
 
-    let emailSent = false;
-    try {
-      emailSent = await this.mail.sendGuestTicketConfirmationEmail({
-        to: booking.email,
-        displayName: booking.displayName,
-        eventTitle: booking.event.title,
-        venue: [booking.event.venue, booking.event.city, booking.event.state].filter(Boolean).join(", "),
-        startsAt: booking.event.startsAt,
-        ticketTier: booking.ticketType.name,
-        ticketCodes: booking.tickets.map((ticket) => ticket.code),
-        manageUrl
-      });
-    } catch (error) {
-      this.logger.error(`Guest ticket confirmation email failed for order ${booking.id}: ${this.errorMessage(error)}`);
-    }
-
-    try {
-      await this.prisma.ticketEmailDelivery.update({ where: { key: `guest:${booking.id}` },
-        data: { sentAt: emailSent ? new Date() : null, nextAttemptAt: new Date() } });
-    } catch {
-      this.logger.warn(`Could not update guest email delivery ${booking.id}; its saved job will retry.`);
-    }
-
     return {
       orderId: booking.id,
       email: booking.email,
       displayName: booking.displayName,
       manageToken,
       manageUrl,
-      emailSent,
+      emailSent: false,
+      emailQueued: true,
       event: {
         id: booking.event.id,
         title: booking.event.title,
@@ -439,7 +400,4 @@ export class GuestTicketsService {
     return new BadRequestException("The verification code is invalid or expired.");
   }
 
-  private errorMessage(error: unknown) {
-    return error instanceof Error ? error.message : String(error);
-  }
 }

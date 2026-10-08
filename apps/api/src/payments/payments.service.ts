@@ -3,8 +3,6 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
-  OnModuleDestroy,
-  OnModuleInit,
   UnauthorizedException
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -33,7 +31,6 @@ import { getAccountAccessBlock } from "../users/account-status";
 
 const SUBSCRIPTION_AMOUNT_KOBO = 100_000;
 const SUBSCRIPTION_DAYS = 30;
-const RESERVATION_CLEANUP_INTERVAL_MS = 5 * 60_000;
 const REGULAR_TICKET_NAME = "Regular";
 
 type PaystackInitializeResponse = {
@@ -71,32 +68,13 @@ type PaystackWebhookBody = {
 };
 
 @Injectable()
-export class PaymentsService implements OnModuleInit, OnModuleDestroy {
+export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
-  private reservationCleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService
   ) {}
-
-  onModuleInit() {
-    this.runReservationCleanup();
-    const timer = setInterval(() => this.runReservationCleanup(), RESERVATION_CLEANUP_INTERVAL_MS);
-
-    if (typeof timer === "object" && typeof timer.unref === "function") {
-      timer.unref();
-    }
-
-    this.reservationCleanupTimer = timer;
-  }
-
-  onModuleDestroy() {
-    if (this.reservationCleanupTimer) {
-      clearInterval(this.reservationCleanupTimer);
-      this.reservationCleanupTimer = null;
-    }
-  }
 
   async initializeSubscription(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -423,15 +401,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (paystackData.status !== "success") {
-      const mappedStatus = this.mapPaystackStatus(paystackData.status);
-
-      await this.prisma.payment.update({
-        where: { providerReference: reference },
-        data: {
-          status: mappedStatus,
-          providerMetadata: paystackData
-        }
-      });
+      const mappedStatus = await this.recordNonSuccessPayment(reference, paystackData);
 
       return {
         status: mappedStatus,
@@ -546,18 +516,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       const paystackData = response.data;
 
       if (paystackData.status !== "success") {
-        const mappedStatus = this.mapPaystackStatus(paystackData.status);
-
-        await this.prisma.payment.update({
-          where: { providerReference: reference },
-          data: {
-            status: mappedStatus,
-            providerMetadata: {
-              ...metadata,
-              paystack: paystackData
-            }
-          }
-        });
+        const mappedStatus = await this.recordNonSuccessPayment(reference, paystackData, metadata);
 
         return { status: mappedStatus };
       }
@@ -606,25 +565,12 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     const paystackData = response.data;
 
     if (paystackData.status !== "success") {
-      const mappedStatus = this.mapPaystackStatus(paystackData.status);
-
-      await this.prisma.$transaction([
-        this.prisma.payment.update({
-          where: { providerReference: reference },
-          data: {
-            status: mappedStatus,
-            providerMetadata: {
-              ...metadata,
-              paystack: paystackData
-            }
-          }
-        }),
-        this.prisma.ticket.deleteMany({ where: { id: { in: ticketIds } } })
-      ]);
+      const mappedStatus = await this.recordNonSuccessPayment(reference, paystackData, metadata, ticketIds);
 
       return {
         status: mappedStatus,
-        ticket: this.formatTicket({ ...ticket, status: TicketStatus.CANCELLED })
+        ticket: this.formatTicket({ ...ticket, status: mappedStatus === PaymentStatus.PENDING ? ticket.status :
+          mappedStatus === PaymentStatus.SUCCESS ? TicketStatus.PAID : TicketStatus.CANCELLED })
       };
     }
 
@@ -857,7 +803,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private async verifyPaymentReference(reference: string) {
+  async verifyPaymentReference(reference: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { providerReference: reference },
       select: { purpose: true }
@@ -872,12 +818,6 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     return this.verifyAndActivateSubscription(reference);
-  }
-
-  private runReservationCleanup() {
-    void this.cleanupExpiredTicketReservations().catch((error) => {
-      this.logger.warn(`Unable to clean up expired ticket reservations: ${error instanceof Error ? error.message : "unknown error"}`);
-    });
   }
 
   private async confirmReservedTickets(ticketIds: string[], ticketTypeId: string, quantity: number) {
@@ -1001,7 +941,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     return { event, ticketType, quantity, tickets, ticketIds, primaryTicket };
   }
 
-  private cleanupExpiredTicketReservations(
+  cleanupExpiredTicketReservations(
     client: Prisma.TransactionClient | PrismaService = this.prisma,
     now = new Date()
   ) {
@@ -1021,9 +961,27 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     return Math.min(120, minutes);
   }
 
+  private async recordNonSuccessPayment(reference: string, data: NonNullable<PaystackVerifyResponse["data"]>,
+    metadata?: Record<string, unknown>, ticketIds: string[] = []) {
+    const mappedStatus = this.mapPaystackStatus(data.status);
+    // A processing/ongoing charge leaves the reservation and its metadata intact.
+    if (mappedStatus === PaymentStatus.PENDING) return mappedStatus;
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM "Payment" WHERE "providerReference" = ${reference} FOR UPDATE`;
+      const current = await transaction.payment.findUniqueOrThrow({ where: { providerReference: reference } });
+      // An old failure response cannot undo a concurrent successful settlement.
+      if (current.status === PaymentStatus.SUCCESS) return current.status;
+      await transaction.payment.update({ where: { id: current.id }, data: { status: mappedStatus,
+        providerMetadata: metadata ? { ...this.getProviderMetadata(current.providerMetadata), paystack: data } : data } });
+      if (ticketIds.length) await transaction.ticket.deleteMany({ where: { id: { in: ticketIds }, status: TicketStatus.RESERVED } });
+      return mappedStatus;
+    });
+  }
+
   private async callPaystack<T>(path: string, init: RequestInit): Promise<T> {
     const response = await fetch(`https://api.paystack.co${path}`, {
       ...init,
+      signal: AbortSignal.timeout(15_000),
       headers: {
         Authorization: `Bearer ${this.config.getOrThrow<string>("PAYSTACK_SECRET_KEY")}`,
         "Content-Type": "application/json",

@@ -648,6 +648,55 @@ model TicketEmailDelivery {
   @@index([sentAt, nextAttemptAt])
 }
 
+enum BackgroundJobType {
+  TICKET_EMAIL
+  PASSWORD_RESET_EMAIL
+  GUEST_VERIFICATION_EMAIL
+  SUPPORT_RECEIVED_EMAIL
+  SUPPORT_REPLY_EMAIL
+  RESERVATION_CLEANUP
+  PAYMENT_SCAN
+  PAYMENT_RECONCILIATION
+}
+
+enum BackgroundJobState {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model BackgroundJob {
+  id               String             @id @default(cuid())
+  key              String             @unique
+  type             BackgroundJobType
+  state            BackgroundJobState @default(PENDING)
+  payload          Json
+  encryptedPayload String?
+  attempts         Int                @default(0)
+  maxAttempts      Int                @default(8)
+  runAt            DateTime           @default(now())
+  expiresAt        DateTime?
+  leaseToken       String?
+  lockedUntil      DateTime?
+  completedAt      DateTime?
+  failedAt         DateTime?
+  lastError        String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @default(now()) @updatedAt
+
+  @@index([state, runAt])
+  @@index([state, lockedUntil])
+}
+
+model BackgroundWorkerHeartbeat {
+  id         String   @id
+  startedAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([lastSeenAt])
+}
+
 model GuestTicketRequest {
   id           String     @id @default(cuid())
   eventId      String
@@ -696,6 +745,8 @@ model Payment {
   providerMetadata  Json?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
+
+  @@index([status, createdAt])
 }
 
 model NotificationSeen {

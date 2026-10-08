@@ -7,13 +7,14 @@ import {
 import { ConfigService } from "@nestjs/config";
 import {
   Prisma,
+  BackgroundJobType,
   SupportMessageAuthorType,
   SupportPriority,
   SupportRequestCategory,
   SupportRequestStatus
 } from "@prisma/client";
-import { createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { MailService } from "../mail/mail.service";
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
+import { MailQueueService } from "../mail/mail-queue.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AdminReplySupportRequestDto, AdminSupportListDto, UpdateSupportRequestDto } from "./dto/admin-support.dto";
 import { CreateGuestSupportRequestDto, CreateSupportRequestDto } from "./dto/create-support-request.dto";
@@ -48,7 +49,7 @@ export class SupportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    private readonly mail: MailService
+    private readonly mail: MailQueueService
   ) {}
 
   async createGuestRequest(dto: CreateGuestSupportRequestDto) {
@@ -233,34 +234,39 @@ export class SupportService {
 
     const status = dto.status ?? SupportRequestStatus.WAITING_ON_USER;
     const now = new Date();
-    const updated = await this.prisma.supportRequest.update({
-      where: { id: request.id },
-      data: {
-        status,
-        resolvedAt: status === SupportRequestStatus.RESOLVED ? now : null,
-        closedAt: status === SupportRequestStatus.CLOSED ? now : null,
-        lastMessageAt: now,
-        messages: {
-          create: {
-            authorType: SupportMessageAuthorType.ADMIN,
-            authorUserId: adminId,
-            body: dto.message.trim()
+    const messageId = randomUUID();
+    const updated = await this.prisma.$transaction(async (transaction) => {
+      const updated = await transaction.supportRequest.update({
+        where: { id: request.id },
+        data: {
+          status,
+          resolvedAt: status === SupportRequestStatus.RESOLVED ? now : null,
+          closedAt: status === SupportRequestStatus.CLOSED ? now : null,
+          lastMessageAt: now,
+          messages: {
+            create: {
+              id: messageId,
+              authorType: SupportMessageAuthorType.ADMIN,
+              authorUserId: adminId,
+              body: dto.message.trim()
+            }
           }
-        }
-      },
-      include: requestInclude
+        },
+        include: requestInclude
+      });
+
+      const supportUrl = request.userId ? `${this.getWebAppUrl()}/support` : null;
+
+      await this.mail.queue(transaction, `support-reply:${messageId}`, BackgroundJobType.SUPPORT_REPLY_EMAIL, {
+        to: request.email,
+        displayName: request.displayName,
+        reference: request.reference,
+        subject: request.subject,
+        message: dto.message.trim(),
+        supportUrl
+      }, request.id);
+      return updated;
     });
-
-    const supportUrl = request.userId ? `${this.getWebAppUrl()}/support` : null;
-
-    await this.mail.sendSupportReplyEmail({
-      to: request.email,
-      displayName: request.displayName,
-      reference: request.reference,
-      subject: request.subject,
-      message: dto.message.trim(),
-      supportUrl
-    }).catch(() => false);
 
     return this.formatRequest(updated);
   }
@@ -307,46 +313,50 @@ export class SupportService {
   }) {
     const manageToken = randomBytes(48).toString("base64url");
     const now = new Date();
-    const request = await this.prisma.supportRequest.create({
-      data: {
-        reference: this.createReference(),
-        userId: input.userId,
-        email: input.email.trim().toLowerCase(),
-        displayName: input.displayName.trim(),
-        category: input.dto.category,
-        subject: input.dto.subject.trim(),
-        priority: getInitialSupportPriority(input.dto.category),
-        manageTokenHash: this.hashManageToken(manageToken),
-        manageTokenExpiresAt: this.createManageTokenExpiry(now),
-        currentPage: input.dto.currentPage?.trim() || null,
-        userAgent: input.dto.userAgent?.trim() || null,
-        appVersion: input.dto.appVersion?.trim() || null,
-        lastMessageAt: now,
-        messages: {
-          create: {
-            authorType: input.authorType,
-            authorUserId: input.userId,
-            body: input.dto.message.trim()
+    const request = await this.prisma.$transaction(async (transaction) => {
+      const request = await transaction.supportRequest.create({
+        data: {
+          reference: this.createReference(),
+          userId: input.userId,
+          email: input.email.trim().toLowerCase(),
+          displayName: input.displayName.trim(),
+          category: input.dto.category,
+          subject: input.dto.subject.trim(),
+          priority: getInitialSupportPriority(input.dto.category),
+          manageTokenHash: this.hashManageToken(manageToken),
+          manageTokenExpiresAt: this.createManageTokenExpiry(now),
+          currentPage: input.dto.currentPage?.trim() || null,
+          userAgent: input.dto.userAgent?.trim() || null,
+          appVersion: input.dto.appVersion?.trim() || null,
+          lastMessageAt: now,
+          messages: {
+            create: {
+              authorType: input.authorType,
+              authorUserId: input.userId,
+              body: input.dto.message.trim()
+            }
           }
-        }
-      },
-      include: requestInclude
-    });
+        },
+        include: requestInclude
+      });
 
-    const supportUrl = input.userId
-      ? `${this.getWebAppUrl()}/support`
-      : this.createManageUrl(request.id, manageToken);
-    const emailSent = await this.mail.sendSupportRequestReceivedEmail({
-      to: request.email,
-      displayName: request.displayName,
-      reference: request.reference,
-      subject: request.subject,
-      supportUrl
-    }).catch(() => false);
+      const supportUrl = input.userId
+        ? `${this.getWebAppUrl()}/support`
+        : this.createManageUrl(request.id, manageToken);
+      await this.mail.queue(transaction, `support-received:${request.id}`, BackgroundJobType.SUPPORT_RECEIVED_EMAIL, {
+        to: request.email,
+        displayName: request.displayName,
+        reference: request.reference,
+        subject: request.subject,
+        supportUrl
+      }, request.id, request.manageTokenExpiresAt ?? undefined);
+      return request;
+    });
 
     return {
       request: this.formatRequest(request),
-      emailSent
+      emailSent: false,
+      emailQueued: true
     };
   }
 

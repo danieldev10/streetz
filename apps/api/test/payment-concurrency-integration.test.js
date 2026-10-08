@@ -11,6 +11,8 @@ const {
   TicketStatus,
 } = require("@prisma/client");
 const { PaymentsService } = require("../dist/src/payments/payments.service.js");
+const { JobQueueService } = require("../dist/src/jobs/job-queue.service.js");
+const { JobHandlerService } = require("../dist/src/jobs/job-handler.service.js");
 const { AdminService } = require("../dist/src/admin/admin.service.js");
 
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -106,7 +108,7 @@ test("two buyers competing for the final event ticket cannot oversell", { skip: 
   }
 });
 
-test("callback and webhook cannot activate an event payment twice", { skip: !connectionString }, async () => {
+test("pending verification preserves reservations, then callback, webhook, and reconciliation settle once", { skip: !connectionString }, async () => {
   const prisma = createClient();
   const competingPrisma = createClient();
   const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -161,16 +163,29 @@ test("callback and webhook cannot activate an event payment twice", { skip: !con
       },
     },
   });
-  mockSuccessfulPaystack(new Map([[reference, payment.amountKobo]]));
   const callbackService = new PaymentsService(prisma, config(secret));
   const webhookService = new PaymentsService(competingPrisma, config(secret));
+  const queue = new JobQueueService(prisma);
+  const reconcile = new JobHandlerService(prisma, webhookService, {}, {}, queue, {});
+  const reconcileJob = { key: `payment-reconcile:${payment.id}`, type: "PAYMENT_RECONCILIATION", payload: { paymentId: payment.id } };
   const rawBody = Buffer.from(JSON.stringify({ event: "charge.success", data: { reference } }));
   const signature = createHmac("sha512", secret).update(rawBody).digest("hex");
 
   try {
+    global.fetch = async () => ({ ok: true, json: async () => ({ status: true,
+      data: { reference, status: "pending", amount: payment.amountKobo, currency: "NGN" } }) });
+    const pending = await callbackService.verifyEventTicketPayment(user.id, reference);
+    assert.equal(pending.status, PaymentStatus.PENDING);
+    assert.equal((await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } })).status, TicketStatus.RESERVED);
+    await assert.rejects(reconcile.handle(reconcileJob), { code: "PAYMENT_STILL_PENDING" });
+    await prisma.payment.update({ where: { id: payment.id }, data: { createdAt: new Date(Date.now() - 120000) } });
+    await queue.scanPayments(); await queue.scanPayments();
+    assert.equal(await prisma.backgroundJob.count({ where: { key: reconcileJob.key } }), 1);
+    mockSuccessfulPaystack(new Map([[reference, payment.amountKobo]]));
     const results = await Promise.all([
       callbackService.verifyEventTicketPayment(user.id, reference),
       webhookService.handlePaystackWebhook(signature, rawBody, JSON.parse(rawBody.toString("utf8"))),
+      reconcile.handle(reconcileJob),
     ]);
     const [storedPayment, storedTicket, storedTicketType] = await Promise.all([
       prisma.payment.findUniqueOrThrow({ where: { id: payment.id } }),
@@ -183,6 +198,10 @@ test("callback and webhook cannot activate an event payment twice", { skip: !con
     assert.equal(storedPayment.status, PaymentStatus.SUCCESS);
     assert.equal(storedTicket.status, TicketStatus.PAID);
     assert.equal(storedTicketType.soldCount, 1);
+    assert.equal(await prisma.backgroundJob.count({ where: { key: `ticket-email:payment:${payment.id}` } }), 1);
+    // A verification begun before settlement may finish with a stale failure.
+    assert.equal(await callbackService.recordNonSuccessPayment(reference, { status: "failed" }, undefined, [ticket.id]), PaymentStatus.SUCCESS);
+    assert.equal((await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } })).status, TicketStatus.PAID);
   } finally {
     await prisma.event.delete({ where: { id: event.id } });
     await prisma.user.delete({ where: { id: user.id } });

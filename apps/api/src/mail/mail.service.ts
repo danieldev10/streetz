@@ -5,6 +5,7 @@ import type { Attachment } from "nodemailer/lib/mailer";
 import { formatTicketDate, renderTicketPdf, TicketDocument } from "../tickets/ticket-pdf";
 
 type PasswordResetEmailInput = {
+  messageId?: string;
   to: string;
   resetUrl: string;
   expiresInMinutes: number;
@@ -12,6 +13,7 @@ type PasswordResetEmailInput = {
 };
 
 type GuestTicketVerificationEmailInput = {
+  messageId?: string;
   to: string;
   displayName: string;
   eventTitle: string;
@@ -31,6 +33,7 @@ type GuestTicketConfirmationEmailInput = {
 };
 
 type SupportRequestReceivedEmailInput = {
+  messageId?: string;
   to: string;
   displayName: string;
   reference: string;
@@ -39,6 +42,7 @@ type SupportRequestReceivedEmailInput = {
 };
 
 type SupportReplyEmailInput = {
+  messageId?: string;
   to: string;
   displayName: string;
   reference: string;
@@ -92,6 +96,7 @@ export class MailService {
 
     await transporter.sendMail({
       from,
+      messageId: input.messageId,
       to: input.to,
       subject,
       text,
@@ -122,7 +127,7 @@ export class MailService {
       </div>
     `;
 
-    return this.sendEmail({ to: input.to, subject, text, html }, "guest ticket verification");
+    return this.sendEmail({ to: input.to, messageId: input.messageId, subject, text, html }, "guest ticket verification");
   }
 
   async sendGuestTicketConfirmationEmail(input: GuestTicketConfirmationEmailInput) {
@@ -132,7 +137,7 @@ export class MailService {
     });
   }
 
-  async sendTicketConfirmationEmail(input: TicketDocument & { to: string; manageUrl?: string }) {
+  async sendTicketConfirmationEmail(input: TicketDocument & { to: string; manageUrl?: string; messageId?: string }) {
     const formattedDate = formatTicketDate(input.startsAt);
     const subject = `Your tickets for ${input.eventTitle}`;
     const text = [
@@ -158,7 +163,7 @@ export class MailService {
       </div>
     `;
     const pdf = await renderTicketPdf(input);
-    return this.sendEmail({ to: input.to, subject, text, html,
+    return this.sendEmail({ to: input.to, messageId: input.messageId, subject, text, html,
       attachments: [{ filename: "crushclub-tickets.pdf", content: pdf, contentType: "application/pdf" }]
     }, "ticket confirmation");
   }
@@ -187,7 +192,7 @@ export class MailService {
       </div>
     `;
 
-    return this.sendEmail({ to: input.to, subject, text, html }, "support request confirmation");
+    return this.sendEmail({ to: input.to, messageId: input.messageId, subject, text, html }, "support request confirmation");
   }
 
   async sendSupportReplyEmail(input: SupportReplyEmailInput) {
@@ -214,11 +219,11 @@ export class MailService {
       </div>
     `;
 
-    return this.sendEmail({ to: input.to, subject, text, html }, "support reply");
+    return this.sendEmail({ to: input.to, messageId: input.messageId, subject, text, html }, "support reply");
   }
 
   private async sendEmail(
-    input: { to: string; subject: string; text: string; html: string; attachments?: Attachment[] },
+    input: { to: string; messageId?: string; subject: string; text: string; html: string; attachments?: Attachment[] },
     description: string
   ) {
     const from = this.config.get<string>("SMTP_FROM");

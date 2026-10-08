@@ -58,3 +58,10 @@ test("database pool settings fail fast when they are unsafe or malformed", () =>
     /DB_POOL_MAX.*DB_STATEMENT_TIMEOUT_MS/
   );
 });
+
+test("worker settings cannot disable lease safety or allow unbounded concurrency", () => {
+  assert.throws(() => validateEnvironment(productionEnvironment({ WORKER_CONCURRENCY: "100", WORKER_LEASE_MS: "1000", WORKER_ENABLED: "maybe" })),
+    /WORKER_CONCURRENCY.*WORKER_LEASE_MS.*WORKER_ENABLED/);
+  assert.throws(() => validateEnvironment(productionEnvironment({ JOBS_ENCRYPTION_KEY: "plain-text" })), /JOBS_ENCRYPTION_KEY/);
+  assert.doesNotThrow(() => validateEnvironment(productionEnvironment({ JOBS_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString("base64") })));
+});

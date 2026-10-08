@@ -1,10 +1,10 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt/dist";
-import { AccountStatus, User } from "@prisma/client";
+import { AccountStatus, BackgroundJobType, User } from "@prisma/client";
 import { compare, hash } from "bcryptjs";
 import { createHmac, randomBytes } from "crypto";
-import { MailService } from "../mail/mail.service";
+import { MailQueueService } from "../mail/mail-queue.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { getAccountAccessBlock } from "../users/account-status";
 import { UsersService } from "../users/users.service";
@@ -22,12 +22,10 @@ const PASSWORD_RESET_RESPONSE_MESSAGE = "If an account exists for that email, a 
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly usersService: UsersService,
     private readonly prisma: PrismaService,
-    private readonly mailService: MailService,
+    private readonly mailService: MailQueueService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService
   ) { }
@@ -75,22 +73,19 @@ export class AuthService {
         }
       });
 
-      await transaction.passwordResetToken.create({
+      const token = await transaction.passwordResetToken.create({
         data: {
           userId: user.id,
           tokenHash: this.hashPasswordResetToken(resetToken),
           expiresAt
         }
       });
+      await this.mailService.queue(transaction, `password-reset:${token.id}`, BackgroundJobType.PASSWORD_RESET_EMAIL,
+        { to: email, resetUrl: this.buildPasswordResetUrl(resetToken), expiresInMinutes: PASSWORD_RESET_TOKEN_MINUTES,
+          displayName: user.displayName }, token.id, expiresAt);
     });
 
     const resetUrl = this.buildPasswordResetUrl(resetToken);
-    await this.sendPasswordResetEmail(user, email, resetUrl);
-
-    if (process.env.NODE_ENV !== "production") {
-      this.logger.warn(`Password reset link for ${email}: ${resetUrl}`);
-    }
-
     return {
       message: PASSWORD_RESET_RESPONSE_MESSAGE,
       ...(process.env.NODE_ENV !== "production" ? { resetUrl } : {})
@@ -348,21 +343,6 @@ export class AuthService {
     const appUrl = this.config.get<string>("WEB_APP_URL") ?? "http://localhost:3000";
 
     return `${appUrl.replace(/\/+$/, "")}/reset-password?token=${encodeURIComponent(resetToken)}`;
-  }
-
-  private async sendPasswordResetEmail(user: User, email: string, resetUrl: string) {
-    try {
-      await this.mailService.sendPasswordResetEmail({
-        to: email,
-        resetUrl,
-        expiresInMinutes: PASSWORD_RESET_TOKEN_MINUTES,
-        displayName: user.displayName
-      });
-    } catch (error) {
-      this.logger.error(
-        `Password reset email failed for user ${user.id}: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
   }
 
   private getRefreshTokenExpiresAt() {
