@@ -145,10 +145,9 @@ export class ProfilesService {
       minAge: preference?.minAge ?? 18,
       maxAge: preference?.maxAge ?? 100,
       confirmedAt: preference?.confirmedAt ?? null,
-      needsConfirmation:
-        !suggestedDiscoveryGender ||
-        !preference?.confirmedAt ||
-        preference.interestedInGenders.length === 0
+      // Compatibility response for cached clients. Social discovery no longer
+      // requires or applies the legacy age/gender preferences.
+      needsConfirmation: false
     };
   }
 
@@ -223,6 +222,7 @@ export class ProfilesService {
           bio: this.cleanNullableText(dto.bio),
           birthDate,
           gender: dto.gender,
+          showGender: dto.showGender,
           sexuality: dto.sexuality,
           connectionStatus: dto.connectionStatus,
           city: this.cleanNullableText(dto.city),
@@ -236,6 +236,7 @@ export class ProfilesService {
           bio: dto.bio === undefined ? undefined : this.cleanNullableText(dto.bio),
           birthDate,
           gender: dto.gender,
+          showGender: dto.showGender,
           sexuality: dto.sexuality,
           connectionStatus: dto.connectionStatus,
           city: dto.city === undefined ? undefined : this.cleanNullableText(dto.city),

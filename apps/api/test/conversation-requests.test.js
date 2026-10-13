@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const { AccountStatus, ConnectionStatus, DiscoveryGender, MatchStatus, SubscriptionStatus, UserRole } = require("@prisma/client");
+const { AccountStatus, ConnectionStatus, MatchStatus, SubscriptionStatus, UserRole } = require("@prisma/client");
 const { MessagesService } = require("../dist/src/messages/messages.service.js");
 
 function participant(id, connectionStatus) {
@@ -18,7 +18,7 @@ function participant(id, connectionStatus) {
       bio: "Complete profile",
       birthDate: new Date("1998-01-01"),
       gender: null,
-      discoveryGender: DiscoveryGender.WOMAN,
+      discoveryGender: null,
       showGender: true,
       sexuality: null,
       connectionStatus,
@@ -32,17 +32,12 @@ function participant(id, connectionStatus) {
       interests: ["Music"],
       discoveryLive: true,
     },
-    discoveryPreference: {
-      interestedInGenders: [DiscoveryGender.WOMAN],
-      minAge: 18,
-      maxAge: 40,
-      confirmedAt: new Date(),
-    },
+    discoveryPreference: null,
     photos: [{ id: `photo-${id}`, url: `https://example.com/${id}.jpg`, sortOrder: 0 }],
   };
 }
 
-test("a message request creates one pending conversation and one introduction", async () => {
+test("social message requests work without dating preferences and send only one introduction", async () => {
   const users = {
     a: participant("a", ConnectionStatus.CHILL),
     b: participant("b", ConnectionStatus.PARTY),

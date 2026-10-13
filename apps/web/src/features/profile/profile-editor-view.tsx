@@ -85,7 +85,7 @@ export function ProfileEditorView({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-lg font-semibold">Profile details</p>
-            <p className="mt-1 text-sm text-ink-600">Used for discovery and matches</p>
+            <p className="mt-1 text-sm text-ink-600">Help people get to know you</p>
           </div>
         </div>
 
@@ -132,7 +132,7 @@ export function ProfileEditorView({
                 required={isSetupMode}
               />
             </Field>
-            <Field label="Gender">
+            <Field label="Gender (optional)">
               <select
                 className={inputClassName}
                 value={form.gender}
@@ -145,7 +145,16 @@ export function ProfileEditorView({
               </select>
             </Field>
           </div>
-          <Field label="Sexuality">
+          <label className="flex items-center gap-2 text-sm text-ink-600">
+            <input
+              type="checkbox"
+              className="size-4 accent-brand"
+              checked={form.showGender}
+              onChange={(event) => onChangeForm({ showGender: event.target.checked })}
+            />
+            Show gender on my profile
+          </label>
+          <Field label="Sexuality (optional)">
             <select
               className={inputClassName}
               value={form.sexuality}

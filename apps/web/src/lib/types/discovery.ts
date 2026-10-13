@@ -1,21 +1,10 @@
 import type { AccountStatus } from "./account";
 import type {
   ConnectionStatus,
-  DiscoveryGender,
   Gender,
   ProfilePhoto,
   Sexuality,
 } from "./profile";
-
-export type DiscoveryPreference = {
-  discoveryGender: DiscoveryGender | null;
-  showGender: boolean;
-  interestedInGenders: DiscoveryGender[];
-  minAge: number;
-  maxAge: number;
-  confirmedAt: string | null;
-  needsConfirmation: boolean;
-};
 
 export type DiscoveryCandidate = {
   id: string;

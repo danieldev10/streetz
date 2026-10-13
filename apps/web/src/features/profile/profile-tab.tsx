@@ -6,7 +6,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { MediaDetailSkeleton } from "@/components/skeletons";
 import { useSession } from "@/components/app/session-provider";
-import { DiscoveryPreferencesForm } from "@/features/discovery/discovery-preferences-form";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
@@ -69,7 +68,6 @@ export function ProfileTab({
   const [isSubmittingAccountAction, setIsSubmittingAccountAction] = useState(false);
   const [isDeactivateConfirmOpen, setIsDeactivateConfirmOpen] = useState(false);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
-  const [isDiscoveryPreferenceOpen, setIsDiscoveryPreferenceOpen] = useState(false);
   const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
   const [interestQuery, setInterestQuery] = useState("");
   const [profileForm, setProfileForm] = useState(() => createProfileForm(profile, user));
@@ -287,6 +285,7 @@ export function ProfileTab({
           bio: profileForm.bio,
           birthDate: profileForm.birthDate || undefined,
           gender: profileForm.gender,
+          showGender: profileForm.showGender,
           sexuality: profileForm.sexuality || undefined,
           connectionStatus: profileForm.connectionStatus || undefined,
           city: profileForm.city,
@@ -627,20 +626,8 @@ export function ProfileTab({
                   onEdit={() => setProfileView("edit")}
                   onOpenDeactivate={() => setIsDeactivateConfirmOpen(true)}
                   onOpenDeleteAccount={() => setIsDeleteAccountOpen(true)}
-                  onOpenDiscoveryPreferences={() => setIsDiscoveryPreferenceOpen(true)}
                   onPreview={() => setProfileView("preview")}
                 />
-
-                {isDiscoveryPreferenceOpen ? (
-                  <DiscoveryPreferencesForm
-                    token={token}
-                    onClose={() => setIsDiscoveryPreferenceOpen(false)}
-                    onSaved={() => {
-                      setIsDiscoveryPreferenceOpen(false);
-                      setNotice("Discovery preferences saved.");
-                    }}
-                  />
-                ) : null}
               </>
             )}
           </div>

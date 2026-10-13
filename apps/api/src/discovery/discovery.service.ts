@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { AccountStatus, ConnectionStatus, DiscoveryAction, DiscoveryGender, FaceVerificationStatus, Gender, MatchStatus, Prisma, ReportStatus, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
-import { calculateAge } from "../common/age";
+import { AccountStatus, ConnectionStatus, DiscoveryAction, FaceVerificationStatus, Gender, MatchStatus, Prisma, ReportStatus, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
+import { calculateAge, getAdultBirthDateCutoff } from "../common/age";
 import { countCheckedInStandardEvents, getCheckedInStandardEventCounts } from "../common/attendance";
 import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
@@ -11,21 +11,16 @@ import { BlockUserDto } from "./dto/block-user.dto";
 import { DiscoveryActionDto } from "./dto/discovery-action.dto";
 import { ReportUserDto } from "./dto/report-user.dto";
 import { UnblockUserDto } from "./dto/unblock-user.dto";
-import { areDiscoveryProfilesCompatible } from "./discovery-compatibility";
-import { selectDiscoveryDeck, seededUnitInterval, type DiscoveryRankedCandidate } from "./discovery-ranking";
+import { scoreSocialDiscoveryCandidate, selectDiscoveryDeck, socialDiscoveryScoreSql, type DiscoveryRankedCandidate } from "./discovery-ranking";
 
 const DISCOVERY_DECK_SIZE = 12;
 const DISCOVERY_POOL_SIZE = 100;
-const DISCOVERY_ALGORITHM = "mutual-v1";
+const DISCOVERY_ALGORITHM = "social-v1";
 const DISCOVERY_PEOPLE_PAGE_SIZE = 20;
 const PUBLIC_DISCOVERY_PREVIEW_SIZE = 12;
 
 type ReadyDiscoveryProfile = {
   birthDate: Date;
-  discoveryGender: DiscoveryGender;
-  interestedInGenders: DiscoveryGender[];
-  minAge: number;
-  maxAge: number;
   interests: string[];
   connectionStatus: ConnectionStatus;
   city: string | null;
@@ -53,34 +48,11 @@ export class DiscoveryService {
 
   async getPublicPreview() {
     const now = new Date();
-    const adultBirthDate = new Date(now.getFullYear() - 18, now.getMonth(), now.getDate(), 23, 59, 59, 999);
     // This endpoint has no pagination or viewer preferences. Keep the database
     // read bounded and project public fields explicitly instead of formatting
     // a full member profile (which includes private details and original URLs).
     const candidates = await this.prisma.user.findMany({
-      where: {
-        accountStatus: AccountStatus.ACTIVE,
-        role: UserRole.USER,
-        subscriptionStatus: SubscriptionStatus.ACTIVE,
-        subscriptionEndsAt: { gt: now },
-        ...(this.verification.isRequired() ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
-        discoveryPreference: {
-          is: { confirmedAt: { not: null }, interestedInGenders: { isEmpty: false } }
-        },
-        profile: {
-          is: {
-            discoveryLive: true,
-            bio: { not: null, notIn: [""] },
-            city: { not: null, notIn: [""] },
-            state: { not: null, notIn: [""] },
-            birthDate: { lte: adultBirthDate },
-            discoveryGender: { not: null },
-            connectionStatus: { not: null },
-            interests: { isEmpty: false }
-          }
-        },
-        photos: { some: {} }
-      },
+      where: this.getDiscoverableUserWhere(now),
       select: {
         id: true,
         displayName: true,
@@ -125,96 +97,69 @@ export class DiscoveryService {
     const currentProfile = await this.ensureCurrentProfileReady(userId);
     const now = new Date();
     await this.prisma.user.update({ where: { id: userId }, data: { lastDiscoveryActiveAt: now } });
-    const [blocks, closedConnections] = await Promise.all([
-      this.prisma.userBlock.findMany({
-        where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
-        select: { blockerId: true, blockedId: true }
-      }),
-      this.prisma.match.findMany({
-        where: {
-          status: { in: [MatchStatus.CLOSED, MatchStatus.DECLINED, MatchStatus.UNMATCHED, MatchStatus.BLOCKED] },
-          OR: [{ userAId: userId }, { userBId: userId }]
-        },
-        select: { userAId: true, userBId: true }
-      })
-    ]);
-    const excludedIds = new Set<string>([userId]);
-
-    for (const block of blocks) {
-      excludedIds.add(block.blockerId === userId ? block.blockedId : block.blockerId);
-    }
-
-    for (const connection of closedConnections) {
-      excludedIds.add(connection.userAId === userId ? connection.userBId : connection.userAId);
-    }
-
-    const candidateInclude = {
-      profile: true,
-      discoveryPreference: true,
-      photos: {
-        orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
-        take: 1
-      }
-    };
-    const viewerAge = calculateAge(currentProfile.birthDate);
-    const candidates = await this.prisma.user.findMany({
-      where: {
-        id: { notIn: Array.from(excludedIds) },
-        accountStatus: AccountStatus.ACTIVE,
-        ...(this.verification.isRequired() ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
-        role: UserRole.USER,
-        subscriptionStatus: SubscriptionStatus.ACTIVE,
-        subscriptionEndsAt: { gt: now },
-        discoveryPreference: {
-          is: {
-            confirmedAt: { not: null },
-            interestedInGenders: { has: currentProfile.discoveryGender },
-            minAge: { lte: viewerAge },
-            maxAge: { gte: viewerAge }
-          }
-        },
-        profile: {
-          is: {
-            bio: { not: null },
-            birthDate: this.getBirthDateWhere(currentProfile.minAge, currentProfile.maxAge, now),
-            discoveryGender: { in: currentProfile.interestedInGenders },
-            connectionStatus: { not: null },
-            state: currentProfile.state === null ? null : { equals: currentProfile.state, mode: "insensitive" },
-            discoveryLive: true,
-            interests: { isEmpty: false }
-          }
-        },
-        photos: { some: {} }
-      },
-      include: candidateInclude,
-      orderBy: [{ lastDiscoveryActiveAt: "desc" }, { id: "asc" }],
-      take: DISCOVERY_POOL_SIZE
-    });
-    const rankedCandidates: Array<DiscoveryRankedCandidate<Prisma.UserGetPayload<{ include: typeof candidateInclude }>>> = this.rankCandidates(
-      candidates.map((candidate) => ({ candidate, distanceKm: null })),
-      currentProfile,
-      now,
-      userId
-    );
-
-    const cursorIndex = cursor ? rankedCandidates.findIndex(({ candidate }) => candidate.id === cursor) : -1;
-    if (cursor && cursorIndex < 0) {
+    // Score the whole eligible pool in PostgreSQL; hydrate only this page.
+    // The sentinel row also validates a cursor when its page is empty.
+    const pageRows = await this.prisma.$queryRaw<Array<{ id: string | null; cursorValid: boolean }>>(Prisma.sql`
+      WITH ranked AS MATERIALIZED (
+        SELECT candidate."id", ${socialDiscoveryScoreSql(currentProfile, userId, now)} AS score
+        FROM "User" AS candidate
+        JOIN "Profile" AS candidate_profile ON candidate_profile."userId" = candidate."id"
+        WHERE ${this.getDiscoverableUserSql(now)}
+          AND candidate."id" <> ${userId}
+          AND lower(btrim(candidate_profile."state")) = lower(btrim(${currentProfile.state}))
+          AND NOT EXISTS (
+            SELECT 1 FROM "UserBlock" AS block
+            WHERE (block."blockerId" = ${userId} AND block."blockedId" = candidate."id")
+              OR (block."blockedId" = ${userId} AND block."blockerId" = candidate."id")
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM "Match" AS connection
+            WHERE connection."status" IN ('CLOSED', 'DECLINED', 'UNMATCHED', 'BLOCKED')
+              AND ((connection."userAId" = ${userId} AND connection."userBId" = candidate."id")
+                OR (connection."userBId" = ${userId} AND connection."userAId" = candidate."id"))
+          )
+      ), cursor_position AS (
+        SELECT id, score FROM ranked WHERE id = ${cursor ?? null}
+      )
+      SELECT page.id, (${cursor ?? null}::text IS NULL OR EXISTS (SELECT 1 FROM cursor_position)) AS "cursorValid"
+      FROM (SELECT 1) AS sentinel
+      LEFT JOIN LATERAL (
+        SELECT id, score FROM ranked
+        WHERE ${cursor ?? null}::text IS NULL OR EXISTS (
+          SELECT 1 FROM cursor_position
+          WHERE ranked.score < cursor_position.score
+            OR (ranked.score = cursor_position.score AND ranked.id > cursor_position.id)
+        )
+        ORDER BY score DESC, id ASC
+        LIMIT ${DISCOVERY_PEOPLE_PAGE_SIZE + 1}
+      ) AS page ON TRUE
+      ORDER BY page.score DESC, page.id ASC
+    `);
+    if (!pageRows[0].cursorValid) {
       throw new BadRequestException("Discovery cursor is no longer valid. Start a new search.");
     }
-    const pageStart = cursorIndex + 1;
-    const page = rankedCandidates.slice(pageStart, pageStart + DISCOVERY_PEOPLE_PAGE_SIZE);
-    const hasMore = pageStart + page.length < rankedCandidates.length;
-    const attendanceByUserId = await getCheckedInStandardEventCounts(
-      this.prisma,
-      page.map(({ candidate }) => candidate.id)
-    );
+    const ids = pageRows.flatMap((row) => row.id ? [row.id] : []);
+    const pageIds = ids.slice(0, DISCOVERY_PEOPLE_PAGE_SIZE);
+    const candidates = await this.prisma.user.findMany({
+      where: { ...this.getDiscoverableUserWhere(now, currentProfile.state), id: { in: pageIds } },
+      include: {
+        profile: true,
+        photos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1 }
+      }
+    });
+    const candidatesById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+    const page = pageIds.flatMap((id) => {
+      const candidate = candidatesById.get(id);
+      return candidate ? [candidate] : [];
+    });
+    const attendanceByUserId = await getCheckedInStandardEventCounts(this.prisma, pageIds);
 
     return {
-      people: await Promise.all(page.map(({ candidate, distanceKm }) => this.formatCandidate(candidate, {
-        distanceKm,
+      people: await Promise.all(page.map((candidate) => this.formatCandidate(candidate, {
+        distanceKm: null,
         attendedEventCount: attendanceByUserId.get(candidate.id) ?? 0
       }))),
-      nextCursor: hasMore ? page.at(-1)?.candidate.id ?? null : null,
+      nextCursor: ids.length > DISCOVERY_PEOPLE_PAGE_SIZE ? pageIds.at(-1) ?? null : null,
       location: this.formatLocationMeta(currentProfile)
     };
   }
@@ -225,26 +170,9 @@ export class DiscoveryService {
     const now = new Date();
     const [target, block, closedConnection] = await Promise.all([
       this.prisma.user.findFirst({
-        where: {
-          id: targetUserId,
-          accountStatus: AccountStatus.ACTIVE,
-          role: UserRole.USER,
-          subscriptionStatus: SubscriptionStatus.ACTIVE,
-          subscriptionEndsAt: { gt: now },
-          ...(this.verification.isRequired() ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
-          profile: {
-            is: {
-              bio: { not: null },
-              city: { not: null },
-              state: { not: null },
-              interests: { isEmpty: false }
-            }
-          },
-          photos: { some: {} }
-        },
+        where: { ...this.getDiscoverableUserWhere(now, currentProfile.state), id: targetUserId },
         include: {
           profile: true,
-          discoveryPreference: true,
           photos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], take: 1 }
         }
       }),
@@ -270,22 +198,7 @@ export class DiscoveryService {
     ]);
 
     if (
-      !target ||
-      block ||
-      closedConnection ||
-      !target.profile?.birthDate ||
-      !target.profile.discoveryGender ||
-      !target.profile.connectionStatus ||
-      !target.profile.discoveryLive ||
-      !target.discoveryPreference?.confirmedAt ||
-      target.discoveryPreference.interestedInGenders.length === 0 ||
-      !areDiscoveryProfilesCompatible(currentProfile, {
-        birthDate: target.profile.birthDate,
-        discoveryGender: target.profile.discoveryGender,
-        interestedInGenders: target.discoveryPreference.interestedInGenders,
-        minAge: target.discoveryPreference.minAge,
-        maxAge: target.discoveryPreference.maxAge
-      }, now)
+      !target?.profile || block || closedConnection || !isProfileSetupComplete(target)
     ) {
       throw new NotFoundException("Discovery profile not found.");
     }
@@ -304,7 +217,6 @@ export class DiscoveryService {
 
     const now = new Date();
     await this.prisma.user.update({ where: { id: userId }, data: { lastDiscoveryActiveAt: now } });
-    const requiresFaceVerification = this.verification.isRequired();
     const [actions, blocks, matches] = await Promise.all([
       this.prisma.discoveryActionLog.findMany({
         where: { actorId: userId },
@@ -321,7 +233,7 @@ export class DiscoveryService {
       }),
       this.prisma.match.findMany({
         where: {
-          status: MatchStatus.ACTIVE,
+          status: { in: [MatchStatus.ACTIVE, MatchStatus.CLOSED, MatchStatus.DECLINED, MatchStatus.UNMATCHED, MatchStatus.BLOCKED] },
           OR: [{ userAId: userId }, { userBId: userId }]
         },
         select: {
@@ -347,7 +259,6 @@ export class DiscoveryService {
 
     const candidateInclude = {
       profile: true,
-      discoveryPreference: true,
       photos: {
         orderBy: [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }],
         take: 1
@@ -380,38 +291,8 @@ export class DiscoveryService {
         userId
       );
     } else {
-      const viewerAge = calculateAge(currentProfile.birthDate);
-      const candidateBirthDateWhere = this.getBirthDateWhere(currentProfile.minAge, currentProfile.maxAge, now);
       const candidates = await this.prisma.user.findMany({
-        where: {
-          id: { notIn: Array.from(excludedIds) },
-          accountStatus: AccountStatus.ACTIVE,
-          ...(requiresFaceVerification ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
-          role: UserRole.USER,
-          subscriptionStatus: SubscriptionStatus.ACTIVE,
-          subscriptionEndsAt: { gt: now },
-          discoveryPreference: {
-            is: {
-              confirmedAt: { not: null },
-              interestedInGenders: { has: currentProfile.discoveryGender },
-              minAge: { lte: viewerAge },
-              maxAge: { gte: viewerAge }
-            }
-          },
-          profile: {
-            is: {
-              bio: { not: null },
-              birthDate: candidateBirthDateWhere,
-              discoveryGender: { in: currentProfile.interestedInGenders },
-              city: { not: null },
-              state: { not: null },
-              connectionStatus: { not: null },
-              discoveryLive: true,
-              interests: { isEmpty: false }
-            }
-          },
-          photos: { some: {} }
-        },
+        where: { ...this.getDiscoverableUserWhere(now, currentProfile.state), id: { notIn: Array.from(excludedIds) } },
         include: candidateInclude,
         orderBy: { lastDiscoveryActiveAt: "desc" },
         take: DISCOVERY_POOL_SIZE
@@ -771,59 +652,11 @@ export class DiscoveryService {
     this.ensureDifferentUsers(userId, targetUserId);
 
     const target = await this.prisma.user.findFirst({
-      where: {
-        id: targetUserId,
-        accountStatus: AccountStatus.ACTIVE,
-        ...(this.verification.isRequired() ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
-        role: UserRole.USER,
-        subscriptionStatus: SubscriptionStatus.ACTIVE,
-        subscriptionEndsAt: { gt: new Date() },
-        profile: {
-          is: {
-            bio: { not: null },
-            birthDate: { not: null },
-            city: { not: null },
-            state: { not: null },
-            connectionStatus: { not: null },
-            discoveryGender: { in: currentProfile.interestedInGenders },
-            discoveryLive: true,
-            interests: { isEmpty: false }
-          }
-        },
-        photos: { some: {} }
-      },
-      select: {
-        id: true,
-        discoveryPreference: true,
-        profile: {
-          select: {
-            birthDate: true,
-            discoveryGender: true,
-            connectionStatus: true
-          }
-        }
-      }
+      where: { ...this.getDiscoverableUserWhere(new Date(), currentProfile.state), id: targetUserId },
+      include: { profile: true, photos: { select: { id: true }, take: 1 } }
     });
 
-    if (
-      !target?.profile?.connectionStatus ||
-      !target.profile.birthDate ||
-      !target.profile.discoveryGender ||
-      !target.discoveryPreference?.confirmedAt ||
-      !target.discoveryPreference.interestedInGenders.includes(currentProfile.discoveryGender)
-    ) {
-      throw new NotFoundException("Discovery profile not found.");
-    }
-
-    const compatible = areDiscoveryProfilesCompatible(currentProfile, {
-      birthDate: target.profile.birthDate,
-      discoveryGender: target.profile.discoveryGender,
-      interestedInGenders: target.discoveryPreference.interestedInGenders,
-      minAge: target.discoveryPreference.minAge,
-      maxAge: target.discoveryPreference.maxAge
-    });
-
-    if (!compatible) {
+    if (!target?.profile?.connectionStatus || !isProfileSetupComplete(target)) {
       throw new NotFoundException("Discovery profile not found.");
     }
 
@@ -841,6 +674,21 @@ export class DiscoveryService {
       throw new ForbiddenException("This profile is no longer available.");
     }
 
+    const closedConnection = await this.prisma.match.findFirst({
+      where: {
+        status: { in: [MatchStatus.CLOSED, MatchStatus.DECLINED, MatchStatus.UNMATCHED, MatchStatus.BLOCKED] },
+        OR: [
+          { userAId: userId, userBId: targetUserId },
+          { userAId: targetUserId, userBId: userId }
+        ]
+      },
+      select: { id: true }
+    });
+
+    if (closedConnection) {
+      throw new ForbiddenException("A previous conversation with this member is closed.");
+    }
+
     return target.profile.connectionStatus;
   }
 
@@ -848,6 +696,9 @@ export class DiscoveryService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
+        role: true,
+        subscriptionStatus: true,
+        subscriptionEndsAt: true,
         accountStatus: true,
         suspendedUntil: true,
         faceVerificationStatus: true,
@@ -855,7 +706,6 @@ export class DiscoveryService {
           select: {
             bio: true,
             birthDate: true,
-            discoveryGender: true,
             connectionStatus: true,
             discoveryLive: true,
             city: true,
@@ -867,7 +717,6 @@ export class DiscoveryService {
             interests: true
           }
         },
-        discoveryPreference: true,
         photos: {
           select: { id: true },
           take: 1
@@ -882,6 +731,11 @@ export class DiscoveryService {
         throw new ForbiddenException(accountBlock);
       }
 
+      if (user.role !== UserRole.USER || user.subscriptionStatus !== SubscriptionStatus.ACTIVE ||
+        !user.subscriptionEndsAt || user.subscriptionEndsAt <= new Date()) {
+        throw new ForbiddenException("Active crushclub membership required.");
+      }
+
       if (this.verification.isRequired() && user.faceVerificationStatus !== FaceVerificationStatus.VERIFIED) {
         throw new ForbiddenException("Verify your face before using discovery.");
       }
@@ -894,16 +748,12 @@ export class DiscoveryService {
       photos: user?.photos ?? []
     });
 
-    const preference = user?.discoveryPreference;
-
     if (
       !profile ||
       !isReady ||
       !connectionStatus ||
       !profile.birthDate ||
-      !profile.discoveryGender ||
-      !preference?.confirmedAt ||
-      preference.interestedInGenders.length === 0
+      calculateAge(profile.birthDate) < 18
     ) {
       throw new ForbiddenException("Complete your profile setup before using discovery.");
     }
@@ -914,10 +764,6 @@ export class DiscoveryService {
 
     return {
       birthDate: profile.birthDate,
-      discoveryGender: profile.discoveryGender,
-      interestedInGenders: preference.interestedInGenders,
-      minAge: preference.minAge,
-      maxAge: preference.maxAge,
       interests: profile.interests,
       connectionStatus,
       city: profile.city,
@@ -985,9 +831,6 @@ export class DiscoveryService {
     const hasDistanceLimit = profile.maxDistanceKm > 0;
     const maxDistanceMeters = profile.maxDistanceKm * 1000;
     const excludedIdList = Array.from(excludedIds);
-    const viewerAge = calculateAge(profile.birthDate);
-    const minBirthDate = new Date(now.getFullYear() - (profile.maxAge + 1), now.getMonth(), now.getDate());
-    const maxBirthDate = new Date(now.getFullYear() - profile.minAge, now.getMonth(), now.getDate());
 
     return this.prisma.$transaction(async (transaction) => {
       // Supabase installs PostGIS in "extensions"; local databases may use "public".
@@ -1002,16 +845,7 @@ export class DiscoveryService {
             ST_Distance(candidate_profile."location", origin.geog) AS distance_meters
           FROM origin
           JOIN "Profile" AS candidate_profile ON TRUE
-          WHERE candidate_profile."bio" IS NOT NULL
-            AND candidate_profile."birthDate" IS NOT NULL
-            AND candidate_profile."birthDate" > ${minBirthDate}
-            AND candidate_profile."birthDate" <= ${maxBirthDate}
-            AND candidate_profile."discoveryGender" = ANY(ARRAY[${Prisma.join(profile.interestedInGenders)}]::"DiscoveryGender"[])
-            AND candidate_profile."city" IS NOT NULL
-            AND candidate_profile."state" IS NOT NULL
-            AND candidate_profile."connectionStatus" IS NOT NULL
-            AND candidate_profile."discoveryLive" = TRUE
-            AND cardinality(candidate_profile."interests") > 0
+          WHERE lower(btrim(candidate_profile."state")) = lower(btrim(${profile.state}))
             AND candidate_profile."location" IS NOT NULL
             ${hasDistanceLimit ? Prisma.sql`AND ST_DWithin(candidate_profile."location", origin.geog, ${maxDistanceMeters})` : Prisma.sql``}
         )
@@ -1020,70 +854,68 @@ export class DiscoveryService {
           (nearby_profiles.distance_meters / 1000.0)::double precision AS "distanceKm"
         FROM nearby_profiles
         JOIN "User" AS candidate ON candidate."id" = nearby_profiles."userId"
-        JOIN "DiscoveryPreference" AS candidate_preference ON candidate_preference."userId" = candidate."id"
+        JOIN "Profile" AS candidate_profile ON candidate_profile."userId" = candidate."id"
         WHERE candidate."id" NOT IN (${Prisma.join(excludedIdList)})
-          AND candidate."accountStatus" = CAST(${AccountStatus.ACTIVE} AS "AccountStatus")
-          ${this.verification.isRequired() ? Prisma.sql`AND candidate."faceVerificationStatus" = CAST(${FaceVerificationStatus.VERIFIED} AS "FaceVerificationStatus")` : Prisma.sql``}
-          AND candidate."role" = CAST(${UserRole.USER} AS "UserRole")
-          AND candidate."subscriptionStatus" = CAST(${SubscriptionStatus.ACTIVE} AS "SubscriptionStatus")
-          AND candidate."subscriptionEndsAt" > ${now}
-          AND candidate_preference."interestedInGenders" @> ARRAY[${profile.discoveryGender}::"DiscoveryGender"]
-          AND candidate_preference."confirmedAt" IS NOT NULL
-          AND candidate_preference."minAge" <= ${viewerAge}
-          AND candidate_preference."maxAge" >= ${viewerAge}
-          AND EXISTS (
-            SELECT 1
-            FROM "ProfilePhoto" AS photo
-            WHERE photo."userId" = candidate."id"
-          )
+          AND ${this.getDiscoverableUserSql(now)}
         ORDER BY nearby_profiles.distance_meters ASC, candidate."lastDiscoveryActiveAt" DESC
         LIMIT ${DISCOVERY_POOL_SIZE}
       `);
     });
   }
 
-  private getBirthDateWhere(minAge: number, maxAge: number, now: Date): Prisma.DateTimeNullableFilter {
-    return {
-      not: null,
-      gt: new Date(now.getFullYear() - (maxAge + 1), now.getMonth(), now.getDate()),
-      lte: new Date(now.getFullYear() - minAge, now.getMonth(), now.getDate())
-    };
-  }
-
   private rankCandidates<T extends {
     id: string;
+    createdAt: Date;
     lastDiscoveryActiveAt: Date;
-    profile: { interests: string[]; bio: string | null } | null;
-    photos: unknown[];
+    profile: { interests: string[]; connectionStatus: ConnectionStatus | null } | null;
   }>(
     rows: Array<{ candidate: T; distanceKm: number | null }>,
     viewer: ReadyDiscoveryProfile,
     now: Date,
     viewerId: string
   ): Array<DiscoveryRankedCandidate<T>> {
-    const maxDistance = viewer.maxDistanceKm > 0 ? viewer.maxDistanceKm : 500;
-    const viewerInterests = new Set(viewer.interests.map((interest) => interest.toLowerCase()));
+    return rows.map(({ candidate, distanceKm }) => ({
+      candidate, distanceKm, score: scoreSocialDiscoveryCandidate(viewer, candidate, viewerId, now)
+    })).sort((first, second) => second.score - first.score || first.candidate.id.localeCompare(second.candidate.id));
+  }
 
-    return rows
-      .map(({ candidate, distanceKm }) => {
-        const distanceScore = distanceKm === null ? 0.5 : Math.max(0, 1 - distanceKm / maxDistance);
-        const ageInDays = Math.max(0, (now.getTime() - candidate.lastDiscoveryActiveAt.getTime()) / 86_400_000);
-        const activityScore = Math.max(0, 1 - ageInDays / 30);
-        const candidateInterests = candidate.profile?.interests ?? [];
-        const sharedInterestCount = candidateInterests.filter((interest) => viewerInterests.has(interest.toLowerCase())).length;
-        const interestScore = Math.min(1, sharedInterestCount / 3);
-        const profileScore = Math.min(1, ((candidate.profile?.bio?.length ?? 0) / 200) * 0.5 + (candidate.photos.length > 0 ? 0.5 : 0));
-        const explorationScore = seededUnitInterval(`${viewerId}:${candidate.id}:${now.toISOString().slice(0, 10)}`);
-        const score =
-          distanceScore * 0.55 +
-          activityScore * 0.1 +
-          interestScore * 0.15 +
-          profileScore * 0.15 +
-          explorationScore * 0.05;
+  private getDiscoverableUserWhere(now: Date, state?: string | null): Prisma.UserWhereInput {
+    return {
+      accountStatus: AccountStatus.ACTIVE,
+      role: UserRole.USER,
+      subscriptionStatus: SubscriptionStatus.ACTIVE,
+      subscriptionEndsAt: { gt: now },
+      ...(this.verification.isRequired() ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
+      profile: { is: {
+        discoveryLive: true,
+        bio: { not: null, notIn: [""] },
+        city: { not: null, notIn: [""] },
+        state: state ? { equals: state.trim(), mode: "insensitive" } : { not: null, notIn: [""] },
+        birthDate: { lte: getAdultBirthDateCutoff(now) },
+        connectionStatus: { not: null },
+        interests: { isEmpty: false }
+      } },
+      photos: { some: {} }
+    };
+  }
 
-        return { candidate, distanceKm, score };
-      })
-      .sort((first, second) => second.score - first.score);
+  // Keep equivalent to getDiscoverableUserWhere for SQL ranking and PostGIS.
+  private getDiscoverableUserSql(now: Date): Prisma.Sql {
+    return Prisma.sql`
+      candidate."accountStatus" = CAST(${AccountStatus.ACTIVE} AS "AccountStatus")
+      AND candidate."role" = CAST(${UserRole.USER} AS "UserRole")
+      AND candidate."subscriptionStatus" = CAST(${SubscriptionStatus.ACTIVE} AS "SubscriptionStatus")
+      AND candidate."subscriptionEndsAt" > ${now}
+      ${this.verification.isRequired() ? Prisma.sql`AND candidate."faceVerificationStatus" = CAST(${FaceVerificationStatus.VERIFIED} AS "FaceVerificationStatus")` : Prisma.empty}
+      AND candidate_profile."discoveryLive" = TRUE
+      AND nullif(btrim(candidate_profile."bio"), '') IS NOT NULL
+      AND nullif(btrim(candidate_profile."city"), '') IS NOT NULL
+      AND nullif(btrim(candidate_profile."state"), '') IS NOT NULL
+      AND candidate_profile."birthDate" <= ${getAdultBirthDateCutoff(now)}
+      AND candidate_profile."connectionStatus" IS NOT NULL
+      AND cardinality(candidate_profile."interests") > 0
+      AND EXISTS (SELECT 1 FROM "ProfilePhoto" AS photo WHERE photo."userId" = candidate."id")
+    `;
   }
 
   private async recordImpressions<T extends { candidate: { id: string }; score: number }>(
