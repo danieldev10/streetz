@@ -3,7 +3,6 @@ import { AccountStatus, ConnectionStatus, FaceVerificationStatus, MatchStatus, P
 import { calculateAge } from "../common/age";
 import { countCheckedInStandardEvents } from "../common/attendance";
 import { isProfileSetupComplete } from "../common/profile-readiness";
-import { areDiscoveryProfilesCompatible } from "../discovery/discovery-compatibility";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { normalizeMessageContent } from "../common/message-content";
@@ -87,7 +86,6 @@ type RequestParticipant = Prisma.UserGetPayload<{
     subscriptionEndsAt: true;
     faceVerificationStatus: true;
     profile: true;
-    discoveryPreference: true;
     photos: { select: { id: true } };
   };
 }>;
@@ -784,7 +782,6 @@ export class MessagesService {
         subscriptionEndsAt: true,
         faceVerificationStatus: true,
         profile: true,
-        discoveryPreference: true,
         photos: { select: { id: true }, take: 1 }
       }
     });
@@ -827,33 +824,17 @@ export class MessagesService {
       !isProfileSetupComplete({ profile: sender.profile, photos: sender.photos }) ||
       !isProfileSetupComplete({ profile: target.profile, photos: target.photos }) ||
       !sender.profile?.birthDate ||
-      !sender.profile.discoveryGender ||
       !sender.profile.connectionStatus ||
-      !sender.discoveryPreference?.confirmedAt ||
-      sender.discoveryPreference.interestedInGenders.length === 0 ||
+      calculateAge(sender.profile.birthDate, now) < 18 ||
       !target.profile?.birthDate ||
-      !target.profile.discoveryGender ||
       !target.profile.connectionStatus ||
-      !target.discoveryPreference?.confirmedAt ||
-      target.discoveryPreference.interestedInGenders.length === 0
+      calculateAge(target.profile.birthDate, now) < 18
     ) {
-      throw new ForbiddenException("Both members need complete discovery profiles before messaging.");
+      throw new ForbiddenException("Both members need complete adult profiles before messaging.");
     }
 
-    if (!areDiscoveryProfilesCompatible({
-      birthDate: sender.profile.birthDate,
-      discoveryGender: sender.profile.discoveryGender,
-      interestedInGenders: sender.discoveryPreference.interestedInGenders,
-      minAge: sender.discoveryPreference.minAge,
-      maxAge: sender.discoveryPreference.maxAge
-    }, {
-      birthDate: target.profile.birthDate,
-      discoveryGender: target.profile.discoveryGender,
-      interestedInGenders: target.discoveryPreference.interestedInGenders,
-      minAge: target.discoveryPreference.minAge,
-      maxAge: target.discoveryPreference.maxAge
-    }, now)) {
-      throw new ForbiddenException("This profile is no longer available in your discovery preferences.");
+    if (!sender.profile.discoveryLive || !target.profile.discoveryLive) {
+      throw new ForbiddenException("Both members must be in the discovery pool before sending a message request.");
     }
 
     if (sender.profile.state?.trim().toLowerCase() !== target.profile.state?.trim().toLowerCase()) {

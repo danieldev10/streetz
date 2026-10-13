@@ -8,3 +8,10 @@ export function calculateAge(birthDate: Date, today = new Date()) {
 
   return age;
 }
+
+export function getAdultBirthDateCutoff(today = new Date()) {
+  const year = today.getFullYear() - 18;
+  const month = today.getMonth();
+  const day = Math.min(today.getDate(), new Date(year, month + 1, 0).getDate());
+  return new Date(year, month, day, 23, 59, 59, 999);
+}

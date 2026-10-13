@@ -37,7 +37,6 @@ export function ProfileOverviewView({
   onEdit,
   onOpenDeactivate,
   onOpenDeleteAccount,
-  onOpenDiscoveryPreferences,
   onPreview,
 }: {
   photo: ProfilePhoto | undefined;
@@ -61,7 +60,6 @@ export function ProfileOverviewView({
   onEdit: () => void;
   onOpenDeactivate: () => void;
   onOpenDeleteAccount: () => void;
-  onOpenDiscoveryPreferences: () => void;
   onPreview: () => void;
 }) {
   const sexualityLabel = formatSexuality(sexuality || null);
@@ -137,10 +135,6 @@ export function ProfileOverviewView({
       </article>
 
       <div className="mt-5 grid gap-3">
-        <ProfileMenuButton onClick={onOpenDiscoveryPreferences}>
-          <Heart className="size-4" aria-hidden="true" />
-          Discovery preferences
-        </ProfileMenuButton>
         {isFaceVerified ? (
           <div className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-brand-tint px-5 text-sm font-medium text-brand-strong">
             <ShieldCheck className="size-4" aria-hidden="true" />

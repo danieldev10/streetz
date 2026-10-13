@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const { selectDiscoveryDeck } = require("../dist/src/discovery/discovery-ranking.js");
+const { scoreSocialDiscoveryCandidate, selectDiscoveryDeck } = require("../dist/src/discovery/discovery-ranking.js");
 
 function rankedCandidates(count) {
   return Array.from({ length: count }, (_unused, index) => ({
@@ -28,4 +28,23 @@ test("deck keeps the top ten and adds two deterministic exploration candidates",
 test("small eligible pools are returned without artificial exclusions", () => {
   const ranked = rankedCandidates(9);
   assert.deepEqual(selectDiscoveryDeck(ranked, "viewer-1:2026-07-18"), ranked);
+});
+
+test("social suggestions reward shared interests, status, activity and new accounts", () => {
+  const now = new Date("2026-10-13T12:00:00Z");
+  const viewer = { interests: ["Music", "Food", "Art"], connectionStatus: "CHILL" };
+  const candidate = {
+    id: "candidate", createdAt: now, lastDiscoveryActiveAt: now,
+    profile: { interests: [" music ", "FOOD", "Art"], connectionStatus: "CHILL" },
+  };
+  const score = (overrides) => scoreSocialDiscoveryCandidate(viewer, { ...candidate, ...overrides }, "viewer", now);
+  const best = score({});
+  assert.equal(best, score({}));
+  assert.ok(best > score({ profile: { ...candidate.profile, interests: ["Opera"] } }));
+  assert.ok(best > score({ profile: { ...candidate.profile, connectionStatus: "PARTY" } }));
+  assert.ok(score({ profile: { ...candidate.profile, connectionStatus: "OPEN_TO_ANYTHING" } }) > score({ profile: { ...candidate.profile, connectionStatus: "PARTY" } }));
+  assert.ok(best > score({ lastDiscoveryActiveAt: new Date("2026-08-01") }));
+  assert.ok(best > score({ createdAt: new Date("2026-08-01") }));
+  assert.equal(best, score({ profile: { ...candidate.profile, interests: ["Music", "Music", "Food", "Art", ""] } }));
+  assert.equal(best, score({ profile: { ...candidate.profile, gender: "MAN", sexuality: "STRAIGHT", birthDate: new Date("1950-01-01") } }));
 });

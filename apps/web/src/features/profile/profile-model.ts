@@ -14,6 +14,7 @@ export type ProfileForm = {
   bio: string;
   birthDate: string;
   gender: Gender;
+  showGender: boolean;
   sexuality: Sexuality | "";
   connectionStatus: ConnectionStatus | "";
   city: string;
@@ -35,6 +36,7 @@ export function createProfileForm(
     bio: profile?.bio ?? "",
     birthDate: profile?.birthDate ? profile.birthDate.slice(0, 10) : "",
     gender: profile?.gender ?? "PREFER_NOT_TO_SAY",
+    showGender: profile?.showGender ?? true,
     sexuality: profile?.sexuality ?? "",
     connectionStatus: profile?.connectionStatus ?? "",
     city: profile?.city ?? "",

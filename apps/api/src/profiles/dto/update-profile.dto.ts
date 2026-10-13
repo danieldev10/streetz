@@ -44,6 +44,11 @@ export class UpdateProfileDto {
   @IsEnum(Gender)
   gender?: Gender;
 
+  @ApiPropertyOptional({ description: "Display gender on your member profile" })
+  @IsOptional()
+  @IsBoolean()
+  showGender?: boolean;
+
   @ApiPropertyOptional({ enum: Sexuality })
   @IsOptional()
   @IsEnum(Sexuality)

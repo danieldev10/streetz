@@ -1,5 +1,4 @@
 export type Gender = "WOMAN" | "MAN" | "NON_BINARY" | "PREFER_NOT_TO_SAY";
-export type DiscoveryGender = Exclude<Gender, "PREFER_NOT_TO_SAY">;
 export type Sexuality =
   | "STRAIGHT"
   | "GAY"
@@ -30,6 +29,7 @@ export type StreetzProfile = {
   bio: string | null;
   birthDate: string | null;
   gender: Gender | null;
+  showGender?: boolean;
   sexuality: Sexuality | null;
   connectionStatus: ConnectionStatus | null;
   city: string | null;

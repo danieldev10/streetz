@@ -5,17 +5,16 @@ import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Compass, Eye, EyeOff, LoaderCircle, MapPin, MessageCircle, RefreshCw, SlidersHorizontal, Sparkles, UserRoundSearch, X } from "lucide-react";
+import { Compass, Eye, EyeOff, LoaderCircle, MapPin, MessageCircle, RefreshCw, SlidersHorizontal, Sparkles, UserRoundSearch, X } from "lucide-react";
 import { CustomSelect } from "@/components/custom-select";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { DiscoveryPersonCard } from "@/features/discovery/discovery-person-card";
-import { DiscoveryPreferencesForm } from "@/features/discovery/discovery-preferences-form";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { nigeriaStateNames } from "@/lib/nigeria-locations";
 import { connectionStatusOptions, formatConnectionStatus } from "@/lib/profile";
 import { queryKeys } from "@/lib/query-keys";
-import type { ConnectionStatus, DiscoveryCandidate, DiscoveryGender, DiscoveryPreference, StreetzProfile } from "@/lib/types";
+import type { ConnectionStatus, DiscoveryCandidate, StreetzProfile } from "@/lib/types";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 type PeopleResponse = {
@@ -33,11 +32,6 @@ type ConversationRequestResponse = {
 };
 
 const INTRO_MESSAGE_MAX_LENGTH = 1000;
-const discoveryGenderLabels: Record<DiscoveryGender, string> = {
-  WOMAN: "Women",
-  MAN: "Men",
-  NON_BINARY: "Non-binary people",
-};
 
 export function DiscoveryTab({
   token,
@@ -70,17 +64,10 @@ export function DiscoveryTab({
   const [introMessage, setIntroMessage] = useState("");
   const [isSendingRequest, setIsSendingRequest] = useState(false);
   const [isControlsOpen, setIsControlsOpen] = useState(false);
-  const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
-  const [preferenceRequired, setPreferenceRequired] = useState(false);
-  const [preference, setPreference] = useState<DiscoveryPreference | null>(null);
   const controlsDialogRef = useRef<HTMLElement | null>(null);
   const stateOptions = initialProfile.state && !nigeriaStateNames.includes(initialProfile.state)
     ? [...nigeriaStateNames, initialProfile.state]
     : nigeriaStateNames;
-  const preferenceSummary = preference
-    ? `${preference.interestedInGenders.map((gender) => discoveryGenderLabels[gender]).join(", ")} · Ages ${preference.minAge}–${preference.maxAge}`
-    : "Review gender and age choices";
-
   useDialogFocus(isControlsOpen, controlsDialogRef);
 
   useEffect(() => {
@@ -110,20 +97,6 @@ export function DiscoveryTab({
       setIsInitializing(true);
 
       try {
-        const preference = await apiRequest<DiscoveryPreference>("/profiles/me/discovery-preferences", {
-          headers: authHeaders(token),
-        });
-
-        if (cancelled) return;
-
-        setPreference(preference);
-
-        if (preference.needsConfirmation) {
-          setPreferenceRequired(true);
-          setIsPreferenceOpen(true);
-          return;
-        }
-
         const initialState = initialProfile.state?.trim();
 
         if (!initialProfile.discoveryLive || !initialState) return;
@@ -255,6 +228,21 @@ export function DiscoveryTab({
 
       setStatus(saved.connectionStatus ?? nextStatus);
       queryClient.setQueryData(queryKeys.profile(saved.user.id), saved);
+      if (saved.discoveryLive && saved.state) {
+        setIsSearching(true);
+        try {
+          const response = await apiRequest<PeopleResponse>("/discovery/people", { headers: authHeaders(token) });
+          setPeople(response.people);
+          setNextCursor(response.nextCursor);
+          setActiveSearch(saved.state);
+          setHasSearched(true);
+        } catch (error) {
+          setNotice(getUserErrorMessage(error));
+          return;
+        } finally {
+          setIsSearching(false);
+        }
+      }
       setNotice(`Status updated to ${formatConnectionStatus(saved.connectionStatus)}.`);
     } catch (error) {
       setStatus(previousStatus);
@@ -407,7 +395,7 @@ export function DiscoveryTab({
                   type="button"
                   className="inline-flex size-8 items-center justify-center text-ink-400 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => searchPeople()}
-                  disabled={isSearching || preferenceRequired || !stateName.trim()}
+                  disabled={isSearching || !stateName.trim()}
                   aria-label="Refresh people"
                   title="Refresh people"
                 >
@@ -434,17 +422,15 @@ export function DiscoveryTab({
                   <UserRoundSearch className="mx-auto size-8 text-brand" aria-hidden="true" />
                   <h2 className="mt-3 text-2xl font-semibold">No one found yet</h2>
                   <p className="mt-2 text-sm leading-6 text-ink-600">
-                    People in this state must match your age and gender preferences, and their preferences must include you too.
+                    No available profiles in {activeSearch ?? stateName} right now. Try another state or check again later.
                   </p>
-                  <p className="mt-2 text-sm font-medium text-ink-500">{preferenceSummary}</p>
                   <button
                     type="button"
                     className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/[0.08] px-5 text-sm font-semibold"
-                    onClick={() => setIsPreferenceOpen(true)}
+                    onClick={() => setIsControlsOpen(true)}
                     aria-haspopup="dialog"
                   >
-                    Review preferences
-                    <ChevronRight className="size-4" aria-hidden="true" />
+                    Choose another state
                   </button>
                 </div>
               </div>
@@ -549,22 +535,6 @@ export function DiscoveryTab({
                   icon={MapPin}
                   placeholder="Choose state"
                 />
-
-                <button
-                  type="button"
-                  className="flex items-center justify-between gap-3 rounded-[20px] border border-black/[0.08] p-4 text-left"
-                  onClick={() => {
-                    setIsControlsOpen(false);
-                    setIsPreferenceOpen(true);
-                  }}
-                  aria-haspopup="dialog"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold">Who you would like to meet</span>
-                    <span className="mt-1 block text-xs leading-5 text-ink-500">{preferenceSummary}</span>
-                  </span>
-                  <ChevronRight className="size-4 shrink-0 text-ink-400" aria-hidden="true" />
-                </button>
               </div>
 
               {notice ? <p className="mt-4 rounded-[18px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
@@ -574,7 +544,7 @@ export function DiscoveryTab({
                   isLoading={isSearching} icon={<Compass className="size-4" aria-hidden="true" />}
                   type="submit"
                   className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isSearching || preferenceRequired || !isInDiscoveryPool}
+                  disabled={isSearching || !isInDiscoveryPool}
                 >
                   {isSearching ? "Finding people" : "Discover"}
                 </ActionButton>
@@ -625,23 +595,6 @@ export function DiscoveryTab({
             </div>
           </form>
         </div>
-      ) : null}
-
-      {isPreferenceOpen ? (
-        <DiscoveryPreferencesForm
-          token={token}
-          required={preferenceRequired}
-          onClose={() => setIsPreferenceOpen(false)}
-          onSaved={(saved) => {
-            setPreference(saved);
-            setPreferenceRequired(false);
-            setIsPreferenceOpen(false);
-            setPeople([]);
-            setActiveSearch(null);
-            setHasSearched(false);
-            if (isInDiscoveryPool) void searchPeople();
-          }}
-        />
       ) : null}
     </section>
   );

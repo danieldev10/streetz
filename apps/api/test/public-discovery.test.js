@@ -78,8 +78,8 @@ test("guest database read excludes withdrawn and ineligible accounts and has a f
   assert.equal(query.where.subscriptionStatus, "ACTIVE");
   assert.ok(query.where.subscriptionEndsAt.gt instanceof Date);
   assert.equal(query.where.faceVerificationStatus, "VERIFIED");
-  assert.equal(query.where.discoveryPreference.is.confirmedAt.not, null);
-  assert.equal(query.where.discoveryPreference.is.interestedInGenders.isEmpty, false);
+  assert.equal(query.where.discoveryPreference, undefined);
+  assert.equal(query.where.profile.is.discoveryGender, undefined);
   assert.ok(query.where.profile.is.birthDate.lte instanceof Date);
   assert.equal(query.select.email, undefined);
   assert.equal(query.select.photos.take, 1);
