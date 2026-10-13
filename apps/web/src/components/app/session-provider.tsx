@@ -5,26 +5,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { isPublicPersistableQuery } from "@/lib/public-query-persistence";
-import {
-  AUTH_REFRESHED_EVENT,
-  TOKEN_KEY,
-  UNAUTHORIZED_EVENT,
-  apiRequest,
-  authHeaders,
-  clearLegacyAccessTokens,
-  refreshAccessToken,
-  revokeRefreshSession,
-} from "@/lib/api";
+import { ApiError, apiRequest, authHeaders, refreshAccessToken, revokeRefreshSession } from "@/lib/api";
+import { getBrowserSession, tokenExpiresSoon } from "@/lib/browser-session";
 import type { AuthResponse, StreetzUser } from "@/lib/types";
 
-type VerifiedSession = {
-  token: string;
-  user: StreetzUser;
-  verifiedAt: number;
-};
-
+type VerifiedSession = { token: string; user: StreetzUser; verifiedAt: number };
 type SessionStatus = "checking" | "authenticated" | "unauthenticated";
-
 type SessionContextValue = {
   status: SessionStatus;
   token: string | null;
@@ -34,297 +20,121 @@ type SessionContextValue = {
   refreshSession: (options?: { force?: boolean }) => Promise<VerifiedSession | null>;
   logout: (options?: { redirect?: boolean }) => void;
 };
-
-let cachedSession: VerifiedSession | null = null;
-let pendingVerification: { token: string; promise: Promise<VerifiedSession> } | null = null;
-
 const SessionContext = createContext<SessionContextValue | null>(null);
-
-function getInitialStatus(): SessionStatus {
-  return cachedSession ? "authenticated" : "checking";
-}
-
-async function verifyToken(token: string, options: { force?: boolean } = {}) {
-  if (!options.force && cachedSession?.token === token) {
-    return cachedSession;
-  }
-
-  if (!options.force && pendingVerification?.token === token) {
-    return pendingVerification.promise;
-  }
-
-  const promise = apiRequest<StreetzUser>("/auth/me", {
-    headers: authHeaders(token),
-  })
-    .then((user) => {
-      const currentToken = typeof window !== "undefined" ? window.localStorage.getItem(TOKEN_KEY) ?? token : token;
-      cachedSession = {
-        token: currentToken,
-        user,
-        verifiedAt: Date.now(),
-      };
-
-      return cachedSession;
-    })
-    .finally(() => {
-      if (pendingVerification?.promise === promise) {
-        pendingVerification = null;
-      }
-    });
-
-  pendingVerification = {
-    token,
-    promise,
-  };
-
-  return promise;
-}
+const asVerified = (auth: AuthResponse): VerifiedSession => ({ token: auth.accessToken, user: auth.user, verifiedAt: Date.now() });
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<SessionStatus>(getInitialStatus);
-  const [session, setSessionState] = useState<VerifiedSession | null>(() => cachedSession);
-  const sessionRef = useRef<VerifiedSession | null>(cachedSession);
-
-  const applySession = useCallback((token: string, user: StreetzUser) => {
-    if (sessionRef.current?.user.id && sessionRef.current.user.id !== user.id) {
-      queryClient.removeQueries({ predicate: (query) => !isPublicPersistableQuery(query.queryKey) });
-    }
-
-    const nextSession = {
-      token,
-      user,
-      verifiedAt: Date.now(),
-    };
-
-    cachedSession = nextSession;
-    sessionRef.current = nextSession;
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(TOKEN_KEY, token);
-      clearLegacyAccessTokens();
-    }
-
-    setSessionState(nextSession);
-    setStatus("authenticated");
-
-    return nextSession;
-  }, [queryClient]);
-
-  const clearSession = useCallback(
-    (options: { redirect?: boolean; revoke?: boolean } = {}) => {
-      cachedSession = null;
-      pendingVerification = null;
-      sessionRef.current = null;
-      queryClient.removeQueries({ predicate: (query) => !isPublicPersistableQuery(query.queryKey) });
-
-      if (typeof window !== "undefined") {
-        if (options.revoke !== false) {
-          void revokeRefreshSession();
-        }
-
-        window.localStorage.removeItem(TOKEN_KEY);
-        clearLegacyAccessTokens();
-      }
-
-      setSessionState(null);
-      setStatus("unauthenticated");
-
-      if (options.redirect !== false) {
-        router.replace("/?mode=login");
-      }
-    },
-    [queryClient, router]
-  );
-
-  const setSession = useCallback((token: string, user: StreetzUser) => {
-    applySession(token, user);
-  }, [applySession]);
-
-  const refreshFromCookie = useCallback(async () => {
-    const refreshedAuth = await refreshAccessToken();
-    return applySession(refreshedAuth.accessToken, refreshedAuth.user);
-  }, [applySession]);
+  const [status, setStatus] = useState<SessionStatus>("checking");
+  const [session, setSession] = useState<VerifiedSession | null>(null);
+  const previousUser = useRef<string | null>(null);
+  const suppressLogoutRedirect = useRef(false);
 
   const refreshSession = useCallback(async (options: { force?: boolean } = {}) => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    const savedToken = window.localStorage.getItem(TOKEN_KEY);
-
-    if (!savedToken) {
-      try {
-        return await refreshFromCookie();
-      } catch {
-        clearSession({ redirect: false, revoke: false });
-        return null;
-      }
-    }
-
+    const store = getBrowserSession();
     try {
-      const nextSession = await verifyToken(savedToken, options);
-      sessionRef.current = nextSession;
-      setSessionState(nextSession);
-      setStatus("authenticated");
-      return nextSession;
-    } catch {
-      try {
-        return await refreshFromCookie();
-      } catch {
-        clearSession({ revoke: false });
+      const auth = store.current ?? await refreshAccessToken();
+      if (options.force) {
+        const revision = store.version;
+        const user = await apiRequest<StreetzUser>("/auth/me", { headers: authHeaders(auth.accessToken) });
+        store.updateUser(user, revision);
       }
-
-      return null;
+      return store.current ? asVerified(store.current) : null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return null;
+      throw error;
     }
-  }, [clearSession, refreshFromCookie]);
-
-  const updateSessionUser = useCallback((updater: (user: StreetzUser) => StreetzUser) => {
-    setSessionState((current) => {
-      if (!current) {
-        return current;
-      }
-
-      const nextSession = {
-        ...current,
-        user: updater(current.user),
-      };
-
-      cachedSession = nextSession;
-      sessionRef.current = nextSession;
-      setStatus("authenticated");
-
-      return nextSession;
-    });
   }, []);
 
   useEffect(() => {
+    const store = getBrowserSession();
     let cancelled = false;
-
-    async function bootstrapSession() {
-      clearLegacyAccessTokens();
-      const savedToken = window.localStorage.getItem(TOKEN_KEY);
-
-      if (!savedToken) {
-        try {
-          const refreshedAuth = await refreshAccessToken();
-
-          if (!cancelled) {
-            applySession(refreshedAuth.accessToken, refreshedAuth.user);
-          }
-        } catch {
-          if (!cancelled) {
-            cachedSession = null;
-            sessionRef.current = null;
-            setSessionState(null);
-            setStatus("unauthenticated");
-          }
-        }
-        return;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let refreshing = false;
+    let unauthorizedRevision: string | undefined;
+    const reconcile = (auth: AuthResponse | null, change: string) => {
+      if (cancelled) return;
+      if (!auth || (previousUser.current && previousUser.current !== auth.user.id)) {
+        void queryClient.cancelQueries({ predicate: (query) => !isPublicPersistableQuery(query.queryKey) });
+        queryClient.removeQueries({ predicate: (query) => !isPublicPersistableQuery(query.queryKey) });
       }
-
-      if (cachedSession?.token === savedToken) {
-        if (!cancelled) {
-          sessionRef.current = cachedSession;
-          setSessionState(cachedSession);
-          setStatus("authenticated");
-        }
-        return;
-      }
-
+      previousUser.current = auth?.user.id ?? null;
+      setSession(auth ? asVerified(auth) : null);
+      setStatus(auth ? "authenticated" : change === "login" ? "checking" : "unauthenticated");
+      if (change === "logout" && !suppressLogoutRedirect.current) router.replace("/?mode=login");
+      if (change === "login" && !auth) void restore();
+    };
+    const restore = async () => {
+      if (cancelled || refreshing) return;
+      if (!store.current && store.version === unauthorizedRevision) return;
+      if (store.current && !tokenExpiresSoon(store.current.accessToken)) return;
+      const revision = store.version;
+      refreshing = true;
       try {
-        const nextSession = await verifyToken(savedToken);
-
-        if (!cancelled) {
-          sessionRef.current = nextSession;
-          setSessionState(nextSession);
-          setStatus("authenticated");
-        }
-      } catch {
-        try {
-          const refreshedAuth = await refreshAccessToken();
-
-          if (!cancelled) {
-            applySession(refreshedAuth.accessToken, refreshedAuth.user);
+        await refreshAccessToken();
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof ApiError && error.status === 401) {
+          if (store.version === revision && !store.current) {
+            unauthorizedRevision = revision;
+            reconcile(null, "expired");
           }
-        } catch {
-          if (!cancelled) {
-            clearSession({ revoke: false });
-          }
+        } else {
+          // Preserve sessions during temporary network/Redis outages. On initial
+          // load remain checking rather than sending the user to login.
+          clearTimeout(retry);
+          retry = setTimeout(() => void restore(), 5_000);
         }
+      } finally {
+        refreshing = false;
+        // A cross-tab login may arrive while the previous refresh is settling.
+        if (!cancelled && store.version !== revision) void restore();
       }
-    }
-
-    void bootstrapSession();
-
+    };
+    const unsubscribe = store.subscribe(reconcile);
+    if (store.current) reconcile(store.current, "refresh");
+    void restore();
+    const timer = setInterval(() => void restore(), 30_000);
+    const onVisible = () => { if (document.visibilityState === "visible") void restore(); };
+    window.addEventListener("online", restore);
+    window.addEventListener("focus", restore);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
+      unsubscribe();
+      clearInterval(timer);
+      clearTimeout(retry);
+      window.removeEventListener("online", restore);
+      window.removeEventListener("focus", restore);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [applySession, clearSession]);
+  }, [queryClient, router]);
 
-  useEffect(() => {
-    function handleUnauthorized() {
-      clearSession();
-    }
-
-    function handleAuthRefreshed(event: Event) {
-      const auth = (event as CustomEvent<AuthResponse>).detail;
-
-      if (auth?.accessToken && auth.user) {
-        applySession(auth.accessToken, auth.user);
-      }
-    }
-
-    function handleStorage(event: StorageEvent) {
-      if (event.key !== TOKEN_KEY) {
-        return;
-      }
-
-      if (!event.newValue) {
-        clearSession();
-        return;
-      }
-
-      if (event.newValue !== sessionRef.current?.token) {
-        setStatus("checking");
-        void refreshSession();
-      }
-    }
-
-    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
-    window.addEventListener(AUTH_REFRESHED_EVENT, handleAuthRefreshed);
-    window.addEventListener("storage", handleStorage);
-
-    return () => {
-      window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
-      window.removeEventListener(AUTH_REFRESHED_EVENT, handleAuthRefreshed);
-      window.removeEventListener("storage", handleStorage);
-    };
-  }, [applySession, clearSession, refreshSession]);
-
-  const value = useMemo<SessionContextValue>(
-    () => ({
-      status,
-      token: session?.token ?? null,
-      user: session?.user ?? null,
-      setSession,
-      updateSessionUser,
-      refreshSession,
-      logout: clearSession,
-    }),
-    [clearSession, refreshSession, session?.token, session?.user, setSession, status, updateSessionUser]
-  );
-
+  const applySession = useCallback((token: string, user: StreetzUser) => {
+    // Login/register commit credentials inside the cookie lock in api.ts.
+    const store = getBrowserSession();
+    if (store.current?.accessToken === token) store.updateUser(user);
+  }, []);
+  const updateSessionUser = useCallback((updater: (user: StreetzUser) => StreetzUser) => {
+    const store = getBrowserSession();
+    if (store.current) store.updateUser(updater(store.current.user));
+  }, []);
+  const logout = useCallback((options: { redirect?: boolean } = {}) => {
+    suppressLogoutRedirect.current = options.redirect === false;
+    void revokeRefreshSession().catch(() => {
+      // The logout marker keeps this browser signed out even offline.
+    }).finally(() => { suppressLogoutRedirect.current = false; });
+  }, []);
+  const value = useMemo<SessionContextValue>(() => ({
+    status, token: session?.token ?? null, user: session?.user ?? null,
+    setSession: applySession, updateSessionUser, refreshSession, logout,
+  }), [status, session, applySession, updateSessionUser, refreshSession, logout]);
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 
 export function useSession() {
   const context = useContext(SessionContext);
-
-  if (!context) {
-    throw new Error("useSession must be used within SessionProvider.");
-  }
-
+  if (!context) throw new Error("useSession must be used within SessionProvider.");
   return context;
 }

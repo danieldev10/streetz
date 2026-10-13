@@ -1,10 +1,11 @@
 "use client";
 
+import { createAuthenticatedSocket } from "@/lib/authenticated-socket";
+
 import { ActionButton } from "@/components/action-button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { io } from "socket.io-client";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -21,7 +22,7 @@ import {
 } from "lucide-react";
 import { ListSkeleton } from "@/components/skeletons";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
-import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type {
   NotificationFeed,
@@ -286,10 +287,7 @@ export function NotificationsTab({
   );
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, {
-      auth: { token },
-      transports: ["websocket", "polling"],
-    });
+    const socket = createAuthenticatedSocket();
     let refreshTimer: number | null = null;
 
     socket.on("notifications:changed", (event: { source?: string } = {}) => {

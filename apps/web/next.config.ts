@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { contentSecurityPolicy } from "./src/lib/content-security-policy";
 
 type ImageRemotePattern = NonNullable<NonNullable<NextConfig["images"]>["remotePatterns"]>[number];
 
@@ -146,7 +147,8 @@ const nextConfig: NextConfig = {
           {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload"
-          }
+          },
+          ...[contentSecurityPolicy(process.env)].filter((header): header is { key: string; value: string } => Boolean(header)),
         ]
       }
     ];

@@ -1,11 +1,13 @@
 "use client";
+import type { Socket } from "socket.io-client";
+
+import { createAuthenticatedSocket } from "@/lib/authenticated-socket";
 
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { io, type Socket } from "socket.io-client";
-import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import { queryKeys } from "@/lib/query-keys";
 import type { ChatRoom, DiscoveryCandidate, RoomMember, RoomMessage, StreetzUser } from "@/lib/types";
@@ -359,10 +361,7 @@ export function RoomsTab({
       return () => window.clearTimeout(offlineTimer);
     }
 
-    const socket = io(SOCKET_URL, {
-      auth: { token },
-      transports: ["websocket", "polling"],
-    });
+    const socket = createAuthenticatedSocket();
     const statusTimer = window.setTimeout(() => setSocketStatus("connecting"), 0);
 
     socketRef.current = socket;

@@ -1,3 +1,5 @@
+import { browserOrigins } from "../auth/browser-origins";
+
 const REQUIRED_PRODUCTION_KEYS = [
   "DATABASE_URL",
   "JWT_ACCESS_SECRET",
@@ -61,6 +63,12 @@ export function validateEnvironment(config: Record<string, unknown>) {
 
   const webAppUrl = read(config, "WEB_APP_URL");
   if (webAppUrl && !isHttpUrl(webAppUrl)) errors.push("WEB_APP_URL must be an http(s) URL");
+  if (webAppUrl) {
+    try { browserOrigins(webAppUrl, read(config, "AUTH_ALLOWED_ORIGINS")); }
+    catch { errors.push("WEB_APP_URL and AUTH_ALLOWED_ORIGINS must be explicit browser origins"); }
+  }
+  const sameSite = read(config, "REFRESH_COOKIE_SAME_SITE");
+  if (sameSite && !["strict", "lax", "none"].includes(sameSite)) errors.push("REFRESH_COOKIE_SAME_SITE must be strict, lax, or none");
 
   const smtpPort = read(config, "SMTP_PORT");
   if (smtpPort && (!/^\d+$/.test(smtpPort) || Number(smtpPort) < 1 || Number(smtpPort) > 65_535)) {

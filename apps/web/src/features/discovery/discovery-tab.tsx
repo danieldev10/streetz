@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Compass, Eye, EyeOff, LoaderCircle, MapPin, MessageCircle, RefreshCw, SlidersHorizontal, Sparkles, UserRoundSearch, X } from "lucide-react";
+import { ChevronRight, Compass, Eye, EyeOff, LoaderCircle, MapPin, MessageCircle, RefreshCw, SlidersHorizontal, Sparkles, UserRoundSearch, X } from "lucide-react";
 import { CustomSelect } from "@/components/custom-select";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { DiscoveryPersonCard } from "@/features/discovery/discovery-person-card";
@@ -15,7 +15,7 @@ import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { nigeriaStateNames } from "@/lib/nigeria-locations";
 import { connectionStatusOptions, formatConnectionStatus } from "@/lib/profile";
 import { queryKeys } from "@/lib/query-keys";
-import type { ConnectionStatus, DiscoveryCandidate, DiscoveryPreference, StreetzProfile } from "@/lib/types";
+import type { ConnectionStatus, DiscoveryCandidate, DiscoveryGender, DiscoveryPreference, StreetzProfile } from "@/lib/types";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 type PeopleResponse = {
@@ -33,6 +33,11 @@ type ConversationRequestResponse = {
 };
 
 const INTRO_MESSAGE_MAX_LENGTH = 1000;
+const discoveryGenderLabels: Record<DiscoveryGender, string> = {
+  WOMAN: "Women",
+  MAN: "Men",
+  NON_BINARY: "Non-binary people",
+};
 
 export function DiscoveryTab({
   token,
@@ -67,10 +72,14 @@ export function DiscoveryTab({
   const [isControlsOpen, setIsControlsOpen] = useState(false);
   const [isPreferenceOpen, setIsPreferenceOpen] = useState(false);
   const [preferenceRequired, setPreferenceRequired] = useState(false);
+  const [preference, setPreference] = useState<DiscoveryPreference | null>(null);
   const controlsDialogRef = useRef<HTMLElement | null>(null);
   const stateOptions = initialProfile.state && !nigeriaStateNames.includes(initialProfile.state)
     ? [...nigeriaStateNames, initialProfile.state]
     : nigeriaStateNames;
+  const preferenceSummary = preference
+    ? `${preference.interestedInGenders.map((gender) => discoveryGenderLabels[gender]).join(", ")} · Ages ${preference.minAge}–${preference.maxAge}`
+    : "Review gender and age choices";
 
   useDialogFocus(isControlsOpen, controlsDialogRef);
 
@@ -106,6 +115,8 @@ export function DiscoveryTab({
         });
 
         if (cancelled) return;
+
+        setPreference(preference);
 
         if (preference.needsConfirmation) {
           setPreferenceRequired(true);
@@ -382,7 +393,7 @@ export function DiscoveryTab({
               <p className="mt-3 text-sm font-medium text-ink-600">Finding people</p>
             </div>
           </div>
-        ) : hasSearched && people.length > 0 ? (
+        ) : hasSearched ? (
           <div>
             <div className="flex items-center justify-between gap-4">
               <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-ink-400">
@@ -404,18 +415,40 @@ export function DiscoveryTab({
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              {people.map((person) => (
-                <DiscoveryPersonCard
-                  key={person.id}
-                  person={person}
-                  isProfileLoading={loadingProfileId === person.id}
-                  isProfileDisabled={isLoadingProfile}
-                  onViewProfile={() => viewProfile(person)}
-                  onMessage={() => openMessageComposer(person)}
-                />
-              ))}
-            </div>
+            {people.length > 0 ? (
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                {people.map((person) => (
+                  <DiscoveryPersonCard
+                    key={person.id}
+                    person={person}
+                    isProfileLoading={loadingProfileId === person.id}
+                    isProfileDisabled={isLoadingProfile}
+                    onViewProfile={() => viewProfile(person)}
+                    onMessage={() => openMessageComposer(person)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 grid min-h-64 place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
+                <div className="max-w-sm">
+                  <UserRoundSearch className="mx-auto size-8 text-brand" aria-hidden="true" />
+                  <h2 className="mt-3 text-2xl font-semibold">No one found yet</h2>
+                  <p className="mt-2 text-sm leading-6 text-ink-600">
+                    People in this state must match your age and gender preferences, and their preferences must include you too.
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-ink-500">{preferenceSummary}</p>
+                  <button
+                    type="button"
+                    className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/[0.08] px-5 text-sm font-semibold"
+                    onClick={() => setIsPreferenceOpen(true)}
+                    aria-haspopup="dialog"
+                  >
+                    Review preferences
+                    <ChevronRight className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {nextCursor ? (
               <ActionButton
@@ -428,14 +461,6 @@ export function DiscoveryTab({
                 {isLoadingMore ? "Loading" : "Load more"}
               </ActionButton>
             ) : null}
-          </div>
-        ) : hasSearched ? (
-          <div className="grid min-h-64 place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
-            <div>
-              <UserRoundSearch className="mx-auto size-8 text-brand" aria-hidden="true" />
-              <h2 className="mt-3 text-2xl font-semibold">No one found yet</h2>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">Try another state or search again later.</p>
-            </div>
           </div>
         ) : null}
       </div>
@@ -524,6 +549,22 @@ export function DiscoveryTab({
                   icon={MapPin}
                   placeholder="Choose state"
                 />
+
+                <button
+                  type="button"
+                  className="flex items-center justify-between gap-3 rounded-[20px] border border-black/[0.08] p-4 text-left"
+                  onClick={() => {
+                    setIsControlsOpen(false);
+                    setIsPreferenceOpen(true);
+                  }}
+                  aria-haspopup="dialog"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">Who you would like to meet</span>
+                    <span className="mt-1 block text-xs leading-5 text-ink-500">{preferenceSummary}</span>
+                  </span>
+                  <ChevronRight className="size-4 shrink-0 text-ink-400" aria-hidden="true" />
+                </button>
               </div>
 
               {notice ? <p className="mt-4 rounded-[18px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
@@ -591,13 +632,14 @@ export function DiscoveryTab({
           token={token}
           required={preferenceRequired}
           onClose={() => setIsPreferenceOpen(false)}
-          onSaved={() => {
+          onSaved={(saved) => {
+            setPreference(saved);
             setPreferenceRequired(false);
             setIsPreferenceOpen(false);
             setPeople([]);
             setActiveSearch(null);
             setHasSearched(false);
-            void searchPeople();
+            if (isInDiscoveryPool) void searchPeople();
           }}
         />
       ) : null}

@@ -9,11 +9,13 @@ import { AuthService } from "./auth.service";
 import { RealtimeAuthService } from "./realtime-auth.service";
 import { RolesGuard } from "./guards/roles.guard";
 import { JwtStrategy } from "./strategies/jwt.strategy";
+import { BrowserOriginGuard } from "./guards/browser-origin.guard";
+import { RateLimitsModule } from "../abuse/rate-limits.module";
 
 @Module({
-  imports: [UsersModule, PrismaModule, MailModule, PassportModule, JwtModule.register({})],
+  imports: [UsersModule, PrismaModule, MailModule, PassportModule, JwtModule.register({}), RateLimitsModule],
   controllers: [AuthController],
-  providers: [AuthService, RealtimeAuthService, JwtStrategy, RolesGuard],
+  providers: [AuthService, RealtimeAuthService, JwtStrategy, RolesGuard, BrowserOriginGuard],
   exports: [AuthService, RealtimeAuthService]
 })
 export class AuthModule {}

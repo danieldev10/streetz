@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Header, Post, Req, Res, UseGuards } from "@nestjs/common";
+import { BrowserOriginGuard } from "./guards/browser-origin.guard";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
@@ -23,6 +24,8 @@ export class AuthController {
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("register")
+  @UseGuards(BrowserOriginGuard)
+  @Header("Cache-Control", "no-store")
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) response: Response) {
     const auth = await this.authService.register(dto);
     this.setRefreshCookie(response, auth);
@@ -32,6 +35,8 @@ export class AuthController {
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("login")
+  @UseGuards(BrowserOriginGuard)
+  @Header("Cache-Control", "no-store")
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) response: Response) {
     const auth = await this.authService.login(dto);
     this.setRefreshCookie(response, auth);
@@ -53,6 +58,8 @@ export class AuthController {
 
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post("refresh")
+  @UseGuards(BrowserOriginGuard)
+  @Header("Cache-Control", "no-store")
   async refresh(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     const auth = await this.authService.refresh(this.getRefreshToken(request));
     this.setRefreshCookie(response, auth);
@@ -61,6 +68,8 @@ export class AuthController {
   }
 
   @Post("logout")
+  @UseGuards(BrowserOriginGuard)
+  @Header("Cache-Control", "no-store")
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     const result = await this.authService.logout(this.getRefreshToken(request));
     this.clearRefreshCookie(response);
@@ -123,7 +132,7 @@ export class AuthController {
 
   private getRefreshCookieBaseOptions() {
     const isProduction = process.env.NODE_ENV === "production";
-    const sameSite = this.getRefreshCookieSameSite(isProduction);
+    const sameSite = this.getRefreshCookieSameSite();
 
     return {
       httpOnly: true,
@@ -133,14 +142,14 @@ export class AuthController {
     } as const;
   }
 
-  private getRefreshCookieSameSite(isProduction: boolean) {
+  private getRefreshCookieSameSite() {
     const configuredSameSite = process.env.REFRESH_COOKIE_SAME_SITE?.toLowerCase();
 
     if (configuredSameSite === "strict" || configuredSameSite === "lax" || configuredSameSite === "none") {
       return configuredSameSite;
     }
 
-    return isProduction ? "none" : "lax";
+    return "lax";
   }
 
   private getRefreshToken(request: Request) {

@@ -5,13 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LoadingState } from "@/components/loading-state";
 import { BrandLogo } from "@/components/brand-logo";
 import { useSession } from "@/components/app/session-provider";
-import { TOKEN_KEY, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { clearPendingEventCheckout } from "@/lib/pending-event-checkout";
 
 function PaymentCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { token, refreshSession, updateSessionUser } = useSession();
+  const { token, status, refreshSession, updateSessionUser } = useSession();
   const [message, setMessage] = useState("Verifying your payment...");
   const hasStartedVerification = useRef(false);
 
@@ -19,11 +19,12 @@ function PaymentCallbackContent() {
     if (hasStartedVerification.current) {
       return;
     }
+    if (status === "checking") return;
 
     const reference = searchParams.get("reference") ?? searchParams.get("trxref");
     const purpose = searchParams.get("purpose");
     const eventId = searchParams.get("eventId");
-    const savedToken = token ?? window.localStorage.getItem(TOKEN_KEY);
+    const savedToken = token;
     const isCombinedEventTicketPayment = purpose === "membership-event-ticket";
     const isEventTicketPayment = purpose === "event-ticket" || isCombinedEventTicketPayment;
     const eventRedirectPath = eventId ? `/events/${eventId}` : "/events";
@@ -77,7 +78,7 @@ function PaymentCallbackContent() {
       .catch((error) => {
         setMessage(getUserErrorMessage(error));
       });
-  }, [refreshSession, router, searchParams, token, updateSessionUser]);
+  }, [refreshSession, router, searchParams, status, token, updateSessionUser]);
 
   return (
     <main className="grid min-h-screen place-items-center bg-surface px-4 text-ink">

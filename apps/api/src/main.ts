@@ -9,6 +9,7 @@ import { AppModule } from "./app.module";
 import { RedisIoAdapter } from "./realtime/redis-io.adapter";
 import { RedisConnectionsService } from "./realtime/redis-connections.service";
 import { StructuredLogger } from "./observability/structured-logger";
+import { browserOrigins } from "./auth/browser-origins";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -22,7 +23,7 @@ async function bootstrap() {
   app.getHttpAdapter().getInstance().set("trust proxy", 1);
   app.setGlobalPrefix("api");
   app.enableCors({
-    origin: [webAppUrl],
+    origin: browserOrigins(webAppUrl, config.get<string>("AUTH_ALLOWED_ORIGINS")),
     credentials: true
   });
   const redisIoAdapter = new RedisIoAdapter(app, config, app.get(RedisConnectionsService));

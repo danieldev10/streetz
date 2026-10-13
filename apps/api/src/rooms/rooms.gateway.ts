@@ -50,7 +50,7 @@ export class RoomsGateway implements OnGatewayConnection {
   @SubscribeMessage("room:join")
   async joinRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() body: { roomId?: string }) {
     try {
-      const user = this.requireUser(client);
+      const user = await this.realtimeAuth.authorizeAction(client, "join");
       const roomId = this.requireRoomId(body?.roomId);
 
       await this.roomsService.assertRoomParticipant(user.id, roomId);
@@ -70,7 +70,7 @@ export class RoomsGateway implements OnGatewayConnection {
   @SubscribeMessage("room:leave")
   async leaveRoomSocket(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() body: { roomId?: string }) {
     try {
-      this.requireUser(client);
+      await this.realtimeAuth.authorizeAction(client, "join");
       const roomId = this.requireRoomId(body?.roomId);
 
       await client.leave(this.roomsService.getSocketRoomName(roomId));
@@ -90,7 +90,7 @@ export class RoomsGateway implements OnGatewayConnection {
     @MessageBody() body: { roomId?: string; body?: string; gifUrl?: string }
   ) {
     try {
-      const user = this.requireUser(client);
+      const user = await this.realtimeAuth.authorizeAction(client, "send");
       const roomId = this.requireRoomId(body?.roomId);
       const message = await this.roomsService.createRoomMessage(user.id, roomId, body?.body, body?.gifUrl);
 
@@ -134,16 +134,6 @@ export class RoomsGateway implements OnGatewayConnection {
         unreadDelta: 1
       });
     }
-  }
-
-  private requireUser(client: AuthenticatedSocket) {
-    const user = client.data.user;
-
-    if (!user) {
-      throw new WsException("Login is required.");
-    }
-
-    return user;
   }
 
   private requireRoomId(roomId: string | undefined) {

@@ -1,4 +1,7 @@
 "use client";
+import type { Socket } from "socket.io-client";
+
+import { createAuthenticatedSocket } from "@/lib/authenticated-socket";
 
 import { ActionButton } from "@/components/action-button";
 import type { FormEvent } from "react";
@@ -6,11 +9,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { io, type Socket } from "socket.io-client";
 import { ArrowDown, ArrowLeft, CheckCheck, ChevronRight, LoaderCircle, MessageCircle, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
 import { ListSkeleton, MessageThreadSkeleton } from "@/components/skeletons";
 import { useChatAutoScroll } from "@/lib/use-chat-autoscroll";
-import { SOCKET_URL, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import { queryKeys } from "@/lib/query-keys";
 import type { ConversationRequests, DirectMessage, DiscoveryCandidate, MatchThread, StreetzUser } from "@/lib/types";
@@ -519,10 +521,7 @@ export function MatchesTab({
   }, [token]);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, {
-      auth: { token },
-      transports: ["websocket", "polling"],
-    });
+    const socket = createAuthenticatedSocket();
     const statusTimer = window.setTimeout(() => setSocketStatus("connecting"), 0);
 
     socketRef.current = socket;

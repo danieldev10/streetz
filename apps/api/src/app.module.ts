@@ -2,7 +2,10 @@ import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup";
-import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
+import { RateLimitsModule } from "./abuse/rate-limits.module";
+import { RedisRateLimitStore } from "./abuse/redis-rate-limit.store";
+import { SharedThrottleGuard } from "./abuse/shared-throttle.guard";
 import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
 import { DiscoveryModule } from "./discovery/discovery.module";
@@ -28,12 +31,12 @@ import { RequestLoggingMiddleware } from "./observability/request-logging.middle
       validate: validateEnvironment
     }),
     SentryModule.forRoot(),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60_000,
-        limit: 120
-      }
-    ]),
+    ThrottlerModule.forRootAsync({
+      imports: [RateLimitsModule], inject: [RedisRateLimitStore],
+      useFactory: (storage: RedisRateLimitStore) => ({
+        storage, throttlers: [{ ttl: 60_000, limit: 120 }],
+      }),
+    }),
     PrismaModule,
     HealthModule,
     UsersModule,
@@ -57,7 +60,7 @@ import { RequestLoggingMiddleware } from "./observability/request-logging.middle
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard
+      useClass: SharedThrottleGuard
     }
   ]
 })

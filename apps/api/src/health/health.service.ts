@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Pool } from "pg";
 import { RedisConnectionsService } from "../realtime/redis-connections.service";
+import { RedisRateLimitStore } from "../abuse/redis-rate-limit.store";
 
 @Injectable()
 export class HealthService implements OnModuleDestroy {
@@ -10,7 +11,7 @@ export class HealthService implements OnModuleDestroy {
   private pending: Promise<boolean> | null = null;
   private lastResult: { ready: boolean; expiresAt: number } | null = null;
 
-  constructor(config: ConfigService, private readonly redis: RedisConnectionsService) {
+  constructor(config: ConfigService, private readonly redis: RedisConnectionsService, private readonly rates: RedisRateLimitStore) {
     // A small dedicated pool bounds both acquisition and query time, even when
     // the application pool is busy. Account for this one connection in DB budgets.
     this.database = new Pool({
@@ -46,7 +47,8 @@ export class HealthService implements OnModuleDestroy {
   private async checkDependencies() {
     const results = await Promise.allSettled([
       this.database.query("SELECT 1").then(() => true),
-      this.redis.checkHealth()
+      this.redis.checkHealth(),
+      this.rates.checkHealth(),
     ]);
     return results.every((result) => result.status === "fulfilled" && result.value === true);
   }

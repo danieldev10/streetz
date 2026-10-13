@@ -1,13 +1,11 @@
 import type { AuthResponse, StreetzUser } from "@/lib/types";
+import { ApiError, SessionChangedError } from "./api-error";
+import { getBrowserSession } from "./browser-session";
+import { timeoutSignal } from "./request-timeout";
+export { ApiError } from "./api-error";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 export const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? getDefaultSocketUrl(API_URL);
-export const TOKEN_KEY = "streetz_access_token";
-export const LEGACY_TOKEN_KEYS = ["access_token"];
-export const UNAUTHORIZED_EVENT = "streetz:auth:unauthorized";
-export const AUTH_REFRESHED_EVENT = "streetz:auth:refreshed";
-
-let pendingAccessTokenRefresh: Promise<AuthResponse> | null = null;
 
 function getDefaultSocketUrl(apiUrl: string) {
   if (/^https?:\/\//.test(apiUrl)) {
@@ -15,16 +13,6 @@ function getDefaultSocketUrl(apiUrl: string) {
   }
 
   return process.env.NODE_ENV === "development" ? "http://localhost:4000" : "";
-}
-
-export class ApiError extends Error {
-  status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-  }
 }
 
 export function isActiveMember(user: StreetzUser | null) {
@@ -48,12 +36,17 @@ export function isActiveMember(user: StreetzUser | null) {
 }
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}) {
-  return await readJson(await requestApiResponse(path, options)) as T;
+  const { response, assertSession } = await requestApiResponse(path, options);
+  const data = await readJson(response);
+  assertSession();
+  return data as T;
 }
 
 export async function downloadApiFile(path: string, filename: string, options: RequestInit = {}) {
-  const response = await requestApiResponse(path, options);
-  const url = URL.createObjectURL(await response.blob());
+  const { response, assertSession } = await requestApiResponse(path, options);
+  const blob = await response.blob();
+  assertSession();
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
@@ -64,76 +57,73 @@ export async function downloadApiFile(path: string, filename: string, options: R
 }
 
 async function requestApiResponse(path: string, options: RequestInit) {
+  if (path === "/auth/login" || path === "/auth/register") {
+    let response: Response | undefined;
+    await getBrowserSession().authenticate(async () => {
+      response = await fetchApi(path, options);
+      const data = await readJson(response.clone());
+      if (!response.ok) throw new ApiError(data?.message ?? "Unable to log in.", response.status);
+      return data as AuthResponse;
+    });
+    const session = getBrowserSession();
+    const revision = session.version;
+    return { response: response!, assertSession: () => session.assertRevision(revision) };
+  }
   const hasAuthHeader = hasAuthorizationHeader(options.headers);
+  const session = typeof window !== "undefined" ? getBrowserSession() : undefined;
+  const revision = session?.version;
+  if (hasAuthHeader && session && !session.current) throw new ApiError("Please log in again.", 401);
+  // Do not let an old component perform an action using a newly logged-in account.
+  if (hasAuthHeader && session?.current) {
+    const supplied = toPlainHeaders(options.headers);
+    const authorization = Object.entries(supplied).find(([key]) => key.toLowerCase() === "authorization")?.[1];
+    try {
+      const payload = JSON.parse(atob((authorization ?? "").replace(/^Bearer /, "").split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) as { sub?: string };
+      if (payload.sub !== session.current.user.id) throw new Error();
+    } catch { throw new SessionChangedError(); }
+  }
   let response = await fetchApi(path, options);
+  if (hasAuthHeader && revision) session?.assertRevision(revision);
 
   if (!response.ok && response.status === 401 && hasAuthHeader && typeof window !== "undefined" && path !== "/auth/refresh") {
-    const refreshedAuth = await refreshAccessToken().catch(() => null);
-
-    if (refreshedAuth) {
-      response = await fetchApi(path, withAccessToken(options, refreshedAuth.accessToken));
-    }
+    const original = Object.entries(toPlainHeaders(options.headers)).find(([key]) => key.toLowerCase() === "authorization")?.[1];
+    const refreshedAuth = session?.current && original !== `Bearer ${session.current.accessToken}`
+      ? session.current : await refreshAccessToken();
+    if (revision) session?.assertRevision(revision);
+    response = await fetchApi(path, withAccessToken(options, refreshedAuth.accessToken));
   }
+  if (hasAuthHeader && revision) session?.assertRevision(revision);
 
   if (!response.ok) {
     const data = await readJson(response);
-    if (response.status === 401 && hasAuthHeader && typeof window !== "undefined") {
-      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
-    }
+    if (response.status === 401 && hasAuthHeader && revision) session?.expire(revision);
 
     throw new ApiError(data?.message ?? "Request failed.", response.status);
   }
 
-  return response;
+  return { response, assertSession: () => { if (hasAuthHeader && revision) session?.assertRevision(revision); } };
 }
 
 export async function refreshAccessToken() {
-  if (typeof window === "undefined") {
-    throw new ApiError("Cannot refresh session outside the browser.", 401);
-  }
-
-  if (!pendingAccessTokenRefresh) {
-    pendingAccessTokenRefresh = fetchApi("/auth/refresh", { method: "POST" })
-      .then(async (response) => {
-        const data = await readJson(response);
-
-        if (!response.ok) {
-          throw new ApiError(data?.message ?? "Session expired. Please log in again.", response.status);
-        }
-
-        const auth = data as AuthResponse;
-        window.localStorage.setItem(TOKEN_KEY, auth.accessToken);
-        clearLegacyAccessTokens();
-        window.dispatchEvent(new CustomEvent<AuthResponse>(AUTH_REFRESHED_EVENT, { detail: auth }));
-
-        return auth;
-      })
-      .finally(() => {
-        pendingAccessTokenRefresh = null;
-      });
-  }
-
-  return pendingAccessTokenRefresh;
+  return getBrowserSession().refresh(async () => {
+    const response = await fetchApi("/auth/refresh", { method: "POST" });
+    const data = await readJson(response);
+    if (!response.ok) throw new ApiError(data?.message ?? "Unable to refresh your session.", response.status);
+    return data as AuthResponse;
+  });
 }
 
 export async function revokeRefreshSession() {
-  await fetchApi("/auth/logout", { method: "POST" }).catch(() => null);
+  await getBrowserSession().logout(async () => {
+    const response = await fetchApi("/auth/logout", { method: "POST" });
+    if (!response.ok) throw new ApiError("Unable to revoke your session. Please retry when online.", response.status);
+  });
 }
 
 export function authHeaders(token: string) {
   return {
     Authorization: `Bearer ${token}`,
   };
-}
-
-export function clearLegacyAccessTokens() {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  for (const key of LEGACY_TOKEN_KEYS) {
-    window.localStorage.removeItem(key);
-  }
 }
 
 function hasAuthorizationHeader(headers: HeadersInit | undefined) {
@@ -156,25 +146,33 @@ function fetchApi(path: string, options: RequestInit = {}) {
   return fetch(`${API_URL}${path}`, {
     ...options,
     credentials: options.credentials ?? "include",
+    signal: options.signal ?? timeoutSignal(15_000),
     headers: {
       "Content-Type": "application/json",
+      "X-Crushclub-Client": "web",
       ...toPlainHeaders(options.headers),
     },
   });
 }
 
 function withAccessToken(options: RequestInit, accessToken: string): RequestInit {
+  const headers = toPlainHeaders(options.headers);
+  const withoutAuthorization = Object.fromEntries(Object.entries(headers).filter(([key]) => key.toLowerCase() !== "authorization"));
   return {
     ...options,
     headers: {
-      ...toPlainHeaders(options.headers),
+      ...withoutAuthorization,
       Authorization: `Bearer ${accessToken}`,
     },
   };
 }
 
 function readJson(response: Response) {
-  return response.json().catch(() => null);
+  return response.json().catch((error: unknown) => {
+    if (error instanceof SyntaxError) return null;
+    // An interrupted body is a network failure, not an empty success response.
+    throw error;
+  });
 }
 
 function toPlainHeaders(headers: HeadersInit | undefined) {

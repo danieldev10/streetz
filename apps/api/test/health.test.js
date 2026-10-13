@@ -43,7 +43,7 @@ test("health endpoints stay uncached and unthrottled and readiness returns HTTP 
 test("concurrent readiness requests share work and recover after dependency failure", async () => {
   let queries = 0;
   let ping = true;
-  const health = new HealthService({ getOrThrow: () => "postgresql://unused@127.0.0.1/unused" }, { checkHealth: async () => ping });
+  const health = new HealthService({ getOrThrow: () => "postgresql://unused@127.0.0.1/unused" }, { checkHealth: async () => ping }, { checkHealth: async () => true });
   health.database.query = async () => { queries++; await new Promise((resolve) => setTimeout(resolve, 20)); return {}; };
   try {
     assert.ok((await Promise.all(Array.from({ length: 30 }, () => health.isReady()))).every(Boolean));
@@ -62,7 +62,7 @@ test("readiness probes real PostgreSQL and Redis, detects outages, and releases 
 }, async () => {
   const config = { getOrThrow: (key) => key === "DATABASE_URL" ? process.env.TEST_DATABASE_URL : process.env.TEST_REDIS_URL };
   const redis = new RedisConnectionsService(config);
-  const health = new HealthService(config, redis);
+  const health = new HealthService(config, redis, { checkHealth: async () => true });
   try {
     await redis.connect();
     for (let attempt = 0; attempt < 40 && redis.probe.status !== "ready"; attempt++) {
@@ -78,7 +78,7 @@ test("readiness probes real PostgreSQL and Redis, detects outages, and releases 
     await new Promise((resolve) => setTimeout(resolve, 260));
     assert.equal(await health.isReady(), true);
 
-    const unavailable = new HealthService({ getOrThrow: () => "postgresql://unused@127.0.0.1:1/unused" }, redis);
+    const unavailable = new HealthService({ getOrThrow: () => "postgresql://unused@127.0.0.1:1/unused" }, redis, { checkHealth: async () => true });
     const started = performance.now();
     try {
       assert.equal(await unavailable.isReady(), false);
@@ -87,7 +87,7 @@ test("readiness probes real PostgreSQL and Redis, detects outages, and releases 
     } finally { await unavailable.onModuleDestroy(); }
     assert.equal(await health.isReady(), true);
 
-    const slow = new HealthService(config, redis);
+    const slow = new HealthService(config, redis, { checkHealth: async () => true });
     const query = slow.database.query.bind(slow.database);
     slow.database.query = () => query("SELECT pg_sleep(10)");
     const slowStarted = performance.now();

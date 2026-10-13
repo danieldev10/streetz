@@ -1,14 +1,15 @@
 "use client";
 
+import { createAuthenticatedSocket } from "@/lib/authenticated-socket";
+
 import { PrivacyPolicyLink } from "@/components/privacy-policy-link";
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
-import { io } from "socket.io-client";
 import { AppBrand, AppNavButton, MobileHeader, adminBottomTabs, adminTabs, bottomTabs, tabs } from "@/components/app/navigation";
-import { SOCKET_URL, apiRequest, authHeaders } from "@/lib/api";
+import { apiRequest, authHeaders } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ChatRoom, MatchThread, NotificationSummary, ProfilePhoto, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
 
@@ -225,10 +226,7 @@ export function MemberApp({
   }, [queryClient, token, user.id]);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, {
-      auth: { token },
-      transports: ["websocket", "polling"],
-    });
+    const socket = createAuthenticatedSocket();
 
     socket.on("notifications:changed", (event: NotificationChangedEvent = {}) => {
       if (event.source === "rooms") {

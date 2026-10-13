@@ -51,7 +51,7 @@ export class MessagesGateway implements OnGatewayConnection {
   @SubscribeMessage("match:join")
   async joinMatch(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() body: { matchId?: string }) {
     try {
-      const user = this.requireUser(client);
+      const user = await this.realtimeAuth.authorizeAction(client, "join");
       const matchId = this.requireMatchId(body?.matchId);
 
       await this.messagesService.assertMatchParticipant(user.id, matchId);
@@ -75,7 +75,7 @@ export class MessagesGateway implements OnGatewayConnection {
     @MessageBody() body: { matchId?: string; body?: string; gifUrl?: string }
   ) {
     try {
-      const user = this.requireUser(client);
+      const user = await this.realtimeAuth.authorizeAction(client, "send");
       const matchId = this.requireMatchId(body?.matchId);
       const message = await this.messagesService.createMessage(user.id, matchId, body?.body, body?.gifUrl);
 
@@ -139,16 +139,6 @@ export class MessagesGateway implements OnGatewayConnection {
         matchId
       });
     }
-  }
-
-  private requireUser(client: AuthenticatedSocket) {
-    const user = client.data.user;
-
-    if (!user) {
-      throw new WsException("Login is required.");
-    }
-
-    return user;
   }
 
   private requireMatchId(matchId: string | undefined) {
