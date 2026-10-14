@@ -11,7 +11,6 @@ import {
 } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
-import { enqueueJob } from "./enqueue-job";
 
 @Injectable()
 export class JobQueueService {
@@ -95,18 +94,19 @@ export class JobQueueService {
     return exhausted;
   }
 
-  async schedule(now = new Date()) {
-    const bucket = Math.floor(now.getTime() / 300_000);
-    await enqueueJob(this.prisma, {
-      key: `reservation-cleanup:${bucket}`,
-      type: BackgroundJobType.RESERVATION_CLEANUP,
-      payload: {},
-    });
-    await enqueueJob(this.prisma, {
-      key: `payment-scan:${bucket}`,
-      type: BackgroundJobType.PAYMENT_SCAN,
-      payload: {},
-    });
+  async schedule() {
+    // Use the database clock and unique keys across workers/deployment overlap.
+    // Both maintenance jobs are scheduled atomically, even if process clocks differ.
+    await this.prisma.$executeRaw`
+      WITH slot AS (SELECT floor(extract(epoch FROM now()) / 300)::bigint AS bucket)
+      INSERT INTO "BackgroundJob" (id, key, type, payload, "runAt", "createdAt", "updatedAt")
+      SELECT ${randomUUID()} || '-' || task.prefix, task.prefix || ':' || slot.bucket,
+        task.type::"BackgroundJobType", '{}'::jsonb,
+        now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC'
+      FROM slot CROSS JOIN (VALUES
+        ('reservation-cleanup', 'RESERVATION_CLEANUP'), ('payment-scan', 'PAYMENT_SCAN')
+      ) AS task(prefix, type)
+      ON CONFLICT (key) DO NOTHING`;
   }
 
   async scanPayments() {

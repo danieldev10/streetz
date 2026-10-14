@@ -227,6 +227,7 @@ export function MemberApp({
 
   useEffect(() => {
     const socket = createAuthenticatedSocket();
+    socket.on("connect", scheduleNotificationSummaryRefresh);
 
     socket.on("notifications:changed", (event: NotificationChangedEvent = {}) => {
       if (event.source === "rooms") {

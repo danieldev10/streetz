@@ -6,7 +6,7 @@ export function createAuthenticatedSocket() {
   let disposed = false;
   let renewing = false;
   const socket = io(SOCKET_URL, {
-    transports: ["websocket", "polling"],
+    transports: ["websocket"],
     auth: (callback) => {
       if (disposed) { callback({ token: "" }); return; }
       const auth = getBrowserSession().current;

@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { ThrottlerStorage } from "@nestjs/throttler";
 import Redis from "ioredis";
 import { createHmac } from "crypto";
+import { closeRedisConnection } from "../realtime/close-redis-connection";
 
 // Atomic fixed windows and bounded blocks; all API replicas use Redis time/TTL.
 const INCREMENT = `
@@ -35,7 +36,7 @@ export class RedisRateLimitStore implements ThrottlerStorage, OnModuleInit, OnMo
     this.redis.on("ready", () => { this.reported = false; });
   }
   onModuleInit() { void this.redis.connect().catch(() => this.report()); }
-  onModuleDestroy() { this.redis.disconnect(); }
+  async onModuleDestroy() { await closeRedisConnection(this.redis); }
   isReady() { return this.redis.status === "ready"; }
   async checkHealth() {
     if (!this.isReady()) return false;

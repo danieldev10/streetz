@@ -23,11 +23,14 @@ import { VerificationModule } from "./verification/verification.module";
 import { TicketsModule } from "./tickets/tickets.module";
 import { validateEnvironment } from "./config/environment.validation";
 import { RequestLoggingMiddleware } from "./observability/request-logging.middleware";
+import { ApiLifecycleModule } from "./lifecycle/api-lifecycle.module";
+import { ApiLifecycleMiddleware } from "./lifecycle/api-lifecycle.middleware";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      ignoreEnvFile: process.env.NODE_ENV === "test",
       validate: validateEnvironment
     }),
     SentryModule.forRoot(),
@@ -38,6 +41,7 @@ import { RequestLoggingMiddleware } from "./observability/request-logging.middle
       }),
     }),
     PrismaModule,
+    ApiLifecycleModule,
     HealthModule,
     UsersModule,
     AuthModule,
@@ -66,6 +70,6 @@ import { RequestLoggingMiddleware } from "./observability/request-logging.middle
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestLoggingMiddleware).forRoutes("*");
+    consumer.apply(ApiLifecycleMiddleware, RequestLoggingMiddleware).forRoutes("*");
   }
 }

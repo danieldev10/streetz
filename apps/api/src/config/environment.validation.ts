@@ -81,6 +81,7 @@ export function validateEnvironment(config: Record<string, unknown>) {
   validateInteger(config, "DB_POOL_MAX_LIFETIME_SECONDS", 60, 86_400, errors);
   validateInteger(config, "DB_STATEMENT_TIMEOUT_MS", 1_000, 120_000, errors);
   validateInteger(config, "WORKER_CONCURRENCY", 1, 10, errors);
+  validateInteger(config, "API_SHUTDOWN_TIMEOUT_MS", 5_000, 120_000, errors);
   validateInteger(config, "WORKER_POLL_MS", 100, 30_000, errors);
   validateInteger(config, "WORKER_LEASE_MS", 60_000, 600_000, errors);
   const workerEnabled = read(config, "WORKER_ENABLED");

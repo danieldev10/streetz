@@ -19,7 +19,8 @@
     "profile-photos:consolidate": "npm --prefix apps/api run profile-photos:consolidate --",
     "api:smoke:attendance": "npm --prefix apps/api run smoke:attendance --",
     "measure:production": "node scripts/measure-production.mjs",
-    "smoke:production": "node scripts/production-smoke.mjs"
+    "smoke:production": "node scripts/production-smoke.mjs",
+    "smoke:replicas": "node scripts/replica-smoke.mjs"
   },
   "engines": {
     "node": ">=22.13.0 <23",

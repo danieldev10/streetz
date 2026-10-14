@@ -69,6 +69,16 @@ export class MessagesGateway implements OnGatewayConnection {
     }
   }
 
+  @SubscribeMessage("match:leave")
+  async leaveMatch(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() body: { matchId?: string }) {
+    try {
+      await this.realtimeAuth.authorizeAction(client, "join");
+      const matchId = this.requireMatchId(body?.matchId);
+      await client.leave(this.messagesService.getRoomName(matchId));
+      return { ok: true, matchId };
+    } catch (error) { return this.errorResponse(error); }
+  }
+
   @SubscribeMessage("direct-message:send")
   async sendMessage(
     @ConnectedSocket() client: AuthenticatedSocket,

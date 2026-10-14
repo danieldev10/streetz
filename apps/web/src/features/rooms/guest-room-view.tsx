@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
+import { bindRealtimeRoom } from "@/lib/realtime-room";
 import { SOCKET_URL, apiRequest, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import type { ChatRoom, RoomMessage } from "@/lib/types";
@@ -34,11 +35,13 @@ export function GuestRoomView({ roomId, isMemberPreview = false }: { roomId: str
     isLoading,
   });
 
+  const reloadRoomRef = useRef<() => Promise<void>>(async () => {});
+
   useEffect(() => {
     let cancelled = false;
 
-    async function loadRoom() {
-      setIsLoading(true);
+    async function loadRoom(showLoading = false) {
+      if (showLoading) setIsLoading(true);
       setNotice(null);
 
       try {
@@ -61,7 +64,8 @@ export function GuestRoomView({ roomId, isMemberPreview = false }: { roomId: str
       }
     }
 
-    void loadRoom();
+    reloadRoomRef.current = () => loadRoom();
+    void loadRoom(true);
 
     return () => {
       cancelled = true;
@@ -70,23 +74,16 @@ export function GuestRoomView({ roomId, isMemberPreview = false }: { roomId: str
 
   useEffect(() => {
     const socket = io(`${SOCKET_URL}/public-rooms`, {
-      transports: ["websocket", "polling"],
+      transports: ["websocket"],
     });
 
-    socket.on("connect", () => {
-      socket.emit(
-        "public-room:join",
-        { roomId },
-        (response: { ok?: boolean; error?: string }) => {
-          if (response?.ok) {
-            setSocketStatus("connected");
-            return;
-          }
-
-          setSocketStatus("offline");
-          setNotice(response?.error ?? "This event chat is not available.");
-        }
-      );
+    const unbind = bindRealtimeRoom(socket, {
+      joinEvent: "public-room:join", leaveEvent: "public-room:leave", payload: { roomId },
+      onJoined: () => {
+        setSocketStatus("connected");
+        void reloadRoomRef.current();
+      },
+      onError: (message) => { setSocketStatus("offline"); setNotice(message); }
     });
     socket.on("disconnect", () => setSocketStatus("offline"));
     socket.on("connect_error", () => setSocketStatus("offline"));
@@ -96,7 +93,7 @@ export function GuestRoomView({ roomId, isMemberPreview = false }: { roomId: str
     });
 
     return () => {
-      socket.emit("public-room:leave", { roomId });
+      unbind();
       socket.disconnect();
     };
   }, [roomId]);
