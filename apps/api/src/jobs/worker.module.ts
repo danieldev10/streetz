@@ -13,7 +13,7 @@ import { WorkerHealthController } from "./worker-health.controller";
 // Import providers only: the worker exposes no user/payment/socket routes.
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
+    ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: process.env.NODE_ENV === "test", validate: validateEnvironment }),
     PrismaModule,
     MailModule,
     JobsModule,

@@ -289,6 +289,7 @@ export function NotificationsTab({
   useEffect(() => {
     const socket = createAuthenticatedSocket();
     let refreshTimer: number | null = null;
+    socket.on("connect", () => { void loadFeed(); });
 
     socket.on("notifications:changed", (event: { source?: string } = {}) => {
       if (event.source === "rooms") return;

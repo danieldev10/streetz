@@ -2,6 +2,7 @@
 import type { Socket } from "socket.io-client";
 
 import { createAuthenticatedSocket } from "@/lib/authenticated-socket";
+import { bindRealtimeRoom } from "@/lib/realtime-room";
 
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -137,7 +138,7 @@ export function RoomsTab({
     }
   }
 
-  async function loadMessages(roomId: string) {
+  async function loadMessages(roomId: string, options: { force?: boolean } = {}) {
     if (!token || !user) {
       return;
     }
@@ -158,12 +159,12 @@ export function RoomsTab({
       const nextMessages = await queryClient.fetchQuery({
         queryKey,
         queryFn: async () => {
-          const response = await apiRequest<{ messages: RoomMessage[] }>(`/rooms/${roomId}/messages`, {
+          const response = await apiRequest<{ messages: RoomMessage[] }>(`/rooms/${roomId}/messages?limit=100`, {
             headers: authHeaders(token),
           });
           return mergeCachedRoomMessages(queryClient.getQueryData<RoomMessage[]>(queryKey), response.messages);
         },
-        staleTime: 30_000
+        staleTime: options.force ? 0 : 30_000
       });
 
       if (selectedRoomIdRef.current === roomId) {
@@ -216,8 +217,8 @@ export function RoomsTab({
   }
 
   function closeRoom() {
-    if (selectedRoomId) {
-      socketRef.current?.emit("room:leave", { roomId: selectedRoomId });
+    if (selectedRoomId && socketRef.current?.connected) {
+      socketRef.current.emit("room:leave", { roomId: selectedRoomId });
     }
 
     router.push("/events");
@@ -366,7 +367,11 @@ export function RoomsTab({
 
     socketRef.current = socket;
 
-    socket.on("connect", () => setSocketStatus("connected"));
+    socket.on("connect", () => {
+      setSocketStatus(selectedRoomIdRef.current ? "connecting" : "connected");
+      void loadRooms();
+      onNotificationsChangedRef.current();
+    });
     socket.on("disconnect", () => setSocketStatus("offline"));
     socket.on("connect_error", () => {
       setSocketStatus("offline");
@@ -409,12 +414,20 @@ export function RoomsTab({
     const timer = window.setTimeout(() => {
       void loadMessages(selectedRoomId);
       void loadRoomMembers(selectedRoomId);
-      socketRef.current?.emit("room:join", { roomId: selectedRoomId });
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    const socket = socketRef.current;
+    const unbind = socket ? bindRealtimeRoom(socket, {
+      joinEvent: "room:join", leaveEvent: "room:leave", payload: { roomId: selectedRoomId },
+      onJoined: () => {
+        setSocketStatus("connected");
+        void loadMessages(selectedRoomId, { force: true });
+      },
+      onError: (message) => { setSocketStatus("offline"); setNotice(message); }
+    }) : undefined;
+    return () => { window.clearTimeout(timer); unbind?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRoomId, selectedRoom?.hasJoined, isAdmin]);
+  }, [selectedRoomId, selectedRoom?.hasJoined, isAdmin, token]);
 
 
   function syncMessageCaret(input: HTMLInputElement) {
@@ -509,7 +522,7 @@ export function RoomsTab({
 
     const socket = socketRef.current;
 
-    if (!socket?.connected) {
+    if (!socket?.connected || socketStatus !== "connected") {
       setNotice("Event chat is temporarily unavailable. Please try again shortly.");
       return;
     }
@@ -517,15 +530,22 @@ export function RoomsTab({
     setIsSendingMessage(true);
     setNotice(null);
 
-    socket.emit(
+    const sentTo = selectedRoomId;
+    socket.timeout(10_000).emit(
       "room-message:send",
       {
         roomId: selectedRoomId,
         body,
         gifUrl: selectedGifUrl,
       },
-      (response: { ok?: boolean; message?: RoomMessage; error?: string }) => {
+      (error: Error | null, response?: { ok?: boolean; message?: RoomMessage; error?: string }) => {
         setIsSendingMessage(false);
+        if (selectedRoomIdRef.current !== sentTo) return;
+        if (error) {
+          setNotice("Connection interrupted. Check the chat before sending again.");
+          void loadMessages(sentTo, { force: true });
+          return;
+        }
 
         if (!response?.ok || !response.message) {
           setNotice("We ran into a problem. Please try again.");

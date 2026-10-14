@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
+import { closeRedisConnection } from "./close-redis-connection";
 
 @Injectable()
 export class RedisConnectionsService implements OnModuleDestroy {
@@ -8,11 +9,15 @@ export class RedisConnectionsService implements OnModuleDestroy {
   readonly publisher: Redis;
   readonly subscriber: Redis;
   private readonly probe: Redis;
+  private readonly unavailableListeners = new Set<() => void>();
 
   constructor(config: ConfigService) {
     const url = config.getOrThrow<string>("REDIS_URL");
     this.publisher = new Redis(url, { lazyConnect: true, maxRetriesPerRequest: null });
     this.subscriber = this.publisher.duplicate();
+    for (const client of [this.publisher, this.subscriber]) {
+      client.on("close", () => { for (const listener of this.unavailableListeners) listener(); });
+    }
     this.probe = new Redis(url, {
       lazyConnect: true,
       enableOfflineQueue: false,
@@ -49,7 +54,15 @@ export class RedisConnectionsService implements OnModuleDestroy {
     }
   }
 
-  onModuleDestroy() {
-    for (const client of [this.publisher, this.subscriber, this.probe]) client.disconnect();
+  isConnected() { return this.publisher.status === "ready" && this.subscriber.status === "ready"; }
+
+  onUnavailable(listener: () => void) {
+    this.unavailableListeners.add(listener);
+    return () => this.unavailableListeners.delete(listener);
+  }
+
+  async onModuleDestroy() {
+    this.unavailableListeners.clear();
+    await Promise.all([this.publisher, this.subscriber, this.probe].map(closeRedisConnection));
   }
 }

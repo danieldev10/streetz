@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, Optional, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt/dist";
 import { Socket } from "socket.io";
@@ -6,6 +6,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { getAccountAccessBlock } from "../users/account-status";
 import { AuthUser } from "./types/auth-user";
 import { RedisRateLimitStore } from "../abuse/redis-rate-limit.store";
+import { ApiLifecycleService } from "../lifecycle/api-lifecycle.service";
 
 type JwtPayload = {
   sub: string;
@@ -19,9 +20,21 @@ export class RealtimeAuthService {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly rates: RedisRateLimitStore,
+    @Optional() private readonly lifecycle?: ApiLifecycleService,
   ) {}
 
   async authenticate(client: Socket): Promise<AuthUser> {
+    // Three gateways share the private namespace. Authenticate one socket once,
+    // and include its database lookup in the shutdown drain.
+    if (!client.data.authentication) {
+      client.data.authentication = this.lifecycle
+        ? this.lifecycle.track(() => this.authenticateSession(client))
+        : this.authenticateSession(client);
+    }
+    return client.data.authentication as Promise<AuthUser>;
+  }
+
+  private async authenticateSession(client: Socket): Promise<AuthUser> {
     let payload: JwtPayload;
     try {
       payload = await this.jwtService.verifyAsync<JwtPayload>(this.extractToken(client), {
@@ -71,7 +84,9 @@ export class RealtimeAuthService {
   }
 
   async authorizeAction(client: Socket, action: "join" | "send") {
-    const user = client.data.user as AuthUser | undefined;
+    // A client can emit its first join before async handleConnection completes.
+    const user = client.data.user as AuthUser | undefined ?? await this.authenticate(client);
+    client.data.user = user;
     if (!user || !(client.data.authExpiresAt > Date.now())) {
       client.emit("auth:expired");
       client.disconnect(true);

@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Pool } from "pg";
 import { RedisConnectionsService } from "../realtime/redis-connections.service";
 import { RedisRateLimitStore } from "../abuse/redis-rate-limit.store";
+import { ApiLifecycleService } from "../lifecycle/api-lifecycle.service";
 
 @Injectable()
 export class HealthService implements OnModuleDestroy {
@@ -11,7 +12,8 @@ export class HealthService implements OnModuleDestroy {
   private pending: Promise<boolean> | null = null;
   private lastResult: { ready: boolean; expiresAt: number } | null = null;
 
-  constructor(config: ConfigService, private readonly redis: RedisConnectionsService, private readonly rates: RedisRateLimitStore) {
+  constructor(config: ConfigService, private readonly redis: RedisConnectionsService, private readonly rates: RedisRateLimitStore,
+    @Optional() private readonly lifecycle?: ApiLifecycleService) {
     // A small dedicated pool bounds both acquisition and query time, even when
     // the application pool is busy. Account for this one connection in DB budgets.
     this.database = new Pool({
@@ -28,6 +30,7 @@ export class HealthService implements OnModuleDestroy {
   }
 
   isReady(): Promise<boolean> {
+    if (this.lifecycle?.isDraining()) return Promise.resolve(false);
     // Coalesce concurrent probes, including failed ones, so monitoring cannot
     // exhaust connections or leave queued work after an outage.
     if (this.lastResult && this.lastResult.expiresAt > Date.now()) return Promise.resolve(this.lastResult.ready);
@@ -50,7 +53,7 @@ export class HealthService implements OnModuleDestroy {
       this.redis.checkHealth(),
       this.rates.checkHealth(),
     ]);
-    return results.every((result) => result.status === "fulfilled" && result.value === true);
+    return !this.lifecycle?.isDraining() && results.every((result) => result.status === "fulfilled" && result.value === true);
   }
 
   async onModuleDestroy() {

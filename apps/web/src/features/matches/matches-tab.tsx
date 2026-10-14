@@ -2,6 +2,7 @@
 import type { Socket } from "socket.io-client";
 
 import { createAuthenticatedSocket } from "@/lib/authenticated-socket";
+import { bindRealtimeRoom } from "@/lib/realtime-room";
 
 import { ActionButton } from "@/components/action-button";
 import type { FormEvent } from "react";
@@ -299,7 +300,7 @@ export function MatchesTab({
     }
   }
 
-  async function loadMessages(matchId: string) {
+  async function loadMessages(matchId: string, options: { force?: boolean } = {}) {
     const queryKey = queryKeys.directMessages(user.id, matchId);
     const cachedMessages = queryClient.getQueryData<DirectMessage[]>(queryKey);
     const hasCachedMessages = cachedMessages !== undefined;
@@ -315,12 +316,12 @@ export function MatchesTab({
       const nextMessages = await queryClient.fetchQuery({
         queryKey,
         queryFn: async () => {
-          const response = await apiRequest<{ messages: DirectMessage[] }>(`/conversations/${matchId}/messages`, {
+          const response = await apiRequest<{ messages: DirectMessage[] }>(`/conversations/${matchId}/messages?limit=100`, {
             headers: authHeaders(token),
           });
           return mergeCachedDirectMessages(queryClient.getQueryData<DirectMessage[]>(queryKey), response.messages);
         },
-        staleTime: 30_000,
+        staleTime: options.force ? 0 : 30_000,
       });
 
       if (selectedMatchIdRef.current === matchId) {
@@ -526,7 +527,11 @@ export function MatchesTab({
 
     socketRef.current = socket;
 
-    socket.on("connect", () => setSocketStatus("connected"));
+    socket.on("connect", () => {
+      setSocketStatus(selectedMatchIdRef.current ? "connecting" : "connected");
+      void loadMatches();
+      onNotificationsChangedRef.current();
+    });
     socket.on("disconnect", () => setSocketStatus("offline"));
     socket.on("connect_error", () => {
       setSocketStatus("offline");
@@ -573,7 +578,7 @@ export function MatchesTab({
 
   useEffect(() => {
     selectedMatchIdRef.current = selectedMatchId;
-  }, [selectedMatchId]);
+  }, [selectedMatchId, token]);
 
   useEffect(() => {
     onMatchesLoadedRef.current = onMatchesLoaded;
@@ -596,12 +601,20 @@ export function MatchesTab({
     const timer = window.setTimeout(() => {
       void markMatchNotificationSeen(selectedMatchId);
       void loadMessages(selectedMatchId);
-      socketRef.current?.emit("match:join", { matchId: selectedMatchId });
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    const socket = socketRef.current;
+    const unbind = socket ? bindRealtimeRoom(socket, {
+      joinEvent: "match:join", leaveEvent: "match:leave", payload: { matchId: selectedMatchId },
+      onJoined: () => {
+        setSocketStatus("connected");
+        void loadMessages(selectedMatchId, { force: true });
+      },
+      onError: (message) => { setSocketStatus("offline"); setNotice(message); }
+    }) : undefined;
+    return () => { window.clearTimeout(timer); unbind?.(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMatchId]);
+  }, [selectedMatchId, token]);
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -624,7 +637,7 @@ export function MatchesTab({
 
     const socket = socketRef.current;
 
-    if (!socket?.connected) {
+    if (!socket?.connected || socketStatus !== "connected") {
       setNotice("Live messaging is temporarily unavailable. Please try again shortly.");
       return;
     }
@@ -632,15 +645,22 @@ export function MatchesTab({
     setIsSendingMessage(true);
     setNotice(null);
 
-    socket.emit(
+    const sentTo = selectedMatchId;
+    socket.timeout(10_000).emit(
       "direct-message:send",
       {
         matchId: selectedMatchId,
         body,
         gifUrl: selectedGifUrl,
       },
-      (response: { ok?: boolean; message?: DirectMessage; error?: string }) => {
+      (error: Error | null, response?: { ok?: boolean; message?: DirectMessage; error?: string }) => {
         setIsSendingMessage(false);
+        if (selectedMatchIdRef.current !== sentTo) return;
+        if (error) {
+          setNotice("Connection interrupted. Check the chat before sending again.");
+          void loadMessages(sentTo, { force: true });
+          return;
+        }
 
         if (!response?.ok || !response.message) {
           setNotice("We ran into a problem. Please try again.");
