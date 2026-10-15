@@ -1,4 +1,4 @@
-import { EventStatus, MatchStatus, Prisma, TicketStatus } from "@prisma/client";
+import { EventStatus, MatchStatus, Prisma } from "@prisma/client";
 import { EVENT_ROOM_GRACE_PERIOD_MS } from "../rooms/event-room-lifecycle";
 
 type UnreadCountClient = Pick<Prisma.TransactionClient, "$queryRaw">;
@@ -55,17 +55,6 @@ export async function countUnreadRoomMessages(client: UnreadCountClient, userId:
       AND room."isActive" = true
       AND event."status" IN (${EventStatus.PUBLISHED}::"EventStatus", ${EventStatus.COMPLETED}::"EventStatus")
       AND COALESCE(event."endsAt", event."startsAt") > ${eventCutoff}
-      AND EXISTS (
-        SELECT 1
-        FROM "Ticket" AS ticket
-        WHERE ticket."eventId" = event."id"
-          AND ticket."userId" = ${userId}
-          AND ticket."status" IN (
-            ${TicketStatus.CONFIRMED}::"TicketStatus",
-            ${TicketStatus.PAID}::"TicketStatus",
-            ${TicketStatus.CHECKED_IN}::"TicketStatus"
-          )
-      )
       AND message."authorId" <> ${userId}
       AND message."deletedAt" IS NULL
       AND message."createdAt" > membership."lastReadAt"
@@ -111,17 +100,6 @@ export async function getUnreadRoomMessageCountsByRoom(client: UnreadCountClient
       AND room."isActive" = true
       AND event."status" IN (${EventStatus.PUBLISHED}::"EventStatus", ${EventStatus.COMPLETED}::"EventStatus")
       AND COALESCE(event."endsAt", event."startsAt") > ${eventCutoff}
-      AND EXISTS (
-        SELECT 1
-        FROM "Ticket" AS ticket
-        WHERE ticket."eventId" = event."id"
-          AND ticket."userId" = ${userId}
-          AND ticket."status" IN (
-            ${TicketStatus.CONFIRMED}::"TicketStatus",
-            ${TicketStatus.PAID}::"TicketStatus",
-            ${TicketStatus.CHECKED_IN}::"TicketStatus"
-          )
-      )
       AND message."authorId" <> ${userId}
       AND message."deletedAt" IS NULL
       AND message."createdAt" > membership."lastReadAt"

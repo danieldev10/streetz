@@ -1009,7 +1009,7 @@ export class EventsService {
           id: event.room!.id,
           hasJoined: options.includePublicRoom ? false : Boolean(event.room!.memberships?.length),
           availableUntil: getEventRoomClosesAt(event),
-          readOnly: Boolean(options.includePublicRoom || userTickets.length === 0)
+          readOnly: Boolean(options.includePublicRoom)
         }
       : null;
 

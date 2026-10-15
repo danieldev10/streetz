@@ -5,11 +5,11 @@ import type { StreetzEvent } from "@/lib/types";
 
 type EventPageProps = { params: Promise<{ eventId: string }> };
 
-export const revalidate = 60;
+export const revalidate = 0;
 
 export async function generateMetadata({ params }: EventPageProps): Promise<Metadata> {
   const { eventId } = await params;
-  const event = await publicApiRequest<StreetzEvent>(`/public/events/${eventId}`);
+  const event = await publicApiRequest<StreetzEvent>(`/public/events/${eventId}`, 0);
 
   if (!event) return { title: "Event unavailable | crushclub" };
 
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: EventPageProps): Promise<Meta
 
 export default async function EventTicketsPage({ params }: EventPageProps) {
   const { eventId } = await params;
-  const event = await publicApiRequest<StreetzEvent>(`/public/events/${eventId}`);
+  const event = await publicApiRequest<StreetzEvent>(`/public/events/${eventId}`, 0);
 
   return <EventPageClient eventId={eventId} initialEvent={event} />;
 }

@@ -24,7 +24,7 @@ export async function publicApiRequest<T>(path: string, revalidate = 300): Promi
   try {
     const response = await fetch(`${apiUrl}${path}`, {
       headers: { Accept: "application/json" },
-      next: { revalidate }
+      ...(revalidate === 0 ? { cache: "no-store" } : { next: { revalidate } })
     });
 
     if (!response.ok) {

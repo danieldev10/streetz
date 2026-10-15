@@ -11,7 +11,7 @@ import { ArrowLeft, CalendarDays, CheckCircle2, Download, MapPin, MessageCircle,
 import { type AuthPromptKind } from "@/components/app/public-route";
 import { useToast } from "@/components/app/toast-provider";
 import { MediaDetailSkeleton } from "@/components/skeletons";
-import { apiRequest, authHeaders, downloadApiFile, getUserErrorMessage } from "@/lib/api";
+import { ApiError, apiRequest, authHeaders, downloadApiFile, getUserErrorMessage } from "@/lib/api";
 import { consumePendingEventCheckoutNotice, savePendingEventCheckout } from "@/lib/pending-event-checkout";
 import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import type { StreetzEvent, StreetzEventTicket, StreetzEventTicketType, StreetzUser, TicketStatus } from "@/lib/types";
@@ -196,14 +196,19 @@ export function EventTicketsTab({
 
   useEffect(() => {
     let isCancelled = false;
+    let pending = false;
+    let lastRefreshAt = 0;
 
-    async function loadEvent() {
-      setIsLoading(true);
+    async function loadEvent(showLoading = false) {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      lastRefreshAt = Date.now();
+      if (showLoading) setIsLoading(true);
 
       try {
         const response = await apiRequest<StreetzEvent>(
           isGuest ? `/public/events/${eventId}` : `/events/${eventId}/tickets`,
-          isGuest ? undefined : { headers: authHeaders(token as string) }
+          { cache: "no-store", ...(!isGuest ? { headers: authHeaders(token as string) } : {}) }
         );
 
         if (!isCancelled) {
@@ -211,9 +216,11 @@ export function EventTicketsTab({
         }
       } catch (error) {
         if (!isCancelled) {
+          if (error instanceof ApiError && error.status === 404) setEvent(null);
           setNotice(getUserErrorMessage(error));
         }
       } finally {
+        pending = false;
         if (!isCancelled) {
           setIsLoading(false);
         }
@@ -226,16 +233,22 @@ export function EventTicketsTab({
       };
     }
 
-    if (isGuest && initialEvent !== undefined) {
-      return () => {
-        isCancelled = true;
-      };
+    const timer = window.setTimeout(() => void loadEvent(!isGuest || initialEvent === undefined), 0);
+    const interval = window.setInterval(() => void loadEvent(), 60_000);
+    function refreshOnReturn() {
+      if (Date.now() - lastRefreshAt > 5_000) void loadEvent();
     }
-
-    void loadEvent();
+    window.addEventListener("focus", refreshOnReturn);
+    window.addEventListener("pageshow", refreshOnReturn);
+    document.addEventListener("visibilitychange", refreshOnReturn);
 
     return () => {
       isCancelled = true;
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshOnReturn);
+      window.removeEventListener("pageshow", refreshOnReturn);
+      document.removeEventListener("visibilitychange", refreshOnReturn);
     };
   }, [eventId, initialEvent, isAdmin, isGuest, token]);
 
@@ -444,17 +457,15 @@ export function EventTicketsTab({
             return (
               <div className="grid gap-4">
                 <article className="overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-                  <div className="relative aspect-16/10 bg-brand-tint">
+                  <div className="relative bg-surface-muted">
                     <Image
                       src={event.coverImage || FALLBACK_EVENT_IMAGE}
-                      alt={`${event.title} event`}
-                      fill
+                      alt={`${event.title} full event flier`}
+                      width={1200}
+                      height={1600}
                       sizes="(max-width: 768px) 100vw, 720px"
-                      className="object-cover"
+                      className="max-h-[75svh] w-full h-auto object-contain"
                     />
-                    <span className="absolute left-3 top-3 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-ink">
-                      {selectedTicketType ? `${normalizeTicketTierName(selectedTicketType.name)} · ${formatPrice(selectedTicketType.priceKobo)}` : "No ticket"}
-                    </span>
                     <ActionButton
                       icon={<Share2 className="size-4" aria-hidden="true" />}
                       className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-surface/90 text-ink shadow-sm backdrop-blur transition hover:bg-surface"
@@ -468,13 +479,25 @@ export function EventTicketsTab({
                   <div className="p-4">
                     <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                       <CalendarDays className="size-4" aria-hidden="true" />
-                      {formatEventDate(event.startsAt)}
+                      <span>{formatEventDate(event.startsAt)}{event.endsAt ? ` – ${formatEventDate(event.endsAt)}` : ""} (WAT)</span>
                     </p>
                     <h1 className="mt-2 text-xl font-semibold">{event.title}</h1>
                     <p className="mt-1 flex items-center gap-1 text-sm text-ink-600">
-                      <MapPin className="size-4" aria-hidden="true" />
+                      <MapPin className="size-4 shrink-0" aria-hidden="true" />
                       {formatEventLocation(event)}
                     </p>
+                    {event.category ? (
+                      <p className="mt-3 text-xs font-medium text-brand-deep">{event.category}</p>
+                    ) : null}
+                    {event.description ? (
+                      <div className="mt-5 border-t border-black/5 pt-4">
+                        <h2 className="text-base font-semibold">About this event</h2>
+                        <p className="mt-2 whitespace-pre-wrap wrap-break-word text-sm leading-7 text-ink-600">{event.description}</p>
+                      </div>
+                    ) : null}
+                    {event.room && !isGuest && !event.room.readOnly ? (
+                      <p className="mt-4 text-sm leading-6 text-ink-600">Chat with other members before getting your ticket.</p>
+                    ) : null}
                     {ticketTypes.length > 1 ? (
                       <label className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                         Tier
@@ -497,6 +520,7 @@ export function EventTicketsTab({
                     ) : null}
                     {selectedTicketType ? (
                       <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-ink-600">
+                        <span className="rounded-full bg-brand-tint px-3 py-1 text-brand-deep">{normalizeTicketTierName(selectedTicketType.name)} · {formatPrice(selectedTicketType.priceKobo)}</span>
                         <span className="rounded-full bg-surface-muted px-3 py-1">{selectedTicketType.availableCount} spots left</span>
                         <span className="rounded-full bg-surface-muted px-3 py-1">Max {selectedTicketType.maxTicketsPerUser} per person</span>
                       </div>

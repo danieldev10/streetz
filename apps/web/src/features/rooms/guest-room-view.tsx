@@ -129,8 +129,7 @@ export function GuestRoomView({ roomId, isMemberPreview = false }: { roomId: str
       userId={null}
       isAdmin={false}
       isGuest
-      readOnlyMessage={isMemberPreview ? "Get a ticket for this event to send messages." : undefined}
-      ticketHref={isMemberPreview && room.eventId ? `/events/${room.eventId}` : undefined}
+      readOnlyMessage={isMemberPreview ? "This event chat is currently read-only." : undefined}
       notice={notice}
       socketStatus={socketStatus}
       messages={messages}
