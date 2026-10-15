@@ -26,6 +26,9 @@ test("event staff admission is scoped, revocable, audited and safe across concur
   try {
     const admin = await user("admin", "ADMIN"), staff = await user("staff"), staffTwo = await user("staff-two"), stranger = await user("stranger");
     const first = await event("first"), elsewhere = await event("elsewhere");
+    await assert.rejects(service.listEvents(stranger.id), /restricted to admins and assigned event staff/);
+    await assert.rejects(service.getEvent(stranger.id, first.id), /not assigned/);
+    assert.ok((await service.listEvents(admin.id)).events.some((row) => row.id === first.id));
     await assert.rejects(service.assignStaff(staff.id, first.id, stranger.email), /Only admins/);
     await assert.rejects(service.listStaff(staff.id, first.id), /Only admins/);
     await service.assignStaff(admin.id, first.id, staff.email.toUpperCase());
@@ -63,7 +66,7 @@ test("event staff admission is scoped, revocable, audited and safe across concur
     assert.equal(results[0].ticket.checkedInBy.id, results[1].ticket.checkedInBy.id);
     await service.removeStaff(admin.id, first.id, staff.id);
     await assert.rejects(service.checkInTicket(staff.id, first.id, race.code), /not assigned/);
-    assert.equal((await service.listEvents(staff.id)).events.length, 0);
+    await assert.rejects(service.listEvents(staff.id), /restricted to admins and assigned event staff/);
     await prisma.user.update({ where: { id: staffTwo.id }, data: { accountStatus: "BANNED" } });
     await assert.rejects(service.checkInTicket(staffTwo.id, first.id, race.code), /active account/);
     await prisma.event.update({ where: { id: first.id }, data: { status: "CANCELLED" } });

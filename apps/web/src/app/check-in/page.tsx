@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, ChevronLeft, LoaderCircle, LogOut, RefreshCw, ScanLine } from "lucide-react";
+import { CalendarDays, ChevronLeft, LoaderCircle, LogOut, RefreshCw, ScanLine, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { ActionButton } from "@/components/action-button";
 import { useSession } from "@/components/app/session-provider";
-import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { ApiError, apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { TicketCheckInModal } from "@/features/events/ticket-check-in-modal";
 
 type CheckInEvent = { id: string; title: string; venue: string; city: string; startsAt: string };
@@ -16,6 +16,7 @@ function CheckInWorkspace({ token }: { token: string }) {
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [selected, setSelected] = useState<CheckInEvent | null>(null);
   const load = useCallback(
     async (after?: string) => {
@@ -29,6 +30,12 @@ function CheckInWorkspace({ token }: { token: string }) {
         setEvents((current) => (after ? [...current, ...response.events] : response.events));
         setCursor(response.nextCursor);
       } catch (caught) {
+        if (caught instanceof ApiError && caught.status === 403) {
+          setAccessDenied(true);
+          setEvents([]);
+          setSelected(null);
+          setCursor(null);
+        }
         setError(getUserErrorMessage(caught));
       } finally {
         setLoading(false);
@@ -40,6 +47,17 @@ function CheckInWorkspace({ token }: { token: string }) {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+  if (accessDenied) {
+    return (
+      <section role="alert" className="mt-8 rounded-3xl border border-black/5 p-6 text-center">
+        <ShieldCheck className="mx-auto size-10 text-brand-strong" aria-hidden="true" />
+        <h1 className="mt-4 text-2xl font-semibold">Staff access only</h1>
+        <p className="mt-2 text-sm leading-6 text-ink-600">
+          Ticket check-in is restricted to admins and assigned event staff.
+        </p>
+      </section>
+    );
+  }
   return (
     <>
       <div className="mt-6 flex items-center justify-between gap-3">

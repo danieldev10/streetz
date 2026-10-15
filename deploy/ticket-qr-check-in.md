@@ -13,6 +13,7 @@ An older API can run against the additive schema during rollout. Roll back code 
 - Admin: open **Events → Scan tickets** for an event. Select **Open camera**, then scan the QR on a phone screen or printed ticket.
 - Admin: **Events → Check-in staff** adds an existing account by email. Remove that assignment to revoke access. Admin accounts already have access to all events.
 - Staff: log in at `/check-in` on the appropriate website (`staging.crushclub.ng/check-in` for testing, `crushclub.ng/check-in` for production), select an assigned event, and open the scanner. A paid membership or facial verification is not required for this task.
+- The account-menu check-in link is visible only to admins. Assigned staff use the dedicated `/check-in` URL; ordinary accounts cannot open the check-in workspace or scan tickets.
 - Each staff member should use their own account. The successful check-in records that account and the check-in time; repeated scans show the original record.
 - After a result, select **Scan next ticket**. The scanner pauses between admissions so one QR cannot generate repeated requests from successive camera frames.
 - **Enter code** remains available for camera failures, damaged QR images, and historical printed tickets. `STZ` and `CCL` tickets remain valid.
