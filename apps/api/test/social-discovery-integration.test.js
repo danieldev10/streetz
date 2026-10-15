@@ -30,9 +30,8 @@ test("social discovery and introductions use the same adult pool without dating 
     signPhotoUrls: async (photos) => photos,
     buildPublicUrl: (key) => "https://cdn.example/" + key,
   };
-  const verification = { isRequired: () => true };
-  const discovery = new DiscoveryService(prisma, storage, verification);
-  const messages = new MessagesService(prisma, storage, verification);
+  const discovery = new DiscoveryService(prisma, storage);
+  const messages = new MessagesService(prisma, storage);
   async function createUser(label, changes = {}, profileChanges = {}, withPhoto = true) {
     const user = await prisma.user.create({
       data: {
@@ -53,7 +52,7 @@ test("social discovery and introductions use the same adult pool without dating 
     return user;
   }
   try {
-    const viewer = await createUser("viewer");
+    const viewer = await createUser("viewer", { faceVerificationStatus: "NOT_STARTED" });
     const eligible = [];
     for (let index = 0; index < 125; index++) {
       eligible.push(await createUser("person-" + index, {}, {
@@ -69,6 +68,10 @@ test("social discovery and introductions use the same adult pool without dating 
     const birthdayAdult = await createUser("eighteenth-birthday", {}, { birthDate: getAdultBirthDateCutoff(now) });
     const unconfirmed = await createUser("unconfirmed", { discoveryPreference: { create: {} } });
     eligible.push(oldPreferences, olderAdult, birthdayAdult, unconfirmed);
+    const unverified = await createUser("unverified", { faceVerificationStatus: "FAILED" });
+    const notStarted = await createUser("not-started", { faceVerificationStatus: "NOT_STARTED" });
+    const bypassed = await createUser("bypassed", { faceVerificationOverrideReason: "PROTOTYPE_BYPASS" });
+    eligible.push(unverified, notStarted, bypassed);
 
     const hidden = await Promise.all([
       createUser("underage", {}, { birthDate: new Date(now.getFullYear() - 17, 0, 1) }),
@@ -76,7 +79,6 @@ test("social discovery and introductions use the same adult pool without dating 
       createUser("missing-photo", {}, {}, false),
       createUser("incomplete", {}, { bio: "   " }),
       createUser("no-interests", {}, { interests: [] }),
-      createUser("unverified", { faceVerificationStatus: "FAILED" }),
       createUser("expired", { subscriptionEndsAt: new Date(now.getTime() - 1) }),
       createUser("inactive-membership", { subscriptionStatus: "INACTIVE" }),
       createUser("deactivated", { accountStatus: "DEACTIVATED" }),
@@ -162,6 +164,20 @@ test("social discovery and introductions use the same adult pool without dating 
       assert.equal(await prisma.directMessage.count({ where: { matchId: request.conversation.id } }), 1);
     });
 
+    await t.test("unverified members can view profiles and message; only genuine verification earns a badge", async () => {
+      assert.equal((await discovery.getPerson(viewer.id, unverified.id)).isVerified, false);
+      assert.equal((await discovery.getPerson(viewer.id, notStarted.id)).isVerified, false);
+      assert.equal((await discovery.getPerson(viewer.id, bypassed.id)).isVerified, false);
+      assert.equal((await discovery.getPerson(viewer.id, eligible[0].id)).isVerified, true);
+      const request = await messages.createConversationRequest(viewer.id, unverified.id, "No verification needed to say hello");
+      assert.equal(request.created, true);
+      assert.equal(request.conversation.user.isVerified, false);
+      await prisma.user.update({ where: { id: notStarted.id }, data: { faceVerificationStatus: "VERIFIED", faceVerificationVerifiedAt: new Date() } });
+      assert.equal((await discovery.getPerson(viewer.id, notStarted.id)).isVerified, true);
+      await prisma.user.update({ where: { id: notStarted.id }, data: { faceVerificationStatus: "NOT_STARTED", faceVerificationVerifiedAt: null } });
+      assert.equal((await discovery.getPerson(viewer.id, notStarted.id)).isVerified, false);
+    });
+
     await t.test("hidden profiles remain unavailable for profile viewing, likes and new message requests", async () => {
       for (const user of hidden) {
         await assert.rejects(discovery.getPerson(viewer.id, user.id));
@@ -177,16 +193,16 @@ test("social discovery and introductions use the same adult pool without dating 
     });
 
     await t.test("guest preview includes preference-free adults while keeping private information out", async () => {
-      const publicService = new DiscoveryService(prisma, storage, verification);
+      const publicService = new DiscoveryService(prisma, storage);
       const preview = await publicService.getPublicPreview();
       assert.equal(preview.isPreview, true);
       assert.ok(preview.people.some((person) => eligible.some((user) => user.id === person.id)));
       for (const person of preview.people) {
-        assert.deepEqual(Object.keys(person).sort(), ["age", "connectionStatus", "displayName", "id", "photos", "state"]);
+        assert.deepEqual(Object.keys(person).sort(), ["age", "connectionStatus", "displayName", "id", "isVerified", "photos", "state"]);
         assert.ok(person.age >= 18);
       }
       const publicIds = new Set(preview.people.map((person) => person.id));
-      for (const label of ["underage", "withdrawn", "missing-photo", "incomplete", "no-interests", "unverified", "expired", "inactive-membership", "deactivated", "suspended", "admin"]) {
+      for (const label of ["underage", "withdrawn", "missing-photo", "incomplete", "no-interests", "expired", "inactive-membership", "deactivated", "suspended", "admin"]) {
         assert.equal(publicIds.has(byName.get(label).id), false, label);
       }
     });

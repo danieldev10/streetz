@@ -4,7 +4,7 @@ import { ActionButton } from "@/components/action-button";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Heart, ShieldCheck, UserRound } from "lucide-react";
+import { Heart, UserRound } from "lucide-react";
 import { AuthenticatedRoute } from "@/components/app/authenticated-route";
 import { PublicRoute } from "@/components/app/public-route";
 import { useSession } from "@/components/app/session-provider";
@@ -14,9 +14,9 @@ import { GuestDiscoveryTab } from "@/features/discovery/guest-discovery-tab";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { formatProfileSetupIssues, getProfileSetupIssues, isProfileReadyForDiscovery } from "@/lib/profile";
 import { queryKeys } from "@/lib/query-keys";
-import type { FaceVerificationState, StreetzProfile, StreetzUser } from "@/lib/types";
+import type { StreetzProfile, StreetzUser } from "@/lib/types";
 
-type GateState = "checking" | "ready" | "required" | "verificationRequired";
+type GateState = "checking" | "ready" | "required";
 
 type ResolvedGate = {
   state: GateState;
@@ -29,8 +29,7 @@ type ResolvedGate = {
  * request is still needed, so a warm cache renders the tab without a loading pass.
  */
 function resolveFromCache(
-  profile: StreetzProfile | null | undefined,
-  verification: FaceVerificationState | undefined
+  profile: StreetzProfile | null | undefined
 ): ResolvedGate | null {
   if (profile === undefined) {
     return null;
@@ -40,12 +39,8 @@ function resolveFromCache(
     return { state: "required", profile: null, issues: getProfileSetupIssues(profile) };
   }
 
-  if (verification === undefined) {
-    return null;
-  }
-
   return {
-    state: verification.required && verification.status !== "VERIFIED" ? "verificationRequired" : "ready",
+    state: "ready",
     profile,
     issues: [],
   };
@@ -63,8 +58,7 @@ function DiscoveryProfileGate({
   const router = useRouter();
   const queryClient = useQueryClient();
   const initial = resolveFromCache(
-    queryClient.getQueryData<StreetzProfile | null>(queryKeys.profile(user.id)),
-    queryClient.getQueryData<FaceVerificationState>(queryKeys.verification(user.id))
+    queryClient.getQueryData<StreetzProfile | null>(queryKeys.profile(user.id))
   );
   const [profileState, setProfileState] = useState<GateState>(initial?.state ?? "checking");
   const [readyProfile, setReadyProfile] = useState<StreetzProfile | null>(initial?.profile ?? null);
@@ -92,21 +86,9 @@ function DiscoveryProfileGate({
         }
 
         if (isProfileReadyForDiscovery(profile)) {
-          const verification = await queryClient.fetchQuery({
-            queryKey: queryKeys.verification(user.id),
-            queryFn: () => apiRequest<FaceVerificationState>("/verification/me", {
-              headers: authHeaders(token),
-            }),
-            staleTime: 5 * 60_000,
-          });
-
-          if (cancelled) {
-            return;
-          }
-
           setReadyProfile(profile);
           setProfileIssues([]);
-          setProfileState(verification.required && verification.status !== "VERIFIED" ? "verificationRequired" : "ready");
+          setProfileState("ready");
           return;
         }
 
@@ -155,49 +137,26 @@ function DiscoveryProfileGate({
   return (
     <section>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
-        {profileState === "verificationRequired" ? (
-          <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-            <div className="max-w-xs">
-              <div className="mx-auto grid size-14 place-items-center rounded-full bg-brand-tint text-brand-strong">
-                <ShieldCheck className="size-6" aria-hidden="true" />
-              </div>
-              <h2 className="mt-4 text-2xl font-semibold text-ink">Verify your profile</h2>
-              <p className="mt-2 text-sm leading-6 text-ink-600">
-                Discover is available after a quick live selfie check.
-              </p>
-              {notice ? <p className="mt-3 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{notice}</p> : null}
-              <ActionButton
-                trackNavigation icon={<ShieldCheck className="size-4" aria-hidden="true" />}
-                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
-                type="button"
-                onClick={() => router.push("/profile/verify?next=/discover")}
-              >
-                Verify now
-              </ActionButton>
+        <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+          <div className="max-w-xs">
+            <div className="mx-auto grid size-14 place-items-center rounded-full bg-brand-tint text-brand-strong">
+              <Heart className="size-6" aria-hidden="true" />
             </div>
-          </article>
-        ) : (
-          <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-            <div className="max-w-xs">
-              <div className="mx-auto grid size-14 place-items-center rounded-full bg-brand-tint text-brand-strong">
-                <Heart className="size-6" aria-hidden="true" />
-              </div>
-              <h2 className="mt-4 text-2xl font-semibold text-ink">Complete your profile</h2>
-              <p className="mt-2 text-sm leading-6 text-ink-600">
-                Discover is available after you {formatProfileSetupIssues(profileIssues)}.
-              </p>
-              {notice ? <p className="mt-3 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{notice}</p> : null}
-              <ActionButton
-                trackNavigation icon={<UserRound className="size-4" aria-hidden="true" />}
-                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
-                type="button"
-                onClick={() => router.push("/profile?mode=setup")}
-              >
-                Complete profile
-              </ActionButton>
-            </div>
-          </article>
-        )}
+            <h2 className="mt-4 text-2xl font-semibold text-ink">Complete your profile</h2>
+            <p className="mt-2 text-sm leading-6 text-ink-600">
+              Discover is available after you {formatProfileSetupIssues(profileIssues)}.
+            </p>
+            {notice ? <p className="mt-3 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{notice}</p> : null}
+            <ActionButton
+              trackNavigation icon={<UserRound className="size-4" aria-hidden="true" />}
+              className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
+              type="button"
+              onClick={() => router.push("/profile?mode=setup")}
+            >
+              Complete profile
+            </ActionButton>
+          </div>
+        </article>
       </div>
     </section>
   );

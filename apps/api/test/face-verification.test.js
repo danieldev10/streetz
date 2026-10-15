@@ -71,6 +71,7 @@ test("verification converts stored WebP to JPEG before comparing faces", async (
   const result = await complete();
   assert.equal(result.status, "VERIFIED");
   assert.equal(result.overrideReason, null);
+  assert.equal(result.isVerified, true);
 });
 
 for (const mode of ["prototype-pass", "enforce"]) {
@@ -82,6 +83,7 @@ for (const mode of ["prototype-pass", "enforce"]) {
     assert.equal(result.faceMatchSimilarity, 32.5);
     assert.equal(result.effectiveStatus, bypass ? "VERIFIED" : "FAILED");
     assert.equal(result.verified, bypass);
+    assert.equal(result.isVerified, false, "Failed checks cannot earn blue badges, including test bypasses");
     assert.equal(result.overrideReason, bypass ? "PROTOTYPE_BYPASS" : null);
     assert.equal(calls.attempts[0].status, "FAILED");
     assert.equal(calls.users[0].faceVerificationStatus, result.effectiveStatus);
@@ -120,6 +122,19 @@ test("low liveness confidence is recorded without requiring a comparison image",
   assert.match(result.failureReason, /below the required threshold/);
   assert.equal(calls.comparisons.length, 0);
 });
+
+for (const mode of ["off", "observe", "prototype-pass", "enforce"]) {
+  test(`${mode} keeps verification optional despite legacy REQUIRED=true`, async () => {
+    const service = new VerificationService({
+      user: { findUnique: async () => ({ faceVerificationStatus: "NOT_STARTED", faceVerificationVerifiedAt: null, faceVerificationOverrideReason: null }) },
+      faceVerificationAttempt: { findFirst: async () => null },
+    }, {}, { get: (key) => ({ FACE_VERIFICATION_MODE: mode, FACE_VERIFICATION_REQUIRED: "true" })[key] });
+    const state = await service.getMyVerification("user-1");
+    assert.equal(state.required, false);
+    assert.equal(state.isVerified, false);
+    assert.equal(state.enabled, mode !== "off");
+  });
+}
 
 for (const status of ["CREATED", "IN_PROGRESS", "EXPIRED", undefined]) {
   test(`prototype mode cannot verify a session with AWS status ${status}`, async () => {

@@ -103,7 +103,8 @@ test("two real API processes share messages, limits and ticket transactions and 
         JWT_ACCESS_SECRET: accessSecret, JWT_REFRESH_SECRET: refreshSecret, REPLICA_TEST_PREFIX: prefix,
         API_SHUTDOWN_TIMEOUT_MS: "10000", DB_POOL_MAX: "5", S3_BUCKET: "fixture-bucket", S3_REGION: "eu-west-1",
         S3_ACCESS_KEY_ID: "fixture-key", S3_SECRET_ACCESS_KEY: "fixture-secret", AWS_EC2_METADATA_DISABLED: "true",
-        PAYSTACK_SECRET_KEY: "fixture-paystack", SMTP_FROM: "fixture@example.test" },
+        PAYSTACK_SECRET_KEY: "fixture-paystack", SMTP_FROM: "fixture@example.test",
+        FACE_VERIFICATION_MODE: "enforce", FACE_VERIFICATION_REQUIRED: "true", AWS_VERIFICATION_BUCKET: "fixture-verification" },
       stdio: ["ignore", "pipe", "pipe", "ipc"] });
     children.push(child);
     let diagnostics = "";
@@ -132,6 +133,25 @@ test("two real API processes share messages, limits and ticket transactions and 
     proxy = await makeProxy(() => target);
     const sender = await openSocket(proxy.url, alice.token), receiver = await openSocket(b.url, bob.token);
     clients.push(sender, receiver);
+
+    await t.test("liveness is optional for discovery and introductions even with legacy enforcement variables", async () => {
+      const verification = await request(a, "/verification/me", alice).then((response) => response.json());
+      assert.equal(verification.required, false);
+      assert.equal(verification.isVerified, false);
+      assert.equal(verification.status, "NOT_STARTED");
+      assert.equal((await request(a, "/discovery/people", alice)).status, 200);
+      const profile = () => request(a, `/discovery/people/${bob.id}`, alice).then((response) => response.json());
+      assert.equal((await profile()).isVerified, false);
+      await prisma.user.update({ where: { id: bob.id }, data: { faceVerificationStatus: "VERIFIED", faceVerificationVerifiedAt: new Date() } });
+      assert.equal((await profile()).isVerified, true);
+      await prisma.user.update({ where: { id: bob.id }, data: { faceVerificationOverrideReason: "PROTOTYPE_BYPASS" } });
+      assert.equal((await profile()).isVerified, false);
+      await prisma.user.update({ where: { id: bob.id }, data: { faceVerificationStatus: "NOT_STARTED", faceVerificationVerifiedAt: null, faceVerificationOverrideReason: null } });
+      const newcomer = await createUser("Newcomer");
+      const introduction = await request(b, "/conversations/requests", newcomer, { targetUserId: alice.id, body: "Hello without a live selfie" });
+      assert.equal(introduction.status, 201);
+      assert.equal((await introduction.json()).created, true);
+    });
 
     await t.test("messages cross API instances and polling/forged origins are rejected", async () => {
       assert.equal((await acknowledgement(sender, "match:join", { matchId: match.id })).ok, true);

@@ -451,9 +451,14 @@ export function ProfileTab({
         updateSessionUser((currentUser) => ({
           ...currentUser,
           faceVerificationStatus: "NOT_STARTED",
+          faceVerificationVerifiedAt: null,
+          faceVerificationOverrideReason: null,
+          isVerified: false,
         }));
       }
-      setNotice(isReplacingPhoto ? "Photo updated. Please verify your profile again." : "Photo added to your profile.");
+      setNotice(isReplacingPhoto
+        ? user.isVerified ? "Photo updated. Verify again to restore your blue badge." : "Photo updated."
+        : "Photo added to your profile.");
       await loadProfile({ clearNotice: false, showLoading: false, syncForm: false, force: true });
     } catch (error) {
       const message = getUserErrorMessage(error);
@@ -593,6 +598,7 @@ export function ProfileTab({
                 attendedEventCount={attendedEventCount}
                 bio={profileForm.bio}
                 displayName={profileDisplayName}
+                isVerified={Boolean(user.isVerified)}
                 interests={previewInterests}
                 location={profileLocation}
                 photo={profilePhoto}
@@ -611,7 +617,7 @@ export function ProfileTab({
                   interests={previewInterests}
                   isDeactivateConfirmOpen={isDeactivateConfirmOpen}
                   isDeleteAccountOpen={isDeleteAccountOpen}
-                  isFaceVerified={user.faceVerificationStatus === "VERIFIED"}
+                  isFaceVerified={Boolean(user.isVerified)}
                   isSubmittingAccountAction={isSubmittingAccountAction}
                   location={profileLocation}
                   profileAge={profileAge}

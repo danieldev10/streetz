@@ -29,6 +29,7 @@ export type StreetzUser = {
   moderationReason?: string | null;
   ageConfirmedAt?: string | null;
   faceVerificationStatus: FaceVerificationStatus;
+  isVerified?: boolean;
   faceVerificationVerifiedAt?: string | null;
   faceVerificationOverrideReason?: string | null;
 };
@@ -54,6 +55,7 @@ export type FaceVerificationState = {
   mode: FaceVerificationMode;
   enabled: boolean;
   required: boolean;
+  isVerified: boolean;
   status: FaceVerificationStatus;
   verifiedAt: string | null;
   overrideReason: string | null;

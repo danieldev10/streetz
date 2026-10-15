@@ -10,6 +10,7 @@ import { FaceVerificationStatus } from "@prisma/client";
 import sharp = require("sharp");
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
+import { hasVerifiedProfile } from "../common/verified-profile";
 
 type FaceVerificationMode = "off" | "observe" | "prototype-pass" | "enforce";
 
@@ -56,7 +57,8 @@ export class VerificationService {
     return {
       mode: this.getMode(),
       enabled: this.isEnabled(),
-      required: this.isRequired(),
+      required: false,
+      isVerified: hasVerifiedProfile(user),
       status: user.faceVerificationStatus,
       verifiedAt: user.faceVerificationVerifiedAt,
       overrideReason: user.faceVerificationOverrideReason,
@@ -201,18 +203,12 @@ export class VerificationService {
       faceMatchSimilarity: updatedAttempt.faceMatchSimilarity,
       failureReason: updatedAttempt.failureReason,
       overrideReason: updatedAttempt.overrideReason,
-      verified: updatedAttempt.effectiveStatus === FaceVerificationStatus.VERIFIED
+      verified: updatedAttempt.effectiveStatus === FaceVerificationStatus.VERIFIED,
+      isVerified: hasVerifiedProfile({
+        faceVerificationStatus: effectiveStatus,
+        faceVerificationOverrideReason: overrideReason
+      })
     };
-  }
-
-  isRequired() {
-    const configuredRequired = this.config.get<string>("FACE_VERIFICATION_REQUIRED")?.trim().toLowerCase();
-
-    if (["true", "1", "yes", "required"].includes(configuredRequired ?? "")) {
-      return true;
-    }
-
-    return this.getMode() === "enforce";
   }
 
   private async getProviderStatus(
