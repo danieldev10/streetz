@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
+import { VerifiedBadge } from "@/components/verified-badge";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import { formatSexuality } from "@/lib/profile";
 import type { ProfilePhoto, Sexuality } from "@/lib/types";
@@ -95,9 +96,9 @@ export function ProfileOverviewView({
         <div className="px-5 pb-5 pt-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="text-3xl font-semibold text-ink">
-                {displayName}
-                {profileAge ? `, ${profileAge}` : ""}
+              <h2 className="flex flex-wrap items-center gap-2 text-3xl font-semibold text-ink">
+                <span>{displayName}{profileAge ? `, ${profileAge}` : ""}</span>
+                <VerifiedBadge verified={isFaceVerified} />
               </h2>
               <p className="mt-2 flex items-center gap-1 text-sm font-medium text-ink-600">
                 <MapPin className="size-4" aria-hidden="true" />
@@ -135,20 +136,15 @@ export function ProfileOverviewView({
       </article>
 
       <div className="mt-5 grid gap-3">
-        {isFaceVerified ? (
-          <div className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-brand-tint px-5 text-sm font-medium text-brand-strong">
-            <ShieldCheck className="size-4" aria-hidden="true" />
-            Live Verified
-          </div>
-        ) : (
+        {!isFaceVerified ? (
           <a
             className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-tint px-5 text-sm font-medium text-brand-deep"
             href="/profile/verify"
           >
             <ShieldCheck className="size-4" aria-hidden="true" />
-            Verify Profile
+            Get a blue verified badge
           </a>
-        )}
+        ) : null}
         <ProfileMenuButton onClick={onPreview}>
           <Heart className="size-4" aria-hidden="true" />
           Preview Card

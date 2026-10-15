@@ -1,11 +1,13 @@
 import { ArrowLeft, MapPin, Ticket } from "lucide-react";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
+import { VerifiedBadge } from "@/components/verified-badge";
 import type { ProfilePhoto } from "@/lib/types";
 
 export function ProfilePreviewView({
   attendedEventCount,
   bio,
   displayName,
+  isVerified,
   interests,
   location,
   photo,
@@ -16,6 +18,7 @@ export function ProfilePreviewView({
   attendedEventCount: number;
   bio: string;
   displayName: string;
+  isVerified: boolean;
   interests: string[];
   location: string;
   photo: ProfilePhoto | undefined;
@@ -58,9 +61,9 @@ export function ProfilePreviewView({
               </span>
             ) : null}
           </div>
-          <h2 className="mt-3 text-3xl font-semibold">
-            {displayName}
-            {profileAge ? `, ${profileAge}` : ""}
+          <h2 className="mt-3 flex flex-wrap items-center gap-2 text-3xl font-semibold">
+            <span>{displayName}{profileAge ? `, ${profileAge}` : ""}</span>
+            <VerifiedBadge verified={isVerified} />
           </h2>
           <p className="mt-1 flex items-center gap-1 text-sm font-medium">
             <MapPin className="size-4" aria-hidden="true" />

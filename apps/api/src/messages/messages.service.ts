@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { AccountStatus, ConnectionStatus, FaceVerificationStatus, MatchStatus, Prisma, SubscriptionStatus, UserRole } from "@prisma/client";
+import { AccountStatus, ConnectionStatus, MatchStatus, Prisma, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge } from "../common/age";
 import { countCheckedInStandardEvents } from "../common/attendance";
 import { isProfileSetupComplete } from "../common/profile-readiness";
@@ -7,10 +7,10 @@ import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { normalizeMessageContent } from "../common/message-content";
 import { getAccountAccessBlock } from "../users/account-status";
-import { VerificationService } from "../verification/verification.service";
+import { hasVerifiedProfile, type VerificationBadgeSource } from "../common/verified-profile";
 import { MessagePageDto } from "../common/dto/message-page.dto";
 
-type CandidateUser = {
+type CandidateUser = VerificationBadgeSource & {
   id: string;
   displayName: string;
   accountStatus: AccountStatus;
@@ -84,7 +84,6 @@ type RequestParticipant = Prisma.UserGetPayload<{
     suspendedUntil: true;
     subscriptionStatus: true;
     subscriptionEndsAt: true;
-    faceVerificationStatus: true;
     profile: true;
     photos: { select: { id: true } };
   };
@@ -96,8 +95,7 @@ const DAILY_CONVERSATION_REQUEST_LIMIT = 10;
 export class MessagesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService,
-    private readonly verification: VerificationService
+    private readonly storage: StorageService
   ) {}
 
   async getMatches(userId: string) {
@@ -677,6 +675,7 @@ export class MessagesService {
     return {
       id: candidate.id,
       displayName: candidate.displayName,
+      isVerified: hasVerifiedProfile(candidate),
       accountStatus: candidate.accountStatus,
       age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,
@@ -780,7 +779,6 @@ export class MessagesService {
         suspendedUntil: true,
         subscriptionStatus: true,
         subscriptionEndsAt: true,
-        faceVerificationStatus: true,
         profile: true,
         photos: { select: { id: true }, take: 1 }
       }
@@ -811,13 +809,6 @@ export class MessagesService {
       target.subscriptionEndsAt <= now
     ) {
       throw new ForbiddenException("This profile is not available for messages.");
-    }
-
-    if (
-      this.verification.isRequired() &&
-      (sender.faceVerificationStatus !== FaceVerificationStatus.VERIFIED || target.faceVerificationStatus !== FaceVerificationStatus.VERIFIED)
-    ) {
-      throw new ForbiddenException("Both members must be verified before messaging.");
     }
 
     if (

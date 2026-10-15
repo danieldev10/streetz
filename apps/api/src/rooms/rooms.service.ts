@@ -7,6 +7,7 @@ import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
+import { hasVerifiedProfile, type VerificationBadgeSource } from "../common/verified-profile";
 import { MessagePageDto } from "../common/dto/message-page.dto";
 import {
   countUnreadRoomMessages,
@@ -59,6 +60,7 @@ export type RealtimeRoomMessage = {
   author?: {
     id: string;
     displayName: string;
+    isVerified?: boolean;
     photos?: unknown[];
   };
   body: string;
@@ -66,7 +68,7 @@ export type RealtimeRoomMessage = {
   createdAt: Date | string;
 };
 
-type CandidateUser = {
+type CandidateUser = VerificationBadgeSource & {
   id: string;
   displayName: string;
   accountStatus: AccountStatus;
@@ -456,6 +458,7 @@ export class RoomsService {
       author: {
         id: message.author?.id ?? message.authorId,
         displayName: message.author?.displayName ?? message.authorName,
+        isVerified: Boolean(message.author?.isVerified),
         age: null,
         bio: null,
         connectionStatus: null,
@@ -651,6 +654,7 @@ export class RoomsService {
       author: {
         id: message.author.id,
         displayName: message.author.displayName,
+        isVerified: hasVerifiedProfile(message.author),
         photos
       },
       body: message.body,
@@ -665,6 +669,7 @@ export class RoomsService {
     return {
       id: candidate.id,
       displayName: candidate.displayName,
+      isVerified: hasVerifiedProfile(candidate),
       accountStatus: candidate.accountStatus,
       age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,

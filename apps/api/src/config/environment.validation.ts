@@ -124,8 +124,6 @@ export function validateEnvironment(config: Record<string, unknown>) {
       requireAny(config, ["AWS_VERIFICATION_BUCKET", "FACE_VERIFICATION_BUCKET"], "face-verification bucket", errors);
     }
 
-    const faceRequired = ["1", "true", "yes", "on"].includes(read(config, "FACE_VERIFICATION_REQUIRED").toLowerCase());
-    if (faceRequired && faceMode === "off") errors.push("FACE_VERIFICATION_REQUIRED cannot be true when FACE_VERIFICATION_MODE is off");
   }
 
   if (errors.length > 0) {

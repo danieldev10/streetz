@@ -9,6 +9,7 @@ import type {
 export type DiscoveryCandidate = {
   id: string;
   displayName: string;
+  isVerified?: boolean;
   accountStatus?: AccountStatus;
   age: number | null;
   bio: string | null;
@@ -25,7 +26,7 @@ export type DiscoveryCandidate = {
 
 /** The public preview contains only the fields rendered on a discovery card. */
 export type PublicDiscoveryPerson = Pick<DiscoveryCandidate,
-  "id" | "displayName" | "age" | "state" | "connectionStatus" | "photos"
+  "id" | "displayName" | "isVerified" | "age" | "state" | "connectionStatus" | "photos"
 >;
 
 export type PublicDiscoveryPreview = {

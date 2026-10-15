@@ -38,12 +38,11 @@ function candidate(overrides = {}) {
   };
 }
 
-function createService(rows, required = true) {
+function createService(rows) {
   let query;
   const service = new DiscoveryService(
     { user: { findMany: async (args) => { query = args; return rows; } } },
-    { buildPublicUrl: (key) => `https://cdn.example/${key}` },
-    { isRequired: () => required }
+    { buildPublicUrl: (key) => `https://cdn.example/${key}` }
   );
   return { service, getQuery: () => query };
 }
@@ -53,7 +52,7 @@ test("guest preview projects basic fields and one thumbnail without private prof
   const result = await service.getPublicPreview();
   assert.equal(result.isPreview, true);
   assert.equal(result.people.length, 1);
-  assert.deepEqual(Object.keys(result.people[0]).sort(), ["age", "connectionStatus", "displayName", "id", "photos", "state"]);
+  assert.deepEqual(Object.keys(result.people[0]).sort(), ["age", "connectionStatus", "displayName", "id", "isVerified", "photos", "state"]);
   assert.equal(result.people[0].state, "Lagos");
   assert.equal(typeof result.people[0].age, "number");
   assert.deepEqual(result.people[0].photos, [{
@@ -77,7 +76,7 @@ test("guest database read excludes withdrawn and ineligible accounts and has a f
   assert.equal(query.where.role, "USER");
   assert.equal(query.where.subscriptionStatus, "ACTIVE");
   assert.ok(query.where.subscriptionEndsAt.gt instanceof Date);
-  assert.equal(query.where.faceVerificationStatus, "VERIFIED");
+  assert.equal(query.where.faceVerificationStatus, undefined);
   assert.equal(query.where.discoveryPreference, undefined);
   assert.equal(query.where.profile.is.discoveryGender, undefined);
   assert.ok(query.where.profile.is.birthDate.lte instanceof Date);
@@ -87,7 +86,7 @@ test("guest database read excludes withdrawn and ineligible accounts and has a f
   assert.equal(query.select.profile.select.latitude, undefined);
 });
 
-test("preview respects optional verification mode and filters incomplete or underage profiles", async () => {
+test("preview includes unverified people while filtering incomplete or underage profiles", async () => {
   const complete = candidate();
   const { service, getQuery } = createService([
     complete,
@@ -95,10 +94,24 @@ test("preview respects optional verification mode and filters incomplete or unde
     candidate({ id: "missing-photo", photos: [] }),
     candidate({ id: "missing-profile", profile: null }),
     candidate({ id: "underage", profile: { ...complete.profile, birthDate: new Date() } }),
-  ], false);
+  ]);
   const result = await service.getPublicPreview();
   assert.deepEqual(result.people.map((person) => person.id), ["user-1"]);
   assert.equal(getQuery().where.faceVerificationStatus, undefined);
+});
+
+test("public blue badges distinguish passed checks from prototype bypasses without exposing biometric fields", async () => {
+  const { service } = createService([
+    candidate({ id: "passed", faceVerificationStatus: "VERIFIED", faceVerificationOverrideReason: null }),
+    candidate({ id: "bypassed", faceVerificationStatus: "VERIFIED", faceVerificationOverrideReason: "PROTOTYPE_BYPASS" }),
+    candidate({ id: "not-started", faceVerificationStatus: "NOT_STARTED" }),
+  ]);
+  const { people } = await service.getPublicPreview();
+  assert.deepEqual(people.map((person) => [person.id, person.isVerified]), [["passed", true], ["bypassed", false], ["not-started", false]]);
+  for (const person of people) {
+    assert.equal("faceVerificationStatus" in person, false);
+    assert.equal("faceVerificationOverrideReason" in person, false);
+  }
 });
 
 test("legacy thumbnail URLs remain usable without exposing original photo fields", async () => {

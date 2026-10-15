@@ -9,13 +9,16 @@ Members choose their state, set their current status, and enter or withdraw from
 Discover, individual profile viewing, and new message requests require:
 
 - An active user account and unexpired, active membership.
-- Face verification when enabled for the environment.
 - A complete profile: an adult birth date, bio, city/state, status, interests, and a profile photo.
 - Pool visibility. Both participants must be in the pool for a new message request.
 - The same selected state, compared without case sensitivity.
 - No block in either direction or closed/declined/unmatched/blocked conversation between the two members.
 
 Withdrawing does not close existing conversations. Existing request limits and recipient acceptance remain in place.
+
+Live selfie verification is voluntary. It does not gate Discover, candidate visibility, profile viewing or message requests. Profile setup goes directly to Discover; verification is available from the profile page to earn a small blue badge. Badges appear beside names on profiles and discovery cards, including the limited guest preview. A genuine passed check earns the badge; prototype bypasses do not. Replacing the profile photo removes the badge until another successful check.
+
+Keep `FACE_VERIFICATION_MODE=enforce` to offer real verification with the existing AWS settings. `off` disables the optional feature without blocking Discover. The legacy `FACE_VERIFICATION_REQUIRED` variable is ignored; no Railway variable change or database migration is required for this policy change.
 
 Guests still see a limited preview with only basic card fields and a thumbnail. It uses the same account/profile eligibility, without requiring preferences. Guests cannot send requests or access full member profiles. Guest preview has no viewer-specific ranking or block history.
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { VerifiedBadge } from "@/components/verified-badge";
 import "@aws-amplify/ui-react/styles.css";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -29,6 +30,7 @@ type CompletionResult = {
   failureReason: string | null;
   overrideReason: string | null;
   verified: boolean;
+  isVerified: boolean;
 };
 
 let isAmplifyConfigured = false;
@@ -158,7 +160,7 @@ function FaceVerificationContent({ token }: { token: string }) {
         queryClient.setQueryData(queryKeys.verification(userId), verification);
       }
       await refreshSession({ force: true });
-      router.replace(nextPath);
+      if (verification.isVerified) router.replace(nextPath);
     } catch (error) {
       setNotice(getUserErrorMessage(error));
     } finally {
@@ -166,8 +168,7 @@ function FaceVerificationContent({ token }: { token: string }) {
     }
   }
 
-  const isVerified = state?.status === "VERIFIED" || result?.verified;
-  const canContinue = Boolean(state && (isVerified || !state.required));
+  const isVerified = Boolean(state?.isVerified || result?.isVerified);
 
   return (
     <section>
@@ -220,44 +221,35 @@ function FaceVerificationContent({ token }: { token: string }) {
             </article>
           ) : (
             <article className="rounded-[28px] border border-black/5 bg-surface p-5 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-              <div className={`mx-auto grid size-16 place-items-center rounded-full ${isVerified ? "bg-brand-tint text-brand-strong" : "bg-surface-muted text-ink"}`}>
+              <div className={`mx-auto grid size-16 place-items-center rounded-full ${isVerified ? "bg-blue-50 text-blue-600" : "bg-surface-muted text-ink"}`}>
                 {isVerified ? <CheckCircle2 className="size-7" aria-hidden="true" /> : <ShieldCheck className="size-7" aria-hidden="true" />}
               </div>
               <h1 className="mt-4 text-2xl font-semibold text-ink">
-                {isVerified ? "Profile verified" : "Live selfie verification"}
+                {isVerified ? "Profile verified" : "Get a blue verified badge"}
               </h1>
               <p className="mt-2 text-sm leading-6 text-ink-600">
                 {state?.enabled
-                  ? "We compare a live selfie with your profile photo to reduce fake profiles and impersonation."
-                  : "Face verification is set up, but it is currently disabled for this prototype."}
+                  ? "This optional live selfie check matches you to your profile photo. Passing adds a blue badge beside your name."
+                  : "Live selfie verification is currently unavailable. You can still use Discover."}
               </p>
+              {isVerified ? <div className="mt-3"><VerifiedBadge verified /></div> : null}
+              <p className="mt-2 text-sm leading-6 text-ink-600">You can use Discover and message people without this badge.</p>
 
               {state?.mode === "prototype-pass" || result?.overrideReason ? (
                 <div className="mt-4 rounded-[18px] bg-warning-tint p-3 text-left text-sm leading-6 text-warning">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <p>
-                      Prototype mode is active. The real AWS result is saved, but completed checks are treated as verified for testing.
+                      Testing mode is active. A test bypass does not earn a blue verified badge.
                     </p>
                   </div>
                 </div>
               ) : null}
 
-              {result ? (
-                <div className="mt-4 grid gap-2 rounded-[18px] bg-surface-muted p-3 text-left text-xs font-medium text-ink-600">
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Real result</span>
-                    <span className="text-ink">{result.status.replaceAll("_", " ")}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Liveness</span>
-                    <span className="text-ink">{result.livenessConfidence === null ? "N/A" : `${result.livenessConfidence.toFixed(1)}%`}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Face match</span>
-                    <span className="text-ink">{result.faceMatchSimilarity === null ? "N/A" : `${result.faceMatchSimilarity.toFixed(1)}%`}</span>
-                  </div>
-                </div>
+              {result && !isVerified ? (
+                <p role="status" className="mt-4 rounded-[18px] bg-surface-muted p-3 text-sm leading-6 text-ink-600">
+                  We couldn’t verify this selfie. You can try again anytime. Discover is still available.
+                </p>
               ) : null}
 
               <div className="mt-5 grid gap-3">
@@ -276,10 +268,9 @@ function FaceVerificationContent({ token }: { token: string }) {
                   trackNavigation
                   className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 bg-surface px-5 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
                   type="button"
-                  disabled={!canContinue}
                   onClick={() => router.replace(nextPath)}
                 >
-                  Continue
+                  {isVerified ? "Continue" : "Skip for now"}
                 </ActionButton>
               </div>
             </article>

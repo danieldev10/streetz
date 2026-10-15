@@ -1,12 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { AccountStatus, ConnectionStatus, DiscoveryAction, FaceVerificationStatus, Gender, MatchStatus, Prisma, ReportStatus, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
+import { AccountStatus, ConnectionStatus, DiscoveryAction, Gender, MatchStatus, Prisma, ReportStatus, Sexuality, SubscriptionStatus, UserRole } from "@prisma/client";
 import { calculateAge, getAdultBirthDateCutoff } from "../common/age";
 import { countCheckedInStandardEvents, getCheckedInStandardEventCounts } from "../common/attendance";
 import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
-import { VerificationService } from "../verification/verification.service";
+import { hasVerifiedProfile, type VerificationBadgeSource } from "../common/verified-profile";
 import { BlockUserDto } from "./dto/block-user.dto";
 import { DiscoveryActionDto } from "./dto/discovery-action.dto";
 import { ReportUserDto } from "./dto/report-user.dto";
@@ -42,8 +42,7 @@ export class DiscoveryService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService,
-    private readonly verification: VerificationService
+    private readonly storage: StorageService
   ) {}
 
   async getPublicPreview() {
@@ -56,6 +55,8 @@ export class DiscoveryService {
       select: {
         id: true,
         displayName: true,
+        faceVerificationStatus: true,
+        faceVerificationOverrideReason: true,
         profile: {
           select: { bio: true, city: true, state: true, birthDate: true, connectionStatus: true, interests: true }
         },
@@ -83,6 +84,7 @@ export class DiscoveryService {
       return {
         id: candidate.id,
         displayName: candidate.displayName,
+        isVerified: hasVerifiedProfile(candidate),
         age: calculateAge(profile.birthDate!, now),
         state: profile.state,
         connectionStatus: profile.connectionStatus,
@@ -701,7 +703,6 @@ export class DiscoveryService {
         subscriptionEndsAt: true,
         accountStatus: true,
         suspendedUntil: true,
-        faceVerificationStatus: true,
         profile: {
           select: {
             bio: true,
@@ -736,9 +737,6 @@ export class DiscoveryService {
         throw new ForbiddenException("Active crushclub membership required.");
       }
 
-      if (this.verification.isRequired() && user.faceVerificationStatus !== FaceVerificationStatus.VERIFIED) {
-        throw new ForbiddenException("Verify your face before using discovery.");
-      }
     }
 
     const profile = user?.profile;
@@ -885,7 +883,6 @@ export class DiscoveryService {
       role: UserRole.USER,
       subscriptionStatus: SubscriptionStatus.ACTIVE,
       subscriptionEndsAt: { gt: now },
-      ...(this.verification.isRequired() ? { faceVerificationStatus: FaceVerificationStatus.VERIFIED } : {}),
       profile: { is: {
         discoveryLive: true,
         bio: { not: null, notIn: [""] },
@@ -906,7 +903,6 @@ export class DiscoveryService {
       AND candidate."role" = CAST(${UserRole.USER} AS "UserRole")
       AND candidate."subscriptionStatus" = CAST(${SubscriptionStatus.ACTIVE} AS "SubscriptionStatus")
       AND candidate."subscriptionEndsAt" > ${now}
-      ${this.verification.isRequired() ? Prisma.sql`AND candidate."faceVerificationStatus" = CAST(${FaceVerificationStatus.VERIFIED} AS "FaceVerificationStatus")` : Prisma.empty}
       AND candidate_profile."discoveryLive" = TRUE
       AND nullif(btrim(candidate_profile."bio"), '') IS NOT NULL
       AND nullif(btrim(candidate_profile."city"), '') IS NOT NULL
@@ -968,12 +964,13 @@ export class DiscoveryService {
       fullObjectKey?: string | null;
       sortOrder: number;
     }>;
-  }, options: { distanceKm?: number | null; attendedEventCount: number }) {
+  } & VerificationBadgeSource, options: { distanceKm?: number | null; attendedEventCount: number }) {
     const photos = await this.storage.signPhotoUrls(candidate.photos);
 
     return {
       id: candidate.id,
       displayName: candidate.displayName,
+      isVerified: hasVerifiedProfile(candidate),
       accountStatus: candidate.accountStatus ?? AccountStatus.ACTIVE,
       age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,

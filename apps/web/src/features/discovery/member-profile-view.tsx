@@ -1,4 +1,5 @@
 "use client";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 import { ActionButton } from "@/components/action-button";
 import type { FormEvent, ReactNode } from "react";
@@ -180,9 +181,9 @@ export function MemberProfileView({
                     </span>
                   ) : null}
                 </div>
-                <h1 className="mt-3 text-3xl font-semibold">
-                  {candidate.displayName}
-                  {candidate.age ? `, ${candidate.age}` : ""}
+                <h1 className="mt-3 flex flex-wrap items-center gap-2 text-3xl font-semibold">
+                  <span>{candidate.displayName}{candidate.age ? `, ${candidate.age}` : ""}</span>
+                  <VerifiedBadge verified={candidate.isVerified} />
                 </h1>
                 <p className="mt-1 flex items-center gap-1 text-sm font-medium">
                   <MapPin className="size-4" aria-hidden="true" />

@@ -4,6 +4,7 @@ import { ActionButton } from "@/components/action-button";
 import type { LucideIcon } from "lucide-react";
 import { LoaderCircle, MapPin, MessageCircle, PartyPopper, Snowflake, Sparkles, UserRoundSearch, UtensilsCrossed } from "lucide-react";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
+import { VerifiedBadge } from "@/components/verified-badge";
 import { formatConnectionStatus } from "@/lib/profile";
 import type { ConnectionStatus, PublicDiscoveryPerson } from "@/lib/types";
 
@@ -45,7 +46,10 @@ export function DiscoveryPersonCard({ person, showState = false, isProfileLoadin
         ) : null}
       </button>
       <button type="button" className="min-w-0 flex-1 text-left disabled:opacity-60" onClick={onViewProfile} disabled={isProfileDisabled} aria-busy={isProfileLoading}>
-        <h3 className="truncate text-base font-semibold">{person.displayName}{person.age ? `, ${person.age}` : ""}</h3>
+        <h3 className="flex items-center gap-1.5 text-base font-semibold">
+          <span className="truncate">{person.displayName}{person.age ? `, ${person.age}` : ""}</span>
+          <VerifiedBadge verified={person.isVerified} />
+        </h3>
         {showState && person.state ? (
           <p className="mt-1 flex items-center gap-1 text-xs text-ink-500">
             <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
