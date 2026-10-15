@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CalendarDays, Download, LoaderCircle, MapPin, Ticket } from "lucide-react";
 import { ActionButton } from "@/components/action-button";
+import { TicketQrCode } from "@/components/ticket-qr-code";
 import { apiRequest, downloadApiFile, getUserErrorMessage } from "@/lib/api";
 
 type ManagedGuestBooking = {
@@ -68,6 +69,7 @@ export default function GuestTicketsPage() {
           {booking!.tickets.map((ticket, index) => (
             <article key={ticket.id} className="rounded-[20px] border border-black/8 bg-surface-muted p-4">
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400"><Ticket className="size-4" />{booking!.ticketType.name} · Ticket {index + 1}</p>
+              <TicketQrCode code={ticket.code} available={booking!.event.status !== "CANCELLED" && ["PAID", "CONFIRMED"].includes(ticket.status)} />
               <p className="mt-2 break-all font-mono text-xl font-bold tracking-wide">{ticket.code}</p>
               <p className="mt-1 text-xs text-ink-600">{ticket.status === "CANCELLED" || booking!.event.status === "CANCELLED" ? "Cancelled" : ticket.status === "CHECKED_IN" ? "Checked in" : "Ready to use"}</p>
             </article>

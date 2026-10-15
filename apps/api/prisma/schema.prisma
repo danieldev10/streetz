@@ -219,6 +219,9 @@ model User {
   createdRooms       ChatRoom[]           @relation("RoomCreator")
   roomMemberships    RoomMembership[]
   tickets            Ticket[]
+  ticketsCheckedIn   Ticket[] @relation("TicketCheckedInBy")
+  eventCheckInAssignments EventCheckInStaff[] @relation("EventCheckInStaffUser")
+  eventCheckInStaffAssigned EventCheckInStaff[] @relation("EventCheckInStaffAssigner")
   payments           Payment[]
   notificationSeens  NotificationSeen[]
   refreshTokens      RefreshToken[]
@@ -591,6 +594,7 @@ model Event {
   guestTicketRequests GuestTicketRequest[]
   guestTicketOrders   GuestTicketOrder[]
   room                ChatRoom?
+  checkInStaff        EventCheckInStaff[]
 
   @@index([category, status, startsAt])
 }
@@ -612,6 +616,19 @@ model TicketType {
   @@unique([eventId, name])
 }
 
+model EventCheckInStaff {
+  eventId      String
+  userId       String
+  assignedById String?
+  assignedAt   DateTime @default(now())
+  event        Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user         User @relation("EventCheckInStaffUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy   User? @relation("EventCheckInStaffAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([eventId, userId])
+  @@index([userId, assignedAt])
+}
+
 model Ticket {
   id           String       @id @default(cuid())
   eventId      String
@@ -625,6 +642,8 @@ model Ticket {
   code         String       @unique
   status       TicketStatus @default(RESERVED)
   checkedInAt   DateTime?
+  checkedInById String?
+  checkedInBy   User? @relation("TicketCheckedInBy", fields: [checkedInById], references: [id], onDelete: SetNull)
   reservedUntil DateTime?
   createdAt     DateTime     @default(now())
 

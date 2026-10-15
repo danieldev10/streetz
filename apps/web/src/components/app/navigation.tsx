@@ -17,6 +17,7 @@ import {
   MessagesSquare,
   Palette,
   ShieldCheck,
+  ScanLine,
   Ticket,
   UserRound,
   UsersRound,
@@ -201,6 +202,10 @@ function AccountMenu({
         </div>
 
         <nav className="mt-8 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto">
+          <Link href="/check-in" onClick={closeMenu} tabIndex={isOpen ? 0 : -1}
+            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted">
+            <ScanLine className="size-4" aria-hidden="true" />Ticket check-in
+          </Link>
           {/* Admins cannot enter /profile or /blocked-accounts, so those links are
               member-only rather than dead ends that bounce back to /admin. */}
           {!isAdmin ? (

@@ -1,5 +1,7 @@
 "use client";
 
+import { TicketQrCode } from "@/components/ticket-qr-code";
+
 import { ActionButton } from "@/components/action-button";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -575,6 +577,7 @@ export function EventTicketsTab({
 
                       return (
                         <article key={ticket.id} className="rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+                          <TicketQrCode code={ticket.code} available={event.status !== "CANCELLED" && ["PAID", "CONFIRMED"].includes(ticket.status)} />
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
                               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Ticket {tickets.length - index}</p>

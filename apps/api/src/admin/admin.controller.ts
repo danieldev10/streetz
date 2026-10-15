@@ -13,6 +13,7 @@ import { CheckInTicketDto } from "./dto/check-in-ticket.dto";
 import { AdminUsersListDto } from "./dto/admin-users-list.dto";
 import { ModerateReportUserDto } from "./dto/moderate-report-user.dto";
 import { UpdateReportStatusDto } from "./dto/update-report-status.dto";
+import { AdmissionsService } from "../admissions/admissions.service";
 
 @ApiTags("admin")
 @ApiBearerAuth()
@@ -22,7 +23,8 @@ import { UpdateReportStatusDto } from "./dto/update-report-status.dto";
 export class AdminController {
   constructor(
     private readonly adminService: AdminService,
-    private readonly notificationsGateway: NotificationsGateway
+    private readonly notificationsGateway: NotificationsGateway,
+    private readonly admissions: AdmissionsService
   ) {}
 
   @Get("metrics")
@@ -40,10 +42,10 @@ export class AdminController {
     return this.adminService.getUserActivity(userId);
   }
 
-  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  @Throttle({ default: { limit: 600, ttl: 60_000 } })
   @Post("events/:eventId/check-in")
-  checkInTicket(@Param("eventId") eventId: string, @Body() dto: CheckInTicketDto) {
-    return this.adminService.checkInTicket(eventId, dto.code);
+  checkInTicket(@CurrentUser() user: AuthUser, @Param("eventId") eventId: string, @Body() dto: CheckInTicketDto) {
+    return this.admissions.checkInTicket(user.id, eventId, dto.code);
   }
 
   @Get("reports")
