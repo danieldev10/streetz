@@ -393,7 +393,7 @@ export class GuestTicketsService {
   }
 
   private createTicketCode() {
-    return `STZTIX-${randomBytes(5).toString("hex").toUpperCase()}`;
+    return `CCLTIX-${randomBytes(5).toString("hex").toUpperCase()}`;
   }
 
   private invalidCodeError() {
