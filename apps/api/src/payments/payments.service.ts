@@ -156,7 +156,7 @@ export class PaymentsService {
       allowFreeTickets: false
     });
 
-    const reference = this.createReference("STZTIX");
+    const reference = this.createReference("CCLTIX");
     const callbackUrl = `${this.config.getOrThrow<string>("WEB_APP_URL")}/payment/callback?purpose=event-ticket&eventId=${encodeURIComponent(eventId)}`;
     const ticketAmountKobo = ticketType.priceKobo * quantity;
 
@@ -254,7 +254,7 @@ export class PaymentsService {
 
     const purpose = membershipRequired ? PaymentPurpose.MEMBERSHIP_EVENT_TICKET : PaymentPurpose.EVENT_TICKET;
     const purposeParam = membershipRequired ? "membership-event-ticket" : "event-ticket";
-    const reference = this.createReference(membershipRequired ? "STZJOIN" : "STZTIX");
+    const reference = this.createReference(membershipRequired ? "CCLJOIN" : "CCLTIX");
     const callbackUrl = `${this.config.getOrThrow<string>("WEB_APP_URL")}/payment/callback?purpose=${purposeParam}&eventId=${encodeURIComponent(eventId)}`;
 
     try {
@@ -1190,12 +1190,12 @@ export class PaymentsService {
     };
   }
 
-  private createReference(prefix = "STZSUB") {
+  private createReference(prefix = "CCLSUB") {
     return `${prefix}-${Date.now()}-${randomBytes(6).toString("hex")}`;
   }
 
   private createTicketCode() {
-    return `STZTIX-${randomBytes(5).toString("hex").toUpperCase()}`;
+    return `CCLTIX-${randomBytes(5).toString("hex").toUpperCase()}`;
   }
 
   private getTicketQuantity(quantity: number | undefined) {
