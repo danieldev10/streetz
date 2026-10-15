@@ -13,7 +13,7 @@ const {
 const { PaymentsService } = require("../dist/src/payments/payments.service.js");
 const { JobQueueService } = require("../dist/src/jobs/job-queue.service.js");
 const { JobHandlerService } = require("../dist/src/jobs/job-handler.service.js");
-const { AdminService } = require("../dist/src/admin/admin.service.js");
+const { AdmissionsService } = require("../dist/src/admissions/admissions.service.js");
 
 const connectionString = process.env.TEST_DATABASE_URL;
 const originalFetch = global.fetch;
@@ -214,7 +214,7 @@ test("ticket check-in is concurrency-safe and idempotent", { skip: !connectionSt
   const competingPrisma = createClient();
   const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const user = await prisma.user.create({
-    data: { email: `check-in-${unique}@example.com`, displayName: "Check In", passwordHash: "unused" },
+    data: { email: `check-in-${unique}@example.com`, displayName: "Check In", passwordHash: "unused", role: "ADMIN" },
   });
   const event = await prisma.event.create({
     data: {
@@ -239,13 +239,13 @@ test("ticket check-in is concurrency-safe and idempotent", { skip: !connectionSt
       status: TicketStatus.CONFIRMED,
     },
   });
-  const firstService = new AdminService(prisma, {}, {});
-  const secondService = new AdminService(competingPrisma, {}, {});
+  const firstService = new AdmissionsService(prisma);
+  const secondService = new AdmissionsService(competingPrisma);
 
   try {
     const results = await Promise.all([
-      firstService.checkInTicket(event.id, code.toLowerCase()),
-      secondService.checkInTicket(event.id, code),
+      firstService.checkInTicket(user.id, event.id, code.toLowerCase()),
+      secondService.checkInTicket(user.id, event.id, code),
     ]);
     const storedTicket = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
 

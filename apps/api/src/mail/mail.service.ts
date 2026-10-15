@@ -145,9 +145,9 @@ export class MailService {
       `Your ${input.tickets.length === 1 ? "ticket is" : "tickets are"} confirmed for ${input.eventTitle}.`,
       formattedDate, input.venue, "", "Ticket codes:",
       ...input.tickets.map((ticket) => `${ticket.tier}: ${ticket.code}`), "",
-      "Download the attached PDF and present each ticket code at the event entrance.",
+      "Download the attached PDF and present each ticket's QR code for scanning at the event entrance.",
       ...(input.manageUrl ? ["", "View your tickets:", input.manageUrl] : []), "",
-      "Each code can only be checked in once. Keep your ticket codes private."
+      "Each ticket can only be checked in once. Keep your QR and ticket codes private."
     ].join("\n");
     const html = `
       <div style="font-family: Arial, sans-serif; color: #111111; line-height: 1.6; max-width: 560px;">
@@ -157,9 +157,9 @@ export class MailService {
         <p>${this.escapeHtml(formattedDate)}<br />${this.escapeHtml(input.venue)}</p>
         <ul style="list-style: none; padding: 0;">${input.tickets.map((ticket) =>
           `<li style="margin: 8px 0;"><strong>${this.escapeHtml(ticket.tier)}</strong>: <span style="font-family: monospace; font-size: 18px;">${this.escapeHtml(ticket.code)}</span></li>`).join("")}</ul>
-        <p>Download the attached PDF and present each ticket code at the event entrance.</p>
+        <p>Download the attached PDF and present each ticket's QR code for scanning at the event entrance.</p>
         ${input.manageUrl ? `<p><a href="${this.escapeHtml(input.manageUrl)}" style="display: inline-block; background: #0d0d0d; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 999px; font-weight: 700;">View my tickets</a></p>` : ""}
-        <p>Each code can only be checked in once. Keep your ticket codes private.</p>
+        <p>Each ticket can only be checked in once. Keep your QR and ticket codes private.</p>
       </div>
     `;
     const pdf = await renderTicketPdf(input);

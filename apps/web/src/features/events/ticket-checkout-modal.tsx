@@ -1,5 +1,7 @@
 "use client";
 
+import { TicketQrCode } from "@/components/ticket-qr-code";
+
 import { ActionButton } from "@/components/action-button";
 import { useMemo, useState } from "react";
 import { CheckCircle2, Mail, Ticket, X } from "lucide-react";
@@ -214,6 +216,7 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
           {guestBooking.tickets.map((ticket, index) => (
             <div key={ticket.id} className="rounded-2xl border border-black/8 bg-surface-muted p-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400">Ticket {index + 1}</p>
+              <TicketQrCode code={ticket.code} />
               <p className="mt-1 font-mono text-lg font-bold tracking-wide text-ink">{ticket.code}</p>
             </div>
           ))}

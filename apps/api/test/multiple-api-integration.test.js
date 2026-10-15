@@ -240,6 +240,43 @@ test("two real API processes share messages, limits and ticket transactions and 
       assert.equal(jobs.filter((job) => job.payload.ticketIds?.includes(tickets[0].id)).length, 1);
     });
 
+    await t.test("staff scanners on separate APIs share one admission and enforce current event permissions", async () => {
+      const admin = await createUser("gate-admin"), staff = await createUser("gate-staff"), staffTwo = await createUser("gate-staff-two");
+      await prisma.user.update({ where: { id: admin.id }, data: { role: "ADMIN" } });
+      await prisma.user.updateMany({ where: { id: { in: [staff.id, staffTwo.id] } }, data: { subscriptionStatus: "INACTIVE" } });
+      const event = await prisma.event.create({ data: { title: "Staff gate", slug: "staff-" + prefix, category: "Community",
+        venue: "Test gate", city: "Lagos", startsAt: new Date(Date.now() + 3600000), status: "PUBLISHED",
+        ticketTypes: { create: { name: "Regular", priceKobo: 0, capacity: 2 } } }, include: { ticketTypes: true } });
+      events.push(event.id);
+      const endpoint = "/admissions/events/" + event.id + "/check-in";
+      const code = "CCLTIX-" + randomUUID().replaceAll("-", "").toUpperCase();
+      const ticket = await prisma.ticket.create({ data: { code, eventId: event.id, userId: alice.id,
+        ticketTypeId: event.ticketTypes[0].id, status: "CONFIRMED" } });
+      assert.equal((await request(a, endpoint, null, { code })).status, 401);
+      assert.equal((await request(a, endpoint, bob, { code })).status, 403);
+      const staffEndpoint = "/admin/events/" + event.id + "/check-in-staff";
+      for (const person of [staff, staffTwo]) {
+        assert.equal((await request(a, staffEndpoint, admin, { email: person.email })).status, 201);
+      }
+      assert.ok((await (await request(b, "/admissions/events", staff)).json()).events.some((row) => row.id === event.id));
+      const spoofedRole = { ...staff, token: new JwtService().sign({ sub: staff.id, email: staff.email, role: "ADMIN" }, { secret: accessSecret, expiresIn: "15m" }) };
+      assert.equal((await request(b, staffEndpoint, spoofedRole, { email: bob.email })).status, 403);
+      assert.equal((await request(b, "/admin/users", staff)).status, 403);
+      const responses = await Promise.all([request(a, endpoint, staff, { code }), request(b, endpoint, staffTwo, { code })]);
+      assert.ok(responses.every((response) => response.status === 201));
+      const outcomes = await Promise.all(responses.map((response) => response.json()));
+      assert.deepEqual(outcomes.map((response) => response.alreadyCheckedIn).sort(), [false, true]);
+      assert.equal(outcomes[0].ticket.checkedInBy.id, outcomes[1].ticket.checkedInBy.id);
+      assert.equal(outcomes[0].ticket.holder.email, undefined);
+      const stored = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
+      assert.ok([staff.id, staffTwo.id].includes(stored.checkedInById));
+      const revoked = await fetch(a.url + "/api" + staffEndpoint + "/" + staff.id, {
+        method: "DELETE", headers: { authorization: "Bearer " + admin.token }, signal: AbortSignal.timeout(15000),
+      });
+      assert.equal(revoked.status, 200);
+      assert.equal((await request(b, endpoint, staff, { code })).status, 403);
+    });
+
     await t.test("SIGTERM drains HTTP and socket writes, rejects new work, and reconnects to the surviving API", async () => {
       const httpBody = "held-" + prefix + "-http", socketBody = "held-" + prefix + "-socket";
       const httpHeld = ipc(a.child, (message) => message.id === httpBody);

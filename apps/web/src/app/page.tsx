@@ -186,6 +186,7 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = getSafeNextPath(searchParams.get("next"));
+  const isCheckInEntry = nextPath === "/check-in";
   const isAuthEntry = Boolean(nextPath || searchParams.get("mode") || searchParams.get("passwordReset") === "1");
   const { status, token, user, setSession, updateSessionUser, logout: clearSession } = useSession();
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -203,7 +204,7 @@ function HomeContent() {
   );
   const hasStartedPendingCheckout = useRef(false);
 
-  const canEnterApp = useMemo(() => isActiveMember(user), [user]);
+  const canEnterApp = useMemo(() => isActiveMember(user) || Boolean(isCheckInEntry && user?.accountStatus === "ACTIVE"), [isCheckInEntry, user]);
 
   useEffect(() => {
     if (status === "unauthenticated" && !isAuthEntry) {
@@ -347,6 +348,8 @@ function HomeContent() {
       return;
     }
 
+    if (isCheckInEntry) { router.replace("/check-in"); return; }
+
     const checkout = getPendingEventCheckout();
 
     if (checkout && token && !hasStartedPendingCheckout.current) {
@@ -356,7 +359,7 @@ function HomeContent() {
     }
 
     router.replace(nextPath ?? getDefaultRoute(user));
-  }, [canEnterApp, nextPath, router, startPendingEventCheckout, status, token, user]);
+  }, [canEnterApp, isCheckInEntry, nextPath, router, startPendingEventCheckout, status, token, user]);
 
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -383,7 +386,7 @@ function HomeContent() {
       setSession(auth.accessToken, auth.user);
       setPassword("");
 
-      if (isActiveMember(auth.user) && !getPendingEventCheckout()) {
+      if ((isCheckInEntry && auth.user.accountStatus === "ACTIVE") || (isActiveMember(auth.user) && !getPendingEventCheckout())) {
         router.replace(nextPath ?? getDefaultRoute(auth.user));
       }
     } catch (error) {
