@@ -186,6 +186,14 @@ test("two real API processes share messages, limits and ticket transactions and 
       await prisma.user.update({ where: { id: bob.id }, data: { subscriptionEndsAt: new Date(Date.now() + 86_400_000) } });
     });
 
+    await t.test("ordinary subscribers cannot open check-in or scan tickets", async () => {
+      const eventId = events[0];
+      assert.equal((await request(a, "/admissions/events", alice)).status, 403);
+      assert.equal((await request(a, `/admissions/events/${eventId}`, alice)).status, 403);
+      assert.equal((await request(a, `/admissions/events/${eventId}/check-in`, alice, { code: "CCLTIX-A7B93F120D" })).status, 403);
+      assert.equal((await request(a, "/admissions/events")).status, 401);
+    });
+
     await t.test("cancelling an event removes it from guest and member lists and closes its room", async () => {
       const event = await prisma.event.create({ data: { title: "Cancelled public event", slug: "cancel-" + prefix,
         category: "Community", description: "Full public event description", venue: "Test venue", city: "Lagos",

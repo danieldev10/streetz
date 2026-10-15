@@ -39,6 +39,15 @@ export class AdmissionsService {
   async listEvents(userId: string, cursor?: string) {
     return this.prisma.$transaction(async (transaction) => {
       const actor = await this.actor(transaction, userId);
+      if (actor.role !== UserRole.ADMIN) {
+        const assignment = await transaction.eventCheckInStaff.findFirst({
+          where: { userId },
+          select: { userId: true }
+        });
+        if (!assignment) {
+          throw new ForbiddenException("Ticket check-in is restricted to admins and assigned event staff.");
+        }
+      }
       const events = await transaction.event.findMany({
         where: {
           status: { in: [EventStatus.PUBLISHED, EventStatus.COMPLETED] },
