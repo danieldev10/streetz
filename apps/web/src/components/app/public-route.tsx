@@ -41,7 +41,7 @@ function getPromptCopy(kind: AuthPromptKind) {
   if (kind === "roomJoin") {
     return {
       title: "Create an account to join event chats",
-      body: "Event chats are available to active members who have tickets for the event.",
+      body: "Event chats are available to active members. You can join the conversation before getting a ticket.",
     };
   }
 

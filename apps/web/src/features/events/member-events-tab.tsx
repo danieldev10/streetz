@@ -97,7 +97,6 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
   const [events, setEvents] = useState<StreetzEvent[]>(() => cachedInitialEvents ?? []);
   const [historyEvents, setHistoryEvents] = useState<StreetzEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(cachedInitialEvents === undefined);
-  const initialPublicEventsPendingRef = useRef(initialEvents !== undefined);
   const filterInitializedRef = useRef(false);
   const [eventViewMode, setEventViewMode] = useState<EventViewMode>("events");
   const [eventFilterCategory, setEventFilterCategory] = useState<EventCategoryName | "">("");
@@ -198,19 +197,18 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
   }, [eventCacheScope, events, initialEvents, queryClient]);
 
   useEffect(() => {
-    if (isGuest && initialPublicEventsPendingRef.current) {
-      initialPublicEventsPendingRef.current = false;
-      return;
-    }
+    let cancelled = false;
+    let pending = false;
+    let lastRefreshAt = 0;
 
-    initialPublicEventsPendingRef.current = false;
-    const timer = window.setTimeout(async () => {
-      setIsLoadingEvents(true);
-      setNotice(null);
+    async function refreshEvents() {
+      if (pending || document.visibilityState === "hidden") return;
+      pending = true;
+      lastRefreshAt = Date.now();
 
       try {
         const fetchProfile = !isGuest && !filterInitializedRef.current;
-        const requestOptions = isGuest ? undefined : { headers: authHeaders(token as string) };
+        const requestOptions: RequestInit = { cache: "no-store", ...(!isGuest ? { headers: authHeaders(token as string) } : {}) };
         const [eventsResult, historyResult, profileResult] = await Promise.all([
           apiRequest<{ events: StreetzEvent[] }>(isGuest ? "/public/events" : "/events", requestOptions),
           isGuest
@@ -221,6 +219,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
             : Promise.resolve(null),
         ]);
 
+        if (cancelled) return;
         setEvents(eventsResult.events);
         setHistoryEvents(historyResult.events);
         queryClient.setQueryData(queryKeys.events(eventCacheScope), eventsResult.events);
@@ -232,13 +231,32 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
           }
         }
       } catch (error) {
-        setNotice(getUserErrorMessage(error));
+        if (!cancelled) setNotice(getUserErrorMessage(error));
       } finally {
-        setIsLoadingEvents(false);
+        pending = false;
+        if (!cancelled) setIsLoadingEvents(false);
       }
-    }, 0);
+    }
 
-    return () => window.clearTimeout(timer);
+    // Recheck even when SSR or local storage supplied a list. Cancelled events
+    // must not survive indefinitely in an open guest tab or browser history.
+    const timer = window.setTimeout(() => void refreshEvents(), 0);
+    const interval = window.setInterval(() => void refreshEvents(), 60_000);
+    function refreshOnReturn() {
+      if (Date.now() - lastRefreshAt > 5_000) void refreshEvents();
+    }
+    window.addEventListener("focus", refreshOnReturn);
+    window.addEventListener("pageshow", refreshOnReturn);
+    document.addEventListener("visibilitychange", refreshOnReturn);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshOnReturn);
+      window.removeEventListener("pageshow", refreshOnReturn);
+      document.removeEventListener("visibilitychange", refreshOnReturn);
+    };
   }, [eventCacheScope, isGuest, queryClient, token]);
 
   useEffect(() => {

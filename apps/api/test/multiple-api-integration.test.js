@@ -149,15 +149,20 @@ test("two real API processes share messages, limits and ticket transactions and 
       assert.equal(denied.connected, false);
     });
 
-    await t.test("member and anonymous event-room viewers receive messages across replicas", async () => {
+    await t.test("subscribers without tickets can join paid-event rooms and send across replicas; guests stay read-only", async () => {
       const event = await prisma.event.create({ data: { title: "Replica event", slug: "replica-" + prefix,
         category: "Community", venue: "Test venue", city: "Lagos", startsAt: new Date(Date.now() + 86_400_000),
-        status: "PUBLISHED", ticketTypes: { create: { name: "Regular", priceKobo: 0, capacity: 10 } },
-        room: { create: { name: "Event room", memberships: { create: [{ userId: alice.id }, { userId: bob.id }] } } } },
+        status: "PUBLISHED", ticketTypes: { create: { name: "Regular", priceKobo: 500_000, capacity: 10 } },
+        room: { create: { name: "Event room" } } },
         include: { room: true, ticketTypes: true } });
       events.push(event.id);
-      await prisma.ticket.createMany({ data: [alice, bob].map((user) => ({ userId: user.id, eventId: event.id,
-        ticketTypeId: event.ticketTypes[0].id, code: randomUUID(), status: "CONFIRMED" })) });
+      assert.equal(await prisma.ticket.count({ where: { eventId: event.id } }), 0);
+      const preview = await (await request(a, `/events/${event.id}/tickets`, alice)).json();
+      assert.equal(preview.room.readOnly, false);
+      const availableRooms = await (await request(a, "/rooms", alice)).json();
+      assert.ok(availableRooms.rooms.some((room) => room.id === event.room.id));
+      assert.equal((await request(a, `/rooms/${event.room.id}/join`, alice, {})).status, 201);
+      assert.equal((await request(b, `/rooms/${event.room.id}/join`, bob, {})).status, 201);
       assert.equal((await acknowledgement(sender, "room:join", { roomId: event.room.id })).ok, true);
       assert.equal((await acknowledgement(receiver, "room:join", { roomId: event.room.id })).ok, true);
       const guest = await openSocket(b.url + "/public-rooms"); clients.push(guest);
@@ -173,6 +178,39 @@ test("two real API processes share messages, limits and ticket transactions and 
       await assert.rejects(new Promise((resolve, reject) => guest.timeout(150).emit("room-message:send",
         { roomId: event.room.id, body: "Guest must not send" }, (error, value) => error ? reject(error) : resolve(value))));
       assert.equal(await prisma.chatMessage.count({ where: { roomId: event.room.id } }), before);
+      assert.equal((await request(b, `/rooms/${event.room.id}/messages`, bob, { body: "HTTP chat before buying" })).status, 201);
+      assert.equal((await request(b, `/rooms/${event.room.id}/messages`, null, { body: "Anonymous send" })).status, 401);
+      await prisma.user.update({ where: { id: bob.id }, data: { subscriptionEndsAt: new Date(Date.now() - 1_000) } });
+      assert.equal((await request(b, `/rooms/${event.room.id}/messages`, bob, { body: "Expired send" })).status, 403);
+      assert.equal((await acknowledgement(receiver, "room-message:send", { roomId: event.room.id, body: "Expired socket send" })).ok, false);
+      await prisma.user.update({ where: { id: bob.id }, data: { subscriptionEndsAt: new Date(Date.now() + 86_400_000) } });
+    });
+
+    await t.test("cancelling an event removes it from guest and member lists and closes its room", async () => {
+      const event = await prisma.event.create({ data: { title: "Cancelled public event", slug: "cancel-" + prefix,
+        category: "Community", description: "Full public event description", venue: "Test venue", city: "Lagos",
+        startsAt: new Date(Date.now() + 86_400_000), status: "PUBLISHED",
+        ticketTypes: { create: { name: "Regular", priceKobo: 0, capacity: 10 } },
+        room: { create: { name: "Cancelled event room" } } }, include: { room: true } });
+      events.push(event.id);
+      const publicList = await request(a, "/public/events");
+      assert.equal(publicList.headers.get("cache-control"), "no-store");
+      assert.ok((await publicList.json()).events.some((item) => item.id === event.id));
+      const detail = await request(a, `/public/events/${event.id}`);
+      assert.equal(detail.headers.get("cache-control"), "no-store");
+      assert.equal((await detail.json()).description, event.description);
+      const admin = await createUser("Event admin");
+      await prisma.user.update({ where: { id: admin.id }, data: { role: "ADMIN" } });
+      const cancelled = await fetch(a.url + `/api/admin/events/${event.id}`, {
+        method: "PUT", headers: { origin, "content-type": "application/json", "x-crushclub-client": "web", authorization: "Bearer " + admin.token },
+        body: JSON.stringify({ status: "CANCELLED", cancellationReason: "Cancelled in isolated test" })
+      });
+      assert.equal(cancelled.status, 200);
+      assert.equal((await request(b, "/public/events").then((response) => response.json())).events.some((item) => item.id === event.id), false);
+      assert.equal((await request(b, "/events", alice).then((response) => response.json())).events.some((item) => item.id === event.id), false);
+      assert.equal((await request(b, `/public/events/${event.id}`)).status, 404);
+      assert.equal((await request(b, `/public/rooms/${event.room.id}`)).status, 404);
+      assert.equal((await request(b, `/rooms/${event.room.id}/join`, alice, {})).status, 403);
     });
 
     await t.test("HTTP login budgets stay shared when traffic changes replicas and IPs", async () => {

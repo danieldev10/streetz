@@ -189,7 +189,7 @@ test("aggregate unread queries count all conversations in constant query count",
     ],
   });
 
-  // Event chat counts require a valid ticket. Generic rooms are no longer eligible.
+  // Joined event chats count even before booking. Inactive rooms stay excluded.
   const events = await Promise.all([0, 1, 2, 3].map((index) => prisma.event.create({
     data: {
       title: `Unread event ${index} ${unique}`, slug: `unread-${index}-${unique}`,
@@ -236,11 +236,11 @@ test("aggregate unread queries count all conversations in constant query count",
     assert.equal(directTotal, 3);
     assert.equal(directByMatch.get(matches[0].id), 1);
     assert.equal(directByMatch.get(matches[1].id), 2);
-    assert.equal(roomTotal, 2);
+    assert.equal(roomTotal, 3);
     assert.equal(roomByRoom.get(rooms[0].id), 1);
     assert.equal(roomByRoom.get(rooms[2].id), 1);
     assert.equal(roomByRoom.has(rooms[1].id), false);
-    assert.equal(roomByRoom.has(rooms[3].id), false);
+    assert.equal(roomByRoom.get(rooms[3].id), 1);
   } finally {
     await prisma.event.deleteMany({ where: { id: { in: events.map((event) => event.id) } } });
     await prisma.user.deleteMany({ where: { id: { in: users.map((user) => user.id) } } });

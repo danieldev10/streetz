@@ -8,7 +8,6 @@ import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
 import { MessagePageDto } from "../common/dto/message-page.dto";
-import { CONFIRMED_TICKET_STATUSES } from "../events/ticket-reservations";
 import {
   countUnreadRoomMessages,
   getUnreadRoomMessageCountsByRoom
@@ -126,9 +125,7 @@ export class RoomsService {
     }
 
     const rooms = await this.prisma.chatRoom.findMany({
-      where: user.role === UserRole.ADMIN
-        ? this.availableEventRoomWhere()
-        : this.availableEventRoomWhere(userId),
+      where: this.availableEventRoomWhere(),
       include: {
         ...this.roomCounts({ includeMessages: user.role === UserRole.ADMIN }),
         event: this.eventSummarySelect(),
@@ -480,9 +477,7 @@ export class RoomsService {
     const room = await this.prisma.chatRoom.findFirst({
       where: {
         id: roomId,
-        ...(user.role === UserRole.ADMIN
-          ? this.availableEventRoomWhere()
-          : this.availableEventRoomWhere(userId))
+        ...this.availableEventRoomWhere()
       },
       select: {
         id: true
@@ -707,23 +702,13 @@ export class RoomsService {
     };
   }
 
-  private availableEventRoomWhere(userId?: string): Prisma.ChatRoomWhereInput {
+  private availableEventRoomWhere(): Prisma.ChatRoomWhereInput {
     return {
       isActive: true,
       eventId: { not: null },
       event: {
         is: {
-          ...getAvailableEventRoomWhere(),
-          ...(userId
-            ? {
-                tickets: {
-                  some: {
-                    userId,
-                    status: { in: CONFIRMED_TICKET_STATUSES }
-                  }
-                }
-              }
-            : {})
+          ...getAvailableEventRoomWhere()
         }
       }
     };
