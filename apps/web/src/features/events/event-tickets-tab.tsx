@@ -16,11 +16,11 @@ import { consumePendingEventCheckoutNotice, savePendingEventCheckout } from "@/l
 import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import type { StreetzEvent, StreetzEventTicket, StreetzEventTicketType, StreetzUser, TicketStatus } from "@/lib/types";
 import type { GuestTicketBooking } from "@/features/events/ticket-checkout-modal";
+import { formatEventDateRange, getMaxPurchaseQuantity } from "@/features/events/event-display";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["CONFIRMED", "PAID", "CHECKED_IN"]);
-const MAX_TICKETS_PER_PURCHASE = 20;
 const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
 type EventTicketTierName = (typeof EVENT_TICKET_TIER_NAMES)[number];
 const TicketCheckoutModal = dynamic(() =>
@@ -37,18 +37,6 @@ function formatEventDate(value: string) {
     hour12: false,
     timeZone: "Africa/Lagos",
   }).format(new Date(value));
-}
-
-function formatPrice(priceKobo: number) {
-  if (priceKobo <= 0) {
-    return "Free";
-  }
-
-  return new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-    maximumFractionDigits: 0,
-  }).format(priceKobo / 100);
 }
 
 function formatEventLocation(event: Pick<StreetzEvent, "venue" | "city" | "state">) {
@@ -91,32 +79,6 @@ function getEventTicketTypes(event: StreetzEvent) {
   );
 }
 
-function getSelectedTicketType(event: StreetzEvent, selectedTicketTypeId: string | null) {
-  const ticketTypes = getEventTicketTypes(event);
-
-  return ticketTypes.find((ticketType) => ticketType.id === selectedTicketTypeId) ?? ticketTypes[0] ?? null;
-}
-
-function getRemainingUserTicketAllowance(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {
-  if (!ticketType?.id) {
-    return 0;
-  }
-
-  const ownedTickets = getEventTickets(event).filter(
-    (ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status) && ticket.ticketType?.id === ticketType.id
-  ).length;
-
-  return Math.max(0, ticketType.maxTicketsPerUser - ownedTickets);
-}
-
-function getMaxPurchaseQuantity(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {
-  if (!ticketType || !isBookableEvent(event)) {
-    return 0;
-  }
-
-  return Math.max(0, Math.min(ticketType.availableCount, getRemainingUserTicketAllowance(event, ticketType), MAX_TICKETS_PER_PURCHASE));
-}
-
 function getTicketState(ticket: StreetzEventTicket) {
   if (ticket.status === "CHECKED_IN") {
     return {
@@ -147,12 +109,14 @@ export function EventTicketsTab({
   eventId,
   initialEvent,
   onAuthRequired,
+  view = "details",
 }: {
   token?: string | null;
   user?: StreetzUser | null;
   eventId: string;
   initialEvent?: StreetzEvent | null;
   onAuthRequired?: (kind?: AuthPromptKind) => void;
+  view?: "details" | "tickets";
 }) {
   const router = useRouter();
   const isGuest = !token || !user;
@@ -161,25 +125,25 @@ export function EventTicketsTab({
   const [isLoading, setIsLoading] = useState(!isAdmin && initialEvent === undefined);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [isRoomBusy, setIsRoomBusy] = useState(false);
-  const [bookingQuantity, setBookingQuantity] = useState(1);
-  const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string | null>(null);
-  const [isGuestCheckoutOpen, setIsGuestCheckoutOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [guestTicketsUrl, setGuestTicketsUrl] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const { showToast } = useToast();
 
   const ticketTypes = useMemo(() => (event ? getEventTicketTypes(event) : []), [event]);
-  const selectedTicketType = event ? getSelectedTicketType(event, selectedTicketTypeId) : null;
   const tickets = useMemo(() => {
     const userTickets = event ? getEventTickets(event) : [];
 
     return userTickets.filter((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status));
   }, [event]);
-  const maxPurchaseQuantity = event ? getMaxPurchaseQuantity(event, selectedTicketType) : 0;
-  const selectedQuantity = maxPurchaseQuantity > 0 ? Math.min(Math.max(1, bookingQuantity), maxPurchaseQuantity) : 1;
-  const quantityOptions = Array.from({ length: maxPurchaseQuantity }, (_, index) => index + 1);
-  const canBookMore = maxPurchaseQuantity > 0;
-  const isSoldOut = Boolean(selectedTicketType && selectedTicketType.availableCount <= 0);
-  const isLimitReached = Boolean(event && selectedTicketType && isBookableEvent(event) && !isSoldOut && maxPurchaseQuantity <= 0);
+  const isSoldOut = ticketTypes.every((ticketType) => ticketType.availableCount <= 0);
+  const canBookMore = Boolean(event && isBookableEvent(event) && ticketTypes.some((ticketType) =>
+    isGuest ? ticketType.availableCount > 0 : getMaxPurchaseQuantity(event, ticketType) > 0
+  ));
+  const getTicketsLabel = !ticketTypes.length ? "No tickets available"
+    : isSoldOut ? "Sold out"
+      : event && !isBookableEvent(event) ? "Event unavailable"
+        : !canBookMore ? "Ticket limit reached" : "Get tickets";
   const isBusy = activeEventId === event?.id;
 
   useEffect(() => {
@@ -276,39 +240,36 @@ export function EventTicketsTab({
     }
   }
 
-  async function bookEvent() {
-    if (!event || !selectedTicketType) {
+  async function openTicketCheckout() {
+    if (!event || !canBookMore || isBusy || isAdmin) return;
+    setNotice(null);
+    try {
+      await import("@/features/events/ticket-checkout-modal");
+      setIsCheckoutOpen(true);
+    } catch (error) {
+      setNotice(getUserErrorMessage(error));
+    }
+  }
+
+  async function bookEvent(ticketType: StreetzEventTicketType, quantity: number) {
+    if (!event || !isBookableEvent(event) || isBusy || isAdmin) {
       return;
     }
 
-    const guestMaxQuantity = Math.min(selectedTicketType.availableCount, MAX_TICKETS_PER_PURCHASE);
-    const safeQuantity = Math.max(1, Math.min(selectedQuantity, isGuest ? guestMaxQuantity : maxPurchaseQuantity));
-
-    if (safeQuantity < 1) {
-      return;
-    }
+    const maxQuantity = isGuest
+      ? Math.min(ticketType.availableCount, ticketType.maxTicketsPerUser, 20)
+      : getMaxPurchaseQuantity(event, ticketType);
+    if (maxQuantity < 1) return;
+    const safeQuantity = Math.max(1, Math.min(quantity, maxQuantity));
 
     if (isGuest) {
-      if (selectedTicketType.priceKobo <= 0) {
-        setActiveEventId(event.id);
-        setNotice(null);
-        try {
-          await import("@/features/events/ticket-checkout-modal");
-          setIsGuestCheckoutOpen(true);
-        } catch (error) {
-          setNotice(getUserErrorMessage(error));
-        } finally {
-          setActiveEventId(null);
-        }
-        return;
-      }
-
-      savePendingEventCheckout({ eventId: event.id, ticketTypeId: selectedTicketType.id, quantity: safeQuantity });
+      savePendingEventCheckout({ eventId: event.id, ticketTypeId: ticketType.id, quantity: safeQuantity });
+      setIsCheckoutOpen(false);
       onAuthRequired?.("eventTicket");
       return;
     }
 
-    if (!token || !canBookMore) {
+    if (!token) {
       return;
     }
 
@@ -316,14 +277,14 @@ export function EventTicketsTab({
     setNotice(null);
 
     try {
-      if (selectedTicketType.priceKobo <= 0) {
+      if (ticketType.priceKobo <= 0) {
         const updatedEvent = await apiRequest<StreetzEvent>(`/events/${event.id}/book`, {
           method: "POST",
           headers: authHeaders(token as string),
-          body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: selectedTicketType.id }),
+          body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: ticketType.id }),
         });
         setEvent(updatedEvent);
-        setBookingQuantity(1);
+        setIsCheckoutOpen(false);
         setNotice(safeQuantity === 1 ? "Spot booked." : `${safeQuantity} spots booked.`);
         return;
       }
@@ -331,7 +292,7 @@ export function EventTicketsTab({
       const response = await apiRequest<{ authorizationUrl?: string }>(`/payments/events/${event.id}/ticket/initialize`, {
         method: "POST",
         headers: authHeaders(token as string),
-        body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: selectedTicketType.id }),
+        body: JSON.stringify({ quantity: safeQuantity, ticketTypeId: ticketType.id }),
       });
 
       if (!response.authorizationUrl) {
@@ -347,6 +308,7 @@ export function EventTicketsTab({
   }
 
   function applyGuestBooking(booking: GuestTicketBooking) {
+    setGuestTicketsUrl(booking.manageUrl);
     setEvent((current) => {
       if (!current || current.id !== booking.event.id) {
         return current;
@@ -411,30 +373,49 @@ export function EventTicketsTab({
 
   return (
     <section>
-      {!event ? <h1 className="sr-only">Event details</h1> : null}
-      {isGuestCheckoutOpen && event ? (
+      {!event ? <h1 className="sr-only">{view === "tickets" ? "Your tickets" : "Event details"}</h1> : null}
+      {isCheckoutOpen && event ? (
         <TicketCheckoutModal
           event={event}
-          isGuest
-          isBusy={false}
-          initialTicketTypeId={selectedTicketType?.id}
-          initialQuantity={selectedQuantity}
-          onClose={() => setIsGuestCheckoutOpen(false)}
-          onSubmit={() => undefined}
+          isGuest={isGuest}
+          isBusy={isBusy}
+          errorMessage={notice}
+          onClose={() => setIsCheckoutOpen(false)}
+          onSubmit={bookEvent}
           onGuestBooked={applyGuestBooking}
         />
       ) : null}
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
-        <div className="mb-4 flex items-center">
+        <div className="mb-4 flex items-center gap-2">
           <ActionButton
             trackNavigation icon={<ArrowLeft className="size-4" aria-hidden="true" />}
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
             type="button"
-            onClick={() => router.push("/events")}
-            aria-label="Back to events"
+            onClick={() => router.push(view === "tickets" ? `/events/${eventId}` : "/events")}
+            aria-label={view === "tickets" ? "Back to event details" : "Back to events"}
             title="Back"
           >
           </ActionButton>
+          {event && !isAdmin && !isLoading ? (
+            <div className="ml-auto flex min-w-0 items-center gap-2">
+              {view === "details" && (tickets.length > 0 || guestTicketsUrl) ? (
+                <ActionButton trackNavigation type="button"
+                  icon={<Ticket className="size-4 shrink-0" aria-hidden="true" />}
+                  className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-black/8 px-3 text-xs font-semibold sm:px-4 sm:text-sm"
+                  onClick={() => {
+                    if (isGuest && guestTicketsUrl) window.location.assign(guestTicketsUrl);
+                    else router.push(`/events/${eventId}/tickets`);
+                  }}>
+                  View tickets
+                </ActionButton>
+              ) : null}
+              <ActionButton type="button" isLoading={isBusy}
+                className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full bg-ink px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-sm"
+                onClick={openTicketCheckout} disabled={!canBookMore || isBusy}>
+                Get tickets
+              </ActionButton>
+            </div>
+          ) : null}
         </div>
 
         {isAdmin ? (
@@ -443,210 +424,152 @@ export function EventTicketsTab({
           </p>
         ) : null}
         {notice ? <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
+        {event && !isAdmin && !isLoading && !canBookMore ? (
+          <p role="status" className="mb-4 text-sm text-ink-600">{getTicketsLabel}</p>
+        ) : null}
 
         {isLoading ? (
           <MediaDetailSkeleton label="Loading tickets" />
         ) : event ? (
-          (() => {
-            const isPaidEvent = Boolean(selectedTicketType && selectedTicketType.priceKobo > 0);
-            const isBooked = tickets.length > 0;
-            const purchaseNoun = isPaidEvent ? "ticket" : "spot";
-            const purchaseNounPlural = isPaidEvent ? "tickets" : "spots";
-            const selectedNoun = selectedQuantity === 1 ? purchaseNoun : purchaseNounPlural;
-
-            return (
-              <div className="grid gap-4">
-                <article className="overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-                  <div className="relative bg-surface-muted">
-                    <Image
-                      src={event.coverImage || FALLBACK_EVENT_IMAGE}
-                      alt={`${event.title} full event flier`}
-                      width={1200}
-                      height={1600}
-                      sizes="(max-width: 768px) 100vw, 720px"
-                      className="max-h-[75svh] w-full h-auto object-contain"
-                    />
-                    <ActionButton
-                      icon={<Share2 className="size-4" aria-hidden="true" />}
-                      className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-surface/90 text-ink shadow-sm backdrop-blur transition hover:bg-surface"
-                      type="button"
-                      onClick={() => shareEvent()}
-                      aria-label={`Share ${event.title}`}
-                      title="Share event"
-                    >
-                    </ActionButton>
-                  </div>
-                  <div className="p-4">
-                    <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
-                      <CalendarDays className="size-4" aria-hidden="true" />
-                      <span>{formatEventDate(event.startsAt)}{event.endsAt ? ` – ${formatEventDate(event.endsAt)}` : ""} (WAT)</span>
-                    </p>
-                    <h1 className="mt-2 text-xl font-semibold">{event.title}</h1>
-                    <p className="mt-1 flex items-center gap-1 text-sm text-ink-600">
-                      <MapPin className="size-4 shrink-0" aria-hidden="true" />
-                      {formatEventLocation(event)}
-                    </p>
-                    {event.category ? (
-                      <p className="mt-3 text-xs font-medium text-brand-deep">{event.category}</p>
-                    ) : null}
-                    {event.description ? (
-                      <div className="mt-5 border-t border-black/5 pt-4">
-                        <h2 className="text-base font-semibold">About this event</h2>
-                        <p className="mt-2 whitespace-pre-wrap wrap-break-word text-sm leading-7 text-ink-600">{event.description}</p>
-                      </div>
-                    ) : null}
-                    {event.room && !isGuest && !event.room.readOnly ? (
-                      <p className="mt-4 text-sm leading-6 text-ink-600">Chat with other members before getting your ticket.</p>
-                    ) : null}
-                    {ticketTypes.length > 1 ? (
-                      <label className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
-                        Tier
-                        <select
-                          className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-                          value={selectedTicketType?.id ?? ""}
-                          onChange={(inputEvent) => {
-                            setSelectedTicketTypeId(inputEvent.target.value);
-                            setBookingQuantity(1);
-                          }}
-                          disabled={isBusy}
-                        >
-                          {ticketTypes.map((ticketType) => (
-                            <option key={ticketType.id} value={ticketType.id}>
-                              {normalizeTicketTierName(ticketType.name)} · {formatPrice(ticketType.priceKobo)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : null}
-                    {selectedTicketType ? (
-                      <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-ink-600">
-                        <span className="rounded-full bg-brand-tint px-3 py-1 text-brand-deep">{normalizeTicketTierName(selectedTicketType.name)} · {formatPrice(selectedTicketType.priceKobo)}</span>
-                        <span className="rounded-full bg-surface-muted px-3 py-1">{selectedTicketType.availableCount} spots left</span>
-                        <span className="rounded-full bg-surface-muted px-3 py-1">Max {selectedTicketType.maxTicketsPerUser} per person</span>
-                      </div>
-                    ) : null}
-                    {event.status === "CANCELLED" ? (
-                      <p className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm leading-6 text-danger">
-                        This event was cancelled. If you paid for a ticket, refunds are being processed and we will contact you by email.
-                      </p>
-                    ) : null}
-                    {canBookMore && maxPurchaseQuantity > 1 ? (
-                      <label className="mt-4 grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
-                        Quantity
-                        <select
-                          className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-                          value={selectedQuantity}
-                          onChange={(inputEvent) => setBookingQuantity(Number(inputEvent.target.value))}
-                          disabled={isBusy}
-                        >
-                          {quantityOptions.map((quantity) => (
-                            <option key={quantity} value={quantity}>
-                              {quantity} {quantity === 1 ? purchaseNoun : purchaseNounPlural}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : null}
-                    <ActionButton
-                      isLoading={isBusy} icon={<Ticket className="size-4" aria-hidden="true" />}
-                      className={`${canBookMore && maxPurchaseQuantity > 1 ? "mt-3" : "mt-4"} inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60`}
-                      type="button"
-                      onClick={() => bookEvent()}
-                      disabled={!canBookMore || isBusy}
-                    >
-                      {!selectedTicketType
-                        ? "No tickets available"
-                        : isSoldOut
-                          ? "Sold out"
-                          : isLimitReached
-                              ? "Ticket limit reached"
-                              : !isBookableEvent(event)
-                                ? "Event unavailable"
-                                : isBooked && selectedQuantity === 1
-                                  ? `${isPaidEvent ? "Buy" : "Book"} another ${purchaseNoun}`
-                                  : isBooked
-                                    ? `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} more ${purchaseNounPlural}`
-                                    : `${isPaidEvent ? "Buy" : "Book"} ${selectedQuantity} ${selectedNoun}`}
-                    </ActionButton>
-                    {event.room ? (
-                      <ActionButton
-                        trackNavigation isLoading={isRoomBusy} icon={isGuest || event.room.readOnly || event.room.hasJoined ? (
-                          <MessageCircle className="size-4" aria-hidden="true" />
-                        ) : (
-                          <UsersRound className="size-4" aria-hidden="true" />
-                        )}
-                        className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium text-ink transition hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
-                        type="button"
-                        onClick={() => openEventRoom()}
-                        disabled={isRoomBusy}
-                      >
-                        {isGuest || event.room.readOnly ? "View event chat" : event.room.hasJoined ? "Open event chat" : "Join room"}
-                      </ActionButton>
-                    ) : null}
-                  </div>
-                </article>
-
-                {!isGuest ? (
-                  <div className="grid gap-3">
-                    {tickets.length > 0 ? (
-                      <ActionButton type="button" onClick={downloadTickets} icon={<Download className="size-4" aria-hidden="true" />}
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-5 text-sm font-medium text-ink">
-                        Download tickets
-                      </ActionButton>
-                    ) : null}
-                    {tickets.length > 0 ? (
-                    tickets.map((ticket, index) => {
-                      const state = getTicketState(ticket);
-                      const Icon = state.icon;
-
-                      return (
-                        <article key={ticket.id} className="rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-                          <TicketQrCode code={ticket.code} available={event.status !== "CANCELLED" && ["PAID", "CONFIRMED"].includes(ticket.status)} />
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Ticket {tickets.length - index}</p>
-                              <p className="mt-2 truncate text-lg font-semibold text-ink">{ticket.code}</p>
-                              {ticket.ticketType ? (
-                                <p className="mt-1 text-sm font-medium text-ink-600">{normalizeTicketTierName(ticket.ticketType.name)}</p>
-                              ) : null}
-                              <p className="mt-1 text-sm text-ink-600">Booked {formatEventDate(ticket.createdAt)}</p>
-                              {ticket.checkedInAt ? (
-                                <p className="mt-1 text-sm text-ink-600">Used {formatEventDate(ticket.checkedInAt)}</p>
-                              ) : null}
-                            </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                              <ActionButton
-                                icon={<Share2 className="size-4" aria-hidden="true" />}
-                                className="inline-flex size-9 items-center justify-center rounded-full border border-black/8 text-ink-600 transition hover:border-brand hover:text-ink"
-                                type="button"
-                                onClick={() => shareEvent(ticket)}
-                                aria-label={`Share ${event.title} ticket`}
-                                title="Share ticket"
-                              >
-                              </ActionButton>
-                              <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${state.tone}`}>
-                                <Icon className="size-3.5" aria-hidden="true" />
-                                {state.label}
-                              </span>
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })
-                  ) : (
-                    <div className="grid min-h-48 place-items-center rounded-3xl border border-black/5 p-6 text-center">
-                      <div>
-                        <Ticket className="mx-auto size-8 text-brand" aria-hidden="true" />
-                        <h2 className="mt-3 text-2xl font-semibold">No tickets yet</h2>
-                        <p className="mt-2 text-sm text-ink-600">Book this event to see your tickets here.</p>
-                      </div>
+          <div className="grid grid-cols-1 gap-4">
+            {view === "details" ? (
+              <article className="overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+                <div className="relative bg-surface-muted">
+                  <Image
+                    src={event.coverImage || FALLBACK_EVENT_IMAGE}
+                    alt={`${event.title} full event flier`}
+                    width={1200}
+                    height={1600}
+                    sizes="(max-width: 768px) 100vw, 720px"
+                    className="max-h-[75svh] w-full h-auto object-contain"
+                  />
+                  <ActionButton
+                    icon={<Share2 className="size-4" aria-hidden="true" />}
+                    className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-surface/90 text-ink shadow-sm backdrop-blur transition hover:bg-surface"
+                    type="button"
+                    onClick={() => shareEvent()}
+                    aria-label={`Share ${event.title}`}
+                    title="Share event"
+                  >
+                  </ActionButton>
+                </div>
+                <div className="p-4">
+                  <h1 className="text-xl font-semibold">{event.title}</h1>
+                  <p className="mt-2 flex items-start gap-2 text-xs font-medium text-ink-500">
+                    <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
+                    <span>{formatEventDateRange(event.startsAt, event.endsAt)}</span>
+                  </p>
+                  <p className="mt-1 flex items-center gap-1 text-sm text-ink-600">
+                    <MapPin className="size-4 shrink-0" aria-hidden="true" />
+                    {formatEventLocation(event)}
+                  </p>
+                  {event.category ? (
+                    <p className="mt-3 text-xs font-medium text-brand-deep">{event.category}</p>
+                  ) : null}
+                  {event.description ? (
+                    <div className="mt-5 border-t border-black/5 pt-4">
+                      <h2 className="text-base font-semibold">About this event</h2>
+                      <p className="mt-2 whitespace-pre-wrap wrap-break-word text-sm leading-7 text-ink-600">{event.description}</p>
                     </div>
-                    )}
-                  </div>
+                  ) : null}
+                  {event.room && !isGuest && !event.room.readOnly ? (
+                    <p className="mt-4 text-sm leading-6 text-ink-600">Chat with other members before getting your ticket.</p>
+                  ) : null}
+                  {event.status === "CANCELLED" ? (
+                    <p className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm leading-6 text-danger">
+                      This event was cancelled. If you paid for a ticket, refunds are being processed and we will contact you by email.
+                    </p>
+                  ) : null}
+                  {event.room ? (
+                    <ActionButton
+                      trackNavigation isLoading={isRoomBusy} icon={isGuest || event.room.readOnly || event.room.hasJoined ? (
+                        <MessageCircle className="size-4" aria-hidden="true" />
+                      ) : (
+                        <UsersRound className="size-4" aria-hidden="true" />
+                      )}
+                      className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium text-ink transition hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
+                      type="button"
+                      onClick={() => openEventRoom()}
+                      disabled={isRoomBusy}
+                    >
+                      {isGuest || event.room.readOnly ? "View event chat" : event.room.hasJoined ? "Open event chat" : "Join room"}
+                    </ActionButton>
+                  ) : null}
+                </div>
+              </article>
+            ) : (
+              <header>
+                <h1 className="text-2xl font-semibold">Your tickets</h1>
+                <p className="mt-2 text-lg font-semibold">{event.title}</p>
+                <p className="mt-1 text-sm text-ink-600">{formatEventDateRange(event.startsAt, event.endsAt)}</p>
+                <p className="mt-1 text-sm text-ink-600">{formatEventLocation(event)}</p>
+                {event.status === "CANCELLED" ? (
+                  <p className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm leading-6 text-danger">
+                    This event was cancelled. These tickets cannot be used for entry.
+                  </p>
                 ) : null}
+              </header>
+            )}
+
+            {view === "tickets" && !isGuest ? (
+              <div className="grid grid-cols-1 gap-3">
+                {tickets.length > 0 ? (
+                  <ActionButton type="button" onClick={downloadTickets} icon={<Download className="size-4" aria-hidden="true" />}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-5 text-sm font-medium text-ink">
+                    Download tickets
+                  </ActionButton>
+                ) : null}
+                {tickets.length > 0 ? (
+                  tickets.map((ticket, index) => {
+                    const state = getTicketState(ticket);
+                    const Icon = state.icon;
+
+                    return (
+                      <article key={ticket.id} className="min-w-0 rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+                        <TicketQrCode code={ticket.code} available={event.status !== "CANCELLED" && ["PAID", "CONFIRMED"].includes(ticket.status)} />
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Ticket {tickets.length - index}</p>
+                            <p className="mt-2 truncate text-lg font-semibold text-ink">{ticket.code}</p>
+                            {ticket.ticketType ? (
+                              <p className="mt-1 text-sm font-medium text-ink-600">{normalizeTicketTierName(ticket.ticketType.name)}</p>
+                            ) : null}
+                            <p className="mt-1 text-sm text-ink-600">Booked {formatEventDate(ticket.createdAt)}</p>
+                            {ticket.checkedInAt ? (
+                              <p className="mt-1 text-sm text-ink-600">Used {formatEventDate(ticket.checkedInAt)}</p>
+                            ) : null}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <ActionButton
+                              icon={<Share2 className="size-4" aria-hidden="true" />}
+                              className="inline-flex size-9 items-center justify-center rounded-full border border-black/8 text-ink-600 transition hover:border-brand hover:text-ink"
+                              type="button"
+                              onClick={() => shareEvent(ticket)}
+                              aria-label={`Share ${event.title} ticket`}
+                              title="Share ticket"
+                            >
+                            </ActionButton>
+                            <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${state.tone}`}>
+                              <Icon className="size-3.5" aria-hidden="true" />
+                              {state.label}
+                            </span>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <div className="grid min-h-48 place-items-center rounded-3xl border border-black/5 p-6 text-center">
+                    <div>
+                      <Ticket className="mx-auto size-8 text-brand" aria-hidden="true" />
+                      <h2 className="mt-3 text-2xl font-semibold">No tickets yet</h2>
+                      <p className="mt-2 text-sm text-ink-600">Book this event to see your tickets here.</p>
+                    </div>
+                  </div>
+                )}
               </div>
-            );
-          })()
+            ) : null}
+          </div>
         ) : (
           <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
             <div>

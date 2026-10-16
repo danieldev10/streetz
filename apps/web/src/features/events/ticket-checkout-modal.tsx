@@ -106,7 +106,7 @@ function getMaxQuantity(event: StreetzEvent, ticketType: StreetzEventTicketType,
   ));
 }
 
-export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeId, initialQuantity = 1, onClose, onSubmit, onGuestBooked }: {
+export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeId, initialQuantity = 1, onClose, onSubmit, onGuestBooked, errorMessage }: {
   event: StreetzEvent;
   isGuest: boolean;
   isBusy: boolean;
@@ -115,6 +115,7 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
   onClose: () => void;
   onSubmit: (ticketType: StreetzEventTicketType, quantity: number) => void | Promise<void>;
   onGuestBooked?: (booking: GuestTicketBooking) => void;
+  errorMessage?: string | null;
 }) {
   const ticketTypes = useMemo(() => getTicketTypes(event), [event]);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState(initialTicketTypeId ?? ticketTypes[0]?.id ?? "");
@@ -344,7 +345,7 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
       )}
 
       {statusCopy ? <p className="mt-4 rounded-2xl bg-warning-tint p-3 text-sm font-medium text-warning">{statusCopy}</p> : null}
-      {error ? <p className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{error}</p> : null}
+      {error || errorMessage ? <p role="alert" className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{error || errorMessage}</p> : null}
 
       <ActionButton
         isLoading={isWorking} icon={<Ticket className="size-4" aria-hidden="true" />}

@@ -8,11 +8,14 @@ import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { MessageCircle } from "lucide-react";
+import { useToast } from "@/components/app/toast-provider";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { buildDatedMessageItems } from "@/lib/chat-dates";
 import { queryKeys } from "@/lib/query-keys";
 import type { ChatRoom, DiscoveryCandidate, RoomMember, RoomMessage, StreetzUser } from "@/lib/types";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
+import { MessageRequestModal } from "@/features/matches/message-request-modal";
 import { useChatAutoScroll } from "@/lib/use-chat-autoscroll";
 import {
   MENTION_SUGGESTION_LIMIT,
@@ -42,6 +45,7 @@ export function RoomsTab({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const isGuest = !token || !user;
   const isAdmin = user?.role === "ADMIN";
   const initialCachedMessages = initialSelectedRoomId && user
@@ -53,6 +57,7 @@ export function RoomsTab({
   const [messages, setMessages] = useState<RoomMessage[]>(initialCachedMessages ?? []);
   const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
   const [viewedRoomProfile, setViewedRoomProfile] = useState<DiscoveryCandidate | null>(null);
+  const [isDirectMessageOpen, setIsDirectMessageOpen] = useState(false);
   const [messageBody, setMessageBody] = useState("");
   const [selectedGifUrl, setSelectedGifUrl] = useState<string | null>(null);
   const [isLoadingMessages, setIsLoadingMessages] = useState(Boolean(initialSelectedRoomId && initialCachedMessages === undefined));
@@ -562,19 +567,52 @@ export function RoomsTab({
   }
 
   if (selectedRoom && viewedRoomProfile) {
+    const canMessageProfile = Boolean(token && user && !isAdmin && viewedRoomProfile.id !== user.id);
+
     return (
-      <MemberProfileView
-        candidate={viewedRoomProfile}
-        onBack={() => setViewedRoomProfile(null)}
-        backLabel={isRoomMembersOpen ? "Back to members" : "Back to chat"}
-        token={token ?? undefined}
-        showSafetyActions={!isAdmin && viewedRoomProfile.id !== user?.id}
-        onBlocked={(candidate) => {
-          setRoomMembers((current) => current.filter((member) => member.id !== candidate.id));
-          setViewedRoomProfile(null);
-          setNotice("Profile blocked.");
-        }}
-      />
+      <>
+        <MemberProfileView
+          candidate={viewedRoomProfile}
+          onBack={() => {
+            setIsDirectMessageOpen(false);
+            setViewedRoomProfile(null);
+          }}
+          backLabel={isRoomMembersOpen ? "Back to members" : "Back to chat"}
+          token={token ?? undefined}
+          showSafetyActions={!isAdmin && viewedRoomProfile.id !== user?.id}
+          onBlocked={(candidate) => {
+            setRoomMembers((current) => current.filter((member) => member.id !== candidate.id));
+            setIsDirectMessageOpen(false);
+            setViewedRoomProfile(null);
+            setNotice("Profile blocked.");
+          }}
+          footer={canMessageProfile ? (
+            <button type="button"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white"
+              onClick={() => setIsDirectMessageOpen(true)}>
+              <MessageCircle className="size-4" aria-hidden="true" />
+              Message {viewedRoomProfile.displayName}
+            </button>
+          ) : undefined}
+        />
+        {canMessageProfile && isDirectMessageOpen && token && user ? (
+          <MessageRequestModal
+            key={viewedRoomProfile.id}
+            token={token}
+            target={viewedRoomProfile}
+            onClose={() => setIsDirectMessageOpen(false)}
+            onConversationChanged={() => {
+              void queryClient.invalidateQueries({ queryKey: queryKeys.matches(user.id) });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.conversationRequests(user.id) });
+              onNotificationsChangedRef.current();
+            }}
+            onSent={(message) => {
+              setIsDirectMessageOpen(false);
+              if (message) showToast(message);
+            }}
+          />
+        ) : null}
+      </>
     );
   }
 
