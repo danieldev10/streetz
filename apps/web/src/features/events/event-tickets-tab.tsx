@@ -472,9 +472,6 @@ export function EventTicketsTab({
                       <p className="mt-2 whitespace-pre-wrap wrap-break-word text-sm leading-7 text-ink-600">{event.description}</p>
                     </div>
                   ) : null}
-                  {event.room && !isGuest && !event.room.readOnly ? (
-                    <p className="mt-4 text-sm leading-6 text-ink-600">Chat with other members before getting your ticket.</p>
-                  ) : null}
                   {event.status === "CANCELLED" ? (
                     <p className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm leading-6 text-danger">
                       This event was cancelled. If you paid for a ticket, refunds are being processed and we will contact you by email.
