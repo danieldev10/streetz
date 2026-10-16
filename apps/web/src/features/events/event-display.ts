@@ -35,6 +35,19 @@ export function formatEventDate(value: string) {
   }).format(new Date(value));
 }
 
+export function formatEventDateRange(startsAt: string, endsAt?: string | null) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Africa/Lagos",
+  });
+  const start = formatter.format(new Date(startsAt));
+  return `${start}${endsAt ? ` - ${formatter.format(new Date(endsAt))}` : ""} (WAT)`;
+}
+
 export function formatPrice(priceKobo: number) {
   if (priceKobo <= 0) {
     return "Free";

@@ -3,13 +3,12 @@
 import { ActionButton } from "@/components/action-button";
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Compass, Eye, EyeOff, LoaderCircle, MapPin, MessageCircle, RefreshCw, SlidersHorizontal, Sparkles, UserRoundSearch, X } from "lucide-react";
 import { CustomSelect } from "@/components/custom-select";
-import { CandidatePhoto } from "@/features/discovery/candidate-photo";
 import { DiscoveryPersonCard } from "@/features/discovery/discovery-person-card";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
+import { MessageRequestModal } from "@/features/matches/message-request-modal";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { nigeriaStateNames } from "@/lib/nigeria-locations";
 import { connectionStatusOptions, formatConnectionStatus } from "@/lib/profile";
@@ -22,17 +21,6 @@ type PeopleResponse = {
   nextCursor: string | null;
 };
 
-type ConversationRequestResponse = {
-  created: boolean;
-  accepted?: boolean;
-  conversation: {
-    id: string;
-    status: "REQUESTED" | "ACTIVE" | "DECLINED" | "CLOSED" | "BLOCKED" | "UNMATCHED";
-  };
-};
-
-const INTRO_MESSAGE_MAX_LENGTH = 1000;
-
 export function DiscoveryTab({
   token,
   profile: initialProfile,
@@ -42,7 +30,6 @@ export function DiscoveryTab({
   profile: StreetzProfile;
   onConversationChanged: () => void;
 }) {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<ConnectionStatus>(initialProfile.connectionStatus ?? "OPEN_TO_ANYTHING");
   const [stateName, setStateName] = useState(initialProfile.state ?? "");
@@ -61,8 +48,6 @@ export function DiscoveryTab({
   const [loadingProfileId, setLoadingProfileId] = useState<string | null>(null);
   const isLoadingProfile = loadingProfileId !== null;
   const [messageTarget, setMessageTarget] = useState<DiscoveryCandidate | null>(null);
-  const [introMessage, setIntroMessage] = useState("");
-  const [isSendingRequest, setIsSendingRequest] = useState(false);
   const [isControlsOpen, setIsControlsOpen] = useState(false);
   const controlsDialogRef = useRef<HTMLElement | null>(null);
   const stateOptions = initialProfile.state && !nigeriaStateNames.includes(initialProfile.state)
@@ -294,42 +279,7 @@ export function DiscoveryTab({
   function openMessageComposer(person: DiscoveryCandidate) {
     setViewedProfile(null);
     setMessageTarget(person);
-    setIntroMessage("");
     setNotice(null);
-  }
-
-  async function sendMessageRequest(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const body = introMessage.trim();
-
-    if (!messageTarget || !body || isSendingRequest) return;
-    setIsSendingRequest(true);
-    setNotice(null);
-
-    try {
-      const response = await apiRequest<ConversationRequestResponse>("/conversations/requests", {
-        method: "POST",
-        headers: authHeaders(token),
-        body: JSON.stringify({ targetUserId: messageTarget.id, body }),
-      });
-      onConversationChanged();
-      setMessageTarget(null);
-      setIntroMessage("");
-
-      if (response.conversation.status === "ACTIVE" || response.accepted) {
-        router.push(`/messages/${response.conversation.id}`);
-        return;
-      }
-
-      setNotice(response.created
-        ? `Message request sent to ${messageTarget.displayName}.`
-        : `Your message request to ${messageTarget.displayName} is already pending.`
-      );
-    } catch (error) {
-      setNotice(getUserErrorMessage(error));
-    } finally {
-      setIsSendingRequest(false);
-    }
   }
 
   if (viewedProfile) {
@@ -555,46 +505,17 @@ export function DiscoveryTab({
       ) : null}
 
       {messageTarget ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">
-          <form className="w-full max-w-sm rounded-[28px] bg-surface p-5 shadow-[0_18px_60px_rgba(0,0,0,0.18)]" onSubmit={sendMessageRequest}>
-            <div className="flex items-center gap-3">
-              <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-brand-tint">
-                <CandidatePhoto candidate={messageTarget} variant="thumb" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="truncate text-lg font-semibold">Message {messageTarget.displayName}</h2>
-                <p className="mt-0.5 text-xs text-ink-500">Send one introduction. They can accept or decline.</p>
-              </div>
-            </div>
-            <textarea
-              className="mt-4 min-h-32 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm leading-6 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-              placeholder="Introduce yourself"
-              value={introMessage}
-              onChange={(event) => setIntroMessage(event.target.value)}
-              maxLength={INTRO_MESSAGE_MAX_LENGTH}
-              autoFocus
-            />
-            <p className="mt-1 text-right text-xs text-ink-400">{introMessage.length}/{INTRO_MESSAGE_MAX_LENGTH}</p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                className="h-11 rounded-full border border-black/[0.08] text-sm font-semibold"
-                onClick={() => setMessageTarget(null)}
-                disabled={isSendingRequest}
-              >
-                Cancel
-              </button>
-              <ActionButton
-                isLoading={isSendingRequest} icon={<MessageCircle className="size-4" aria-hidden="true" />}
-                type="submit"
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink text-sm font-semibold text-white disabled:opacity-60"
-                disabled={isSendingRequest || !introMessage.trim()}
-              >
-                Send request
-              </ActionButton>
-            </div>
-          </form>
-        </div>
+        <MessageRequestModal
+          key={messageTarget.id}
+          token={token}
+          target={messageTarget}
+          onClose={() => setMessageTarget(null)}
+          onConversationChanged={onConversationChanged}
+          onSent={(message) => {
+            setMessageTarget(null);
+            setNotice(message);
+          }}
+        />
       ) : null}
     </section>
   );

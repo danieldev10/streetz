@@ -433,7 +433,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
     emptyTitle: emptyMemberTitle,
     emptyDescription: emptyMemberDescription,
     onOpenCheckout: openTicketCheckout,
-    onOpenDetails: (event: StreetzEvent) => router.push(`/events/${event.id}`),
+    onOpenDetails: (event: StreetzEvent) => router.push(`/events/${event.id}${eventViewMode === "tickets" ? "/tickets" : ""}`),
     onOpenRoom: openEventRoom,
     onShare: shareEvent,
   };
