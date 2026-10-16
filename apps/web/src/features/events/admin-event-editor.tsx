@@ -283,7 +283,7 @@ export function AdminEventEditor({
           <div>
             <h3 className="text-sm font-semibold text-ink">Ticket tiers</h3>
             <p className="mt-1 text-xs leading-5 text-ink-600">
-              Set prices for Regular, VIP, or Tables. If every price is empty, the event is free.
+              Set prices for Early Bird, Regular, VIP, or Tables. If every price is empty, the event is free.
             </p>
           </div>
           <div className="mt-4 grid gap-4">

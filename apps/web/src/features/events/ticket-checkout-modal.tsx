@@ -10,7 +10,7 @@ import type { StreetzEvent, StreetzEventTicketType, TicketStatus } from "@/lib/t
 
 const MAX_TICKETS_PER_PURCHASE = 20;
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["CONFIRMED", "PAID", "CHECKED_IN"]);
-const EVENT_TICKET_TIER_NAMES = ["Regular", "VIP", "Tables"] as const;
+const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
 
 type GuestTicketRequest = {
   requestId: string;

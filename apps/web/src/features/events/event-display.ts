@@ -18,7 +18,7 @@ export const EVENT_CATEGORY_OPTIONS = [
   "Community",
 ] as const;
 
-const EVENT_TICKET_TIER_NAMES = ["Regular", "VIP", "Tables"] as const;
+const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["CONFIRMED", "PAID", "CHECKED_IN"]);
 
 export type EventCategoryName = (typeof EVENT_CATEGORY_OPTIONS)[number];

@@ -9,7 +9,7 @@ import {
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
 import type { EventStatus, StreetzEvent } from "@/lib/types";
 
-export const EVENT_TICKET_TIER_NAMES = ["Regular", "VIP", "Tables"] as const;
+export const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
 export const SUPPORTED_EVENT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const EVENT_TITLE_MAX_LENGTH = 120;
 export const EVENT_DESCRIPTION_MAX_LENGTH = 600;
@@ -86,6 +86,11 @@ export type CancellationImpact = {
 
 function createDefaultTicketTiers(): Record<EventTicketTierName, EventFormTicketTier> {
   return {
+    "Early Bird": {
+      priceNaira: "",
+      capacity: "50",
+      maxTicketsPerUser: "4",
+    },
     Regular: {
       priceNaira: "",
       capacity: "100",

@@ -21,7 +21,7 @@ const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["CONFIRMED", "PAID", "CHECKED_IN"]);
 const MAX_TICKETS_PER_PURCHASE = 20;
-const EVENT_TICKET_TIER_NAMES = ["Regular", "VIP", "Tables"] as const;
+const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
 type EventTicketTierName = (typeof EVENT_TICKET_TIER_NAMES)[number];
 const TicketCheckoutModal = dynamic(() =>
   import("@/features/events/ticket-checkout-modal").then((module) => module.TicketCheckoutModal)
