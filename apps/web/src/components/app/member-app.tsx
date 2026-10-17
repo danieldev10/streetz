@@ -8,7 +8,8 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
-import { AppBrand, AppNavButton, MobileHeader, adminBottomTabs, adminTabs, bottomTabs, tabs } from "@/components/app/navigation";
+import { AppBrand, AppNavButton, DesktopAccountMenu, MobileHeader, adminBottomTabs, adminTabs, bottomTabs, tabs } from "@/components/app/navigation";
+import { appContentClassName, appFrameClassName, appSidebarClassName, DesktopHeader } from "@/components/app/desktop-layout";
 import { apiRequest, authHeaders } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type { ChatRoom, MatchThread, NotificationSummary, ProfilePhoto, StreetzProfile, StreetzUser, TabKey } from "@/lib/types";
@@ -257,10 +258,10 @@ export function MemberApp({
   };
 
   return (
-    <main className="min-h-screen bg-surface text-ink">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-black/[0.05] bg-surface px-4 py-5 md:flex">
-          <AppBrand user={user} onLogout={onLogout} />
+    <main className="min-h-screen bg-surface text-ink md:bg-surface-sunken">
+      <div className={appFrameClassName}>
+        <aside className={appSidebarClassName}>
+          <AppBrand user={user} />
           <nav className="mt-8 grid gap-2">
             {visibleTabs.map((tab) => (
               <AppNavButton
@@ -277,8 +278,11 @@ export function MemberApp({
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+        <section className={appContentClassName}>
           <MobileHeader user={user} profilePhoto={profilePhoto} onLogout={onLogout} />
+          <DesktopHeader activeTab={activeTab}>
+            <DesktopAccountMenu user={user} profilePhoto={profilePhoto} onLogout={onLogout} />
+          </DesktopHeader>
           {children(renderProps)}
         </section>
       </div>

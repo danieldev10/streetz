@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { LogIn, X } from "lucide-react";
 import { MemberApp, type MemberAppRenderProps } from "@/components/app/member-app";
 import { bottomTabs, tabRoutes, tabs } from "@/components/app/navigation";
+import { appContentClassName, appFrameClassName, appSidebarClassName, DesktopHeader } from "@/components/app/desktop-layout";
 import { BrandLogo } from "@/components/brand-logo";
 import { PrivacyPolicyLink } from "@/components/privacy-policy-link";
 import { useSession } from "@/components/app/session-provider";
@@ -142,7 +143,7 @@ function PublicNavButton({ tab, active, variant, onRequireAuth }: {
   const base = "inline-flex items-center justify-center gap-2 text-sm font-medium transition";
   const activeClass = active ? "bg-ink text-white" : "text-ink-600 hover:text-ink";
   const className = variant === "side"
-    ? base + " " + activeClass + " h-11 rounded-full px-4"
+    ? base + " " + (active ? "bg-brand-tint text-brand-deep" : "text-ink-600 hover:bg-surface-muted hover:text-ink") + " h-12 w-full justify-start! gap-3 rounded-2xl px-4"
     : base + " " + activeClass + " min-h-14 rounded-[20px] px-2 py-2";
   const content = variant === "side" ? (
     <>
@@ -173,29 +174,17 @@ function PublicNavButton({ tab, active, variant, onRequireAuth }: {
 
 function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: TabKey; children: ReactNode; onRequestAuth: (kind?: AuthPromptKind) => void }) {
   return (
-    <main className="min-h-screen bg-surface text-ink">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-black/[0.05] bg-surface px-4 py-5 md:flex">
+    <main className="min-h-screen bg-surface text-ink md:bg-surface-sunken">
+      <div className={appFrameClassName}>
+        <aside className={appSidebarClassName}>
           <div>
-            <div className="flex items-center justify-between">
+            <Link href="/events" className="flex items-center gap-3 rounded-2xl px-2 py-1" aria-label="Crushclub home">
+              <BrandLogo size="compact" priority />
               <div>
-                <BrandLogo size="sidebar" priority />
-                <p className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-ink-400">Explore</p>
+                <p className="text-lg font-bold tracking-tight">Crushclub</p>
+                <p className="mt-0.5 text-xs text-ink-500">Your social circle</p>
               </div>
-              <button
-                type="button"
-                className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-ink"
-                onClick={() => onRequestAuth("account")}
-                aria-label="Open account options"
-                title="Account"
-              >
-                <LogIn className="size-4" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="mt-5 rounded-[16px] border border-black/[0.05] bg-surface-muted p-4">
-              <p className="text-sm font-medium">Browse events and discover people</p>
-              <p className="mt-1 text-xs leading-5 text-ink-600">Create an account when you are ready to buy tickets, join event chats, or meet people.</p>
-            </div>
+            </Link>
           </div>
           <nav className="mt-8 grid gap-2">
             {tabs.map((tab) => (
@@ -208,12 +197,23 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
               />
             ))}
           </nav>
-          <div className="mt-auto border-t border-black/5 pt-3">
+          <div className="mt-auto pt-8">
+            <div className="mb-4 rounded-2xl border border-brand/10 bg-brand-wash p-4">
+              <p className="text-sm font-semibold">More with an account</p>
+              <p className="mt-2 text-xs leading-5 text-ink-600">Get tickets, join the conversation, and meet people.</p>
+              <button type="button" className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-full bg-brand-strong px-3 text-xs font-semibold text-white hover:bg-brand-deep" onClick={() => onRequestAuth("account")}>Join Crushclub</button>
+            </div>
             <PrivacyPolicyLink />
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+        <section className={appContentClassName}>
+          <DesktopHeader activeTab={activeTab}>
+            <button type="button" className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white transition hover:bg-ink-700" onClick={() => onRequestAuth("account")}>
+              <LogIn className="size-4" aria-hidden="true" />
+              Log in / Sign up
+            </button>
+          </DesktopHeader>
           {/* Mirrors MobileHeader's grid so the logo stays centred and the header
               keeps the same height when a viewer logs in or out. */}
           <header className="sticky top-0 z-10 border-b border-black/[0.05] bg-surface/90 px-5 py-4 backdrop-blur md:hidden">

@@ -29,10 +29,10 @@ export function DiscoveryPersonCard({ person, showState = false, isProfileLoadin
   const StatusIcon = appearance.icon;
 
   return (
-    <article className="flex min-w-0 items-center gap-3 rounded-[22px] border border-black/[0.05] bg-surface p-3 shadow-[0_2px_6px_rgba(0,0,0,0.03)]">
+    <article className="flex min-w-0 items-center gap-3 rounded-[22px] border border-black/[0.05] bg-surface p-3 shadow-[0_2px_6px_rgba(0,0,0,0.03)] md:gap-4 md:p-4 md:transition md:hover:border-brand/20 md:hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)]">
       <button
         type="button"
-        className="relative size-16 shrink-0 overflow-hidden rounded-[18px] bg-brand-tint"
+        className="relative size-16 shrink-0 overflow-hidden rounded-[18px] bg-brand-tint md:size-20"
         onClick={onViewProfile}
         disabled={isProfileDisabled}
         aria-busy={isProfileLoading}
@@ -56,7 +56,7 @@ export function DiscoveryPersonCard({ person, showState = false, isProfileLoadin
             <span className="truncate">{person.state}</span>
           </p>
         ) : null}
-        <p className={`mt-1 flex items-center gap-1 text-xs font-semibold ${appearance.className}`}>
+        <p className={`mt-1 flex items-center gap-1 text-xs font-semibold md:mt-2 ${appearance.className}`}>
           <StatusIcon className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="truncate">{formatConnectionStatus(person.connectionStatus)}</span>
         </p>

@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Compass, Eye, EyeOff, LoaderCircle, MapPin, MessageCircle, RefreshCw, SlidersHorizontal, Sparkles, UserRoundSearch, X } from "lucide-react";
 import { CustomSelect } from "@/components/custom-select";
 import { DiscoveryPersonCard } from "@/features/discovery/discovery-person-card";
+import { DiscoveryToolbar } from "@/features/discovery/discovery-toolbar";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
 import { MessageRequestModal } from "@/features/matches/message-request-modal";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
@@ -310,8 +311,35 @@ export function DiscoveryTab({
   }
 
   return (
-    <section className="px-5 pb-24 pt-3 md:px-8 md:pt-8">
-      <div className="mx-auto flex max-w-4xl flex-col gap-4">
+    <section className="px-5 pb-24 pt-3 md:px-8 md:pb-8 md:pt-8">
+      <DiscoveryToolbar description={isInDiscoveryPool ? "You are visible to other people in the pool." : "Enter the pool to meet people in your state."}>
+        <ActionButton
+          isLoading={isUpdatingVisibility} icon={isInDiscoveryPool ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+          type="button"
+          className={`fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition disabled:cursor-not-allowed disabled:opacity-60 md:static md:z-auto md:h-10 md:min-w-0 md:shadow-none ${isInDiscoveryPool ? "border-brand/20 bg-brand-tint text-brand-deep" : "border-black/[0.08] bg-surface text-ink-600"}`}
+          onClick={() => toggleDiscoveryPool()}
+          disabled={isUpdatingVisibility}
+          aria-pressed={isInDiscoveryPool}
+          aria-label={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
+          title={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
+        >
+          {isInDiscoveryPool ? "Withdraw" : "Enter pool"}
+        </ActionButton>
+        <button
+          type="button"
+          className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full bg-ink text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-ink/90 md:static md:z-auto md:h-10 md:w-auto md:gap-2 md:px-4 md:shadow-none"
+          onClick={() => setIsControlsOpen(true)}
+          aria-label="Open discovery controls"
+          aria-haspopup="dialog"
+          aria-expanded={isControlsOpen}
+          aria-controls="discovery-controls-dialog"
+          title="Discovery controls"
+        >
+          <SlidersHorizontal className="size-4" aria-hidden="true" />
+          <span className="hidden text-sm font-semibold md:inline">Filters &amp; status</span>
+        </button>
+      </DiscoveryToolbar>
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 md:max-w-none">
         {notice ? <p className="rounded-[18px] bg-brand-tint p-4 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {!isInDiscoveryPool ? (
@@ -354,7 +382,7 @@ export function DiscoveryTab({
             </div>
 
             {people.length > 0 ? (
-              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <div className="mt-4 grid gap-3 md:gap-4 min-[1200px]:grid-cols-2">
                 {people.map((person) => (
                   <DiscoveryPersonCard
                     key={person.id}
@@ -400,39 +428,6 @@ export function DiscoveryTab({
           </div>
         ) : null}
       </div>
-
-      <ActionButton
-        isLoading={isUpdatingVisibility} icon={isInDiscoveryPool ? (
-          <EyeOff className="size-4" aria-hidden="true" />
-        ) : (
-          <Eye className="size-4" aria-hidden="true" />
-        )}
-        type="button"
-        className={`fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition disabled:cursor-not-allowed disabled:opacity-60 md:bottom-8 md:left-8 ${isInDiscoveryPool
-            ? "border-brand/20 bg-brand-tint text-brand-deep"
-            : "border-black/[0.08] bg-surface text-ink-600"
-          }`}
-        onClick={() => toggleDiscoveryPool()}
-        disabled={isUpdatingVisibility}
-        aria-pressed={isInDiscoveryPool}
-        aria-label={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
-        title={isInDiscoveryPool ? "Withdraw from discovery pool" : "Enter discovery pool"}
-      >
-        {isInDiscoveryPool ? "Withdraw" : "Enter pool"}
-      </ActionButton>
-
-      <button
-        type="button"
-        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full bg-ink text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-ink/90 md:bottom-8 md:right-8"
-        onClick={() => setIsControlsOpen(true)}
-        aria-label="Open discovery controls"
-        aria-haspopup="dialog"
-        aria-expanded={isControlsOpen}
-        aria-controls="discovery-controls-dialog"
-        title="Discovery controls"
-      >
-        <SlidersHorizontal className="size-4" aria-hidden="true" />
-      </button>
 
       {isControlsOpen ? (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-5 backdrop-blur-sm">

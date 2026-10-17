@@ -8,7 +8,7 @@
 export function CardGridSkeleton({
   label = "Loading",
   cardCount = 3,
-  imageClassName = "h-44 md:h-48",
+  imageClassName = "h-44 md:h-52",
   hasTicketChips = false,
 }: {
   label?: string;
@@ -18,14 +18,14 @@ export function CardGridSkeleton({
 }) {
   return (
     <div
-      className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+      className="grid gap-4 md:gap-5 min-[960px]:grid-cols-2 min-[1360px]:grid-cols-3"
       role="status"
       aria-live="polite"
       aria-label={label}
     >
       {Array.from({ length: cardCount }, (_, index) => {
         const visibilityClass =
-          index === 0 ? "" : index === 1 ? "hidden md:block" : index === 2 ? "hidden xl:block" : "hidden";
+          index === 0 ? "" : index === 1 ? "hidden min-[960px]:block" : index === 2 ? "hidden min-[1360px]:block" : "hidden";
 
         return (
           <div

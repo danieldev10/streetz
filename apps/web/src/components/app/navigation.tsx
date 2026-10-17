@@ -407,28 +407,40 @@ function AccountMenu({
   );
 }
 
-export function AppBrand({ user, onLogout }: { user: StreetzUser; onLogout: () => void }) {
+export function AppBrand({ user }: { user: StreetzUser }) {
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <BrandLogo size="sidebar" priority />
-          <p className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-ink-400">{user.role}</p>
-        </div>
-        <AccountMenu onLogout={onLogout} isAdmin={user.role === "ADMIN"} />
+    <Link href={user.role === "ADMIN" ? "/admin" : "/events"} className="flex items-center gap-3 rounded-2xl px-2 py-1" aria-label="Crushclub home">
+      <BrandLogo size="compact" priority />
+      <div>
+        <p className="text-lg font-bold tracking-tight">Crushclub</p>
+        <p className="mt-0.5 text-xs text-ink-500">{user.role === "ADMIN" ? "Admin workspace" : "Your social circle"}</p>
       </div>
-      <div className="mt-5 rounded-[16px] border border-black/[0.05] bg-surface-muted p-4">
-        <p className="text-sm font-medium">{user.displayName}</p>
-        <p className="mt-1 truncate text-xs text-ink-600">{user.email}</p>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand-strong">
-          <ShieldCheck className="size-3.5" aria-hidden="true" />
-          Active
-        </div>
-      </div>
-    </div>
+    </Link>
   );
 }
 
+export function DesktopAccountMenu({ user, profilePhoto, onLogout }: { user: StreetzUser; profilePhoto?: ProfilePhoto; onLogout: () => void }) {
+  return (
+    <AccountMenu
+      onLogout={onLogout}
+      isAdmin={user.role === "ADMIN"}
+      triggerTitle="Account options"
+      triggerClassName="inline-flex max-w-64 items-center gap-3 rounded-full border border-black/[0.06] bg-surface py-1.5 pl-3 pr-2 text-left transition hover:border-brand/30 hover:bg-brand-wash"
+      trigger={
+        <>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">{user.displayName}</span>
+            <span className="block text-xs text-ink-500">{user.role === "ADMIN" ? "Administrator" : "My account"}</span>
+          </span>
+          <span className="size-9 shrink-0 overflow-hidden rounded-full bg-brand-tint">
+            <ProfilePhotoImage photo={profilePhoto} alt={`${user.displayName} profile photo`} variant="thumb" sizes="36px" iconSize="sm" />
+          </span>
+          <ChevronDown className="mr-1 size-3.5 text-ink-400" aria-hidden="true" />
+        </>
+      }
+    />
+  );
+}
 export function MobileHeader({
   user,
   profilePhoto,
@@ -495,7 +507,7 @@ export function AppNavButton({
   if (variant === "side") {
     return (
       <Link
-        className={`${base} ${activeClass} h-11 rounded-full px-4`}
+        className={`${base} ${active ? "bg-brand-tint text-brand-deep" : "text-ink-600 hover:bg-surface-muted hover:text-ink"} h-12 w-full justify-start! gap-3 rounded-2xl px-4`}
         href={href}
         onClick={onClick}
         aria-current={active ? "page" : undefined}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Eye, LoaderCircle, MapPin, RefreshCw, SlidersHorizontal, UserRoundSearch } from "lucide-react";
 import { DiscoveryPersonCard } from "@/features/discovery/discovery-person-card";
+import { DiscoveryToolbar } from "@/features/discovery/discovery-toolbar";
 import { apiRequest, getUserErrorMessage } from "@/lib/api";
 import type { PublicDiscoveryPreview } from "@/lib/types";
 
@@ -32,13 +33,34 @@ export function GuestDiscoveryTab({ onRequireAuth }: { onRequireAuth: () => void
   }, []);
 
   return (
-    <section className="px-5 pb-24 pt-6 md:px-8 md:pt-8">
-      <div className="mx-auto max-w-4xl">
-        <h1 className="sr-only">Discover people</h1>
-        <p className="text-sm leading-6 text-ink-600">
+    <section className="px-5 pb-24 pt-6 md:px-8 md:pb-8 md:pt-8">
+      <DiscoveryToolbar description="A preview of people in the pool. Log in to connect.">
+        <button
+          type="button"
+          className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-4 text-sm font-semibold text-ink-600 shadow-[0_8px_24px_rgba(0,0,0,0.14)] md:static md:z-auto md:h-10 md:min-w-0 md:shadow-none"
+          onClick={onRequireAuth}
+          aria-label="Enter discovery pool"
+        >
+          <Eye className="size-4" aria-hidden="true" />
+          Enter pool
+        </button>
+        <button
+          type="button"
+          className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full bg-ink text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-ink/90 md:static md:z-auto md:h-10 md:w-auto md:gap-2 md:px-4 md:shadow-none"
+          onClick={onRequireAuth}
+          aria-label="Open discovery controls"
+          aria-haspopup="dialog"
+          title="Discovery controls"
+        >
+          <SlidersHorizontal className="size-4" aria-hidden="true" />
+          <span className="hidden text-sm font-semibold md:inline">Filters &amp; status</span>
+        </button>
+      </DiscoveryToolbar>
+      <div className="mx-auto max-w-4xl md:max-w-none">
+        <p className="text-sm leading-6 text-ink-600 md:hidden">
           A preview of people in the pool. <button type="button" className="font-semibold text-brand-strong underline underline-offset-2" onClick={onRequireAuth}>Log in to connect.</button>
         </p>
-        <div className="mt-5 flex items-center justify-between gap-4">
+        <div className="mt-5 flex items-center justify-between gap-4 md:mt-0">
           <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-ink-400">
             <MapPin className="size-4 shrink-0" aria-hidden="true" />
             <span>Nigeria</span>
@@ -69,7 +91,7 @@ export function GuestDiscoveryTab({ onRequireAuth }: { onRequireAuth: () => void
             <span className="sr-only">Loading discovery preview</span>
           </div>
         ) : preview.people.length > 0 ? (
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="mt-4 grid gap-3 md:gap-4 min-[1200px]:grid-cols-2">
             {preview.people.map((person) => (
               <DiscoveryPersonCard key={person.id} person={person} showState onViewProfile={onRequireAuth} onMessage={onRequireAuth} />
             ))}
@@ -85,25 +107,6 @@ export function GuestDiscoveryTab({ onRequireAuth }: { onRequireAuth: () => void
         )}
       </div>
 
-      <button
-        type="button"
-        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-4 text-sm font-semibold text-ink-600 shadow-[0_8px_24px_rgba(0,0,0,0.14)] md:bottom-8 md:left-8"
-        onClick={onRequireAuth}
-        aria-label="Enter discovery pool"
-      >
-        <Eye className="size-4" aria-hidden="true" />
-        Enter pool
-      </button>
-      <button
-        type="button"
-        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full bg-ink text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-ink/90 md:bottom-8 md:right-8"
-        onClick={onRequireAuth}
-        aria-label="Open discovery controls"
-        aria-haspopup="dialog"
-        title="Discovery controls"
-      >
-        <SlidersHorizontal className="size-4" aria-hidden="true" />
-      </button>
     </section>
   );
 }

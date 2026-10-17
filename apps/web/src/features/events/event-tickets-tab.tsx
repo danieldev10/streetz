@@ -389,12 +389,13 @@ export function EventTicketsTab({
         <div className="mb-4 flex items-center gap-2">
           <ActionButton
             trackNavigation icon={<ArrowLeft className="size-4" aria-hidden="true" />}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 md:w-auto md:gap-2 md:bg-surface md:px-4"
             type="button"
             onClick={() => router.push(view === "tickets" ? `/events/${eventId}` : "/events")}
             aria-label={view === "tickets" ? "Back to event details" : "Back to events"}
             title="Back"
           >
+            <span className="hidden text-sm font-medium md:inline">{view === "tickets" ? "Event details" : "Events"}</span>
           </ActionButton>
           {event && !isAdmin && !isLoading ? (
             <div className="ml-auto flex min-w-0 items-center gap-2">
@@ -433,14 +434,14 @@ export function EventTicketsTab({
         ) : event ? (
           <div className="grid grid-cols-1 gap-4">
             {view === "details" ? (
-              <article className="overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-                <div className="relative bg-surface-muted">
+              <article className="overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] lg:grid lg:grid-cols-2 lg:items-start">
+                <div className="relative bg-surface-muted lg:sticky lg:top-24 lg:m-5 lg:mr-0 lg:overflow-hidden lg:rounded-2xl">
                   <Image
                     src={event.coverImage || FALLBACK_EVENT_IMAGE}
                     alt={`${event.title} full event flier`}
                     width={1200}
                     height={1600}
-                    sizes="(max-width: 768px) 100vw, 720px"
+                    sizes="(min-width: 1440px) 540px, (min-width: 1024px) 38vw, (min-width: 768px) 70vw, 100vw"
                     className="max-h-[75svh] w-full h-auto object-contain"
                   />
                   <ActionButton
@@ -453,23 +454,23 @@ export function EventTicketsTab({
                   >
                   </ActionButton>
                 </div>
-                <div className="p-4">
-                  <h1 className="text-xl font-semibold">{event.title}</h1>
-                  <p className="mt-2 flex items-start gap-2 text-xs font-medium text-ink-500">
+                <div className="p-4 lg:p-7">
+                  <h1 className="text-xl font-semibold lg:text-3xl lg:leading-tight lg:tracking-tight">{event.title}</h1>
+                  <p className="mt-2 flex items-start gap-2 text-xs font-medium text-ink-500 lg:mt-4 lg:text-sm lg:leading-6">
                     <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
                     <span>{formatEventDateRange(event.startsAt, event.endsAt)}</span>
                   </p>
-                  <p className="mt-1 flex items-center gap-1 text-sm text-ink-600">
+                  <p className="mt-1 flex items-center gap-1 text-sm text-ink-600 lg:mt-3 lg:items-start lg:gap-2">
                     <MapPin className="size-4 shrink-0" aria-hidden="true" />
                     {formatEventLocation(event)}
                   </p>
                   {event.category ? (
-                    <p className="mt-3 text-xs font-medium text-brand-deep">{event.category}</p>
+                    <p className="mt-3 text-xs font-medium text-brand-deep lg:inline-flex lg:rounded-full lg:bg-brand-wash lg:px-3 lg:py-1.5">{event.category}</p>
                   ) : null}
                   {event.description ? (
                     <div className="mt-5 border-t border-black/5 pt-4">
                       <h2 className="text-base font-semibold">About this event</h2>
-                      <p className="mt-2 whitespace-pre-wrap wrap-break-word text-sm leading-7 text-ink-600">{event.description}</p>
+                      <p className="mt-2 whitespace-pre-wrap wrap-break-word text-sm leading-7 text-ink-600 lg:text-base lg:leading-8">{event.description}</p>
                     </div>
                   ) : null}
                   {event.status === "CANCELLED" ? (
