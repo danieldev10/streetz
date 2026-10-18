@@ -9,6 +9,7 @@ import { CardGridSkeleton } from "@/components/card-grid-skeleton";
 import { ListSkeleton, StatGridSkeleton } from "@/components/skeletons";
 import { DiscoveryLoadingView } from "@/features/discovery/discovery-loading-view";
 import { useSession } from "@/components/app/session-provider";
+import { appContentClassName, appFrameClassName, appSidebarClassName, DesktopHeader } from "@/components/app/desktop-layout";
 import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/lib/api";
 import type { StreetzUser, TabKey } from "@/lib/types";
 
@@ -51,23 +52,26 @@ function TabContentSkeleton({ activeTab }: { activeTab: TabKey }) {
 
 function LoadingShell({ activeTab }: { activeTab: TabKey }) {
   return (
-    <main className="min-h-screen bg-surface text-ink">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-black/[0.05] bg-surface px-4 py-5 md:block">
+    <main className="min-h-screen bg-surface text-ink md:bg-surface-sunken">
+      <div className={appFrameClassName}>
+        <aside className={appSidebarClassName}>
           <div className="animate-pulse" aria-hidden="true">
-            <div className="size-16 rounded-2xl bg-black/5" />
-            {/* Matches the role caption AppBrand renders under the logo. */}
-            <div className="mt-2 h-4 w-16 rounded-full bg-black/5" />
-            <div className="mt-5 h-28 rounded-[16px] border border-black/[0.05] bg-surface-muted" />
+            <div className="flex items-center gap-3 px-2 py-1">
+              <div className="size-11 rounded-2xl bg-black/5" />
+              <div className="h-7 w-24 rounded-full bg-black/5" />
+            </div>
             <div className="mt-8 grid gap-2">
               {Array.from({ length: 6 }, (_, index) => (
-                <div key={index} className="h-11 rounded-full bg-black/[0.04]" />
+                <div key={index} className="h-12 rounded-2xl bg-black/[0.04]" />
               ))}
             </div>
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+        <section className={appContentClassName}>
+          <DesktopHeader activeTab={activeTab}>
+            <div className="h-12 w-36 animate-pulse rounded-full bg-black/5" aria-hidden="true" />
+          </DesktopHeader>
           <div className="sticky top-0 z-10 border-b border-black/[0.05] bg-surface/90 px-5 py-4 backdrop-blur md:hidden">
             <div className="grid grid-cols-[44px_1fr_44px] items-center" aria-hidden="true">
               <div className="size-11 animate-pulse rounded-full bg-black/5" />

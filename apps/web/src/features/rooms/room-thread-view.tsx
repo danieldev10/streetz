@@ -12,10 +12,10 @@ import {
   LogOut,
   MessageCircle,
   SendHorizontal,
-  Users,
   X,
 } from "lucide-react";
 import { ChatGif } from "@/components/chat/chat-gif";
+import { ChatAuthorAvatar } from "@/components/chat/chat-author-avatar";
 import { ChatMediaPicker } from "@/components/chat/chat-media-picker";
 import { MessageThreadSkeleton } from "@/components/skeletons";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
@@ -195,27 +195,12 @@ export function RoomThreadView({
                     const message = item.message;
                     const isMine = message.authorId === userId;
                     const author = message.author ?? members.find((member) => member.id === message.authorId) ?? null;
+                    const isDeletedAuthor = author?.accountStatus === "DELETED";
 
                     return (
                       <div key={item.key} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
                         {!isMine ? (
-                          <button
-                            type="button"
-                            className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-tint text-ink disabled:cursor-default"
-                            onClick={() => {
-                              if (author) {
-                                onOpenMember(author);
-                              }
-                            }}
-                            disabled={!author || isGuest}
-                            aria-label={author ? `View ${author.displayName} profile` : `View ${message.authorName} profile`}
-                          >
-                            {author ? (
-                              <CandidatePhoto candidate={author} variant="thumb" />
-                            ) : (
-                              <Users className="size-4" aria-hidden="true" />
-                            )}
-                          </button>
+                          <ChatAuthorAvatar author={author} onOpen={isGuest ? undefined : onOpenMember} />
                         ) : null}
                         <div
                           className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${
@@ -224,7 +209,11 @@ export function RoomThreadView({
                               : "rounded-bl-md bg-surface text-ink"
                           }`}
                         >
-                          {!isMine ? <p className="mb-1 text-xs font-semibold text-brand-strong">{message.authorName}</p> : null}
+                          {!isMine ? (
+                            <p className={`mb-1 text-xs ${isDeletedAuthor ? "font-medium text-ink-400" : "font-semibold text-brand-strong"}`}>
+                              {isDeletedAuthor ? "Deleted account" : message.authorName}
+                            </p>
+                          ) : null}
                           {message.gifUrl ? <ChatGif url={message.gifUrl} /> : null}
                           {message.body ? (
                             <p className={`whitespace-pre-wrap break-words ${message.gifUrl ? "mt-2" : ""}`}>

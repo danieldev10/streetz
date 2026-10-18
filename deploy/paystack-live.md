@@ -56,6 +56,34 @@ The direct webhook has no browser-origin requirement or customer login requireme
 - Pending test references cannot be reconciled using the live key. Record and review any remaining test payment jobs separately; avoid mass deleting reservations or historical records.
 - A payment arriving after its reservation becomes unavailable follows the existing refund-required path. The code flags and logs the case; it **does not automatically issue a Paystack refund**. Refunds must be handled by the operator through Paystack until a refund workflow is implemented.
 
+## Check live payment records in Supabase
+
+Open the **production** Supabase project, then **SQL Editor**. Save these two
+queries as separate snippets and click **Run** whenever an updated report is
+needed:
+
+- [`scripts/sql/live-payment-history.sql`](../scripts/sql/live-payment-history.sql)
+  lists live payment attempts, buyer emails, purpose, status, amounts, currency,
+  reference, and initiation/payment times in WAT. Uncomment its `SUCCESS` filter
+  to show only successful payments.
+- [`scripts/sql/live-payment-summary.sql`](../scripts/sql/live-payment-summary.sql)
+  shows totals and a breakdown by purchase type, with separate currency totals.
+  Only successful records contribute to the gross successful amount.
+
+Both scripts contain only `SELECT` queries; they do not modify records or create
+public database views. They check the Paystack `domain` field in both metadata
+formats used by the application: top-level verification data for subscriptions
+and nested `paystack` data for ticket checkouts. No hardcoded start date is
+needed. Test payments and records without a saved environment are excluded;
+`SUCCESS` alone is not evidence that a payment was live.
+
+The payment time can be empty for an unfinished checkout. A deleted account may
+appear as `Deleted member`; the payer email is taken from retained Paystack
+transaction data where available. Gross successful amounts do not deduct
+Paystack fees or refunds and are not bank settlement balances. These reports
+reflect records already saved by the application; they do not contact Paystack
+to reconcile missing or unresolved transactions.
+
 ## Provider references
 
 - [Paystack API environments and authentication](https://paystack.com/docs/api/): the same API base URL serves test and live; the key selects the environment.

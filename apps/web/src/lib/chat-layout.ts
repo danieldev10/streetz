@@ -7,8 +7,8 @@
  * its content section (`5rem` plus the safe-area inset). Getting this wrong is
  * what used to leave these "fixed height" screens scrolling a few pixels.
  *
- * On desktop the panel is a fixed 720px card (`h-180`) and the mobile chrome is
- * not rendered at all.
+ * On desktop the panel fills the available height beneath the 80px page header
+ * and 64px of vertical padding. Short windows retain a usable minimum height.
  */
 export const CHAT_PANEL_HEIGHT =
-  "h-[calc(100dvh-89px-5rem-env(safe-area-inset-bottom))] md:h-180";
+  "h-[calc(100dvh-89px-5rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh-9rem)] md:min-h-96";

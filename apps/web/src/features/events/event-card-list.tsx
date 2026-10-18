@@ -7,6 +7,7 @@ import { CalendarDays, ChevronRight, MapPin, MessageCircle, Share2, Ticket, User
 import {
   FALLBACK_EVENT_IMAGE,
   formatEventDate,
+  formatEventDateRange,
   formatEventLocation,
   formatPrice,
   getEventTicketTypes,
@@ -51,7 +52,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
   const isHistoryCard = mode === "history";
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 md:gap-5 min-[960px]:grid-cols-2 min-[1360px]:grid-cols-3">
       {events.map((event) => {
         const ticketTypes = getEventTicketTypes(event);
         const ticketType = getSelectedTicketType(event);
@@ -75,18 +76,19 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
         return (
           <article
             key={event.id}
-            className="relative isolate overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)]"
+            className="relative isolate overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)] md:flex md:flex-col"
           >
             <Link href={`/events/${event.id}`} aria-label={`View details for ${event.title}`}
               className="absolute inset-0 z-10 rounded-3xl focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand" />
-            <div className="relative h-44 bg-brand-tint md:h-48">
+            <div className="relative h-44 shrink-0 bg-brand-tint md:h-52">
               <Image
                 src={event.coverImage || FALLBACK_EVENT_IMAGE}
                 alt={`${event.title} event`}
                 fill
-                sizes="(max-width: 768px) 100vw, 33vw"
+                sizes="(min-width: 1440px) 360px, (min-width: 1360px) 26vw, (min-width: 960px) 38vw, (min-width: 768px) 65vw, 100vw"
                 className="object-cover"
               />
+              {event.category ? <span className="absolute left-3 top-3 hidden rounded-full bg-surface/95 px-3 py-1.5 text-xs font-semibold text-brand-deep shadow-sm backdrop-blur md:inline-flex">{event.category}</span> : null}
               <ActionButton
                 icon={<Share2 className="size-4" aria-hidden="true" />}
                 className="absolute right-3 top-3 z-20 inline-flex size-9 items-center justify-center rounded-full bg-surface/90 text-ink shadow-sm backdrop-blur transition hover:bg-surface"
@@ -100,7 +102,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
               >
               </ActionButton>
             </div>
-            <div className="p-4">
+            <div className="p-4 md:flex md:flex-1 md:flex-col md:p-5">
               <h2 className="text-lg font-semibold leading-snug">{event.title}</h2>
               <p className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-deep">
                 View full details <ChevronRight className="size-3.5" aria-hidden="true" />
@@ -109,9 +111,10 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                 <MapPin className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 <span>{formatEventLocation(event)}</span>
               </p>
-              <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
-                <CalendarDays className="size-4" aria-hidden="true" />
-                {formatEventDate(event.startsAt)}
+              <p className="mt-2 flex items-start gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400 md:font-medium md:normal-case md:leading-5 md:tracking-normal">
+                <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
+                <span className="md:hidden">{formatEventDate(event.startsAt)}</span>
+                <span className="hidden md:inline">{formatEventDateRange(event.startsAt, event.endsAt)}</span>
               </p>
               {isOwnedEventCard && ticketTypes.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -136,7 +139,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                   })}
                 </div>
               ) : null}
-              <div className="relative z-20 mt-4 flex gap-2">
+              <div className="relative z-20 mt-4 flex gap-2 md:mt-auto md:pt-5">
                 <ActionButton
                   trackNavigation={isOwnedEventCard} isLoading={isBusy} icon={<Ticket className="size-4" aria-hidden="true" />}
                   className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"

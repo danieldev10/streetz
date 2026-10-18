@@ -35,6 +35,7 @@ import {
   normalizeEventCategory,
 } from "@/features/events/event-display";
 import { EventHistory } from "@/features/events/event-history";
+import { EventCategorySlider } from "@/features/events/event-category-slider";
 import { MemberEventsList } from "@/features/events/member-events-list";
 import { PublicEventsList } from "@/features/events/public-events-list";
 import type { GuestTicketBooking } from "@/features/events/ticket-checkout-modal";
@@ -440,9 +441,6 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
 
   return (
     <section>
-      <h1 className="sr-only">
-        {eventViewMode === "tickets" ? "My tickets" : eventViewMode === "history" ? "Event history" : "Events"}
-      </h1>
       {isEventFilterOpen ? (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 px-4 backdrop-blur-sm sm:p-5">
           <button className="absolute inset-0" type="button" onClick={() => setIsEventFilterOpen(false)} aria-label="Close filters" />
@@ -518,66 +516,71 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
       ) : null}
 
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
-        <div className="mb-4 flex items-center gap-3">
+        <h1 className="sr-only">
+          {eventViewMode === "tickets" ? "Your tickets" : eventViewMode === "history" ? "Event history" : "Events"}
+        </h1>
+        <div className="mb-4 flex items-center gap-3 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,15rem)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)_minmax(0,1fr)]">
           {!isGuest ? (
-            <div className="grid flex-1 grid-cols-3 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium md:max-w-md">
+            <div className="grid flex-1 grid-cols-3 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium md:col-start-2" role="group" aria-label="Event views">
               <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("events")}>Events</button>
               <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("tickets")}>Tickets</button>
               <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("history")}>History</button>
             </div>
           ) : null}
-          {eventViewMode === "events" ? (
-            <button
-              className={`relative ml-auto inline-flex size-10 shrink-0 items-center justify-center rounded-full border text-ink ${hasEventLocationFilter ? "border-brand bg-brand-tint" : "border-black/8 bg-surface"}`}
-              type="button"
-              onClick={() => setIsEventFilterOpen(true)}
-              aria-label="Filter events"
-            >
-              <SlidersHorizontal className="size-4" aria-hidden="true" />
-              {hasEventLocationFilter ? (
-                <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-strong text-[9px] font-semibold text-white">
-                  {[eventFilterState, eventFilterCity].filter(Boolean).length}
-                </span>
-              ) : null}
-            </button>
-          ) : null}
-        </div>
-
-        <div className="-mx-5 mb-4 overflow-x-auto px-5 pb-1 md:-mx-8 md:px-8">
-          <div className="flex min-w-max gap-5">
-            <button
-              type="button"
-              className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${eventFilterCategory ? "text-ink-600" : "text-ink"}`}
-              onClick={() => setEventFilterCategory("")}
-              aria-pressed={!eventFilterCategory}
-            >
-              <span className={`grid size-14 place-items-center rounded-full border ${eventFilterCategory ? "border-black/8 bg-surface" : "border-brand bg-brand-tint"}`}>
-                <Sparkles className="size-5" aria-hidden="true" />
-              </span>
-              All
-            </button>
-            {EVENT_CATEGORY_OPTIONS.map((category) => {
-              const Icon = eventCategoryIcons[category];
-              const isActiveCategory = eventFilterCategory === category;
-              const hasCategoryEvents = memberCategoryOptions.includes(category);
-
-              return (
-                <button
-                  key={category}
-                  type="button"
-                  className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium ${isActiveCategory ? "text-ink" : "text-ink-600"} ${hasCategoryEvents ? "" : "opacity-55"}`}
-                  onClick={() => setEventFilterCategory(category)}
-                  aria-pressed={isActiveCategory}
-                >
-                  <span className={`grid size-14 place-items-center rounded-full border ${isActiveCategory ? "border-brand bg-brand-tint" : "border-black/8 bg-surface"}`}>
-                    <Icon className="size-5" aria-hidden="true" />
+          <div className="ml-auto flex min-w-0 items-center justify-end gap-2 md:col-start-3 md:ml-0">
+            {!isLoadingEvents ? <span className="hidden shrink-0 text-xs font-medium text-ink-500 md:inline" role="status">{visibleMemberEvents.length} {visibleMemberEvents.length === 1 ? "event" : "events"}</span> : null}
+            {eventViewMode === "events" ? (
+              <button
+                className={`relative inline-flex size-10 items-center justify-center rounded-full border text-ink lg:w-auto lg:min-w-0 lg:max-w-40 lg:gap-2 lg:px-4 ${hasEventLocationFilter ? "border-brand bg-brand-tint" : "border-black/8 bg-surface"}`}
+                type="button"
+                onClick={() => setIsEventFilterOpen(true)}
+                aria-label="Filter events"
+              >
+                <SlidersHorizontal className="size-4 shrink-0" aria-hidden="true" />
+                <span className="hidden truncate text-sm font-medium lg:inline">{eventFilterCity || eventFilterState || "Location"}</span>
+                {hasEventLocationFilter ? (
+                  <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-strong text-[9px] font-semibold text-white">
+                    {[eventFilterState, eventFilterCity].filter(Boolean).length}
                   </span>
-                  <span className="leading-tight">{category}</span>
-                </button>
-              );
-            })}
+                ) : null}
+              </button>
+            ) : null}
           </div>
         </div>
+
+        <EventCategorySlider>
+          <button
+            type="button"
+            className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium md:flex md:w-auto md:items-center md:rounded-full md:border md:px-3 md:py-2 ${eventFilterCategory ? "text-ink-600 md:border-black/8 md:bg-surface" : "text-ink md:border-brand/30 md:bg-brand-tint"}`}
+            onClick={() => setEventFilterCategory("")}
+            aria-pressed={!eventFilterCategory}
+          >
+            <span className={`grid size-14 place-items-center rounded-full border md:size-5 md:border-0 md:bg-transparent! ${eventFilterCategory ? "border-black/8 bg-surface" : "border-brand bg-brand-tint"}`}>
+              <Sparkles className="size-5 md:size-4" aria-hidden="true" />
+            </span>
+            All
+          </button>
+          {EVENT_CATEGORY_OPTIONS.map((category) => {
+            const Icon = eventCategoryIcons[category];
+            const isActiveCategory = eventFilterCategory === category;
+            const hasCategoryEvents = memberCategoryOptions.includes(category);
+
+            return (
+              <button
+                key={category}
+                type="button"
+                className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium md:flex md:w-auto md:items-center md:rounded-full md:border md:px-3 md:py-2 ${isActiveCategory ? "text-ink md:border-brand/30 md:bg-brand-tint" : "text-ink-600 md:border-black/8 md:bg-surface"} ${hasCategoryEvents ? "" : "opacity-55"}`}
+                onClick={() => setEventFilterCategory(category)}
+                aria-pressed={isActiveCategory}
+              >
+                <span className={`grid size-14 place-items-center rounded-full border md:size-5 md:border-0 md:bg-transparent! ${isActiveCategory ? "border-brand bg-brand-tint" : "border-black/8 bg-surface"}`}>
+                  <Icon className="size-5 md:size-4" aria-hidden="true" />
+                </span>
+                <span className="leading-tight md:whitespace-nowrap">{category}</span>
+              </button>
+            );
+          })}
+        </EventCategorySlider>
 
         {notice ? <p className="mb-4 rounded-2xl bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
 

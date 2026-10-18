@@ -18,6 +18,7 @@ import { buildDatedMessageItems } from "@/lib/chat-dates";
 import { queryKeys } from "@/lib/query-keys";
 import type { ConversationRequests, DirectMessage, DiscoveryCandidate, MatchThread, StreetzUser } from "@/lib/types";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
+import { ChatAuthorAvatar } from "@/components/chat/chat-author-avatar";
 import { MemberProfileView } from "@/features/discovery/member-profile-view";
 import { ChatGif } from "@/components/chat/chat-gif";
 import { ChatMediaPicker } from "@/components/chat/chat-media-picker";
@@ -43,6 +44,10 @@ function getUnavailableAccountLabel(candidate: DiscoveryCandidate | null | undef
 
   if (candidate.accountStatus === "SUSPENDED") {
     return "This account is temporarily unavailable.";
+  }
+
+  if (candidate.accountStatus === "DELETED") {
+    return "This account has been deleted. You can still read your past messages.";
   }
 
   return "This account is unavailable.";
@@ -190,6 +195,7 @@ export function MatchesTab({
   const seenMatchNotificationIdsRef = useRef<Set<string>>(new Set());
 
   const selectedMatch = matches.find((match) => match.id === selectedMatchId) ?? null;
+  const isSelectedAccountDeleted = selectedMatch?.user.accountStatus === "DELETED";
   const selectedMatchUnavailableLabel = getMatchUnavailableLabel(selectedMatch);
   const displayedMessages = useMemo(
     () => [...messages].sort((first, second) => getDirectMessageTime(first) - getDirectMessageTime(second)),
@@ -715,26 +721,31 @@ export function MatchesTab({
 
             <button
               type="button"
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-[18px] p-1 text-left transition hover:bg-surface-muted"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-[18px] p-1 text-left transition enabled:hover:bg-surface-muted"
               onClick={() => setViewedMatchProfile(selectedMatch.user)}
-              aria-label={`View ${selectedMatch.user.displayName} profile`}
+              disabled={isSelectedAccountDeleted}
+              aria-label={isSelectedAccountDeleted ? "Deleted account" : `View ${selectedMatch.user.displayName} profile`}
             >
               <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-brand-tint">
                 <CandidatePhoto candidate={selectedMatch.user} variant="thumb" />
               </div>
 
               <div className="min-w-0 flex-1">
-                <h1 className="truncate text-lg font-semibold">{selectedMatch.user.displayName}</h1>
+                <h1 className={`truncate text-lg font-semibold ${isSelectedAccountDeleted ? "text-ink-500" : ""}`}>
+                  {isSelectedAccountDeleted ? "Deleted account" : selectedMatch.user.displayName}
+                </h1>
                 <p className="truncate text-sm text-ink-600">
-                  {[selectedMatch.user.city, selectedMatch.user.state].filter(Boolean).join(", ") || "Nigeria"}
+                  {isSelectedAccountDeleted ? "Account deleted" : [selectedMatch.user.city, selectedMatch.user.state].filter(Boolean).join(", ") || "Nigeria"}
                 </p>
               </div>
             </button>
 
-            <div className="inline-flex items-center gap-2 rounded-full bg-surface-muted px-3 py-2 text-xs font-medium text-ink-600">
-              <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-brand" : "bg-ink-200"}`} />
-              {socketStatus === "connected" ? "Live" : "Connecting"}
-            </div>
+            {!isSelectedAccountDeleted ? (
+              <div className="inline-flex items-center gap-2 rounded-full bg-surface-muted px-3 py-2 text-xs font-medium text-ink-600">
+                <span className={`size-2 rounded-full ${socketStatus === "connected" ? "bg-brand" : "bg-ink-200"}`} />
+                {socketStatus === "connected" ? "Live" : "Connecting"}
+              </div>
+            ) : null}
           </div>
 
           {notice ? <p className="mx-4 mt-4 rounded-[16px] bg-brand-tint p-3 text-sm font-medium text-brand-deep">{notice}</p> : null}
@@ -773,14 +784,7 @@ export function MatchesTab({
                     return (
                       <div key={item.key} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
                         {!isMine ? (
-                          <button
-                            type="button"
-                            className="relative size-7 shrink-0 overflow-hidden rounded-full bg-brand-tint"
-                            onClick={() => setViewedMatchProfile(selectedMatch.user)}
-                            aria-label={`View ${selectedMatch.user.displayName} profile`}
-                          >
-                            <CandidatePhoto candidate={selectedMatch.user} variant="thumb" />
-                          </button>
+                          <ChatAuthorAvatar author={selectedMatch.user} className="size-7" onOpen={setViewedMatchProfile} />
                         ) : null}
                         <div
                           className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-brand-strong text-white" : "rounded-bl-md bg-surface text-ink"
@@ -951,7 +955,9 @@ export function MatchesTab({
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-3">
-                            <p className="truncate text-lg font-semibold">{match.user.displayName}</p>
+                            <p className={`truncate text-lg font-semibold ${match.user.accountStatus === "DELETED" ? "text-ink-500" : ""}`}>
+                              {match.user.accountStatus === "DELETED" ? "Deleted account" : match.user.displayName}
+                            </p>
                             {unreadCount > 0 ? (
                               <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-brand-strong px-1 text-[10px] font-semibold leading-5 text-white">
                                 {unreadCount > 9 ? "9+" : unreadCount}

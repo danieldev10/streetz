@@ -69,19 +69,25 @@ function AccountMenu({
   trigger,
   triggerClassName,
   triggerTitle = "Menu",
+  variant = "drawer",
 }: {
   onLogout: () => void;
   isAdmin?: boolean;
   trigger?: ReactNode;
   triggerClassName?: string;
   triggerTitle?: string;
+  variant?: "drawer" | "dropdown";
 }) {
+  const isDropdown = variant === "dropdown";
+  const menuRootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const closeTimerRef = useRef<number | null>(null);
   const openFrameRef = useRef<number | null>(null);
   const drawerRef = useRef<HTMLElement | null>(null);
   const logoutDialogRef = useRef<HTMLElement | null>(null);
   const supportMenuId = useId();
-  const [isDrawerMounted, setIsDrawerMounted] = useState(false);
+  const menuId = useId();
+  const [isMenuMounted, setIsMenuMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isSupportExpanded, setIsSupportExpanded] = useState(false);
@@ -100,21 +106,29 @@ function AccountMenu({
 
   const openMenu = useCallback(() => {
     clearAnimationTimers();
-    setIsDrawerMounted(true);
+    setIsMenuMounted(true);
+    if (isDropdown) {
+      setIsOpen(true);
+      return;
+    }
     openFrameRef.current = window.requestAnimationFrame(() => {
       setIsOpen(true);
     });
-  }, [clearAnimationTimers]);
+  }, [clearAnimationTimers, isDropdown]);
 
   const closeMenu = useCallback(() => {
     clearAnimationTimers();
     setIsOpen(false);
     setIsSupportExpanded(false);
+    if (isDropdown) {
+      setIsMenuMounted(false);
+      return;
+    }
     closeTimerRef.current = window.setTimeout(() => {
-      setIsDrawerMounted(false);
+      setIsMenuMounted(false);
       closeTimerRef.current = null;
     }, 200);
-  }, [clearAnimationTimers]);
+  }, [clearAnimationTimers, isDropdown]);
 
   const closeLogoutConfirm = useCallback(() => {
     setIsLogoutConfirmOpen(false);
@@ -124,8 +138,31 @@ function AccountMenu({
     return clearAnimationTimers;
   }, [clearAnimationTimers]);
 
-  useDialogFocus(isOpen, drawerRef);
+  useDialogFocus(isOpen && !isDropdown, drawerRef);
   useDialogFocus(isLogoutConfirmOpen, logoutDialogRef);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const viewport = window.matchMedia("(min-width: 768px)");
+    const closeOnLayoutChange = () => closeMenu();
+    viewport.addEventListener("change", closeOnLayoutChange);
+
+    const frame = isDropdown ? window.requestAnimationFrame(() => {
+      drawerRef.current?.querySelector<HTMLElement>("a[href], button:not([disabled])")?.focus();
+    }) : null;
+    function dismissOutside(event: PointerEvent) {
+      if (isDropdown && event.target instanceof Node && !menuRootRef.current?.contains(event.target)) {
+        closeMenu();
+      }
+    }
+    document.addEventListener("pointerdown", dismissOutside);
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      document.removeEventListener("pointerdown", dismissOutside);
+      viewport.removeEventListener("change", closeOnLayoutChange);
+    };
+  }, [isOpen, isDropdown, closeMenu]);
 
   useEffect(() => {
     if (!isOpen && !isLogoutConfirmOpen) {
@@ -142,22 +179,26 @@ function AccountMenu({
         }
 
         closeMenu();
+        if (isDropdown) triggerRef.current?.focus();
       }
     }
 
-    document.body.style.overflow = "hidden";
+    const locksScroll = !isDropdown || isLogoutConfirmOpen;
+    if (locksScroll) document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
+      if (locksScroll) document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, isLogoutConfirmOpen, closeMenu, closeLogoutConfirm]);
+  }, [isOpen, isLogoutConfirmOpen, isDropdown, closeMenu, closeLogoutConfirm]);
 
   function requestLogout() {
     clearAnimationTimers();
     setIsOpen(false);
-    setIsDrawerMounted(false);
+    setIsMenuMounted(false);
+    setIsSupportExpanded(false);
+    triggerRef.current?.focus();
     setIsLogoutConfirmOpen(true);
   }
 
@@ -165,6 +206,168 @@ function AccountMenu({
     setIsLogoutConfirmOpen(false);
     onLogout();
   }
+
+  const menuPanel = (
+    <aside
+      id={menuId}
+      ref={drawerRef}
+      className={isDropdown
+        ? "absolute right-0 top-full z-50 mt-2 flex max-h-[calc(100dvh-6rem)] w-72 flex-col overflow-y-auto rounded-2xl border border-black/[0.08] bg-surface p-2 shadow-[0_12px_36px_rgba(0,0,0,0.12)]"
+        : `absolute left-0 top-0 flex h-full w-[min(84vw,320px)] flex-col border-r border-black/[0.05] bg-surface p-5 opacity-100 shadow-[8px_0_24px_rgba(0,0,0,0.08)] transition-transform duration-200 ease-out ${
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
+      role="dialog"
+      aria-modal={isDropdown ? undefined : true}
+      aria-label="Account menu"
+    >
+      {!isDropdown ? (
+        <div className="flex items-center justify-between gap-4">
+          <BrandLogo size="sidebar" priority />
+          <button
+            type="button"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-ink"
+            onClick={closeMenu}
+            aria-label="Close menu"
+            tabIndex={isOpen ? 0 : -1}
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+
+      <nav className={isDropdown ? "grid content-start gap-1" : "mt-8 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto"}>
+        {isAdmin ? (
+          <Link href="/check-in" onClick={closeMenu} tabIndex={isOpen ? 0 : -1}
+            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted">
+            <ScanLine className="size-4" aria-hidden="true" />Ticket check-in
+          </Link>
+        ) : null}
+        {/* Admins cannot enter /profile or /blocked-accounts, so those links are
+            member-only rather than dead ends that bounce back to /admin. */}
+        {!isAdmin ? (
+          <>
+            <Link
+              className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
+              href="/profile"
+              onClick={closeMenu}
+              tabIndex={isOpen ? 0 : -1}
+            >
+              <UserRound className="size-4" aria-hidden="true" />
+              Profile
+            </Link>
+
+            <Link
+              className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
+              href="/blocked-accounts"
+              onClick={closeMenu}
+              tabIndex={isOpen ? 0 : -1}
+            >
+              <Ban className="size-4" aria-hidden="true" />
+              Blocked Accounts
+            </Link>
+          </>
+        ) : null}
+
+        {isAdmin ? (
+          <Link
+            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
+            href="/admin/support"
+            onClick={closeMenu}
+            tabIndex={isOpen ? 0 : -1}
+          >
+            <LifeBuoy className="size-4" aria-hidden="true" />
+            Support
+          </Link>
+        ) : (
+          <div>
+            <button
+              type="button"
+              className="flex h-12 w-full items-center justify-between rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
+              onClick={() => setIsSupportExpanded((current) => !current)}
+              aria-expanded={isSupportExpanded}
+              aria-controls={supportMenuId}
+              tabIndex={isOpen ? 0 : -1}
+            >
+              <span className="inline-flex items-center gap-3">
+                <LifeBuoy className="size-4" aria-hidden="true" />
+                Support
+              </span>
+              <ChevronDown
+                className={`size-4 transition-transform ${isSupportExpanded ? "rotate-180" : ""}`}
+                aria-hidden="true"
+              />
+            </button>
+
+            <div
+              id={supportMenuId}
+              aria-hidden={!isSupportExpanded}
+              className={`grid overflow-hidden pl-8 transition-[grid-template-rows,opacity] duration-200 ${
+                isSupportExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              }`}
+            >
+              <div className="min-h-0">
+                {[
+                  { href: "/support", label: "General" },
+                  { href: "/support/requests", label: "Requests" },
+                  { href: "/support/faq", label: "FAQ" },
+                  { href: "/support/contact", label: "Contact Us" },
+                ].map((item) => (
+                  <Link
+                    key={item.href}
+                    className="flex h-10 items-center rounded-full px-4 text-sm text-ink-600 transition hover:bg-surface-muted hover:text-ink"
+                    href={item.href}
+                    onClick={closeMenu}
+                    tabIndex={isOpen && isSupportExpanded ? 0 : -1}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-ink-300"
+          disabled
+          aria-disabled="true"
+        >
+          <span className="inline-flex items-center gap-3">
+            <CreditCard className="size-4" aria-hidden="true" />
+            Subscriptions
+          </span>
+          <span className="rounded-full bg-surface-shade px-2 py-1 text-[11px] text-ink-400">Soon</span>
+        </button>
+
+        <button
+          type="button"
+          className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-ink-300"
+          disabled
+          aria-disabled="true"
+        >
+          <span className="inline-flex items-center gap-3">
+            <Palette className="size-4" aria-hidden="true" />
+            Change Theme
+          </span>
+          <span className="rounded-full bg-surface-shade px-2 py-1 text-[11px] text-ink-400">Soon</span>
+        </button>
+
+        <button
+          type="button"
+          className="mt-3 inline-flex h-12 items-center gap-3 rounded-full bg-ink px-4 text-sm font-medium text-white"
+          onClick={requestLogout}
+          tabIndex={isOpen ? 0 : -1}
+        >
+          <LogOut className="size-4" aria-hidden="true" />
+          Logout
+        </button>
+      </nav>
+      <div className="mt-4 shrink-0 border-t border-black/5 pt-3 pb-[env(safe-area-inset-bottom)]">
+        <PrivacyPolicyLink onClick={closeMenu} tabIndex={isOpen ? 0 : -1} />
+      </div>
+    </aside>
+  );
 
   const drawer = (
     <div
@@ -178,161 +381,7 @@ function AccountMenu({
         aria-label="Close menu"
         tabIndex={isOpen ? 0 : -1}
       />
-
-      <aside
-        ref={drawerRef}
-        className={`absolute left-0 top-0 flex h-full w-[min(84vw,320px)] flex-col border-r border-black/[0.05] bg-surface p-5 opacity-100 shadow-[8px_0_24px_rgba(0,0,0,0.08)] transition-transform duration-200 ease-out ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Account menu"
-      >
-        <div className="flex items-center justify-between gap-4">
-          <BrandLogo size="sidebar" priority />
-          <button
-            type="button"
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-ink"
-            onClick={closeMenu}
-            aria-label="Close menu"
-            tabIndex={isOpen ? 0 : -1}
-          >
-            <X className="size-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        <nav className="mt-8 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto">
-          {isAdmin ? (
-            <Link href="/check-in" onClick={closeMenu} tabIndex={isOpen ? 0 : -1}
-              className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted">
-              <ScanLine className="size-4" aria-hidden="true" />Ticket check-in
-            </Link>
-          ) : null}
-          {/* Admins cannot enter /profile or /blocked-accounts, so those links are
-              member-only rather than dead ends that bounce back to /admin. */}
-          {!isAdmin ? (
-            <>
-              <Link
-                className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
-                href="/profile"
-                onClick={closeMenu}
-                tabIndex={isOpen ? 0 : -1}
-              >
-                <UserRound className="size-4" aria-hidden="true" />
-                Profile
-              </Link>
-
-              <Link
-                className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
-                href="/blocked-accounts"
-                onClick={closeMenu}
-                tabIndex={isOpen ? 0 : -1}
-              >
-                <Ban className="size-4" aria-hidden="true" />
-                Blocked Accounts
-              </Link>
-            </>
-          ) : null}
-
-          {isAdmin ? (
-            <Link
-              className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
-              href="/admin/support"
-              onClick={closeMenu}
-              tabIndex={isOpen ? 0 : -1}
-            >
-              <LifeBuoy className="size-4" aria-hidden="true" />
-              Support
-            </Link>
-          ) : (
-            <div>
-              <button
-                type="button"
-                className="flex h-12 w-full items-center justify-between rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
-                onClick={() => setIsSupportExpanded((current) => !current)}
-                aria-expanded={isSupportExpanded}
-                aria-controls={supportMenuId}
-                tabIndex={isOpen ? 0 : -1}
-              >
-                <span className="inline-flex items-center gap-3">
-                  <LifeBuoy className="size-4" aria-hidden="true" />
-                  Support
-                </span>
-                <ChevronDown
-                  className={`size-4 transition-transform ${isSupportExpanded ? "rotate-180" : ""}`}
-                  aria-hidden="true"
-                />
-              </button>
-
-              <div
-                id={supportMenuId}
-                aria-hidden={!isSupportExpanded}
-                className={`grid overflow-hidden pl-8 transition-[grid-template-rows,opacity] duration-200 ${
-                  isSupportExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                }`}
-              >
-                <div className="min-h-0">
-                  {[
-                    { href: "/support", label: "General" },
-                    { href: "/support/requests", label: "Requests" },
-                    { href: "/support/faq", label: "FAQ" },
-                    { href: "/support/contact", label: "Contact Us" },
-                  ].map((item) => (
-                    <Link
-                      key={item.href}
-                      className="flex h-10 items-center rounded-full px-4 text-sm text-ink-600 transition hover:bg-surface-muted hover:text-ink"
-                      href={item.href}
-                      onClick={closeMenu}
-                      tabIndex={isOpen && isSupportExpanded ? 0 : -1}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-ink-300"
-            disabled
-            aria-disabled="true"
-          >
-            <span className="inline-flex items-center gap-3">
-              <CreditCard className="size-4" aria-hidden="true" />
-              Subscriptions
-            </span>
-            <span className="rounded-full bg-surface-shade px-2 py-1 text-[11px] text-ink-400">Soon</span>
-          </button>
-
-          <button
-            type="button"
-            className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-ink-300"
-            disabled
-            aria-disabled="true"
-          >
-            <span className="inline-flex items-center gap-3">
-              <Palette className="size-4" aria-hidden="true" />
-              Change Theme
-            </span>
-            <span className="rounded-full bg-surface-shade px-2 py-1 text-[11px] text-ink-400">Soon</span>
-          </button>
-
-          <button
-            type="button"
-            className="mt-3 inline-flex h-12 items-center gap-3 rounded-full bg-ink px-4 text-sm font-medium text-white"
-            onClick={requestLogout}
-            tabIndex={isOpen ? 0 : -1}
-          >
-            <LogOut className="size-4" aria-hidden="true" />
-            Logout
-          </button>
-        </nav>
-        <div className="mt-4 shrink-0 border-t border-black/5 pt-3 pb-[env(safe-area-inset-bottom)]">
-          <PrivacyPolicyLink onClick={closeMenu} tabIndex={isOpen ? 0 : -1} />
-        </div>
-      </aside>
+      {menuPanel}
     </div>
   );
 
@@ -390,45 +439,75 @@ function AccountMenu({
   );
 
   return (
-    <>
+    <div
+      ref={menuRootRef}
+      className="relative"
+      onBlur={(event) => {
+        if (isDropdown && !event.currentTarget.contains(event.relatedTarget)) closeMenu();
+      }}
+    >
       <button
+        ref={triggerRef}
         type="button"
         className={triggerClassName ?? "inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-ink"}
-        onClick={openMenu}
+        onClick={isOpen ? closeMenu : openMenu}
+        onKeyDown={(event) => {
+          if (isDropdown && event.key === "ArrowDown") {
+            event.preventDefault();
+            openMenu();
+          }
+        }}
         aria-label="Open menu"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        aria-controls={isMenuMounted ? menuId : undefined}
         title={triggerTitle}
       >
         {trigger ?? <Menu className="size-4" aria-hidden="true" />}
       </button>
 
-      {isDrawerMounted && typeof document !== "undefined" ? createPortal(drawer, document.body) : null}
+      {isMenuMounted && isDropdown ? menuPanel : null}
+      {isMenuMounted && !isDropdown && typeof document !== "undefined" ? createPortal(drawer, document.body) : null}
       {isLogoutConfirmOpen && typeof document !== "undefined" ? createPortal(logoutConfirmModal, document.body) : null}
-    </>
-  );
-}
-
-export function AppBrand({ user, onLogout }: { user: StreetzUser; onLogout: () => void }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <BrandLogo size="sidebar" priority />
-          <p className="mt-2 text-xs font-medium uppercase tracking-[0.08em] text-ink-400">{user.role}</p>
-        </div>
-        <AccountMenu onLogout={onLogout} isAdmin={user.role === "ADMIN"} />
-      </div>
-      <div className="mt-5 rounded-[16px] border border-black/[0.05] bg-surface-muted p-4">
-        <p className="text-sm font-medium">{user.displayName}</p>
-        <p className="mt-1 truncate text-xs text-ink-600">{user.email}</p>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-brand-tint px-3 py-1 text-xs font-medium text-brand-strong">
-          <ShieldCheck className="size-3.5" aria-hidden="true" />
-          Active
-        </div>
-      </div>
     </div>
   );
 }
 
+export function AppBrand({ user }: { user: StreetzUser }) {
+  return (
+    <Link href={user.role === "ADMIN" ? "/admin" : "/events"} className="flex items-center gap-3 rounded-2xl px-2 py-1" aria-label="Crushclub home">
+      <BrandLogo size="compact" priority />
+      <div>
+        <p className="text-lg font-bold tracking-tight">Crushclub</p>
+        <p className="mt-0.5 text-xs text-ink-500">{user.role === "ADMIN" ? "Admin workspace" : "Your social circle"}</p>
+      </div>
+    </Link>
+  );
+}
+
+export function DesktopAccountMenu({ user, profilePhoto, onLogout }: { user: StreetzUser; profilePhoto?: ProfilePhoto; onLogout: () => void }) {
+  return (
+    <AccountMenu
+      onLogout={onLogout}
+      isAdmin={user.role === "ADMIN"}
+      triggerTitle="Account options"
+      variant="dropdown"
+      triggerClassName="inline-flex max-w-64 items-center gap-3 rounded-full border border-black/[0.06] bg-surface py-1.5 pl-3 pr-2 text-left transition hover:border-brand/30 hover:bg-brand-wash"
+      trigger={
+        <>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">{user.displayName}</span>
+            <span className="block text-xs text-ink-500">{user.role === "ADMIN" ? "Administrator" : "My account"}</span>
+          </span>
+          <span className="size-9 shrink-0 overflow-hidden rounded-full bg-brand-tint">
+            <ProfilePhotoImage photo={profilePhoto} alt={`${user.displayName} profile photo`} variant="thumb" sizes="36px" iconSize="sm" />
+          </span>
+          <ChevronDown className="mr-1 size-3.5 text-ink-400" aria-hidden="true" />
+        </>
+      }
+    />
+  );
+}
 export function MobileHeader({
   user,
   profilePhoto,
@@ -495,7 +574,7 @@ export function AppNavButton({
   if (variant === "side") {
     return (
       <Link
-        className={`${base} ${activeClass} h-11 rounded-full px-4`}
+        className={`${base} ${active ? "bg-brand-tint text-brand-deep" : "text-ink-600 hover:bg-surface-muted hover:text-ink"} h-12 w-full justify-start! gap-3 rounded-2xl px-4`}
         href={href}
         onClick={onClick}
         aria-current={active ? "page" : undefined}
