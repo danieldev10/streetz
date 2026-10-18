@@ -1,4 +1,5 @@
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
+import { DeletedAccountAvatar } from "@/components/deleted-account-avatar";
 import type { DiscoveryCandidate } from "@/lib/types";
 
 export function CandidatePhoto({
@@ -10,6 +11,10 @@ export function CandidatePhoto({
   priority?: boolean;
   variant?: "thumb" | "card" | "full";
 }) {
+  if (candidate.accountStatus === "DELETED") {
+    return <DeletedAccountAvatar />;
+  }
+
   const photo = candidate.photos[0];
 
   return (

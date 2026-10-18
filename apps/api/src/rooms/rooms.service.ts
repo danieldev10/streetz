@@ -61,6 +61,7 @@ export type RealtimeRoomMessage = {
     id: string;
     displayName: string;
     isVerified?: boolean;
+    accountStatus?: AccountStatus;
     photos?: unknown[];
   };
   body: string;
@@ -449,16 +450,18 @@ export class RoomsService {
 
   toPublicRoomMessage(message: RealtimeRoomMessage) {
     const authorPhoto = message.author?.photos?.[0];
+    const isDeleted = message.author?.accountStatus === AccountStatus.DELETED;
 
     return {
       id: message.id,
       roomId: message.roomId,
       authorId: message.authorId,
-      authorName: message.authorName,
+      authorName: isDeleted ? "Deleted member" : message.authorName,
       author: {
         id: message.author?.id ?? message.authorId,
-        displayName: message.author?.displayName ?? message.authorName,
-        isVerified: Boolean(message.author?.isVerified),
+        displayName: isDeleted ? "Deleted member" : message.author?.displayName ?? message.authorName,
+        isVerified: !isDeleted && Boolean(message.author?.isVerified),
+        ...(isDeleted ? { accountStatus: AccountStatus.DELETED } : {}),
         age: null,
         bio: null,
         connectionStatus: null,
@@ -466,7 +469,7 @@ export class RoomsService {
         state: null,
         attendedEventCount: 0,
         interests: [],
-        photos: authorPhoto ? [authorPhoto] : []
+        photos: !isDeleted && authorPhoto ? [authorPhoto] : []
       },
       body: message.body,
       gifUrl: message.gifUrl,
@@ -655,6 +658,7 @@ export class RoomsService {
         id: message.author.id,
         displayName: message.author.displayName,
         isVerified: hasVerifiedProfile(message.author),
+        accountStatus: message.author.accountStatus,
         photos
       },
       body: message.body,
@@ -700,7 +704,9 @@ export class RoomsService {
     return {
       _count: {
         select: {
-          memberships: true,
+          memberships: {
+            where: { user: { accountStatus: { not: AccountStatus.DELETED } } }
+          },
           ...(options.includeMessages ? { messages: true } : {})
         }
       }
