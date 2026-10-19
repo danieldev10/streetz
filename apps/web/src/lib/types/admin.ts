@@ -22,6 +22,10 @@ export type AdminMetrics = {
     ticketsBooked: number;
     ticketRevenueKobo: number;
   };
+  revenue?: {
+    ticketRevenueKobo: number;
+    subscriptionRevenueKobo: number;
+  };
   reports: {
     total: number;
     open: number;

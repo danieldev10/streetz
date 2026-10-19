@@ -4,8 +4,6 @@ import {
   EventStatus,
   MatchStatus,
   ModerationActionType,
-  PaymentPurpose,
-  PaymentStatus,
   Prisma,
   ReportStatus,
   SubscriptionStatus,
@@ -18,6 +16,7 @@ import { StorageService } from "../storage/storage.service";
 import { UsersService } from "../users/users.service";
 import { ModerateReportUserDto } from "./dto/moderate-report-user.dto";
 import { AdminUsersListDto } from "./dto/admin-users-list.dto";
+import { getLivePaymentRevenue } from "./live-payment-revenue";
 
 type AdminReportPhotoForFormat = {
   id: string;
@@ -103,7 +102,7 @@ export class AdminService {
       roomMessages,
       publishedEvents,
       ticketsBooked,
-      ticketRevenue,
+      revenue,
       totalReports,
       openReports
     ] = await Promise.all([
@@ -150,13 +149,7 @@ export class AdminService {
       this.prisma.ticket.count({
         where: getActiveTicketWhere(now)
       }),
-      this.prisma.payment.aggregate({
-        _sum: { amountKobo: true },
-        where: {
-          purpose: PaymentPurpose.EVENT_TICKET,
-          status: PaymentStatus.SUCCESS
-        }
-      }),
+      getLivePaymentRevenue(this.prisma),
       this.prisma.userReport.count(),
       this.prisma.userReport.count({
         where: { status: ReportStatus.OPEN }
@@ -181,8 +174,9 @@ export class AdminService {
       events: {
         published: publishedEvents,
         ticketsBooked,
-        ticketRevenueKobo: ticketRevenue._sum.amountKobo ?? 0
+        ticketRevenueKobo: revenue.ticketRevenueKobo
       },
+      revenue,
       reports: {
         total: totalReports,
         open: openReports
