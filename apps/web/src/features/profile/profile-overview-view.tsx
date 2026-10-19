@@ -4,7 +4,6 @@ import {
   Heart,
   MapPin,
   Power,
-  ShieldCheck,
   Ticket,
   Trash2,
   UserRound,
@@ -136,15 +135,6 @@ export function ProfileOverviewView({
       </article>
 
       <div className="mt-5 grid gap-3">
-        {!isFaceVerified ? (
-          <a
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-brand/40 bg-brand-tint px-5 text-sm font-medium text-brand-deep"
-            href="/profile/verify"
-          >
-            <ShieldCheck className="size-4" aria-hidden="true" />
-            Get a blue verified badge
-          </a>
-        ) : null}
         <ProfileMenuButton onClick={onPreview}>
           <Heart className="size-4" aria-hidden="true" />
           Preview Card
