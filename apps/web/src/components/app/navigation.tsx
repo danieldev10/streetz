@@ -6,9 +6,9 @@ import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   Ban,
+  BadgeCheck,
   Bell,
   ChevronDown,
-  CreditCard,
   Flag,
   Heart,
   LogOut,
@@ -327,18 +327,17 @@ function AccountMenu({
           </div>
         )}
 
-        <button
-          type="button"
-          className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-ink-300"
-          disabled
-          aria-disabled="true"
-        >
-          <span className="inline-flex items-center gap-3">
-            <CreditCard className="size-4" aria-hidden="true" />
-            Subscriptions
-          </span>
-          <span className="rounded-full bg-surface-shade px-2 py-1 text-[11px] text-ink-400">Soon</span>
-        </button>
+        {!isAdmin ? (
+          <Link
+            className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
+            href="/profile/verify"
+            onClick={closeMenu}
+            tabIndex={isOpen ? 0 : -1}
+          >
+            <BadgeCheck className="size-4 text-blue-600" aria-hidden="true" />
+            Get Verified
+          </Link>
+        ) : null}
 
         <button
           type="button"
