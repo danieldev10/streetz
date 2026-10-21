@@ -7,12 +7,14 @@ import { CalendarDays, Download, LoaderCircle, MapPin, Ticket } from "lucide-rea
 import { ActionButton } from "@/components/action-button";
 import { TicketQrCode } from "@/components/ticket-qr-code";
 import { apiRequest, downloadApiFile, getUserErrorMessage } from "@/lib/api";
+import { formatEventLocation } from "@/features/events/event-display";
+import type { EventType } from "@/lib/types";
 
 type ManagedGuestBooking = {
   orderId: string;
   email: string;
   displayName: string;
-  event: { id: string; title: string; venue: string; state: string | null; city: string; startsAt: string; endsAt: string | null; status: string };
+  event: { id: string; title: string; venue: string; eventType?: EventType; state: string | null; city: string; startsAt: string; endsAt: string | null; status: string };
   ticketType: { id: string; name: string; priceKobo: number };
   tickets: Array<{ id: string; code: string; status: string; checkedInAt: string | null; createdAt: string }>;
 };
@@ -64,7 +66,7 @@ export default function GuestTicketsPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-strong">Guest tickets</p>
         <h1 className="mt-2 text-2xl font-semibold">{booking!.event.title}</h1>
         <p className="mt-3 flex gap-2 text-sm text-ink-600"><CalendarDays className="size-4 shrink-0" />{formatDate(booking!.event.startsAt)}</p>
-        <p className="mt-2 flex gap-2 text-sm text-ink-600"><MapPin className="size-4 shrink-0" />{[booking!.event.venue, booking!.event.city, booking!.event.state].filter(Boolean).join(", ")}</p>
+        <p className="mt-2 flex gap-2 text-sm text-ink-600"><MapPin className="size-4 shrink-0" />{formatEventLocation(booking!.event)}</p>
         <div className="mt-6 grid gap-3">
           {booking!.tickets.map((ticket, index) => (
             <article key={ticket.id} className="rounded-[20px] border border-black/8 bg-surface-muted p-4">

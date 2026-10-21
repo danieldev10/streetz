@@ -14,6 +14,7 @@ import { ConfirmGuestTicketDto } from "./dto/confirm-guest-ticket.dto";
 import { RequestGuestTicketDto } from "./dto/request-guest-ticket.dto";
 import { assertGuestTicketAvailability, normalizeGuestEmail } from "./guest-ticket-logic";
 import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "./ticket-reservations";
+import { getWebsiteVenue } from "./event-venue";
 
 const VERIFICATION_MINUTES = 10;
 const MAX_VERIFICATION_ATTEMPTS = 5;
@@ -219,7 +220,8 @@ export class GuestTicketsService {
       event: {
         id: booking.event.id,
         title: booking.event.title,
-        venue: booking.event.venue,
+        eventType: booking.event.eventType,
+        venue: getWebsiteVenue(booking.event),
         state: booking.event.state,
         city: booking.event.city,
         startsAt: booking.event.startsAt,
@@ -240,14 +242,7 @@ export class GuestTicketsService {
   }
 
   async getManagedBooking(orderId: string, token: string | undefined) {
-    if (!token?.trim()) throw new NotFoundException("Ticket booking not found.");
-    const order = await this.prisma.guestTicketOrder.findUnique({
-      where: { id: orderId },
-      include: { event: true, ticketType: true, tickets: { orderBy: { createdAt: "asc" } } }
-    });
-    if (!order || !this.matchesManageToken(token, order.manageTokenHash)) {
-      throw new NotFoundException("Ticket booking not found.");
-    }
+    const order = await this.getManagedBookingSource(orderId, token);
 
     return {
       orderId: order.id,
@@ -258,7 +253,8 @@ export class GuestTicketsService {
         title: order.event.title,
         coverImage: order.event.coverImage,
         status: order.event.status,
-        venue: order.event.venue,
+        eventType: order.event.eventType,
+        venue: getWebsiteVenue(order.event),
         state: order.event.state,
         city: order.event.city,
         startsAt: order.event.startsAt,
@@ -273,6 +269,20 @@ export class GuestTicketsService {
         createdAt: ticket.createdAt
       }))
     };
+  }
+
+  /** Internal download source. Never return this unredacted object from an HTTP controller. */
+  async getManagedBookingSource(orderId: string, token: string | undefined) {
+    if (!token?.trim()) throw new NotFoundException("Ticket booking not found.");
+    const order = await this.prisma.guestTicketOrder.findUnique({
+      where: { id: orderId },
+      include: { event: true, ticketType: true, tickets: { orderBy: { createdAt: "asc" } } }
+    });
+    if (!order || !this.matchesManageToken(token, order.manageTokenHash)) {
+      throw new NotFoundException("Ticket booking not found.");
+    }
+
+    return order;
   }
 
   private async findPublicFreeEvent(eventId: string, ticketTypeId: string) {

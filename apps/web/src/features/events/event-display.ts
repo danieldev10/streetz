@@ -133,8 +133,9 @@ export function isMemberBookableEvent(event: StreetzEvent) {
   return event.status === "PUBLISHED" && !hasEventEnded(event);
 }
 
-export function formatEventLocation(event: Pick<StreetzEvent, "venue" | "city" | "state">) {
-  return [event.venue, event.city, event.state].filter(Boolean).join(", ");
+export function formatEventLocation(event: Pick<StreetzEvent, "venue" | "city" | "state" | "eventType">) {
+  const venue = event.eventType === "PRIVATE" ? "Private" : event.eventType === "EXCLUSIVE" ? "Exclusive" : event.venue;
+  return [venue, event.city, event.state].filter(Boolean).join(", ");
 }
 
 function getRemainingUserTicketAllowance(event: StreetzEvent, ticketType: StreetzEventTicketType | null) {

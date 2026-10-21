@@ -96,7 +96,7 @@ export class JobQueueService {
 
   async schedule() {
     // Use the database clock and unique keys across workers/deployment overlap.
-    // Both maintenance jobs are scheduled atomically, even if process clocks differ.
+    // Maintenance jobs are scheduled atomically, even if process clocks differ.
     await this.prisma.$executeRaw`
       WITH slot AS (SELECT floor(extract(epoch FROM now()) / 300)::bigint AS bucket)
       INSERT INTO "BackgroundJob" (id, key, type, payload, "runAt", "createdAt", "updatedAt")
@@ -104,7 +104,8 @@ export class JobQueueService {
         task.type::"BackgroundJobType", '{}'::jsonb,
         now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC'
       FROM slot CROSS JOIN (VALUES
-        ('reservation-cleanup', 'RESERVATION_CLEANUP'), ('payment-scan', 'PAYMENT_SCAN')
+        ('reservation-cleanup', 'RESERVATION_CLEANUP'), ('payment-scan', 'PAYMENT_SCAN'),
+        ('event-venue-scan', 'EVENT_VENUE_SCAN')
       ) AS task(prefix, type)
       ON CONFLICT (key) DO NOTHING`;
   }

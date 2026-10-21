@@ -16,7 +16,7 @@ import { consumePendingEventCheckoutNotice, savePendingEventCheckout } from "@/l
 import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
 import type { StreetzEvent, StreetzEventTicket, StreetzEventTicketType, StreetzUser, TicketStatus } from "@/lib/types";
 import type { GuestTicketBooking } from "@/features/events/ticket-checkout-modal";
-import { formatEventDateRange, getMaxPurchaseQuantity } from "@/features/events/event-display";
+import { formatEventDateRange, formatEventLocation, getMaxPurchaseQuantity } from "@/features/events/event-display";
 
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
@@ -37,10 +37,6 @@ function formatEventDate(value: string) {
     hour12: false,
     timeZone: "Africa/Lagos",
   }).format(new Date(value));
-}
-
-function formatEventLocation(event: Pick<StreetzEvent, "venue" | "city" | "state">) {
-  return [event.venue, event.city, event.state].filter(Boolean).join(", ");
 }
 
 function hasEventEnded(event: Pick<StreetzEvent, "startsAt" | "endsAt">) {
@@ -466,6 +462,12 @@ export function EventTicketsTab({
                   </p>
                   {event.category ? (
                     <p className="mt-3 text-xs font-medium text-brand-deep lg:inline-flex lg:rounded-full lg:bg-brand-wash lg:px-3 lg:py-1.5">{event.category}</p>
+                  ) : null}
+                  {event.eventType === "PRIVATE" || event.eventType === "EXCLUSIVE" ? (
+                    <p className="mt-3 text-xs leading-6 text-ink-600">
+                      {event.eventType === "PRIVATE" ? "The full venue address is included on confirmed ticket PDFs." :
+                        "Venue details are emailed to ticket holders 24 hours before the event. Later bookings receive them immediately."}
+                    </p>
                   ) : null}
                   {event.description ? (
                     <div className="mt-5 border-t border-black/5 pt-4">

@@ -6,7 +6,7 @@ import { ActionButton } from "@/components/action-button";
 import { useMemo, useState } from "react";
 import { CheckCircle2, Mail, Ticket, X } from "lucide-react";
 import { apiRequest, getUserErrorMessage } from "@/lib/api";
-import type { StreetzEvent, StreetzEventTicketType, TicketStatus } from "@/lib/types";
+import type { EventType, StreetzEvent, StreetzEventTicketType, TicketStatus } from "@/lib/types";
 
 const MAX_TICKETS_PER_PURCHASE = 20;
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["CONFIRMED", "PAID", "CHECKED_IN"]);
@@ -30,6 +30,7 @@ export type GuestTicketBooking = {
     id: string;
     title: string;
     venue: string;
+    eventType?: EventType;
     state: string | null;
     city: string;
     startsAt: string;

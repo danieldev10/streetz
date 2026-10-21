@@ -33,6 +33,14 @@ export class JobHandlerService {
       throw new JobError("INVALID_JOB_PAYLOAD", true);
     const messageId = `<${createHash("sha256").update(job.key).digest("hex")}@jobs.crushclub.ng>`;
     switch (job.type) {
+      case BackgroundJobType.EVENT_VENUE_SCAN:
+        await beforeSideEffect();
+        await this.tickets.scanVenueEmails();
+        return;
+      case BackgroundJobType.EVENT_VENUE_EMAIL:
+        if (typeof payload.deliveryId !== "string" || !payload.deliveryId) throw new JobError("INVALID_VENUE_DELIVERY", true);
+        await this.tickets.deliverVenue(payload.deliveryId, messageId, beforeSideEffect);
+        return;
       case BackgroundJobType.TICKET_EMAIL: {
         if (
           !Array.isArray(payload.ticketIds) ||

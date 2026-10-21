@@ -4,6 +4,7 @@ import {
   ConnectionStatus,
   DiscoveryAction,
   EventStatus,
+  EventType,
   MatchStatus,
   NotificationKind,
   PaymentPurpose,
@@ -15,6 +16,7 @@ import {
 import { calculateAge } from "../common/age";
 import { countCheckedInStandardEvents } from "../common/attendance";
 import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "../events/ticket-reservations";
+import { getWebsiteVenue } from "../events/event-venue";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { MarkNotificationsSeenDto } from "./dto/mark-notifications-seen.dto";
@@ -87,6 +89,7 @@ type EventAlertSource = {
   id: string;
   title: string;
   venue: string;
+  eventType?: EventType;
   state: string | null;
   city: string;
   startsAt: Date;
@@ -383,6 +386,7 @@ export class NotificationsService {
         description: true,
         coverImage: true,
         venue: true,
+        eventType: true,
         state: true,
         city: true,
         startsAt: true,
@@ -399,7 +403,8 @@ export class NotificationsService {
       slug: event.slug,
       description: event.description,
       coverImage: event.coverImage,
-      venue: event.venue,
+      eventType: event.eventType,
+      venue: getWebsiteVenue(event),
       state: event.state,
       city: event.city,
       startsAt: event.startsAt.toISOString(),
@@ -422,6 +427,7 @@ export class NotificationsService {
             id: true,
             title: true,
             venue: true,
+            eventType: true,
             state: true,
             city: true,
             startsAt: true
@@ -447,7 +453,8 @@ export class NotificationsService {
       event: {
         id: ticket.event.id,
         title: ticket.event.title,
-        venue: ticket.event.venue,
+        eventType: ticket.event.eventType,
+        venue: getWebsiteVenue(ticket.event),
         state: ticket.event.state,
         city: ticket.event.city,
         startsAt: ticket.event.startsAt.toISOString()
@@ -903,7 +910,8 @@ export class NotificationsService {
       kind,
       eventId: event.id,
       title: event.title,
-      venue: event.venue,
+      eventType: event.eventType,
+      venue: getWebsiteVenue(event),
       state: event.state,
       city: event.city,
       startsAt: event.startsAt.toISOString(),

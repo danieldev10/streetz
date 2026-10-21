@@ -7,6 +7,7 @@ export type TicketStatus =
   | "CANCELLED"
   | "REFUNDED";
 export type EventBookingAccess = "MEMBERS_ONLY" | "PUBLIC";
+export type EventType = "PUBLIC" | "PRIVATE" | "EXCLUSIVE";
 export type StreetzEventTicketType = {
   id: string;
   name: string;
@@ -45,6 +46,7 @@ export type StreetzEvent = {
   description: string | null;
   coverImage: string | null;
   category: string;
+  eventType?: EventType;
   venue: string;
   state: string | null;
   city: string;

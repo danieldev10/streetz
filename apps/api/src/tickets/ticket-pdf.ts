@@ -40,7 +40,7 @@ export async function renderTicketPdf(input: TicketDocument): Promise<Buffer> {
       .text(input.eventTitle, 32, 116, { width, height: 65, ellipsis: true });
     doc.font("Helvetica").fontSize(11).fillColor("#555555")
       .text(formatTicketDate(input.startsAt), 32, 192, { width, height: 34, ellipsis: true });
-    doc.text(input.venue, 32, 236, { width, height: 34, ellipsis: true });
+    doc.fontSize(10).text(input.venue, 32, 236, { width, height: 48 });
     const columnWidth = width / 2 - 10;
     doc.fontSize(9).text("TICKET HOLDER", 32, 290, { width: columnWidth });
     doc.text("TICKET TYPE", 42 + width / 2, 290, { width: columnWidth });
