@@ -27,6 +27,7 @@ import { BookEventDto } from "../events/dto/book-event.dto";
 import { EVENT_TICKET_TIER_NAMES } from "../events/dto/create-event.dto";
 import { PrismaService } from "../prisma/prisma.service";
 import { queueTicketEmail } from "../tickets/ticket-email-queue";
+import { purchaseAnalytics } from "./purchase-analytics";
 import { getAccountAccessBlock } from "../users/account-status";
 
 const SUBSCRIPTION_AMOUNT_KOBO = 100_000;
@@ -549,6 +550,7 @@ export class PaymentsService {
         status: PaymentStatus.SUCCESS,
         ticket: this.formatTicket(ticket),
         tickets: orderedTickets.map((item) => this.formatTicket(item)),
+        analyticsPurchase: purchaseAnalytics(payment, orderedTickets),
         subscriptionStatus: includesMembership ? payment.user.subscriptionStatus : undefined,
         subscriptionEndsAt: includesMembership ? payment.user.subscriptionEndsAt : undefined
       };
@@ -798,6 +800,8 @@ export class PaymentsService {
       status: PaymentStatus.SUCCESS,
       ticket: this.formatTicket(activation.tickets[0]),
       tickets: activation.tickets.map((item) => this.formatTicket(item)),
+      analyticsPurchase: purchaseAnalytics({ ...payment, status: PaymentStatus.SUCCESS,
+        providerMetadata: { ...metadata, paystack: paystackData } }, activation.tickets),
       subscriptionStatus: activation.subscriptionUser?.subscriptionStatus,
       subscriptionEndsAt: activation.subscriptionUser?.subscriptionEndsAt
     };

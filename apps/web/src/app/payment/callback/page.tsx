@@ -6,6 +6,7 @@ import { LoadingState } from "@/components/loading-state";
 import { BrandLogo } from "@/components/brand-logo";
 import { useSession } from "@/components/app/session-provider";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
+import { trackPurchase, type AnalyticsPurchase } from "@/lib/marketing";
 import { clearPendingEventCheckout } from "@/lib/pending-event-checkout";
 
 function PaymentCallbackContent() {
@@ -43,6 +44,7 @@ function PaymentCallbackContent() {
 
     apiRequest<{
       status: string;
+      analyticsPurchase?: AnalyticsPurchase;
       refundRequired?: boolean;
       message?: string;
       subscriptionStatus?: "INACTIVE" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
@@ -53,6 +55,10 @@ function PaymentCallbackContent() {
       body: JSON.stringify({ reference }),
     })
       .then(async (response) => {
+        if (response.status !== "SUCCESS") {
+          setMessage(response.status === "PENDING" ? "Your payment is still processing. Please check again shortly." : "Your payment was not completed. Please try again.");
+          return;
+        }
         if (response.subscriptionStatus) {
           updateSessionUser((current) => ({
             ...current,
@@ -71,6 +77,8 @@ function PaymentCallbackContent() {
           window.setTimeout(() => router.replace(eventRedirectPath), 2400);
           return;
         }
+
+        if (isEventTicketPayment && !response.refundRequired) trackPurchase(response.analyticsPurchase);
 
         setMessage(isEventTicketPayment ? "Ticket confirmed. Taking you into crushclub..." : "Payment verified. Taking you into crushclub...");
         window.setTimeout(() => router.replace(isEventTicketPayment ? eventRedirectPath : "/events"), 900);

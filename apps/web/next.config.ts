@@ -138,7 +138,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin"
+            value: "origin"
           },
           {
             key: "Permissions-Policy",

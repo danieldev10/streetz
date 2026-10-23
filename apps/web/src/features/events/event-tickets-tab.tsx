@@ -5,6 +5,7 @@ import { TicketQrCode } from "@/components/ticket-qr-code";
 import { ActionButton } from "@/components/action-button";
 import Image from "next/image";
 import dynamic from "next/dynamic";
+import { setMarketingEventView, trackCheckout } from "@/lib/marketing";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, CheckCircle2, Download, MapPin, MessageCircle, Share2, Ticket, UsersRound } from "lucide-react";
@@ -125,6 +126,13 @@ export function EventTicketsTab({
   const [guestTicketsUrl, setGuestTicketsUrl] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  const marketingEventId = event?.id;
+  useEffect(() => {
+    if (view !== "details" || isAdmin || !marketingEventId || isLoading) return;
+    setMarketingEventView(marketingEventId);
+    return () => setMarketingEventView(null);
+  }, [view, isAdmin, marketingEventId, isLoading]);
 
   const ticketTypes = useMemo(() => (event ? getEventTicketTypes(event) : []), [event]);
   const tickets = useMemo(() => {
@@ -295,6 +303,7 @@ export function EventTicketsTab({
         throw new Error("Paystack did not return a checkout URL.");
       }
 
+      trackCheckout(event.id, ticketType.priceKobo * safeQuantity, safeQuantity);
       window.location.assign(response.authorizationUrl);
     } catch (error) {
       setNotice(getUserErrorMessage(error));
