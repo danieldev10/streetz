@@ -1,6 +1,5 @@
 import {
   EVENT_CATEGORY_OPTIONS,
-  formatPrice,
   getEventTicketTypes,
   hasEventEnded,
   normalizeEventCategory,
@@ -355,18 +354,18 @@ export function isAdminLockedEvent(event: StreetzEvent) {
 
 export function getAdminEventStatusLabel(event: StreetzEvent) {
   if (event.status === "DRAFT") {
-    return "draft";
+    return eventStatusLabels.DRAFT;
   }
 
   if (event.status === "CANCELLED") {
-    return "cancelled";
+    return eventStatusLabels.CANCELLED;
   }
 
   if (event.status === "COMPLETED" || hasEventEnded(event)) {
-    return "completed";
+    return eventStatusLabels.COMPLETED;
   }
 
-  return event.status.toLowerCase();
+  return eventStatusLabels[event.status];
 }
 
 export function getAdminEventStatusClass(event: StreetzEvent) {
@@ -379,22 +378,6 @@ export function getAdminEventStatusClass(event: StreetzEvent) {
   }
 
   return "bg-surface-muted text-ink-500";
-}
-
-export function getTicketTypeSummary(event: StreetzEvent) {
-  const ticketTypes = getEventTicketTypes(event);
-
-  if (ticketTypes.length === 0) {
-    return "No ticket";
-  }
-
-  if (ticketTypes.every((ticketType) => ticketType.priceKobo <= 0)) {
-    return "Free";
-  }
-
-  return ticketTypes
-    .map((ticketType) => `${normalizeTicketTierName(ticketType.name)} ${formatPrice(ticketType.priceKobo)}`)
-    .join(" · ");
 }
 
 export function getTotalTicketCapacity(event: StreetzEvent) {

@@ -8,7 +8,6 @@ import { ListSkeleton } from "@/components/skeletons";
 import {
   getAdminEventStatusClass,
   getAdminEventStatusLabel,
-  getTicketTypeSummary,
   getTotalTicketCapacity,
   isAdminInactiveEvent,
   type AdminEventListMode,
@@ -160,9 +159,6 @@ export function AdminEventsList({ token }: { token: string }) {
                       </p>
                       <p className="mt-1 text-sm text-ink-600">{formatEventLocation(event)}</p>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-ink-600">
-                        <span className="rounded-full bg-surface-muted px-3 py-1">
-                          {getTicketTypeSummary(event)}
-                        </span>
                         <span className="rounded-full bg-surface-muted px-3 py-1">
                           {event.attendeeCount ??
                             ticketTypes.reduce(
