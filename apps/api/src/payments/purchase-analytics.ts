@@ -8,6 +8,10 @@ export function purchaseAnalytics(
 ) {
   const metadata = asObject(payment.providerMetadata);
   const provider = asObject(metadata.paystack ?? metadata);
+  if (payment.purpose === "MEMBERSHIP_EVENT_TICKET" &&
+      (!Number.isSafeInteger(metadata.ticketAmountKobo) || Number(metadata.ticketAmountKobo) <= 0 ||
+       !Number.isSafeInteger(metadata.membershipAmountKobo) || Number(metadata.membershipAmountKobo) < 0 ||
+       Number(metadata.ticketAmountKobo) + Number(metadata.membershipAmountKobo) !== payment.amountKobo)) return undefined;
   if (payment.status !== "SUCCESS" || metadata.refundRequired === true ||
       provider.domain !== "live" || provider.currency !== "NGN" || provider.status !== "success" ||
       provider.amount !== payment.amountKobo || !Number.isSafeInteger(payment.amountKobo) || payment.amountKobo <= 0 ||
