@@ -48,7 +48,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ToastProvider>
           <QueryProvider>
-            <SessionProvider>{children}<MarketingConsent /></SessionProvider>
+            <SessionProvider><MarketingConsent>{children}</MarketingConsent></SessionProvider>
           </QueryProvider>
         </ToastProvider>
       </body>

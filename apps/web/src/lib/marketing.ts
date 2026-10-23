@@ -5,7 +5,6 @@ export const CONSENT_KEY = "ccl.marketing-consent.v1";
 const PENDING_KEY = "ccl.marketing-pending.v1";
 const SENT_KEY = "ccl.marketing-sent.v1";
 export const MARKETING_CHANGE = "ccl:marketing-change";
-export const MARKETING_PREFERENCES = "ccl:marketing-preferences";
 const CONSENT_TTL = 180 * 24 * 60 * 60 * 1000;
 const EVENT_TTL = 30 * 60 * 1000;
 type Properties = { content_ids?: string[]; content_type?: "product"; currency?: "NGN"; value?: number; quantity?: number };
