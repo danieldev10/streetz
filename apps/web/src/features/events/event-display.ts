@@ -162,3 +162,18 @@ export function getMaxPurchaseQuantity(event: StreetzEvent, ticketType: StreetzE
     Math.min(ticketType.availableCount, getRemainingUserTicketAllowance(event, ticketType), MAX_TICKETS_PER_PURCHASE)
   );
 }
+
+export function getEventTicketAvailability(event: StreetzEvent, isGuest: boolean) {
+  const ticketTypes = getEventTicketTypes(event);
+  const isBookable = isMemberBookableEvent(event);
+  const isSoldOut = ticketTypes.length > 0 && ticketTypes.every((ticketType) => ticketType.availableCount <= 0);
+  const canBookMore = isBookable && ticketTypes.some((ticketType) =>
+    isGuest ? ticketType.availableCount > 0 : getMaxPurchaseQuantity(event, ticketType) > 0
+  );
+
+  return {
+    isSoldOut,
+    canBookMore,
+    isLimitReached: ticketTypes.length > 0 && isBookable && !isSoldOut && !canBookMore,
+  };
+}
