@@ -33,9 +33,13 @@ test("deadlines include stalled response bodies, not only initial headers", asyn
     response.write('{"status":');
   });
   const started = performance.now();
-  const response = await opsFetch({ timeoutMs: 100, webUrl: url }, url, "/slow");
-  await assert.rejects(response.text());
-  assert.ok(performance.now() - started < 2000);
+  // A cold fetch on a shared CI runner can take over 100 ms before receiving
+  // headers. Leave room for connection setup so this actually tests the body
+  // deadline, rather than failing before reaching that assertion.
+  const response = await opsFetch({ timeoutMs: 1000, webUrl: url }, url, "/slow");
+  assert.equal(response.status, 200);
+  await assert.rejects(response.text(), (error) => ["TimeoutError", "AbortError"].includes(error.name));
+  assert.ok(performance.now() - started < 5000);
 });
 
 test("protection bypass stays on the web target and never follows redirects", async (t) => {

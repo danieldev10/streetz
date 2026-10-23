@@ -33,11 +33,11 @@ export function contentSecurityPolicy(env: Environment) {
   // hash rendering decision. Report-only is deliberately the initial default.
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${development ? " 'unsafe-eval'" : ""} https://maps.googleapis.com https://maps.gstatic.com https://js.paystack.co https://cdn.liveness.rekognition.amazonaws.com`,
+    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${development ? " 'unsafe-eval'" : ""} https://maps.googleapis.com https://maps.gstatic.com https://js.paystack.co https://cdn.liveness.rekognition.amazonaws.com https://analytics.tiktok.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    `img-src 'self' data: blob: ${media.join(" ")} ${giphy.join(" ")} https://images.unsplash.com https://maps.googleapis.com https://maps.gstatic.com`,
+    `img-src 'self' data: blob: ${media.join(" ")} ${giphy.join(" ")} https://images.unsplash.com https://maps.googleapis.com https://maps.gstatic.com https://analytics.tiktok.com`,
     "font-src 'self' data: https://fonts.gstatic.com",
-    `connect-src 'self' ${apiOrigins.join(" ")} ${sockets.join(" ")} ${media.join(" ")} ${uploads.join(" ")} ${sentry.join(" ")} https://api.giphy.com https://maps.googleapis.com https://cdn.liveness.rekognition.amazonaws.com https://cognito-identity.${region}.amazonaws.com https://rekognition.${region}.amazonaws.com https://rekognition-streaming.${region}.amazonaws.com wss://rekognition-streaming.${region}.amazonaws.com https://sts.${region}.amazonaws.com${development ? " http://localhost:4000 ws://localhost:4000 http://127.0.0.1:4000 ws://127.0.0.1:4000" : ""}`,
+    `connect-src 'self' ${apiOrigins.join(" ")} ${sockets.join(" ")} ${media.join(" ")} ${uploads.join(" ")} ${sentry.join(" ")} https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://api.giphy.com https://maps.googleapis.com https://cdn.liveness.rekognition.amazonaws.com https://cognito-identity.${region}.amazonaws.com https://rekognition.${region}.amazonaws.com https://rekognition-streaming.${region}.amazonaws.com wss://rekognition-streaming.${region}.amazonaws.com https://sts.${region}.amazonaws.com${development ? " http://localhost:4000 ws://localhost:4000 http://127.0.0.1:4000 ws://127.0.0.1:4000" : ""}`,
     "frame-src 'self' https://checkout.paystack.com https://checkout.paystack.co https://*.paystack.co",
     "worker-src 'self' blob:", "media-src 'self' blob: data:", "object-src 'none'",
     "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",

@@ -82,7 +82,7 @@ function paymentFixture(purpose = PaymentPurpose.EVENT_TICKET) {
   let tickets = [ticket("ticket-1", TicketStatus.RESERVED), ticket("ticket-2", TicketStatus.RESERVED)]
     .map((row) => ({ ...row, reservedUntil: new Date("2099-01-01") }));
   const payment = { id: "payment-1", userId: holder.id, user: holder, purpose, status: PaymentStatus.PENDING,
-    amountKobo: 2000, providerReference: "STZEV-test", providerMetadata: { ticketIds: tickets.map((row) => row.id) } };
+    amountKobo: 2000, providerReference: "STZEV-test", providerMetadata: { ticketIds: tickets.map((row) => row.id), ticketAmountKobo: 1500, membershipAmountKobo: 500 } };
   const jobs = [];
   const transaction = {
     $queryRaw: async () => [],
@@ -97,7 +97,7 @@ function paymentFixture(purpose = PaymentPurpose.EVENT_TICKET) {
   };
   const service = new PaymentsService({ ...transaction, payment: { ...transaction.payment, findUnique: async () => payment },
     $transaction: async (callback) => Array.isArray(callback) ? Promise.all(callback) : callback(transaction) }, {});
-  service.callPaystack = async () => ({ status: true, data: { status: "success", amount: 2000, currency: "NGN" } });
+  service.callPaystack = async () => ({ status: true, data: { status: "success", amount: 2000, currency: "NGN", domain: "live" } });
   service.activateMembershipIfNeeded = async () => null;
   return { service, jobs, payment, tickets };
 }
@@ -109,6 +109,9 @@ for (const purpose of [PaymentPurpose.EVENT_TICKET, PaymentPurpose.MEMBERSHIP_EV
     const second = await service.verifyAndActivateEventTicket(payment.providerReference);
     assert.equal(first.status, PaymentStatus.SUCCESS);
     assert.equal(second.tickets.length, 2);
+    assert.equal(first.analyticsPurchase.value, 20);
+    assert.equal(first.analyticsPurchase.quantity, 2);
+    assert.deepEqual(second.analyticsPurchase, first.analyticsPurchase);
     assert.equal(jobs.length, 1);
     assert.equal(jobs[0].key, "ticket-email:payment:payment-1");
     assert.deepEqual(jobs[0].payload.ticketIds, ["ticket-1", "ticket-2"]);
@@ -125,6 +128,7 @@ test("failed payment and expired sold-out reservations never queue admission ema
   expired.tickets.forEach((row) => { row.reservedUntil = null; row.ticketType = { ...tier, capacity: 0 }; });
   const result = await expired.service.verifyAndActivateEventTicket(expired.payment.providerReference);
   assert.equal(result.refundRequired, true);
+  assert.equal(result.analyticsPurchase, undefined);
   assert.equal(expired.jobs.length, 0);
 });
 

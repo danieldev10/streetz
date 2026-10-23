@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SessionProvider } from "@/components/app/session-provider";
 import { ToastProvider } from "@/components/app/toast-provider";
 import { QueryProvider } from "@/components/app/query-provider";
+import { MarketingConsent } from "@/components/marketing-consent";
 import "./globals.css";
 
 function getOrigin(value: string | undefined) {
@@ -47,7 +48,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ToastProvider>
           <QueryProvider>
-            <SessionProvider>{children}</SessionProvider>
+            <SessionProvider><MarketingConsent>{children}</MarketingConsent></SessionProvider>
           </QueryProvider>
         </ToastProvider>
       </body>

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { trackCheckout } from "@/lib/marketing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -359,6 +360,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
         throw new Error("Paystack did not return a checkout URL.");
       }
 
+      trackCheckout(event.id, ticketType.priceKobo * safeQuantity, safeQuantity);
       window.location.assign(response.authorizationUrl);
     } catch (error) {
       setNotice(getUserErrorMessage(error));

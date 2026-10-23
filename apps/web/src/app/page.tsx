@@ -1,5 +1,6 @@
 "use client";
 
+import { trackCheckout, trackRegistration } from "@/lib/marketing";
 import type { FormEvent } from "react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -299,6 +300,8 @@ function HomeContent() {
     try {
       const response = await apiRequest<{
         authorizationUrl?: string;
+        totalAmountKobo?: number;
+        quantity?: number;
         subscriptionStatus?: "INACTIVE" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
         subscriptionEndsAt?: string | null;
       }>(`/payments/events/${checkout.eventId}/checkout/initialize`, {
@@ -323,6 +326,7 @@ function HomeContent() {
         return;
       }
 
+      if (response.totalAmountKobo && response.quantity) trackCheckout(checkout.eventId, response.totalAmountKobo, response.quantity);
       window.location.assign(response.authorizationUrl);
     } catch (error) {
       hasStartedPendingCheckout.current = false;
@@ -384,6 +388,7 @@ function HomeContent() {
       });
 
       setSession(auth.accessToken, auth.user);
+      if (authMode === "register") trackRegistration();
       setPassword("");
 
       if ((isCheckInEntry && auth.user.accountStatus === "ACTIVE") || (isActiveMember(auth.user) && !getPendingEventCheckout())) {

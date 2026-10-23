@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PublicPageShell } from "@/components/public-page-shell";
+import { CookiePreferencesButton } from "@/components/marketing-consent";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Crushclub",
@@ -16,7 +17,7 @@ export default function PrivacyPolicyPage() {
           <ArrowLeft className="size-4" aria-hidden="true" /> Back to events
         </Link>
         <h1 className="mt-6 text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-        <p className="mt-2 text-sm text-ink-400">Effective 4 October 2026</p>
+        <p className="mt-2 text-sm text-ink-400">Effective 23 October 2026</p>
         <div className="mt-6 space-y-7 text-base leading-7 text-ink-600 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-ink [&_li]:pl-1 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5">
           <p>Crush Club Limited (RC 9777758) (&quot;Crush Club&quot;, &quot;we&quot;, &quot;us&quot;) operates Crushclub.ng. This policy explains how we collect, use and protect your personal data under the Nigeria Data Protection Act 2023 (NDPA).</p>
           <section>
@@ -61,6 +62,12 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2>6. Age, transfers and changes</h2>
             <p>Crush Club is for adults aged 18 and over. We do not knowingly collect data from anyone younger and will delete it if we find it. Some providers may process data outside Nigeria; where they do, we require appropriate safeguards. We will post any policy changes on this page with a new effective date.</p>
+          </section>
+          <section>
+            <h2>7. Optional advertising cookies</h2>
+            <p>If you accept optional cookies, we use the TikTok Pixel to measure advertising and help TikTok show relevant ads. This shares public event page views, event identifiers, checkout activity, completed sign-ups and confirmed paid ticket purchases (including value, currency and quantity). TikTok also receives technical information such as your IP address, device/browser information, cookie identifiers and ad click identifiers. It may process this information outside Nigeria under its own privacy policy. We do not send profile details, private messages, verification images, ticket codes, payment credentials, names or email addresses through this integration.</p>
+            <p className="mt-3">Optional advertising tracking is off until you accept. Rejecting it does not affect your account or tickets. You can withdraw consent using Cookie preferences below; this stops future tracking and removes TikTok cookies that our website can access. Withdrawal does not undo information already shared with TikTok. Your preference is saved for up to 180 days.</p>
+            <CookiePreferencesButton />
           </section>
         </div>
       </article>

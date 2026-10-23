@@ -10,6 +10,8 @@ test("CSP initially reports; explicit enforcement retains the required payment/l
   assert.ok(!report.value.includes("'unsafe-eval'"));
   for (const source of ["wss://api.example.test", "https://media.example.test", "https://bucket.s3.eu-west-1.amazonaws.com", "https://cdn.liveness.rekognition.amazonaws.com", "'wasm-unsafe-eval'", "https://js.paystack.co", "https://example.ingest.sentry.io", "frame-ancestors 'none'"]) assert.ok(report.value.includes(source), source);
   assert.ok(!report.value.includes("public@"));
+  assert.ok(report.value.includes("https://analytics.tiktok.com"));
+  assert.ok(!report.value.includes("https://*.tiktok.com"));
   assert.equal(contentSecurityPolicy({ ...env, CSP_MODE: "enforce" }).key, "Content-Security-Policy");
   assert.equal(contentSecurityPolicy({ CSP_MODE: "off" }), null);
   assert.throws(() => contentSecurityPolicy({ CSP_MODE: "invalid" }));
