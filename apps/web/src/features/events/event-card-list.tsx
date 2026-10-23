@@ -10,12 +10,11 @@ import {
   formatEventDateRange,
   formatEventLocation,
   formatPrice,
+  getEventTicketAvailability,
   getEventTicketTypes,
   getHistoryAttendanceClass,
   getHistoryAttendanceLabel,
-  getMaxPurchaseQuantity,
   getOwnedTicketTypeIds,
-  getSelectedTicketType,
   isMemberBookableEvent,
   normalizeTicketTierName,
 } from "@/features/events/event-display";
@@ -55,17 +54,13 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
     <div className="grid gap-4 md:gap-5 min-[960px]:grid-cols-2 min-[1360px]:grid-cols-3">
       {events.map((event) => {
         const ticketTypes = getEventTicketTypes(event);
-        const ticketType = getSelectedTicketType(event);
         const ownedTicketTypeIds = getOwnedTicketTypeIds(event);
-        const maxPurchaseQuantity = getMaxPurchaseQuantity(event, ticketType);
-        const canBookMore = maxPurchaseQuantity > 0;
-        const isSoldOut = Boolean(ticketType && ticketType.availableCount <= 0);
-        const isLimitReached = Boolean(
-          ticketType && isMemberBookableEvent(event) && !isSoldOut && maxPurchaseQuantity <= 0
-        );
+        const { canBookMore, isSoldOut, isLimitReached } = getEventTicketAvailability(event, isGuest);
         const isBusy = activeEventId === event.id;
         const isRoomBusy = activeRoomEventId === event.id;
-        const getTicketsLabel = isSoldOut
+        const getTicketsLabel = !ticketTypes.length
+          ? "No tickets available"
+          : isSoldOut
           ? "Sold out"
           : isLimitReached
             ? "Ticket limit reached"
@@ -144,7 +139,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                   trackNavigation={isOwnedEventCard} isLoading={isBusy} icon={<Ticket className="size-4" aria-hidden="true" />}
                   className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
-                  disabled={!isOwnedEventCard && (!ticketType || !canBookMore || isBusy)}
+                  disabled={!isOwnedEventCard && (!canBookMore || isBusy)}
                   onClick={(clickEvent) => {
                     clickEvent.stopPropagation();
                     if (isOwnedEventCard) {
