@@ -1,7 +1,7 @@
 import type { ReportStatus } from "./admin";
 import type { DirectMessage } from "./chat";
 import type { DiscoveryCandidate } from "./discovery";
-import type { TicketStatus } from "./events";
+import type { EventType, TicketStatus } from "./events";
 import type { PaymentPurpose, PaymentStatus } from "./payments";
 
 export type NotificationSummary = {
@@ -49,6 +49,7 @@ export type NotificationFeedEvent = {
   slug: string;
   description: string | null;
   coverImage: string | null;
+  eventType?: EventType;
   venue: string;
   state: string | null;
   city: string;
@@ -65,6 +66,7 @@ export type NotificationFeedTicket = {
   event: {
     id: string;
     title: string;
+    eventType?: EventType;
     venue: string;
     state: string | null;
     city: string;
@@ -82,6 +84,7 @@ export type NotificationFeedEventAlert = {
   kind: Extract<NotificationKind, "EVENT_REMINDER" | "EVENT_UPDATED" | "EVENT_CANCELLED">;
   eventId: string;
   title: string;
+  eventType?: EventType;
   venue: string;
   state: string | null;
   city: string;
