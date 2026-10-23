@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { ListSkeleton } from "@/components/skeletons";
 import { CandidatePhoto } from "@/features/discovery/candidate-photo";
+import { formatEventLocation } from "@/features/events/event-display";
 import { apiRequest, authHeaders, getUserErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import type {
@@ -52,10 +53,6 @@ function formatEventDate(dateString: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function formatEventLocation(event: { venue: string; city: string; state: string | null }) {
-  return [event.venue, event.city, event.state].filter(Boolean).join(", ");
 }
 
 function formatNaira(amountKobo: number) {

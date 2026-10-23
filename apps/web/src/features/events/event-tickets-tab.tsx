@@ -452,13 +452,13 @@ export function EventTicketsTab({
                 </div>
                 <div className="p-4 lg:p-7">
                   <h1 className="text-xl font-semibold lg:text-3xl lg:leading-tight lg:tracking-tight">{event.title}</h1>
-                  <p className="mt-2 flex items-start gap-2 text-xs font-medium text-ink-500 lg:mt-4 lg:text-sm lg:leading-6">
-                    <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
-                    <span>{formatEventDateRange(event.startsAt, event.endsAt)}</span>
-                  </p>
-                  <p className="mt-1 flex items-center gap-1 text-sm text-ink-600 lg:mt-3 lg:items-start lg:gap-2">
+                  <p className="mt-2 flex items-center gap-1 text-sm text-ink-600 lg:mt-4 lg:items-start lg:gap-2">
                     <MapPin className="size-4 shrink-0" aria-hidden="true" />
                     {formatEventLocation(event)}
+                  </p>
+                  <p className="mt-1 flex items-start gap-2 text-xs font-medium text-ink-500 lg:mt-3 lg:text-sm lg:leading-6">
+                    <CalendarDays className="size-4 shrink-0" aria-hidden="true" />
+                    <span>{formatEventDateRange(event.startsAt, event.endsAt)}</span>
                   </p>
                   {event.category ? (
                     <p className="mt-3 text-xs font-medium text-brand-deep lg:inline-flex lg:rounded-full lg:bg-brand-wash lg:px-3 lg:py-1.5">{event.category}</p>
@@ -501,8 +501,8 @@ export function EventTicketsTab({
               <header>
                 <h1 className="text-2xl font-semibold">Your tickets</h1>
                 <p className="mt-2 text-lg font-semibold">{event.title}</p>
-                <p className="mt-1 text-sm text-ink-600">{formatEventDateRange(event.startsAt, event.endsAt)}</p>
                 <p className="mt-1 text-sm text-ink-600">{formatEventLocation(event)}</p>
+                <p className="mt-1 text-sm text-ink-600">{formatEventDateRange(event.startsAt, event.endsAt)}</p>
                 {event.status === "CANCELLED" ? (
                   <p className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm leading-6 text-danger">
                     This event was cancelled. These tickets cannot be used for entry.
