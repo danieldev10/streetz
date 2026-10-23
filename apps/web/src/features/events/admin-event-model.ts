@@ -7,7 +7,7 @@ import {
   normalizeTicketTierName,
 } from "@/features/events/event-display";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
-import type { EventStatus, StreetzEvent } from "@/lib/types";
+import type { EventStatus, EventType, StreetzEvent } from "@/lib/types";
 
 export const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
 export const SUPPORTED_EVENT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -41,6 +41,7 @@ export type EventFormTicketTier = {
 export type AdminEventFormState = {
   title: string;
   category: string;
+  eventType: EventType;
   description: string;
   coverImage: string;
   venue: string;
@@ -62,6 +63,7 @@ type AdminEventTicketTypePayload = {
 export type AdminEventPayload = {
   title: string;
   category: string;
+  eventType: EventType;
   description: string;
   coverImage: string;
   venue: string;
@@ -113,6 +115,7 @@ export function createEmptyEventForm(): AdminEventFormState {
   return {
     title: "",
     category: "",
+    eventType: "PUBLIC",
     description: "",
     coverImage: "",
     venue: "",
@@ -174,6 +177,7 @@ export function getEventForm(event: StreetzEvent): AdminEventFormState {
   return {
     title: event.title,
     category: normalizeEventCategory(event.category) ?? "",
+    eventType: event.eventType ?? "PUBLIC",
     description: event.description ?? "",
     coverImage: event.coverImage ?? "",
     venue: event.venue,
@@ -193,6 +197,10 @@ export function buildAdminEventPayload(eventForm: AdminEventFormState): AdminEve
   const venue = eventForm.venue.trim();
   const state = eventForm.state.trim();
   const city = eventForm.city.trim();
+
+  if (!["PUBLIC", "PRIVATE", "EXCLUSIVE"].includes(eventForm.eventType)) {
+    return { ok: false, error: "Choose a valid event type." };
+  }
 
   if (title.length < 2) {
     return { ok: false, error: "Event title must be at least 2 characters." };
@@ -317,6 +325,7 @@ export function buildAdminEventPayload(eventForm: AdminEventFormState): AdminEve
     payload: {
       title,
       category,
+      eventType: eventForm.eventType,
       description,
       coverImage: eventForm.coverImage,
       venue,

@@ -4,6 +4,7 @@ import { GuestTicketsService } from "../events/guest-tickets.service";
 import { CONFIRMED_TICKET_STATUSES } from "../events/ticket-reservations";
 import { PrismaService } from "../prisma/prisma.service";
 import { renderTicketPdf } from "./ticket-pdf";
+import { getTicketVenue } from "../events/event-venue";
 
 @Injectable()
 export class TicketDownloadsService {
@@ -19,7 +20,7 @@ export class TicketDownloadsService {
     if (!first?.user) throw new NotFoundException("No confirmed tickets found for this event.");
     return renderTicketPdf({
       eventTitle: first.event.title, startsAt: first.event.startsAt,
-      venue: [first.event.venue, first.event.city, first.event.state].filter(Boolean).join(", "),
+      venue: getTicketVenue(first.event, new Date(), { confirmed: tickets.some((ticket) => CONFIRMED_TICKET_STATUSES.includes(ticket.status)) }),
       eventCancelled: first.event.status === EventStatus.CANCELLED,
       displayName: first.user.displayName,
       tickets: tickets.map((ticket) => ({ code: ticket.code, tier: ticket.ticketType.name, status: ticket.status }))
@@ -27,13 +28,15 @@ export class TicketDownloadsService {
   }
 
   async downloadGuestTickets(orderId: string, token?: string) {
-    const booking = await this.guestTickets.getManagedBooking(orderId, token);
+    const booking = await this.guestTickets.getManagedBookingSource(orderId, token);
+    const tickets = booking.tickets.filter((ticket) => [...CONFIRMED_TICKET_STATUSES, TicketStatus.CANCELLED].includes(ticket.status));
+    if (!tickets.length) throw new NotFoundException("No confirmed tickets found for this event.");
     return renderTicketPdf({
       eventTitle: booking.event.title, startsAt: booking.event.startsAt,
-      venue: [booking.event.venue, booking.event.city, booking.event.state].filter(Boolean).join(", "),
+      venue: getTicketVenue(booking.event, new Date(), { confirmed: tickets.some((ticket) => CONFIRMED_TICKET_STATUSES.includes(ticket.status)) }),
       eventCancelled: booking.event.status === EventStatus.CANCELLED,
       displayName: booking.displayName,
-      tickets: booking.tickets.map((ticket) => ({ code: ticket.code, tier: booking.ticketType.name, status: ticket.status }))
+      tickets: tickets.map((ticket) => ({ code: ticket.code, tier: booking.ticketType.name, status: ticket.status }))
     });
   }
 }

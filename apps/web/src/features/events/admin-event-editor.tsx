@@ -19,7 +19,7 @@ import {
 } from "@/features/events/admin-event-model";
 import { EVENT_CATEGORY_OPTIONS, hasEventEnded } from "@/features/events/event-display";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
-import type { EventStatus, StreetzEvent } from "@/lib/types";
+import type { EventStatus, EventType, StreetzEvent } from "@/lib/types";
 
 type AdminEventEditorProps = {
   eventForm: AdminEventFormState;
@@ -107,6 +107,27 @@ export function AdminEventEditor({
             ))}
           </select>
         </label>
+        <div className="grid gap-2">
+          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
+            Event type
+            <select
+              className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              value={eventForm.eventType}
+              onChange={(event) => setEventForm((current) => ({ ...current, eventType: event.target.value as EventType }))}
+              required
+            >
+              <option value="PUBLIC">Public</option>
+              <option value="PRIVATE">Private</option>
+              <option value="EXCLUSIVE">Exclusive</option>
+            </select>
+          </label>
+          <p className="text-xs leading-5 text-ink-600">
+            {eventForm.eventType === "PUBLIC" ? "The full venue address is visible to everyone." :
+              eventForm.eventType === "PRIVATE" ? "The city and state stay visible. Ticket holders receive the full address on their ticket PDF." :
+              "The city and state stay visible. Ticket holders receive the address by email 24 hours before the event; later bookings receive it immediately."}
+          </p>
+          {eventForm.eventType !== "PUBLIC" ? <p className="text-xs leading-5 text-ink-600">Keep the venue address out of the flyer and description.</p> : null}
+        </div>
         <textarea
           className="min-h-28 rounded-[18px] border border-black/8 p-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           placeholder="Description"

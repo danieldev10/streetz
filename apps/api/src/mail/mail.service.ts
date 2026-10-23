@@ -168,6 +168,27 @@ export class MailService {
     }, "ticket confirmation");
   }
 
+  async sendEventVenueEmail(input: TicketDocument & { to: string; messageId?: string }) {
+    const date = formatTicketDate(input.startsAt);
+    const subject = `Venue details for ${input.eventTitle}`;
+    const text = [
+      `Hi ${input.displayName},`, "", `Here are the venue details and current start time for ${input.eventTitle}:`,
+      input.venue, date, "", "Your updated tickets are attached. Present their QR codes at the entrance.",
+      "Keep the venue and your ticket codes private."
+    ].join("\n");
+    const html = `<div style="font-family: Arial, sans-serif; color: #111111; line-height: 1.6; max-width: 560px;">
+      <h1 style="font-size: 24px;">Your event venue details</h1>
+      <p>Hi ${this.escapeHtml(input.displayName)},</p>
+      <p>Here are the venue details and current start time for <strong>${this.escapeHtml(input.eventTitle)}</strong>:</p>
+      <p><strong>${this.escapeHtml(input.venue)}</strong><br />${this.escapeHtml(date)}</p>
+      <p>Your updated tickets are attached. Present their QR codes at the entrance.</p>
+      <p>Keep the venue and your ticket codes private.</p></div>`;
+    const pdf = await renderTicketPdf(input);
+    return this.sendEmail({ to: input.to, messageId: input.messageId, subject, text, html,
+      attachments: [{ filename: "crushclub-tickets.pdf", content: pdf, contentType: "application/pdf" }]
+    }, "event venue details");
+  }
+
   async sendSupportRequestReceivedEmail(input: SupportRequestReceivedEmailInput) {
     const subject = `We received your support request ${input.reference}`;
     const text = [

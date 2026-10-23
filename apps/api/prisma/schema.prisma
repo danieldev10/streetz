@@ -99,6 +99,12 @@ enum EventBookingAccess {
   PUBLIC
 }
 
+enum EventType {
+  PUBLIC
+  PRIVATE
+  EXCLUSIVE
+}
+
 enum TicketStatus {
   RESERVED
   CONFIRMED
@@ -579,6 +585,8 @@ model Event {
   coverImage         String?
   category           String
   bookingAccess      EventBookingAccess @default(MEMBERS_ONLY)
+  eventType          EventType    @default(PUBLIC)
+  venueVersion       Int          @default(0)
   venue              String
   state              String?
   city               String
@@ -595,6 +603,7 @@ model Event {
   guestTicketOrders   GuestTicketOrder[]
   room                ChatRoom?
   checkInStaff        EventCheckInStaff[]
+  venueEmails         EventVenueEmail[]
 
   @@index([category, status, startsAt])
 }
@@ -669,6 +678,8 @@ model TicketEmailDelivery {
 
 enum BackgroundJobType {
   TICKET_EMAIL
+  EVENT_VENUE_EMAIL
+  EVENT_VENUE_SCAN
   PASSWORD_RESET_EMAIL
   GUEST_VERIFICATION_EMAIL
   SUPPORT_RECEIVED_EMAIL
@@ -676,6 +687,20 @@ enum BackgroundJobType {
   RESERVATION_CLEANUP
   PAYMENT_SCAN
   PAYMENT_RECONCILIATION
+}
+
+model EventVenueEmail {
+  id           String    @id @default(cuid())
+  key          String    @unique
+  eventId      String
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId       String?
+  guestOrderId String?
+  detailsHash  String
+  sentAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([eventId, detailsHash])
 }
 
 enum BackgroundJobState {

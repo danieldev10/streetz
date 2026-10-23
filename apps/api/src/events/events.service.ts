@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { EventBookingAccess, EventStatus, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
+import { EventBookingAccess, EventStatus, EventType, PaymentPurpose, PaymentStatus, Prisma, SubscriptionStatus, TicketStatus, UserRole } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
@@ -11,6 +11,7 @@ import { CreateEventDto, EVENT_CATEGORY_NAMES, EVENT_TICKET_TIER_NAMES, EventTic
 import { PresignEventImageDto } from "./dto/presign-event-image.dto";
 import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "./ticket-reservations";
 import { UpdateEventDto } from "./dto/update-event.dto";
+import { getWebsiteVenue, queueEventVenueEmails } from "./event-venue";
 import {
   getEventRoomClosesAt,
   isEventRoomAvailable,
@@ -103,6 +104,7 @@ export class EventsService {
         description: this.cleanOptionalText(dto.description),
         coverImage: this.cleanCoverImage(dto.coverImage),
         category,
+        eventType: dto.eventType ?? EventType.PUBLIC,
         venue: this.cleanText(dto.venue),
         state: this.cleanText(dto.state),
         city: this.cleanText(dto.city),
@@ -202,6 +204,12 @@ export class EventsService {
       throw new BadRequestException(`Cancellation reason must be ${EVENT_CANCELLATION_REASON_MAX_LENGTH} characters or fewer.`);
     }
 
+    const venuePolicyChanged = (dto.eventType !== undefined && dto.eventType !== event.eventType) ||
+      (dto.venue !== undefined && this.cleanText(dto.venue) !== event.venue) ||
+      (dto.city !== undefined && this.cleanText(dto.city) !== event.city) ||
+      (dto.state !== undefined && this.cleanText(dto.state) !== event.state) ||
+      (startsAt !== undefined && startsAt.getTime() !== event.startsAt.getTime());
+
     const updatedEvent = await this.prisma.$transaction(async (transaction) => {
       if (ticketTypes) {
         await this.syncTicketTypes(transaction, eventId, event.ticketTypes, ticketTypes);
@@ -214,6 +222,8 @@ export class EventsService {
           ...(dto.description !== undefined ? { description: this.cleanOptionalText(dto.description) } : {}),
           ...(dto.coverImage !== undefined ? { coverImage: this.cleanCoverImage(dto.coverImage) } : {}),
           ...(dto.category !== undefined ? { category: this.cleanEventCategory(dto.category) } : {}),
+          ...(dto.eventType !== undefined ? { eventType: dto.eventType } : {}),
+          ...(venuePolicyChanged ? { venueVersion: { increment: 1 } } : {}),
           ...(dto.venue !== undefined ? { venue: this.cleanText(dto.venue) } : {}),
           ...(dto.state !== undefined ? { state: this.cleanText(dto.state) } : {}),
           ...(dto.city !== undefined ? { city: this.cleanText(dto.city) } : {}),
@@ -263,7 +273,7 @@ export class EventsService {
         });
       }
 
-      return transaction.event.findUniqueOrThrow({
+      const updated = await transaction.event.findUniqueOrThrow({
         where: { id: eventId },
         include: {
           ticketTypes: { orderBy: { createdAt: "asc" } },
@@ -274,6 +284,11 @@ export class EventsService {
           }
         }
       });
+      const detailsChanged = updated.venue !== event.venue || updated.city !== event.city ||
+        updated.state !== event.state || updated.startsAt.getTime() !== event.startsAt.getTime();
+      // A visibility-only change to Private never resends existing ticket emails.
+      await queueEventVenueEmails(transaction, updated, { detailsChanged });
+      return updated;
     });
 
     return this.formatEvent(updatedEvent, { includeAdminCounts: true });
@@ -1020,7 +1035,8 @@ export class EventsService {
       description: event.description,
       coverImage: event.coverImage,
       category: event.category,
-      venue: event.venue,
+      eventType: event.eventType ?? EventType.PUBLIC,
+      venue: options.includeAdminCounts ? event.venue : getWebsiteVenue(event),
       state: event.state,
       city: event.city,
       startsAt: event.startsAt,
