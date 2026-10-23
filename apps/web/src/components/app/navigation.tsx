@@ -498,9 +498,11 @@ export function DesktopAccountMenu({ user, profilePhoto, onLogout }: { user: Str
             <span className="block truncate text-sm font-semibold">{user.displayName}</span>
             <span className="block text-xs text-ink-500">{user.role === "ADMIN" ? "Administrator" : "My account"}</span>
           </span>
-          <span className="size-9 shrink-0 overflow-hidden rounded-full bg-brand-tint">
-            <ProfilePhotoImage photo={profilePhoto} alt={`${user.displayName} profile photo`} variant="thumb" sizes="36px" iconSize="sm" />
-          </span>
+          {user.role !== "ADMIN" ? (
+            <span className="size-9 shrink-0 overflow-hidden rounded-full bg-brand-tint">
+              <ProfilePhotoImage photo={profilePhoto} alt={`${user.displayName} profile photo`} variant="thumb" sizes="36px" iconSize="sm" />
+            </span>
+          ) : null}
           <ChevronDown className="mr-1 size-3.5 text-ink-400" aria-hidden="true" />
         </>
       }
@@ -522,10 +524,10 @@ export function MobileHeader({
         <AccountMenu
           onLogout={onLogout}
           isAdmin={user.role === "ADMIN"}
-          triggerClassName="inline-flex size-11 overflow-hidden rounded-full border border-black/[0.08] bg-brand-wash text-brand-strong shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          triggerClassName="inline-flex size-11 items-center justify-center overflow-hidden rounded-full border border-black/[0.08] bg-brand-wash text-brand-strong shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
           triggerTitle={user.displayName ? "Open " + user.displayName + "'s menu" : "Open menu"}
           trigger={
-            <ProfilePhotoImage
+            user.role === "ADMIN" ? <Menu className="size-5" aria-hidden="true" /> : <ProfilePhotoImage
               photo={profilePhoto}
               alt={user.displayName ? user.displayName + " profile photo" : "Profile photo"}
               variant="thumb"

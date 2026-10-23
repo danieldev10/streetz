@@ -61,7 +61,7 @@ export function MemberApp({
     () => queryClient.getQueryData<ChatRoom[]>(queryKeys.rooms(user.id)) ?? []
   );
   const [profilePhoto, setProfilePhoto] = useState<ProfilePhoto | undefined>(
-    () => queryClient.getQueryData<StreetzProfile | null>(queryKeys.profile(user.id))?.user.photos[0]
+    () => user.role === "ADMIN" ? undefined : queryClient.getQueryData<StreetzProfile | null>(queryKeys.profile(user.id))?.user.photos[0]
   );
   const pathnameRef = useRef(pathname);
   const summaryRefreshTimerRef = useRef<number | null>(null);
@@ -197,6 +197,7 @@ export function MemberApp({
   }, []);
 
   useEffect(() => {
+    if (user.role === "ADMIN") return;
     let cancelled = false;
 
     async function loadProfilePhoto() {
@@ -224,7 +225,7 @@ export function MemberApp({
     return () => {
       cancelled = true;
     };
-  }, [queryClient, token, user.id]);
+  }, [queryClient, token, user.id, user.role]);
 
   useEffect(() => {
     const socket = createAuthenticatedSocket();
