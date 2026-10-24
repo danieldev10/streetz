@@ -1,6 +1,7 @@
 "use client";
 
 import { TicketQrCode } from "@/components/ticket-qr-code";
+import { getEventTicketTypes, normalizeTicketTierName } from "./event-display";
 
 import { ActionButton } from "@/components/action-button";
 import Image from "next/image";
@@ -22,8 +23,6 @@ import { formatEventDateRange, formatEventLocation, getMaxPurchaseQuantity } fro
 const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["CONFIRMED", "PAID", "CHECKED_IN"]);
-const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
-type EventTicketTierName = (typeof EVENT_TICKET_TIER_NAMES)[number];
 const TicketCheckoutModal = dynamic(() =>
   import("@/features/events/ticket-checkout-modal").then((module) => module.TicketCheckoutModal)
 );
@@ -52,28 +51,6 @@ function isBookableEvent(event: StreetzEvent) {
 
 function getEventTickets(event: StreetzEvent) {
   return event.userTickets ?? (event.userTicket ? [event.userTicket] : []);
-}
-
-function normalizeTicketTierName(name: string): EventTicketTierName {
-  if (name === "General Admission") {
-    return "Regular";
-  }
-
-  if ((EVENT_TICKET_TIER_NAMES as readonly string[]).includes(name)) {
-    return name as EventTicketTierName;
-  }
-
-  return "Regular";
-}
-
-function getEventTicketTypes(event: StreetzEvent) {
-  const ticketTypes = event.ticketTypes?.length ? event.ticketTypes : event.ticketType ? [event.ticketType] : [];
-
-  return [...ticketTypes].sort(
-    (first, second) =>
-      EVENT_TICKET_TIER_NAMES.indexOf(normalizeTicketTierName(first.name)) -
-      EVENT_TICKET_TIER_NAMES.indexOf(normalizeTicketTierName(second.name))
-  );
 }
 
 function getTicketState(ticket: StreetzEventTicket) {

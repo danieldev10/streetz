@@ -12,6 +12,7 @@ import { PresignEventImageDto } from "./dto/presign-event-image.dto";
 import { CONFIRMED_TICKET_STATUSES, getActiveTicketWhere } from "./ticket-reservations";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { getWebsiteVenue, queueEventVenueEmails } from "./event-venue";
+import { getTableSize } from "./ticket-tiers";
 import {
   getEventRoomClosesAt,
   isEventRoomAvailable,
@@ -520,13 +521,18 @@ export class EventsService {
       const submitted = submittedByName.get(name);
       const current = currentByName.get(name);
       const isRegular = name === REGULAR_TICKET_NAME;
-      const priceKobo = submitted?.priceKobo ?? (dto.ticketTypes ? undefined : isRegular ? dto.priceKobo : undefined) ?? current?.priceKobo ?? 0;
-      const capacity = submitted?.capacity ?? (dto.ticketTypes ? undefined : isRegular ? dto.capacity : undefined) ?? current?.capacity ?? DEFAULT_EVENT_CAPACITY;
+      const isTable = getTableSize(name) !== null;
+      // A submitted tier list is the desired set of offers. Omitted sizes must
+      // not silently retain an old price when the admin leaves them blank.
+      const priceKobo = dto.ticketTypes !== undefined
+        ? submitted ? submitted.priceKobo ?? current?.priceKobo ?? 0 : 0
+        : (isRegular ? dto.priceKobo : undefined) ?? current?.priceKobo ?? 0;
+      const capacity = submitted?.capacity ?? (dto.ticketTypes ? undefined : isRegular ? dto.capacity : undefined) ?? current?.capacity ?? (isTable ? 10 : DEFAULT_EVENT_CAPACITY);
       const maxTicketsPerUser =
         submitted?.maxTicketsPerUser ??
         (dto.ticketTypes ? undefined : isRegular ? dto.maxTicketsPerUser : undefined) ??
         current?.maxTicketsPerUser ??
-        DEFAULT_MAX_TICKETS_PER_USER;
+        (isTable ? 1 : DEFAULT_MAX_TICKETS_PER_USER);
 
       this.assertTicketTypeValues({ name, priceKobo, capacity, maxTicketsPerUser });
 

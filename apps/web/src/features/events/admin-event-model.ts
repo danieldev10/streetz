@@ -4,11 +4,12 @@ import {
   hasEventEnded,
   normalizeEventCategory,
   normalizeTicketTierName,
-} from "@/features/events/event-display";
-import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
+} from "./event-display";
+import { getCitiesForState, nigeriaStateNames } from "../../lib/nigeria-locations";
+import { EVENT_TICKET_TIER_NAMES, isTableTicketTier, type EventTicketTierName } from "./ticket-tiers";
+export { EVENT_TICKET_TIER_NAMES, type EventTicketTierName } from "./ticket-tiers";
 import type { EventStatus, EventType, StreetzEvent } from "@/lib/types";
 
-export const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
 export const SUPPORTED_EVENT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const EVENT_TITLE_MAX_LENGTH = 120;
 export const EVENT_DESCRIPTION_MAX_LENGTH = 600;
@@ -29,7 +30,6 @@ export const eventStatusLabels: Record<EventStatus, string> = {
 };
 
 export type AdminEventListMode = "active" | "inactive";
-export type EventTicketTierName = (typeof EVENT_TICKET_TIER_NAMES)[number];
 
 export type EventFormTicketTier = {
   priceNaira: string;
@@ -86,28 +86,11 @@ export type CancellationImpact = {
 };
 
 function createDefaultTicketTiers(): Record<EventTicketTierName, EventFormTicketTier> {
-  return {
-    "Early Bird": {
-      priceNaira: "",
-      capacity: "50",
-      maxTicketsPerUser: "4",
-    },
-    Regular: {
-      priceNaira: "",
-      capacity: "100",
-      maxTicketsPerUser: "4",
-    },
-    VIP: {
-      priceNaira: "",
-      capacity: "50",
-      maxTicketsPerUser: "4",
-    },
-    Tables: {
-      priceNaira: "",
-      capacity: "10",
-      maxTicketsPerUser: "1",
-    },
-  };
+  return Object.fromEntries(EVENT_TICKET_TIER_NAMES.map((name) => [name, {
+    priceNaira: "",
+    capacity: isTableTicketTier(name) ? "10" : name === "Regular" ? "100" : "50",
+    maxTicketsPerUser: isTableTicketTier(name) ? "1" : "4",
+  }])) as Record<EventTicketTierName, EventFormTicketTier>;
 }
 
 export function createEmptyEventForm(): AdminEventFormState {

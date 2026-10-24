@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { EventBookingAccess, EventStatus, EventType } from "@prisma/client";
 import { Type } from "class-transformer";
+import { EVENT_TICKET_TIER_NAMES } from "../ticket-tiers";
+export { EVENT_TICKET_TIER_NAMES } from "../ticket-tiers";
 import {
   ArrayMaxSize,
   IsDateString,
@@ -16,7 +18,6 @@ import {
   ValidateNested
 } from "class-validator";
 
-export const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
 export const EVENT_CATEGORY_NAMES = [
   "Music",
   "Nightlife",
@@ -128,7 +129,7 @@ export class CreateEventDto {
   @IsEnum(EventBookingAccess)
   bookingAccess?: EventBookingAccess;
 
-  @ApiPropertyOptional({ type: [EventTicketTierDto], description: "Early Bird, Regular, VIP, and Tables ticket tier settings." })
+  @ApiPropertyOptional({ type: [EventTicketTierDto], description: "Early Bird, Regular, VIP, and Table of 4/5/6/8/10 settings. Each table tier has its own whole-table price, table capacity and purchase limit. Legacy Tables remains supported." })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(EVENT_TICKET_TIER_NAMES.length)
