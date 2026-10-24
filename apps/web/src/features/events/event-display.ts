@@ -79,7 +79,11 @@ export function getUserTickets(event: StreetzEvent) {
 }
 
 export function hasConfirmedTicket(event: StreetzEvent) {
-  return getUserTickets(event).some((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status));
+  return getOwnedTicketCount(event) > 0;
+}
+
+export function getOwnedTicketCount(event: StreetzEvent) {
+  return getUserTickets(event).filter((ticket) => CONFIRMED_TICKET_STATUSES.has(ticket.status)).length;
 }
 
 export function getOwnedTicketTypeIds(event: StreetzEvent) {

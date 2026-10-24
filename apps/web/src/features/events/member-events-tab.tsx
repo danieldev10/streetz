@@ -31,7 +31,6 @@ import {
   MAX_TICKETS_PER_PURCHASE,
   type EventCategoryName,
   getMaxPurchaseQuantity,
-  hasConfirmedTicket,
   isMemberBookableEvent,
   normalizeEventCategory,
 } from "@/features/events/event-display";
@@ -66,7 +65,7 @@ const eventCategoryIcons: Record<EventCategoryName, LucideIcon> = {
   Community: UsersRound,
 };
 
-type EventViewMode = "tickets" | "events" | "history";
+type EventViewMode = "events" | "history";
 
 function findEventStateForCity(city: string) {
   const normalizedCity = city.trim().toLowerCase();
@@ -118,20 +117,13 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
     () => [...historyEvents].sort((first, second) => Date.parse(second.startsAt) - Date.parse(first.startsAt)),
     [historyEvents]
   );
-  const ticketEvents = useMemo(() => orderedEvents.filter(hasConfirmedTicket), [orderedEvents]);
   const exploreEvents = useMemo(
-    () => orderedEvents.filter((event) => isMemberBookableEvent(event) && !hasConfirmedTicket(event)),
+    () => orderedEvents.filter(isMemberBookableEvent),
     [orderedEvents]
   );
   const memberEventsForMode = useMemo(
-    () => isGuest
-      ? exploreEvents
-      : eventViewMode === "tickets"
-        ? ticketEvents
-        : eventViewMode === "history"
-          ? orderedHistoryEvents
-          : exploreEvents,
-    [eventViewMode, exploreEvents, isGuest, orderedHistoryEvents, ticketEvents]
+    () => !isGuest && eventViewMode === "history" ? orderedHistoryEvents : exploreEvents,
+    [eventViewMode, exploreEvents, isGuest, orderedHistoryEvents]
   );
   const memberCategoryOptions = useMemo(() => {
     const availableCategories = new Set(
@@ -175,16 +167,12 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
   const hasEventLocationFilter = Boolean(eventFilterState || eventFilterCity);
   const hasEventCategoryFilter = Boolean(eventFilterCategory);
   const hasMemberFilter = hasEventCategoryFilter || (eventViewMode === "events" && hasEventLocationFilter);
-  const emptyMemberTitle = !isGuest && eventViewMode === "tickets"
-    ? hasEventCategoryFilter ? "No tickets found" : "No tickets yet"
-    : !isGuest && eventViewMode === "history"
-      ? hasEventCategoryFilter ? "No history found" : "No event history"
-      : hasMemberFilter ? "No events found" : "No events yet";
-  const emptyMemberDescription = !isGuest && eventViewMode === "tickets"
-    ? hasEventCategoryFilter ? "Try another category." : "Tickets you book or buy will appear here."
-    : !isGuest && eventViewMode === "history"
-      ? hasEventCategoryFilter ? "Try another category." : "Past ticketed events will appear here."
-      : hasMemberFilter ? "Try another category, state, or city." : "Events you have not booked yet will appear here.";
+  const emptyMemberTitle = !isGuest && eventViewMode === "history"
+    ? hasEventCategoryFilter ? "No history found" : "No event history"
+    : hasMemberFilter ? "No events found" : "No events yet";
+  const emptyMemberDescription = !isGuest && eventViewMode === "history"
+    ? hasEventCategoryFilter ? "Try another category." : "Past ticketed events will appear here."
+    : hasMemberFilter ? "Try another category, state, or city." : "Upcoming events will appear here.";
 
   useEffect(() => {
     if (initialEvents !== undefined) {
@@ -436,7 +424,8 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
     emptyTitle: emptyMemberTitle,
     emptyDescription: emptyMemberDescription,
     onOpenCheckout: openTicketCheckout,
-    onOpenDetails: (event: StreetzEvent) => router.push(`/events/${event.id}${eventViewMode === "tickets" ? "/tickets" : ""}`),
+    onOpenDetails: (event: StreetzEvent) => router.push(`/events/${event.id}`),
+    onOpenTickets: (event: StreetzEvent) => router.push(`/events/${event.id}/tickets`),
     onOpenRoom: openEventRoom,
     onShare: shareEvent,
   };
@@ -519,13 +508,12 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
 
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <h1 className="sr-only">
-          {eventViewMode === "tickets" ? "Your tickets" : eventViewMode === "history" ? "Event history" : "Events"}
+          {eventViewMode === "history" ? "Event history" : "Events"}
         </h1>
         <div className="mb-4 flex items-center gap-3 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,15rem)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)_minmax(0,1fr)]">
           {!isGuest ? (
-            <div className="grid flex-1 grid-cols-3 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium md:col-start-2" role="group" aria-label="Event views">
+            <div className="grid flex-1 grid-cols-2 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium md:col-start-2" role="group" aria-label="Event views">
               <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("events")}>Events</button>
-              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "tickets" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("tickets")}>Tickets</button>
               <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("history")}>History</button>
             </div>
           ) : null}
@@ -593,7 +581,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
         ) : eventViewMode === "history" ? (
           <EventHistory {...sharedListProps} />
         ) : (
-          <MemberEventsList {...sharedListProps} mode={eventViewMode === "tickets" ? "tickets" : "explore"} />
+          <MemberEventsList {...sharedListProps} />
         )}
       </div>
     </section>

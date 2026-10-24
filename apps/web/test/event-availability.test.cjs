@@ -1,11 +1,26 @@
 require("./register-typescript.cjs");
 const test = require("node:test"), assert = require("node:assert/strict");
-const { getEventTicketAvailability } = require("../src/features/events/event-display.ts");
+const { getEventTicketAvailability, getOwnedTicketCount } = require("../src/features/events/event-display.ts");
 
 const earlyBird = { id: "early", name: "Early Bird", priceKobo: 1200000, capacity: 1, soldCount: 1, reservedCount: 0, availableCount: 0, maxTicketsPerUser: 1 };
 const regular = { ...earlyBird, id: "regular", name: "Regular", capacity: 100, soldCount: 0, availableCount: 100, maxTicketsPerUser: 4 };
 const event = { status: "PUBLISHED", startsAt: "2099-10-31T16:00:00Z", endsAt: "2099-11-01T06:00:00Z", ticketTypes: [earlyBird, regular], userTickets: [] };
 const owned = (id, tier) => ({ id, status: "PAID", ticketType: tier });
+
+test("ticket badge counts confirmed purchases across tiers, excluding reservations and reversed tickets", () => {
+  const statuses = ["CONFIRMED", "PAID", "CHECKED_IN", "RESERVED", "CANCELLED", "REFUNDED"];
+  const tickets = statuses.map((status, i) => ({ ...owned(`ticket-${i}`, i % 2 ? regular : earlyBird), status }));
+  assert.equal(getOwnedTicketCount({ ...event, userTickets: tickets }), 3);
+  assert.equal(getOwnedTicketCount({ ...event, userTickets: tickets.slice(3) }), 0);
+  assert.equal(getOwnedTicketCount({ ...event, userTickets: [{ ...owned("table", { ...regular, name: "Table of 10" }) }] }), 1);
+});
+
+test("ticket badge supports older single-ticket responses without double-counting the legacy field", () => {
+  const ticket = owned("regular-1", regular);
+  assert.equal(getOwnedTicketCount({ ...event, userTickets: undefined, userTicket: ticket }), 1);
+  assert.equal(getOwnedTicketCount({ ...event, userTickets: [ticket], userTicket: ticket }), 1);
+  assert.equal(getOwnedTicketCount(event), 0);
+});
 
 test("selling out Early Bird does not close the event while another tier has tickets", () => {
   for (const isGuest of [true, false]) {
