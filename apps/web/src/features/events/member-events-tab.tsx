@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { trackCheckout } from "@/lib/marketing";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Briefcase,
@@ -44,7 +44,7 @@ import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
 import { savePendingEventCheckout } from "@/lib/pending-event-checkout";
 import { queryKeys } from "@/lib/query-keys";
 import { getAbsoluteAppUrl, shareOrCopyLink } from "@/lib/share";
-import type { StreetzEvent, StreetzEventTicketType, StreetzProfile, StreetzUser } from "@/lib/types";
+import type { StreetzEvent, StreetzEventTicketType, StreetzUser } from "@/lib/types";
 
 const TicketCheckoutModal = dynamic(() =>
   import("@/features/events/ticket-checkout-modal").then((module) => module.TicketCheckoutModal)
@@ -98,7 +98,6 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
   const [events, setEvents] = useState<StreetzEvent[]>(() => cachedInitialEvents ?? []);
   const [historyEvents, setHistoryEvents] = useState<StreetzEvent[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(cachedInitialEvents === undefined);
-  const filterInitializedRef = useRef(false);
   const [eventViewMode, setEventViewMode] = useState<EventViewMode>("events");
   const [eventFilterCategory, setEventFilterCategory] = useState<EventCategoryName | "">("");
   const [eventFilterState, setEventFilterState] = useState("");
@@ -197,29 +196,18 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
       lastRefreshAt = Date.now();
 
       try {
-        const fetchProfile = !isGuest && !filterInitializedRef.current;
         const requestOptions: RequestInit = { cache: "no-store", ...(!isGuest ? { headers: authHeaders(token as string) } : {}) };
-        const [eventsResult, historyResult, profileResult] = await Promise.all([
+        const [eventsResult, historyResult] = await Promise.all([
           apiRequest<{ events: StreetzEvent[] }>(isGuest ? "/public/events" : "/events", requestOptions),
           isGuest
             ? Promise.resolve({ events: [] as StreetzEvent[] })
             : apiRequest<{ events: StreetzEvent[] }>("/events/history", requestOptions),
-          fetchProfile
-            ? apiRequest<StreetzProfile | null>("/profiles/me", requestOptions).catch(() => null)
-            : Promise.resolve(null),
         ]);
 
         if (cancelled) return;
         setEvents(eventsResult.events);
         setHistoryEvents(historyResult.events);
         queryClient.setQueryData(queryKeys.events(eventCacheScope), eventsResult.events);
-
-        if (!filterInitializedRef.current) {
-          filterInitializedRef.current = true;
-          if (profileResult?.state) {
-            setEventFilterState(profileResult.state);
-          }
-        }
       } catch (error) {
         if (!cancelled) setNotice(getUserErrorMessage(error));
       } finally {
