@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AccountStatusShell, AuthShell, PaywallShell } from "@/components/app/auth-shells";
 import { LoadingState } from "@/components/loading-state";
 import { useSession } from "@/components/app/session-provider";
+import { useTrafficView } from "@/components/website-analytics";
 import { apiRequest, authHeaders, getUserErrorMessage, isActiveMember } from "@/lib/api";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import {
@@ -206,6 +207,8 @@ function HomeContent() {
   const hasStartedPendingCheckout = useRef(false);
 
   const canEnterApp = useMemo(() => isActiveMember(user) || Boolean(isCheckInEntry && user?.accountStatus === "ACTIVE"), [isCheckInEntry, user]);
+  const showsAccountScreen = Boolean(user && (user.accountStatus !== "ACTIVE" || !canEnterApp));
+  useTrafficView(showsAccountScreen ? "account" : null, "OTHER");
 
   useEffect(() => {
     if (status === "unauthenticated" && !isAuthEntry) {

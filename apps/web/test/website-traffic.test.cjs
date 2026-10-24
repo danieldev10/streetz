@@ -57,6 +57,7 @@ test("analytics retries once with the same IDs; unauthorized/rate limits never t
 
 test("only canonical hosts count; administrative routes are excluded and queries aren't needed", () => {
   assert.equal(trafficPage("/events"), "LANDING");
+  assert.equal(trafficPage("/"), null, "the root redirect is excluded even when navigation takes longer than the debounce");
   for (const path of ["/admin", "/admin/support", "/users", "/reports/one", "/events/create", "/events/one/edit", "/check-in"]) assert.equal(trafficPage(path), null);
   for (const host of ["crushclub.ng", "www.crushclub.ng", "staging.crushclub.ng"]) assert.equal(trafficHost(host), true);
   for (const host of ["localhost", "crushclub-preview.vercel.app", "crushclub.ng.attacker.test"]) assert.equal(trafficHost(host), false);

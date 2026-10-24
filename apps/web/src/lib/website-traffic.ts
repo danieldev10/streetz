@@ -60,7 +60,7 @@ export function trafficHost(hostname: string) {
 }
 
 export function trafficPage(pathname: string): PageKind | null {
-  if (/^\/(admin|users|reports|check-in)(\/|$)/.test(pathname) ||
+  if (pathname === "/" || /^\/(admin|users|reports|check-in)(\/|$)/.test(pathname) ||
     /^\/(events|rooms)\/(create|[^/]+\/edit)$/.test(pathname)) return null;
   return pathname === "/events" ? "LANDING" : "OTHER";
 }

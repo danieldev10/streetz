@@ -58,10 +58,8 @@ export function useTrafficView(key: string | null, kind: PageKind | null) {
 
 export function WebsiteAnalytics() {
   const pathname = usePathname();
-  const { user } = useSession();
-  // The guest root redirects to Events; AuthShell tracks the actual login/create
-  // screen separately, including its in-place mode switches.
-  const kind = pathname === "/" && !user ? null : trafficPage(pathname);
-  useTrafficView(pathname, kind);
+  // Home tracks its rendered auth/account screens explicitly. Its loading
+  // redirects must not count, even when destination chunks load slowly.
+  useTrafficView(pathname, trafficPage(pathname));
   return null;
 }
