@@ -36,8 +36,6 @@ export function testEnvironment(targets) {
     WEB_APP_URL: "http://127.0.0.1:3000",
     JWT_ACCESS_SECRET: "ci-only-access-secret",
     JWT_REFRESH_SECRET: "ci-only-refresh-secret",
-    GUEST_TICKET_SECRET: "ci-only-guest-secret",
-    FACE_VERIFICATION_MODE: "off",
-    FACE_VERIFICATION_REQUIRED: "false"
+    GUEST_TICKET_SECRET: "ci-only-guest-secret"
   };
 }

@@ -91,20 +91,9 @@ export function validateEnvironment(config: Record<string, unknown>) {
     errors.push("JOBS_ENCRYPTION_KEY must be a base64-encoded 32-byte key");
   }
 
-  const faceMode = read(config, "FACE_VERIFICATION_MODE") || "off";
-  if (!["off", "observe", "prototype-pass", "enforce"].includes(faceMode)) {
-    errors.push("FACE_VERIFICATION_MODE must be off, observe, prototype-pass, or enforce");
-  }
-
   const accessKeyConfigured = hasAny(config, ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID"]);
   const secretKeyConfigured = hasAny(config, ["AWS_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY"]);
   if (accessKeyConfigured !== secretKeyConfigured) errors.push("AWS/S3 access key and secret key must be configured together");
-
-  const verificationAccessKeyConfigured = hasAny(config, ["AWS_VERIFICATION_ACCESS_KEY_ID", "FACE_VERIFICATION_ACCESS_KEY_ID"]);
-  const verificationSecretKeyConfigured = hasAny(config, ["AWS_VERIFICATION_SECRET_ACCESS_KEY", "FACE_VERIFICATION_SECRET_ACCESS_KEY"]);
-  if (verificationAccessKeyConfigured !== verificationSecretKeyConfigured) {
-    errors.push("face-verification access key and secret key must be configured together");
-  }
 
   if (nodeEnv === "production") {
     for (const key of REQUIRED_PRODUCTION_KEYS) {
@@ -119,10 +108,6 @@ export function validateEnvironment(config: Record<string, unknown>) {
       "stable media CDN URL",
       errors
     );
-
-    if (faceMode !== "off") {
-      requireAny(config, ["AWS_VERIFICATION_BUCKET", "FACE_VERIFICATION_BUCKET"], "face-verification bucket", errors);
-    }
 
   }
 

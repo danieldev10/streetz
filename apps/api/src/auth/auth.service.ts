@@ -2,7 +2,6 @@ import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/
 import { ConfigService } from "@nestjs/config";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt/dist";
 import { AccountStatus, BackgroundJobType, User } from "@prisma/client";
-import { hasVerifiedProfile } from "../common/verified-profile";
 import { compare, hash } from "bcryptjs";
 import { createHmac, randomBytes } from "crypto";
 import { MailQueueService } from "../mail/mail-queue.service";
@@ -370,7 +369,6 @@ export class AuthService {
       id: user.id,
       email: user.email,
       displayName: user.displayName,
-      isVerified: hasVerifiedProfile(user),
       role: user.role,
       subscriptionStatus: user.subscriptionStatus,
       subscriptionEndsAt: user.subscriptionEndsAt,
@@ -379,10 +377,7 @@ export class AuthService {
       deactivatedAt: user.deactivatedAt,
       deletedAt: user.deletedAt,
       moderationReason: user.moderationReason,
-      ageConfirmedAt: user.ageConfirmedAt,
-      faceVerificationStatus: user.faceVerificationStatus,
-      faceVerificationVerifiedAt: user.faceVerificationVerifiedAt,
-      faceVerificationOverrideReason: user.faceVerificationOverrideReason
+      ageConfirmedAt: user.ageConfirmedAt
     };
   }
 }

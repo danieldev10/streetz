@@ -52,7 +52,7 @@ test("guest preview projects basic fields and one thumbnail without private prof
   const result = await service.getPublicPreview();
   assert.equal(result.isPreview, true);
   assert.equal(result.people.length, 1);
-  assert.deepEqual(Object.keys(result.people[0]).sort(), ["age", "connectionStatus", "displayName", "id", "isVerified", "photos", "state"]);
+  assert.deepEqual(Object.keys(result.people[0]).sort(), ["age", "connectionStatus", "displayName", "id", "photos", "state"]);
   assert.equal(result.people[0].state, "Lagos");
   assert.equal(typeof result.people[0].age, "number");
   assert.deepEqual(result.people[0].photos, [{
@@ -100,15 +100,16 @@ test("preview includes unverified people while filtering incomplete or underage 
   assert.equal(getQuery().where.faceVerificationStatus, undefined);
 });
 
-test("public blue badges distinguish passed checks from prototype bypasses without exposing biometric fields", async () => {
+test("retired identity results never earn badges or expose biometric fields in public discovery", async () => {
   const { service } = createService([
     candidate({ id: "passed", faceVerificationStatus: "VERIFIED", faceVerificationOverrideReason: null }),
     candidate({ id: "bypassed", faceVerificationStatus: "VERIFIED", faceVerificationOverrideReason: "PROTOTYPE_BYPASS" }),
     candidate({ id: "not-started", faceVerificationStatus: "NOT_STARTED" }),
   ]);
   const { people } = await service.getPublicPreview();
-  assert.deepEqual(people.map((person) => [person.id, person.isVerified]), [["passed", true], ["bypassed", false], ["not-started", false]]);
+  assert.deepEqual(people.map((person) => person.id), ["passed", "bypassed", "not-started"]);
   for (const person of people) {
+    assert.equal("isVerified" in person, false);
     assert.equal("faceVerificationStatus" in person, false);
     assert.equal("faceVerificationOverrideReason" in person, false);
   }

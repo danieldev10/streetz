@@ -6,7 +6,6 @@ import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { getAccountAccessBlock } from "../users/account-status";
-import { hasVerifiedProfile, type VerificationBadgeSource } from "../common/verified-profile";
 import { BlockUserDto } from "./dto/block-user.dto";
 import { DiscoveryActionDto } from "./dto/discovery-action.dto";
 import { ReportUserDto } from "./dto/report-user.dto";
@@ -55,8 +54,6 @@ export class DiscoveryService {
       select: {
         id: true,
         displayName: true,
-        faceVerificationStatus: true,
-        faceVerificationOverrideReason: true,
         profile: {
           select: { bio: true, city: true, state: true, birthDate: true, connectionStatus: true, interests: true }
         },
@@ -84,7 +81,6 @@ export class DiscoveryService {
       return {
         id: candidate.id,
         displayName: candidate.displayName,
-        isVerified: hasVerifiedProfile(candidate),
         age: calculateAge(profile.birthDate!, now),
         state: profile.state,
         connectionStatus: profile.connectionStatus,
@@ -964,13 +960,12 @@ export class DiscoveryService {
       fullObjectKey?: string | null;
       sortOrder: number;
     }>;
-  } & VerificationBadgeSource, options: { distanceKm?: number | null; attendedEventCount: number }) {
+  }, options: { distanceKm?: number | null; attendedEventCount: number }) {
     const photos = await this.storage.signPhotoUrls(candidate.photos);
 
     return {
       id: candidate.id,
       displayName: candidate.displayName,
-      isVerified: hasVerifiedProfile(candidate),
       accountStatus: candidate.accountStatus ?? AccountStatus.ACTIVE,
       age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,

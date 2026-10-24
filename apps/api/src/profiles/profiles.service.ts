@@ -2,7 +2,6 @@ import { BadGatewayException, BadRequestException, ForbiddenException, Injectabl
 import { ConfigService } from "@nestjs/config";
 import { randomBytes } from "crypto";
 import sharp = require("sharp");
-import { FaceVerificationStatus } from "@prisma/client";
 import { countCheckedInStandardEvents } from "../common/attendance";
 import { isProfileSetupComplete } from "../common/profile-readiness";
 import { PrismaService } from "../prisma/prisma.service";
@@ -401,17 +400,6 @@ export class ProfilesService {
                 ...photoData
               }
             });
-
-        if (primaryPhoto) {
-          await transaction.user.update({
-            where: { id: userId },
-            data: {
-              faceVerificationStatus: FaceVerificationStatus.NOT_STARTED,
-              faceVerificationVerifiedAt: null,
-              faceVerificationOverrideReason: null
-            }
-          });
-        }
 
         return {
           photo,

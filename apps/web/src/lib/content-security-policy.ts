@@ -15,8 +15,6 @@ export function contentSecurityPolicy(env: Environment) {
   if (!["off", "report-only", "enforce"].includes(mode)) throw new Error("CSP_MODE must be off, report-only, or enforce");
   if (mode === "off") return null;
   const development = env.NODE_ENV !== "production";
-  const region = env.NEXT_PUBLIC_AWS_REKOGNITION_REGION ?? env.NEXT_PUBLIC_AWS_LIVENESS_IDENTITY_POOL_ID?.split(":")[0] ?? "eu-west-1";
-  if (!/^[a-z]{2}(?:-[a-z]+)+-\d$/.test(region)) throw new Error("Invalid public AWS region for CSP");
   const apiOrigins = origins([env.NEXT_PUBLIC_API_URL, env.NEXT_PUBLIC_SOCKET_URL]);
   const sockets = apiOrigins.map((origin) => origin.replace(/^http/, "ws"));
   const media = origins([env.NEXT_PUBLIC_MEDIA_CDN_BASE_URL, env.NEXT_PUBLIC_MEDIA_CDN_ORIGIN,
@@ -33,11 +31,11 @@ export function contentSecurityPolicy(env: Environment) {
   // hash rendering decision. Report-only is deliberately the initial default.
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${development ? " 'unsafe-eval'" : ""} https://maps.googleapis.com https://maps.gstatic.com https://js.paystack.co https://cdn.liveness.rekognition.amazonaws.com https://analytics.tiktok.com`,
+    `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ""} https://maps.googleapis.com https://maps.gstatic.com https://js.paystack.co https://analytics.tiktok.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `img-src 'self' data: blob: ${media.join(" ")} ${giphy.join(" ")} https://images.unsplash.com https://maps.googleapis.com https://maps.gstatic.com https://analytics.tiktok.com`,
     "font-src 'self' data: https://fonts.gstatic.com",
-    `connect-src 'self' ${apiOrigins.join(" ")} ${sockets.join(" ")} ${media.join(" ")} ${uploads.join(" ")} ${sentry.join(" ")} https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://api.giphy.com https://maps.googleapis.com https://cdn.liveness.rekognition.amazonaws.com https://cognito-identity.${region}.amazonaws.com https://rekognition.${region}.amazonaws.com https://rekognition-streaming.${region}.amazonaws.com wss://rekognition-streaming.${region}.amazonaws.com https://sts.${region}.amazonaws.com${development ? " http://localhost:4000 ws://localhost:4000 http://127.0.0.1:4000 ws://127.0.0.1:4000" : ""}`,
+    `connect-src 'self' ${apiOrigins.join(" ")} ${sockets.join(" ")} ${media.join(" ")} ${uploads.join(" ")} ${sentry.join(" ")} https://analytics.tiktok.com https://analytics-ipv6.tiktokw.us https://api.giphy.com https://maps.googleapis.com${development ? " http://localhost:4000 ws://localhost:4000 http://127.0.0.1:4000 ws://127.0.0.1:4000" : ""}`,
     "frame-src 'self' https://checkout.paystack.com https://checkout.paystack.co https://*.paystack.co",
     "worker-src 'self' blob:", "media-src 'self' blob: data:", "object-src 'none'",
     "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",

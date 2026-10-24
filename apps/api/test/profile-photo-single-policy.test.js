@@ -86,11 +86,7 @@ test("registering a profile photo atomically replaces the primary and removes al
   assert.equal(calls.updatedPhoto.data.slot, 0);
   assert.equal(calls.updatedPhoto.data.sortOrder, 0);
   assert.equal(calls.updatedPhoto.data.objectKey, "profiles/user-1/new.jpg");
-  assert.deepEqual(calls.updatedUser.data, {
-    faceVerificationStatus: "NOT_STARTED",
-    faceVerificationVerifiedAt: null,
-    faceVerificationOverrideReason: null
-  });
+  assert.equal(calls.updatedUser, null, "Photo replacement must not read or reset a retired identity-check status");
   assert.deepEqual(
     new Set(calls.deletedObjects),
     new Set(existingPhotos.flatMap((item) => [

@@ -7,10 +7,9 @@ import { PrismaService } from "../prisma/prisma.service";
 import { StorageService } from "../storage/storage.service";
 import { normalizeMessageContent } from "../common/message-content";
 import { getAccountAccessBlock } from "../users/account-status";
-import { hasVerifiedProfile, type VerificationBadgeSource } from "../common/verified-profile";
 import { MessagePageDto } from "../common/dto/message-page.dto";
 
-type CandidateUser = VerificationBadgeSource & {
+type CandidateUser = {
   id: string;
   displayName: string;
   accountStatus: AccountStatus;
@@ -675,7 +674,6 @@ export class MessagesService {
     return {
       id: candidate.id,
       displayName: candidate.displayName,
-      isVerified: hasVerifiedProfile(candidate),
       accountStatus: candidate.accountStatus,
       age: candidate.profile?.birthDate ? calculateAge(candidate.profile.birthDate) : null,
       bio: candidate.profile?.bio ?? null,

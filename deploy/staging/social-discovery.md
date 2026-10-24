@@ -16,9 +16,7 @@ Discover, individual profile viewing, and new message requests require:
 
 Withdrawing does not close existing conversations. Existing request limits and recipient acceptance remain in place.
 
-Live selfie verification is voluntary. It does not gate Discover, candidate visibility, profile viewing or message requests. Profile setup goes directly to Discover; verification is available from the profile page to earn a small blue badge. Badges appear beside names on profiles and discovery cards, including the limited guest preview. A genuine passed check earns the badge; prototype bypasses do not. Replacing the profile photo removes the badge until another successful check.
-
-Keep `FACE_VERIFICATION_MODE=enforce` to offer real verification with the existing AWS settings. `off` disables the optional feature without blocking Discover. The legacy `FACE_VERIFICATION_REQUIRED` variable is ignored; no Railway variable change or database migration is required for this policy change.
+Identity liveness verification has been retired. Get Verified is a disabled Coming soon menu item. Discovery eligibility, profile viewing, messaging, photo changes and badges do not use historical verification results. The old verification endpoints no longer exist and old verification links redirect to Profile. No face verification settings or identity SDKs are required. See [retirement notes](verification-retirement.md).
 
 Guests still see a limited preview with only basic card fields and a thumbnail. It uses the same account/profile eligibility, without requiring preferences. Guests cannot send requests or access full member profiles. Guest preview has no viewer-specific ranking or block history.
 

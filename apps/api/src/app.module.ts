@@ -19,7 +19,6 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { RoomsModule } from "./rooms/rooms.module";
 import { SupportModule } from "./support/support.module";
 import { UsersModule } from "./users/users.module";
-import { VerificationModule } from "./verification/verification.module";
 import { TicketsModule } from "./tickets/tickets.module";
 import { validateEnvironment } from "./config/environment.validation";
 import { RequestLoggingMiddleware } from "./observability/request-logging.middleware";
@@ -56,8 +55,7 @@ import { TrafficModule } from "./analytics/traffic.module";
     AdminModule,
     TrafficModule,
     SupportModule,
-    NotificationsModule,
-    VerificationModule
+    NotificationsModule
   ],
   providers: [
     {

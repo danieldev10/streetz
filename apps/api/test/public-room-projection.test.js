@@ -30,7 +30,7 @@ test("public room messages expose one avatar without private profile details", (
   assert.deepEqual(message.author.interests, []);
 });
 
-test("deleted room authors retain their messages with an anonymous, unverified identity", () => {
+test("deleted room authors retain their messages with an anonymous identity", () => {
   const service = new RoomsService({}, {});
   const message = service.toPublicRoomMessage({
     id: "message-deleted",
@@ -52,7 +52,7 @@ test("deleted room authors retain their messages with an anonymous, unverified i
   assert.equal(message.author.accountStatus, AccountStatus.DELETED);
   assert.equal(message.authorName, "Deleted member");
   assert.equal(message.author.displayName, "Deleted member");
-  assert.equal(message.author.isVerified, false);
+  assert.equal("isVerified" in message.author, false);
   assert.deepEqual(message.author.photos, []);
   assert.equal(message.body, "See you there");
   assert.equal(message.gifUrl, "https://media.tenor.com/example.gif");
