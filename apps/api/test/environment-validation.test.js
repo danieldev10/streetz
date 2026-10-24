@@ -16,7 +16,6 @@ function productionEnvironment(overrides = {}) {
     S3_BUCKET: "media-bucket",
     S3_REGION: "eu-west-1",
     MEDIA_CDN_BASE_URL: "https://media.example.invalid",
-    FACE_VERIFICATION_MODE: "off",
     ...overrides
   };
 }
@@ -33,18 +32,11 @@ test("production environment fails fast with every missing critical key named", 
   );
 });
 
-test("enabled face verification requires its audit bucket", () => {
-  assert.throws(
-    () => validateEnvironment(productionEnvironment({ FACE_VERIFICATION_MODE: "enforce" })),
-    /face-verification bucket/
-  );
-});
-
-test("separate face-verification credentials must be configured together", () => {
-  assert.throws(
-    () => validateEnvironment(productionEnvironment({ AWS_VERIFICATION_ACCESS_KEY_ID: "verification-access-key" })),
-    /face-verification access key and secret key must be configured together/
-  );
+test("retired identity settings never require a bucket, credentials or valid mode", () => {
+  for (const mode of ["enforce", "prototype-pass", "removed-feature"]) {
+    const environment = productionEnvironment({ FACE_VERIFICATION_MODE: mode, FACE_VERIFICATION_REQUIRED: "true", AWS_VERIFICATION_ACCESS_KEY_ID: "obsolete-key" });
+    assert.equal(validateEnvironment(environment), environment);
+  }
 });
 
 test("development remains usable without production integrations", () => {

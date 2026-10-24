@@ -15,7 +15,7 @@ Access-token expiry remains 15 minutes by default. Logout does not add a server-
 
 ## Required settings
 
-Keep existing database, Redis, JWT, media, liveness, payment, email, worker and Sentry settings. Keep staging/production resources isolated. Do not rotate JWT or job encryption secrets as part of this release.
+Keep existing database, Redis, JWT, media, payment, email, worker and Sentry settings. Keep staging/production resources isolated. Do not rotate JWT or job encryption secrets as part of this release.
 
 | Service | Variable | Value |
 | --- | --- | --- |
@@ -56,7 +56,7 @@ Express retains the existing trust-proxy setting of one hop. Confirm actual clie
 
 ## CSP rollout
 
-CSP defaults to Content-Security-Policy-Report-Only. Its source list includes configured API/socket/media/Sentry origins, Paystack, Google Maps, Giphy and the installed AWS liveness SDK's model/WASM/streaming endpoints. Production permits WASM compilation for liveness but not general unsafe-eval.
+CSP defaults to Content-Security-Policy-Report-Only. Its source list includes configured API/socket/media/Sentry origins, Paystack, Google Maps and Giphy. The retired identity SDK's model/WASM/streaming endpoints and WASM evaluation exception have been removed.
 
 Sentry receives at most ten unique directive/disposition reports per page. Reports omit document URLs, blocked URLs, private query strings, referrers, samples, users, breadcrumbs and extra context. Inspect the browser console locally to identify a missing legitimate source; monitoring intentionally does not receive the URL. Keep additions narrowly scoped to known integrations.
 
@@ -70,7 +70,7 @@ After all staging journeys below work and reports have been reviewed, set CSP_MO
 4. Open several tabs and reload them together; leave them through access-token expiry. Confirm they restore without a false logout. Test network loss/recovery and logout while offline, then reload.
 5. On a real iPhone in Safari, repeat reload/multiple-tab/logout and verify no third-party-cookie dependency. Automated fallback tests are not a substitute for Safari device testing.
 6. Test direct messages, rooms, alerts, reconnect after network loss/expiry, and guest read-only rooms. Verify socket cleanup does not reconnect after leaving a page.
-7. Test Paystack's paid ticket/membership return, free/guest tickets, photo uploads, AWS liveness, Google Maps, and GIF search. Keep the worker delivering emails. Review policy reports, then repeat with staging CSP_MODE=enforce.
+7. Test Paystack's paid ticket/membership return, free/guest tickets, photo uploads, Google Maps, and GIF search. Keep the worker delivering emails. Review policy reports, then repeat with staging CSP_MODE=enforce.
 8. Confirm shared 429s across API replicas/different IPs and readiness/503 during a controlled staging protection-client failure. Do not intentionally disrupt production Redis for this exercise.
 9. After staging acceptance, promote the tested code to main and use production URLs. Deploy web then API. Keep CSP in report-only until production integration reports are reviewed.
 

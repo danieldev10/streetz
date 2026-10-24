@@ -1,5 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { AccountStatus, FaceVerificationStatus, ModerationActionType, SubscriptionStatus, UserRole } from "@prisma/client";
+import { AccountStatus, ModerationActionType, SubscriptionStatus, UserRole } from "@prisma/client";
 import { hash } from "bcryptjs";
 import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
@@ -233,10 +233,7 @@ export class UsersService {
           suspendedUntil: null,
           deactivatedAt: null,
           deletedAt: now,
-          moderationReason: reason,
-          faceVerificationStatus: FaceVerificationStatus.NOT_STARTED,
-          faceVerificationVerifiedAt: null,
-          faceVerificationOverrideReason: null
+          moderationReason: reason
         }
       });
 

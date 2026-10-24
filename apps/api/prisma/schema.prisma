@@ -229,6 +229,7 @@ model User {
   deletedAt          DateTime?
   moderationReason   String?
   ageConfirmedAt     DateTime?
+  // Retired identity-check fields: retained for historical data only, never used for access or badges.
   faceVerificationStatus         FaceVerificationStatus @default(NOT_STARTED)
   faceVerificationVerifiedAt     DateTime?
   faceVerificationOverrideReason String?
@@ -312,6 +313,7 @@ model SupportMessage {
   @@index([requestId, createdAt])
 }
 
+// Retired identity-check history. No application endpoints create or consume these records.
 model FaceVerificationAttempt {
   id                  String                   @id @default(cuid())
   userId              String

@@ -3,19 +3,20 @@ const test = require("node:test"), assert = require("node:assert/strict");
 const { contentSecurityPolicy } = require("../src/lib/content-security-policy.ts");
 const { CSP_REPORT_MESSAGE, installCspReporting, sanitizeCspEvent } = require("../src/lib/csp-reporting.ts");
 
-test("CSP initially reports; explicit enforcement retains the required payment/liveness/socket sources", () => {
+test("CSP initially reports; explicit enforcement retains the required payment/socket sources", () => {
   const env = { NODE_ENV: "production", NEXT_PUBLIC_SOCKET_URL: "https://api.example.test", NEXT_PUBLIC_MEDIA_CDN_BASE_URL: "https://media.example.test", NEXT_PUBLIC_MEDIA_UPLOAD_ORIGIN: "https://bucket.s3.eu-west-1.amazonaws.com", NEXT_PUBLIC_AWS_REKOGNITION_REGION: "eu-west-1", NEXT_PUBLIC_SENTRY_DSN: "https://public@example.ingest.sentry.io/123" };
   const report = contentSecurityPolicy(env);
   assert.equal(report.key, "Content-Security-Policy-Report-Only");
   assert.ok(!report.value.includes("'unsafe-eval'"));
-  for (const source of ["wss://api.example.test", "https://media.example.test", "https://bucket.s3.eu-west-1.amazonaws.com", "https://cdn.liveness.rekognition.amazonaws.com", "'wasm-unsafe-eval'", "https://js.paystack.co", "https://example.ingest.sentry.io", "frame-ancestors 'none'"]) assert.ok(report.value.includes(source), source);
+  for (const source of ["wss://api.example.test", "https://media.example.test", "https://bucket.s3.eu-west-1.amazonaws.com", "https://js.paystack.co", "https://example.ingest.sentry.io", "frame-ancestors 'none'"]) assert.ok(report.value.includes(source), source);
   assert.ok(!report.value.includes("public@"));
   assert.ok(report.value.includes("https://analytics.tiktok.com"));
   assert.ok(!report.value.includes("https://*.tiktok.com"));
   assert.equal(contentSecurityPolicy({ ...env, CSP_MODE: "enforce" }).key, "Content-Security-Policy");
   assert.equal(contentSecurityPolicy({ CSP_MODE: "off" }), null);
   assert.throws(() => contentSecurityPolicy({ CSP_MODE: "invalid" }));
-  assert.throws(() => contentSecurityPolicy({ NEXT_PUBLIC_AWS_REKOGNITION_REGION: "eu-west-1; script-src *" }));
+  for (const retired of ["rekognition", "cognito-identity", "sts.", "wasm-unsafe-eval"]) assert.ok(!report.value.includes(retired), retired);
+  assert.equal(contentSecurityPolicy({ ...env, NEXT_PUBLIC_AWS_REKOGNITION_REGION: "obsolete-unused-value" }).value, report.value);
   const bad = contentSecurityPolicy({ ...env, NEXT_PUBLIC_SOCKET_URL: "https://example.test/path;secret" });
   assert.ok(!bad.value.includes("path;secret"));
 });

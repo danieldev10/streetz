@@ -164,18 +164,18 @@ test("social discovery and introductions use the same adult pool without dating 
       assert.equal(await prisma.directMessage.count({ where: { matchId: request.conversation.id } }), 1);
     });
 
-    await t.test("unverified members can view profiles and message; only genuine verification earns a badge", async () => {
-      assert.equal((await discovery.getPerson(viewer.id, unverified.id)).isVerified, false);
-      assert.equal((await discovery.getPerson(viewer.id, notStarted.id)).isVerified, false);
-      assert.equal((await discovery.getPerson(viewer.id, bypassed.id)).isVerified, false);
-      assert.equal((await discovery.getPerson(viewer.id, eligible[0].id)).isVerified, true);
+    await t.test("retired identity results never affect profiles or introductions", async () => {
+      assert.equal((await discovery.getPerson(viewer.id, unverified.id)).isVerified, undefined);
+      assert.equal((await discovery.getPerson(viewer.id, notStarted.id)).isVerified, undefined);
+      assert.equal((await discovery.getPerson(viewer.id, bypassed.id)).isVerified, undefined);
+      assert.equal((await discovery.getPerson(viewer.id, eligible[0].id)).isVerified, undefined);
       const request = await messages.createConversationRequest(viewer.id, unverified.id, "No verification needed to say hello");
       assert.equal(request.created, true);
-      assert.equal(request.conversation.user.isVerified, false);
+      assert.equal(request.conversation.user.isVerified, undefined);
       await prisma.user.update({ where: { id: notStarted.id }, data: { faceVerificationStatus: "VERIFIED", faceVerificationVerifiedAt: new Date() } });
-      assert.equal((await discovery.getPerson(viewer.id, notStarted.id)).isVerified, true);
+      assert.equal((await discovery.getPerson(viewer.id, notStarted.id)).isVerified, undefined);
       await prisma.user.update({ where: { id: notStarted.id }, data: { faceVerificationStatus: "NOT_STARTED", faceVerificationVerifiedAt: null } });
-      assert.equal((await discovery.getPerson(viewer.id, notStarted.id)).isVerified, false);
+      assert.equal((await discovery.getPerson(viewer.id, notStarted.id)).isVerified, undefined);
     });
 
     await t.test("hidden profiles remain unavailable for profile viewing, likes and new message requests", async () => {
@@ -198,7 +198,7 @@ test("social discovery and introductions use the same adult pool without dating 
       assert.equal(preview.isPreview, true);
       assert.ok(preview.people.some((person) => eligible.some((user) => user.id === person.id)));
       for (const person of preview.people) {
-        assert.deepEqual(Object.keys(person).sort(), ["age", "connectionStatus", "displayName", "id", "isVerified", "photos", "state"]);
+        assert.deepEqual(Object.keys(person).sort(), ["age", "connectionStatus", "displayName", "id", "photos", "state"]);
         assert.ok(person.age >= 18);
       }
       const publicIds = new Set(preview.people.map((person) => person.id));

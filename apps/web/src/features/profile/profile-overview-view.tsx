@@ -10,7 +10,6 @@ import {
   X,
 } from "lucide-react";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
-import { VerifiedBadge } from "@/components/verified-badge";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import { formatSexuality } from "@/lib/profile";
 import type { ProfilePhoto, Sexuality } from "@/lib/types";
@@ -24,7 +23,6 @@ export function ProfileOverviewView({
   interests,
   isDeactivateConfirmOpen,
   isDeleteAccountOpen,
-  isFaceVerified,
   isSubmittingAccountAction,
   location,
   profileAge,
@@ -47,7 +45,6 @@ export function ProfileOverviewView({
   interests: string[];
   isDeactivateConfirmOpen: boolean;
   isDeleteAccountOpen: boolean;
-  isFaceVerified: boolean;
   isSubmittingAccountAction: boolean;
   location: string;
   profileAge: number | null;
@@ -97,7 +94,6 @@ export function ProfileOverviewView({
             <div className="min-w-0">
               <h2 className="flex flex-wrap items-center gap-2 text-3xl font-semibold text-ink">
                 <span>{displayName}{profileAge ? `, ${profileAge}` : ""}</span>
-                <VerifiedBadge verified={isFaceVerified} />
               </h2>
               <p className="mt-2 flex items-center gap-1 text-sm font-medium text-ink-600">
                 <MapPin className="size-4" aria-hidden="true" />

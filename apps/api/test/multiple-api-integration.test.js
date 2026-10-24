@@ -134,18 +134,24 @@ test("two real API processes share messages, limits and ticket transactions and 
     const sender = await openSocket(proxy.url, alice.token), receiver = await openSocket(b.url, bob.token);
     clients.push(sender, receiver);
 
-    await t.test("liveness is optional for discovery and introductions even with legacy enforcement variables", async () => {
-      const verification = await request(a, "/verification/me", alice).then((response) => response.json());
-      assert.equal(verification.required, false);
-      assert.equal(verification.isVerified, false);
-      assert.equal(verification.status, "NOT_STARTED");
+    await t.test("retired identity endpoints are absent and legacy settings never block discovery or introductions", async () => {
+      for (const replica of [a, b]) {
+        assert.equal((await request(replica, "/verification/me", alice)).status, 404);
+        for (const endpoint of ["session", "result"]) {
+          assert.equal((await request(replica, `/verification/face-liveness/${endpoint}`, alice, { attemptId: "retired" })).status, 404);
+        }
+        const session = await request(replica, "/auth/me", alice).then(response => response.json());
+        for (const key of ["isVerified", "faceVerificationStatus", "faceVerificationVerifiedAt", "faceVerificationOverrideReason"]) {
+          assert.equal(key in session, false);
+        }
+      }
       assert.equal((await request(a, "/discovery/people", alice)).status, 200);
       const profile = () => request(a, `/discovery/people/${bob.id}`, alice).then((response) => response.json());
-      assert.equal((await profile()).isVerified, false);
+      assert.equal((await profile()).isVerified, undefined);
       await prisma.user.update({ where: { id: bob.id }, data: { faceVerificationStatus: "VERIFIED", faceVerificationVerifiedAt: new Date() } });
-      assert.equal((await profile()).isVerified, true);
+      assert.equal((await profile()).isVerified, undefined);
       await prisma.user.update({ where: { id: bob.id }, data: { faceVerificationOverrideReason: "PROTOTYPE_BYPASS" } });
-      assert.equal((await profile()).isVerified, false);
+      assert.equal((await profile()).isVerified, undefined);
       await prisma.user.update({ where: { id: bob.id }, data: { faceVerificationStatus: "NOT_STARTED", faceVerificationVerifiedAt: null, faceVerificationOverrideReason: null } });
       const newcomer = await createUser("Newcomer");
       const introduction = await request(b, "/conversations/requests", newcomer, { targetUserId: alice.id, body: "Hello without a live selfie" });
