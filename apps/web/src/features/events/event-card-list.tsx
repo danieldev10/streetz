@@ -14,15 +14,16 @@ import {
   getEventTicketTypes,
   getHistoryAttendanceClass,
   getHistoryAttendanceLabel,
+  getOwnedTicketCount,
   getOwnedTicketTypeIds,
   isMemberBookableEvent,
   normalizeTicketTierName,
 } from "@/features/events/event-display";
 import type { StreetzEvent } from "@/lib/types";
 
-export type EventCardMode = "explore" | "tickets" | "history";
+type EventCardMode = "explore" | "history";
 
-export function EventCardList({ events, mode, isGuest, activeEventId, activeRoomEventId, emptyTitle, emptyDescription, onOpenCheckout, onOpenDetails, onOpenRoom, onShare }: {
+export function EventCardList({ events, mode, isGuest, activeEventId, activeRoomEventId, emptyTitle, emptyDescription, onOpenCheckout, onOpenDetails, onOpenTickets, onOpenRoom, onShare }: {
   events: StreetzEvent[];
   mode: EventCardMode;
   isGuest: boolean;
@@ -32,6 +33,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
   emptyDescription: string;
   onOpenCheckout: (event: StreetzEvent) => void | Promise<void>;
   onOpenDetails: (event: StreetzEvent) => void;
+  onOpenTickets: (event: StreetzEvent) => void;
   onOpenRoom: (event: StreetzEvent) => void | Promise<void>;
   onShare: (event: StreetzEvent) => void | Promise<void>;
 }) {
@@ -47,7 +49,6 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
     );
   }
 
-  const isOwnedEventCard = mode !== "explore";
   const isHistoryCard = mode === "history";
 
   return (
@@ -55,6 +56,9 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
       {events.map((event) => {
         const ticketTypes = getEventTicketTypes(event);
         const ownedTicketTypeIds = getOwnedTicketTypeIds(event);
+        const ownedTicketCount = isGuest ? 0 : getOwnedTicketCount(event);
+        const hasTickets = ownedTicketCount > 0;
+        const compactChat = !isGuest && (hasTickets || event.room?.hasJoined);
         const { canBookMore, isSoldOut, isLimitReached } = getEventTicketAvailability(event, isGuest);
         const isBusy = activeEventId === event.id;
         const isRoomBusy = activeRoomEventId === event.id;
@@ -84,18 +88,35 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                 className="object-cover"
               />
               {event.category ? <span className="absolute left-3 top-3 hidden rounded-full bg-surface/95 px-3 py-1.5 text-xs font-semibold text-brand-deep shadow-sm backdrop-blur md:inline-flex">{event.category}</span> : null}
-              <ActionButton
-                icon={<Share2 className="size-4" aria-hidden="true" />}
-                className="absolute right-3 top-3 z-20 inline-flex size-9 items-center justify-center rounded-full bg-surface/90 text-ink shadow-sm backdrop-blur transition hover:bg-surface"
-                type="button"
-                onClick={(clickEvent) => {
-                  clickEvent.stopPropagation();
-                  return onShare(event);
-                }}
-                aria-label={`Share ${event.title}`}
-                title="Share event"
-              >
-              </ActionButton>
+              <div className="absolute right-3 top-3 z-20 flex items-center gap-2">
+                <ActionButton
+                  icon={<Share2 className="size-4" aria-hidden="true" />}
+                  className="inline-flex size-9 items-center justify-center rounded-full bg-surface/90 text-ink shadow-sm backdrop-blur transition hover:bg-surface"
+                  type="button"
+                  onClick={(clickEvent) => {
+                    clickEvent.stopPropagation();
+                    return onShare(event);
+                  }}
+                  aria-label={`Share ${event.title}`}
+                  title="Share event"
+                />
+                {hasTickets ? (
+                  <ActionButton
+                    trackNavigation
+                    icon={<Ticket className="size-4 shrink-0" aria-hidden="true" />}
+                    className="inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-full bg-brand-tint px-3 text-sm font-semibold text-brand-deep shadow-sm transition hover:bg-surface"
+                    type="button"
+                    onClick={(clickEvent) => {
+                      clickEvent.stopPropagation();
+                      onOpenTickets(event);
+                    }}
+                    aria-label={`View your ${ownedTicketCount} ${ownedTicketCount === 1 ? "ticket" : "tickets"} for ${event.title}`}
+                    title={`${ownedTicketCount} ${ownedTicketCount === 1 ? "ticket" : "tickets"} booked`}
+                  >
+                    {ownedTicketCount}
+                  </ActionButton>
+                ) : null}
+              </div>
             </div>
             <div className="p-4 md:flex md:flex-1 md:flex-col md:p-5">
               <h2 className="text-lg font-semibold leading-snug">{event.title}</h2>
@@ -111,13 +132,11 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                 <span className="md:hidden">{formatEventDate(event.startsAt)}</span>
                 <span className="hidden md:inline">{formatEventDateRange(event.startsAt, event.endsAt)}</span>
               </p>
-              {isOwnedEventCard && ticketTypes.length > 0 ? (
+              {isHistoryCard && ticketTypes.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {isHistoryCard ? (
-                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${getHistoryAttendanceClass(event)}`}>
-                      {getHistoryAttendanceLabel(event)}
-                    </span>
-                  ) : null}
+                  <span className={`rounded-full px-3 py-1 text-xs font-medium ${getHistoryAttendanceClass(event)}`}>
+                    {getHistoryAttendanceLabel(event)}
+                  </span>
                   {ticketTypes.map((availableTicketType) => {
                     const isOwnedTier = ownedTicketTypeIds.has(availableTicketType.id);
 
@@ -136,42 +155,56 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
               ) : null}
               <div className="relative z-20 mt-4 flex gap-2 md:mt-auto md:pt-5">
                 <ActionButton
-                  trackNavigation={isOwnedEventCard} isLoading={isBusy} icon={<Ticket className="size-4" aria-hidden="true" />}
-                  className="inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  trackNavigation={isHistoryCard} isLoading={isBusy} icon={!hasTickets ? <Ticket className="size-4 shrink-0" aria-hidden="true" /> : undefined}
+                  className={`inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-ink font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 ${hasTickets ? "px-3 text-xs" : "px-4 text-sm"}`}
                   type="button"
-                  disabled={!isOwnedEventCard && (!canBookMore || isBusy)}
+                  disabled={!isHistoryCard && (!canBookMore || isBusy)}
+                  title={isHistoryCard ? "View details" : getTicketsLabel}
                   onClick={(clickEvent) => {
                     clickEvent.stopPropagation();
-                    if (isOwnedEventCard) {
+                    if (isHistoryCard) {
                       return onOpenDetails(event);
                     }
 
                     return onOpenCheckout(event);
                   }}
                 >
-                  {isHistoryCard ? "View details" : mode === "tickets" ? "View tickets" : getTicketsLabel}
+                  <span className="truncate">{isHistoryCard ? "View details" : getTicketsLabel}</span>
                 </ActionButton>
+                {hasTickets ? (
+                  <ActionButton
+                    trackNavigation
+                    className="inline-flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border border-black/8 bg-surface px-3 text-xs font-medium text-ink transition hover:border-brand"
+                    type="button"
+                    onClick={(clickEvent) => {
+                      clickEvent.stopPropagation();
+                      onOpenTickets(event);
+                    }}
+                  >
+                    View Tickets
+                  </ActionButton>
+                ) : null}
                 {event.room ? (
                   <ActionButton
-                    trackNavigation isLoading={isRoomBusy} icon={isGuest || event.room.readOnly || event.room.hasJoined ? (
+                    trackNavigation isLoading={isRoomBusy} icon={isGuest || event.room.readOnly || compactChat ? (
                       <MessageCircle className="size-4" aria-hidden="true" />
                     ) : (
                       <UsersRound className="size-4" aria-hidden="true" />
                     )}
-                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface text-sm font-medium text-ink transition hover:border-brand ${!isGuest && event.room.hasJoined ? "w-11 shrink-0" : "min-w-0 flex-1 px-4"}`}
+                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface text-sm font-medium text-ink transition hover:border-brand ${compactChat ? "w-11 shrink-0" : "min-w-0 flex-1 px-4"}`}
                     type="button"
                     onClick={(clickEvent) => {
                       clickEvent.stopPropagation();
                       return onOpenRoom(event);
                     }}
                     disabled={isRoomBusy}
-                    aria-label={!isGuest && event.room.hasJoined ? `Open ${event.title} chat` : undefined}
-                    title={!isGuest && event.room.hasJoined ? "Open event chat" : undefined}
+                    aria-label={compactChat ? `Open ${event.title} chat` : undefined}
+                    title={compactChat ? "Open event chat" : undefined}
                   >
-                    {isGuest || event.room.readOnly ? (
-                      <span>View chat</span>
-                    ) : event.room.hasJoined ? (
+                    {compactChat ? (
                       <span className="sr-only">Open event chat</span>
+                    ) : isGuest || event.room.readOnly ? (
+                      <span>View chat</span>
                     ) : (
                       <span>Join room</span>
                     )}
