@@ -1,5 +1,6 @@
 import PDFDocument = require("pdfkit");
 import { renderTicketQr } from "./ticket-qr";
+import { getTableSize } from "../events/ticket-tiers";
 
 export type TicketDocument = {
   eventTitle: string;
@@ -61,7 +62,10 @@ export async function renderTicketPdf(input: TicketDocument): Promise<Buffer> {
       : ticket.status === "CHECKED_IN" ? "ALREADY CHECKED IN"
       : qr ? "Present this QR code for scanning at the event entrance." : "This ticket is not valid for entry.";
     doc.font("Helvetica").fontSize(10).fillColor("#555555").text(status, 32, 678, { width });
-    doc.fontSize(9).text("Each ticket admits one person and can only be checked in once. Keep your QR and ticket code private.", 32, 708, { width });
+    const tableSize = getTableSize(ticket.tier);
+    const admission = tableSize ? `This table ticket admits ${tableSize} people. Check in the table group together; this code can only be used once.`
+      : "Each ticket admits one person and can only be checked in once.";
+    doc.fontSize(9).text(`${admission} Keep your QR and ticket code private.`, 32, 708, { width });
     doc.fontSize(9).fillColor("#81208c").text("crushclub.ng", 32, doc.page.height - 45, { width, link: "https://crushclub.ng" });
   });
   doc.end();

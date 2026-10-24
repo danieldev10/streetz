@@ -7,7 +7,6 @@ import { ImagePlus, LoaderCircle, Save } from "lucide-react";
 import {
   EVENT_CATEGORY_MAX_LENGTH,
   EVENT_DESCRIPTION_MAX_LENGTH,
-  EVENT_TICKET_TIER_NAMES,
   EVENT_TITLE_MAX_LENGTH,
   EVENT_VENUE_MAX_LENGTH,
   SUPPORTED_EVENT_IMAGE_TYPES,
@@ -16,9 +15,11 @@ import {
   eventStatusLabels,
   isAdminLockedEvent,
   type AdminEventFormState,
+  type EventTicketTierName,
 } from "@/features/events/admin-event-model";
-import { EVENT_CATEGORY_OPTIONS, hasEventEnded } from "@/features/events/event-display";
+import { EVENT_CATEGORY_OPTIONS, getEventTicketTypes, hasEventEnded } from "@/features/events/event-display";
 import { getCitiesForState, nigeriaStateNames } from "@/lib/nigeria-locations";
+import { INDIVIDUAL_TICKET_TIER_NAMES, TABLE_TICKET_TIER_NAMES, isTableTicketTier } from "./ticket-tiers";
 import type { EventStatus, EventType, StreetzEvent } from "@/lib/types";
 
 type AdminEventEditorProps = {
@@ -301,95 +302,20 @@ export function AdminEventEditor({
           )}
         </label>
         <div className="rounded-[20px] border border-black/8 p-4">
-          <div>
-            <h3 className="text-sm font-semibold text-ink">Ticket tiers</h3>
-            <p className="mt-1 text-xs leading-5 text-ink-600">
-              Set prices for Early Bird, Regular, VIP, or Tables. If every price is empty, the event is free.
-            </p>
-          </div>
+          <h3 className="text-sm font-semibold text-ink">Ticket tiers</h3>
+          <p className="mt-1 text-xs leading-5 text-ink-600">Set prices for Early Bird, Regular or VIP. Leave unused options blank. If every price is empty, the event is free.</p>
           <div className="mt-4 grid gap-4">
-            {EVENT_TICKET_TIER_NAMES.map((name) => {
-              const tier = eventForm.ticketTiers[name];
-
-              return (
-                <div key={name} className="rounded-2xl bg-surface-muted p-3">
-                  <p className="text-sm font-semibold text-ink">{name}</p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400">
-                      Price (₦)
-                      <input
-                        className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-                        min="0"
-                        step="100"
-                        type="number"
-                        placeholder="Free"
-                        value={tier.priceNaira}
-                        onChange={(inputEvent) =>
-                          setEventForm((current) => ({
-                            ...current,
-                            ticketTiers: {
-                              ...current.ticketTiers,
-                              [name]: {
-                                ...current.ticketTiers[name],
-                                priceNaira: inputEvent.target.value,
-                              },
-                            },
-                          }))
-                        }
-                      />
-                    </label>
-                    <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400">
-                      Capacity
-                      <input
-                        className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-                        min="1"
-                        step="1"
-                        type="number"
-                        placeholder="Capacity"
-                        value={tier.capacity}
-                        onChange={(inputEvent) =>
-                          setEventForm((current) => ({
-                            ...current,
-                            ticketTiers: {
-                              ...current.ticketTiers,
-                              [name]: {
-                                ...current.ticketTiers[name],
-                                capacity: inputEvent.target.value,
-                              },
-                            },
-                          }))
-                        }
-                        required
-                      />
-                    </label>
-                    <label className="grid gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400">
-                      Max
-                      <input
-                        className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-                        min="1"
-                        step="1"
-                        type="number"
-                        placeholder="Max"
-                        value={tier.maxTicketsPerUser}
-                        onChange={(inputEvent) =>
-                          setEventForm((current) => ({
-                            ...current,
-                            ticketTiers: {
-                              ...current.ticketTiers,
-                              [name]: {
-                                ...current.ticketTiers[name],
-                                maxTicketsPerUser: inputEvent.target.value,
-                              },
-                            },
-                          }))
-                        }
-                        required
-                      />
-                    </label>
-                  </div>
-                </div>
-              );
-            })}
+            {INDIVIDUAL_TICKET_TIER_NAMES.map((name) => <TicketTierFields key={name} name={name} eventForm={eventForm} setEventForm={setEventForm} />)}
+          </div>
+        </div>
+        <div className="rounded-[20px] border border-black/8 p-4">
+          <h3 className="text-sm font-semibold text-ink">Tables</h3>
+          <p className="mt-1 text-xs leading-5 text-ink-600">Set a price for each size you want to sell. Prices are for a whole table. Capacity and purchase limits are measured in tables.</p>
+          <div className="mt-4 grid gap-4">
+            {TABLE_TICKET_TIER_NAMES.map((name) => <TicketTierFields key={name} name={name} eventForm={eventForm} setEventForm={setEventForm} />)}
+            {editingEvent && getEventTicketTypes(editingEvent).some((tier) => tier.name === "Tables") ? (
+              <TicketTierFields name="Tables" eventForm={eventForm} setEventForm={setEventForm} />
+            ) : null}
           </div>
         </div>
         <div className="rounded-[20px] border border-black/8 p-4">
@@ -420,4 +346,32 @@ export function AdminEventEditor({
       ) : null}
     </form>
   );
+}
+
+function TicketTierFields({ name, eventForm, setEventForm }: {
+  name: EventTicketTierName;
+  eventForm: AdminEventFormState;
+  setEventForm: Dispatch<SetStateAction<AdminEventFormState>>;
+}) {
+  const tier = eventForm.ticketTiers[name];
+  const table = isTableTicketTier(name);
+  const update = (field: keyof typeof tier, value: string) => setEventForm((current) => ({
+    ...current, ticketTiers: { ...current.ticketTiers, [name]: { ...current.ticketTiers[name], [field]: value } },
+  }));
+  const fields = [
+    { key: "priceNaira", label: table ? "Price per table (₦)" : "Price (₦)", min: 0, step: 100, placeholder: "Not offered" },
+    { key: "capacity", label: table ? "Tables available" : "Capacity", min: 1, step: 1, placeholder: "Capacity" },
+    { key: "maxTicketsPerUser", label: table ? "Max tables per person" : "Max per person", min: 1, step: 1, placeholder: "Max" },
+  ] as const;
+  return <fieldset aria-label={name} className="min-w-0 rounded-2xl bg-surface-muted p-3">
+    <legend className="float-left w-full text-sm font-semibold text-ink">{name === "Tables" ? "Tables (existing option)" : name}</legend>
+    <div className="clear-both grid gap-3 pt-3 sm:grid-cols-3 sm:items-end">
+      {fields.map((field) => <label key={field.key} className="grid min-w-0 gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400">
+        {field.label}
+        <input className="h-11 min-w-0 w-full rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          min={field.min} step={field.step} type="number" placeholder={field.placeholder} value={tier[field.key]}
+          onChange={(event) => update(field.key, event.target.value)} required={field.key !== "priceNaira"} />
+      </label>)}
+    </div>
+  </fieldset>;
 }

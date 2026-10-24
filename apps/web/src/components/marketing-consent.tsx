@@ -45,7 +45,7 @@ export function MarketingConsent({ children }: { children: ReactNode }) {
       {children}
       {(visible || preferencesOpen) && <section aria-label="Cookie preferences" className="fixed inset-x-3 bottom-28 z-[100] mx-auto max-w-xl rounded-3xl border border-border-soft bg-surface p-5 shadow-xl md:inset-x-auto md:right-6 md:bottom-6">
       <h2 className="text-lg font-semibold text-ink">Your cookie preferences</h2>
-      <p className="mt-2 text-sm leading-6 text-ink-600">Essential cookies keep you signed in. With your permission, TikTok uses optional cookies to measure our ads, event views, checkouts, purchases and sign-ups. You can change your choice in our <Link href="/privacy-policy" className="text-brand-strong underline">Privacy Policy</Link>.</p>
+      <p className="mt-2 text-sm leading-6 text-ink-600">Essential cookies keep you signed in. With your permission, we use optional cookies to measure our ads, event views, checkouts, purchases and sign-ups. You can change your choice in our <Link href="/privacy-policy" className="text-brand-strong underline">Privacy Policy</Link>.</p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <button type="button" className="min-h-11 rounded-full border border-border-soft px-4 py-3 text-sm font-semibold text-ink" onClick={() => choose(false)}>Reject optional</button>
         <button type="button" className="min-h-11 rounded-full bg-ink px-4 py-3 text-sm font-semibold text-white" onClick={() => choose(true)}>Accept optional</button>

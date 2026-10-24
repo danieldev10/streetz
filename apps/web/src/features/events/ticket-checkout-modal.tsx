@@ -6,11 +6,12 @@ import { ActionButton } from "@/components/action-button";
 import { useMemo, useState } from "react";
 import { CheckCircle2, Mail, Ticket, X } from "lucide-react";
 import { apiRequest, getUserErrorMessage } from "@/lib/api";
+import { getEventTicketTypes as getTicketTypes, normalizeTicketTierName } from "./event-display";
+import { getTableSize, isTableTicketTier } from "./ticket-tiers";
 import type { EventType, StreetzEvent, StreetzEventTicketType, TicketStatus } from "@/lib/types";
 
 const MAX_TICKETS_PER_PURCHASE = 20;
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["CONFIRMED", "PAID", "CHECKED_IN"]);
-const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
 
 type GuestTicketRequest = {
   requestId: string;
@@ -48,19 +49,6 @@ export type GuestTicketBooking = {
     createdAt: string;
   }>;
 };
-
-function normalizeTicketTierName(name: string) {
-  if (name === "General Admission") return "Regular";
-  return (EVENT_TICKET_TIER_NAMES as readonly string[]).includes(name) ? name : "Regular";
-}
-
-function getTicketTypes(event: StreetzEvent) {
-  const ticketTypes = event.ticketTypes?.length ? event.ticketTypes : event.ticketType ? [event.ticketType] : [];
-  return [...ticketTypes].sort((first, second) =>
-    EVENT_TICKET_TIER_NAMES.indexOf(normalizeTicketTierName(first.name) as (typeof EVENT_TICKET_TIER_NAMES)[number]) -
-    EVENT_TICKET_TIER_NAMES.indexOf(normalizeTicketTierName(second.name) as (typeof EVENT_TICKET_TIER_NAMES)[number])
-  );
-}
 
 function formatEventDate(value: string) {
   return new Intl.DateTimeFormat("en-NG", {
@@ -139,7 +127,9 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
     isGuest && ticketType && ticketType.priceKobo <= 0
   );
   const isWorking = isBusy || isGuestSubmitting;
-  const noun = isPaidEvent ? "ticket" : "spot";
+  const tableSize = ticketType ? getTableSize(ticketType.name) : null;
+  const isTable = Boolean(ticketType && isTableTicketTier(ticketType.name));
+  const noun = isTable ? "table" : isPaidEvent ? "ticket" : "spot";
   const selectedNoun = selectedQuantity === 1 ? noun : `${noun}s`;
   const statusCopy = !ticketType
     ? "No ticket tiers are available for this event."
@@ -262,6 +252,10 @@ export function TicketCheckoutModal({ event, isGuest, isBusy, initialTicketTypeI
               )) : <option value="">No tickets available</option>}
             </select>
           </label>
+
+          {isTable ? <p className="text-xs leading-5 text-ink-600">
+            {tableSize ? `Each table seats ${tableSize} people. ` : ""}The displayed price is for one whole table.
+          </p> : null}
 
           <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
             Quantity

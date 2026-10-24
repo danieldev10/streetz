@@ -1,4 +1,5 @@
 "use client";
+import { getTableSize } from "./ticket-tiers";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
@@ -304,6 +305,9 @@ export function TicketCheckInModal({
               {result.ticket.holder?.displayName ?? "Ticket holder"} ·{" "}
               {result.ticket.ticketType.name}
             </p>
+            {getTableSize(result.ticket.ticketType.name) ? <p className="mt-1 font-semibold">
+              Admits {getTableSize(result.ticket.ticketType.name)} people · One table
+            </p> : null}
             <p className="mt-1 break-all font-mono">{result.ticket.code}</p>
             <p className="mt-2 text-xs">
               {new Intl.DateTimeFormat("en-NG", {

@@ -1,4 +1,5 @@
 import type { StreetzEvent, StreetzEventTicketType, TicketStatus } from "@/lib/types";
+import { EVENT_TICKET_TIER_NAMES, type EventTicketTierName } from "./ticket-tiers";
 
 export const FALLBACK_EVENT_IMAGE =
   "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=80";
@@ -18,7 +19,6 @@ export const EVENT_CATEGORY_OPTIONS = [
   "Community",
 ] as const;
 
-const EVENT_TICKET_TIER_NAMES = ["Early Bird", "Regular", "VIP", "Tables"] as const;
 const CONFIRMED_TICKET_STATUSES = new Set<TicketStatus>(["CONFIRMED", "PAID", "CHECKED_IN"]);
 
 export type EventCategoryName = (typeof EVENT_CATEGORY_OPTIONS)[number];
@@ -91,12 +91,13 @@ export function getOwnedTicketTypeIds(event: StreetzEvent) {
   );
 }
 
-export function normalizeTicketTierName(name: string) {
-  if (name === "General Admission") {
+export function normalizeTicketTierName(name: string): EventTicketTierName {
+  const normalized = name.trim();
+  if (normalized === "General Admission") {
     return "Regular";
   }
 
-  return (EVENT_TICKET_TIER_NAMES as readonly string[]).includes(name) ? name : "Regular";
+  return (EVENT_TICKET_TIER_NAMES as readonly string[]).includes(normalized) ? normalized as EventTicketTierName : "Regular";
 }
 
 export function getEventTicketTypes(event: StreetzEvent) {
