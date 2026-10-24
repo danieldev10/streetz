@@ -25,6 +25,7 @@ import { validateEnvironment } from "./config/environment.validation";
 import { RequestLoggingMiddleware } from "./observability/request-logging.middleware";
 import { ApiLifecycleModule } from "./lifecycle/api-lifecycle.module";
 import { ApiLifecycleMiddleware } from "./lifecycle/api-lifecycle.middleware";
+import { TrafficModule } from "./analytics/traffic.module";
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { ApiLifecycleMiddleware } from "./lifecycle/api-lifecycle.middleware";
     MessagesModule,
     RoomsModule,
     AdminModule,
+    TrafficModule,
     SupportModule,
     NotificationsModule,
     VerificationModule

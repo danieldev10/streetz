@@ -111,6 +111,7 @@ export class JobQueueService {
   }
 
   async scanPayments() {
+    await this.cleanupTraffic();
     // Each payment owns a single retry lifecycle; old terminal/failed jobs need
     // explicit operator review, rather than silently resetting their retries.
     await this.prisma.$executeRaw`
@@ -130,6 +131,19 @@ export class JobQueueService {
     await this.prisma.backgroundWorkerHeartbeat.deleteMany({
       where: { lastSeenAt: { lt: new Date(Date.now() - 86_400_000) } },
     });
+  }
+
+  async cleanupTraffic() {
+    // The existing maintenance job also expires anonymous traffic dedup keys.
+    // Bounded batches keep cleanup safe during busy periods and worker overlap.
+    await this.prisma.$executeRaw`
+      DELETE FROM "WebsitePageViewDedup" WHERE id IN (
+        SELECT id FROM "WebsitePageViewDedup" WHERE "createdAt" < (NOW() AT TIME ZONE 'UTC') - INTERVAL '7 days'
+        ORDER BY "createdAt" LIMIT 10000 FOR UPDATE SKIP LOCKED)`;
+    await this.prisma.$executeRaw`
+      DELETE FROM "WebsiteVisitDedup" WHERE id IN (
+        SELECT id FROM "WebsiteVisitDedup" WHERE "createdAt" < (NOW() AT TIME ZONE 'UTC') - INTERVAL '7 days'
+        ORDER BY "createdAt" LIMIT 10000 FOR UPDATE SKIP LOCKED)`;
   }
 
   async inspect(state?: BackgroundJobState, cursor?: string, take = 50) {

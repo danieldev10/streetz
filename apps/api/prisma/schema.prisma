@@ -6,6 +6,33 @@ datasource db {
   provider = "postgresql"
 }
 
+// Anonymous daily totals. No URL, IP address or account relation is retained.
+model WebsiteTrafficDay {
+  day          DateTime @id @db.Date
+  visits       Int      @default(0)
+  pageViews    Int      @default(0)
+  landingViews Int      @default(0)
+  guestViews   Int      @default(0)
+  loginViews   Int      @default(0)
+  memberViews  Int      @default(0)
+  firstSeenAt  DateTime @default(now())
+}
+
+// Retry/session deduplication only; removed after seven days by maintenance.
+model WebsitePageViewDedup {
+  id        String   @id @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model WebsiteVisitDedup {
+  id        String   @id @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 enum UserRole {
   ADMIN
   USER

@@ -17,7 +17,7 @@ export default function PrivacyPolicyPage() {
           <ArrowLeft className="size-4" aria-hidden="true" /> Back to events
         </Link>
         <h1 className="mt-6 text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-        <p className="mt-2 text-sm text-ink-400">Effective 23 October 2026</p>
+        <p className="mt-2 text-sm text-ink-400">Effective 24 October 2026</p>
         <div className="mt-6 space-y-7 text-base leading-7 text-ink-600 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-ink [&_li]:pl-1 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5">
           <p>Crush Club Limited (RC 9777758) (&quot;Crush Club&quot;, &quot;we&quot;, &quot;us&quot;) operates Crushclub.ng. This policy explains how we collect, use and protect your personal data under the Nigeria Data Protection Act 2023 (NDPA).</p>
           <section>
@@ -68,6 +68,10 @@ export default function PrivacyPolicyPage() {
             <p>If you accept optional cookies, we use the TikTok Pixel to measure advertising and help TikTok show relevant ads. This shares public event page views, event identifiers, checkout activity, completed sign-ups and confirmed paid ticket purchases (including value, currency and quantity). TikTok also receives technical information such as your IP address, device/browser information, cookie identifiers and ad click identifiers. It may process this information outside Nigeria under its own privacy policy. We do not send profile details, private messages, verification images, ticket codes, payment credentials, names or email addresses through this integration.</p>
             <p className="mt-3">Optional advertising tracking is off until you accept. Rejecting it does not affect your account or tickets. You can withdraw consent using Cookie preferences below; this stops future tracking and removes TikTok cookies that our website can access. Withdrawal does not undo information already shared with TikTok. Your preference is saved for up to 180 days.</p>
             <CookiePreferencesButton />
+          </section>
+          <section>
+            <h2>8. Website traffic counts</h2>
+            <p>We count visits and page views to understand website usage. Our first-party counters distinguish the Events landing page, login screen, guest browsing and signed-in browsing. A random browser visit identifier expires after 30 minutes of inactivity; temporary identifiers used to prevent duplicate counts are deleted from the server after seven days. We retain daily totals without account identifiers, IP addresses, full page URLs or query strings. These counts are separate from optional TikTok advertising tracking.</p>
           </section>
         </div>
       </article>

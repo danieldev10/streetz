@@ -6,6 +6,7 @@ import { LogOut, RotateCcw } from "lucide-react";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints";
 import { BrandLogo } from "@/components/brand-logo";
 import type { StreetzUser } from "@/lib/types";
+import { useTrafficView } from "@/components/website-analytics";
 
 export function CenteredShell({ title, subtitle }: { title: string; subtitle: string }) {
   return (
@@ -49,6 +50,7 @@ export function AuthShell({
   onAgeConfirmedChange,
   onSubmit,
 }: AuthShellProps) {
+  useTrafficView(`auth:${authMode}`, authMode === "login" ? "LOGIN" : "SIGNUP");
   return (
     <main className="min-h-screen bg-surface text-ink">
       <section className="mx-auto grid min-h-screen w-full max-w-6xl content-center items-center gap-5 px-5 py-8 md:grid-cols-[1fr_420px] md:gap-8 md:px-8">
