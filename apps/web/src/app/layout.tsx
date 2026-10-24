@@ -3,6 +3,7 @@ import { SessionProvider } from "@/components/app/session-provider";
 import { ToastProvider } from "@/components/app/toast-provider";
 import { QueryProvider } from "@/components/app/query-provider";
 import { MarketingConsent } from "@/components/marketing-consent";
+import { WebsiteAnalytics } from "@/components/website-analytics";
 import "./globals.css";
 
 function getOrigin(value: string | undefined) {
@@ -48,7 +49,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ToastProvider>
           <QueryProvider>
-            <SessionProvider><MarketingConsent>{children}</MarketingConsent></SessionProvider>
+            <SessionProvider><MarketingConsent>{children}<WebsiteAnalytics /></MarketingConsent></SessionProvider>
           </QueryProvider>
         </ToastProvider>
       </body>
