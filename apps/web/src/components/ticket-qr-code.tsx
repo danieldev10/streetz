@@ -34,13 +34,13 @@ export function TicketQrCode({ code, available = true }: { code: string; availab
   }, [available, code]);
   if (!available) return null;
   return (
-    <div className="mt-4 rounded-2xl border border-black/5 bg-white p-2 text-center">
+    <div className="mt-4 rounded-2xl border border-line/5 bg-surface-muted p-2 text-center">
       <div className="relative mx-auto grid min-h-60 max-w-60 place-items-center">
         <canvas
           ref={canvas}
           role="img"
           aria-label={`QR for ticket ${code}`}
-          className={`h-auto w-full ${readyCode === code && !error ? "" : "invisible"}`}
+          className={`h-auto w-full rounded-xl bg-white ${readyCode === code && !error ? "" : "invisible"}`}
         />
         {readyCode !== code && !error ? (
           <LoaderCircle

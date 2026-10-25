@@ -22,7 +22,7 @@ export default function GlobalError({
           <p className="mt-3 text-sm leading-6 text-ink-600">The error has been recorded. Please try loading this screen again.</p>
           <button
             type="button"
-            className="mt-6 h-12 rounded-full bg-ink px-6 text-sm font-semibold text-white"
+            className="mt-6 h-12 rounded-full bg-action px-6 text-sm font-semibold text-action-foreground"
             onClick={() => unstable_retry()}
           >
             Try again

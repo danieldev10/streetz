@@ -60,7 +60,7 @@ export function SupportRequestsPage() {
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Tickets</h1>
         </div>
         <Link
-          className="inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white"
+          className="inline-flex h-11 items-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground"
           href="/support/contact"
         >
           <Send className="size-4" aria-hidden="true" />
@@ -69,11 +69,11 @@ export function SupportRequestsPage() {
       </div>
 
       {status === "checking" ? (
-        <div className="mt-6 h-28 animate-pulse rounded-[24px] bg-black/5" />
+        <div className="mt-6 h-28 animate-pulse rounded-[24px] bg-ink/5" />
       ) : null}
 
       {status !== "checking" && !isMember ? (
-        <section className="mt-6 rounded-[24px] border border-black/[0.07] bg-surface p-6">
+        <section className="mt-6 rounded-[24px] border border-line/[0.07] bg-surface p-6">
           <LockKeyhole className="size-5" aria-hidden="true" />
           <h2 className="mt-4 text-xl font-semibold">Guest requests stay private</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-600">
@@ -82,13 +82,13 @@ export function SupportRequestsPage() {
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
-              className="inline-flex h-11 items-center rounded-full bg-ink px-5 text-sm font-medium text-white"
+              className="inline-flex h-11 items-center rounded-full bg-action px-5 text-sm font-medium text-action-foreground"
               href="/support/contact"
             >
               Contact us
             </Link>
             <Link
-              className="inline-flex h-11 items-center rounded-full border border-black/[0.08] px-5 text-sm font-medium"
+              className="inline-flex h-11 items-center rounded-full border border-line/[0.08] px-5 text-sm font-medium"
               href="/?mode=login"
             >
               Log in
@@ -105,9 +105,9 @@ export function SupportRequestsPage() {
             </p>
           ) : null}
           {isLoadingRequests ? (
-            <div className="mt-4 h-24 animate-pulse rounded-[24px] bg-black/5" />
+            <div className="mt-4 h-24 animate-pulse rounded-[24px] bg-ink/5" />
           ) : requests.length === 0 ? (
-            <div className="mt-4 rounded-[24px] border border-dashed border-black/10 bg-surface p-6 text-sm text-ink-600">
+            <div className="mt-4 rounded-[24px] border border-dashed border-line/10 bg-surface p-6 text-sm text-ink-600">
               You have not sent any support requests yet.
             </div>
           ) : (
@@ -115,7 +115,7 @@ export function SupportRequestsPage() {
               {requests.map((request) => (
                 <Link
                   key={request.id}
-                  className="flex items-center gap-4 rounded-[22px] border border-black/[0.07] bg-surface p-4 text-left transition hover:border-black/20"
+                  className="flex items-center gap-4 rounded-[22px] border border-line/[0.07] bg-surface p-4 text-left transition hover:border-line/20"
                   href={`/support/requests/${request.id}`}
                 >
                   <div className="min-w-0 flex-1">
@@ -123,7 +123,7 @@ export function SupportRequestsPage() {
                       <span className="text-xs font-semibold text-ink-500">
                         {request.reference}
                       </span>
-                      <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium">
+                      <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[11px] font-medium">
                         {supportStatusLabels[request.status]}
                       </span>
                     </div>

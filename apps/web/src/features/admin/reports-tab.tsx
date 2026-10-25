@@ -263,7 +263,7 @@ export function ReportsTab({ token }: { token: string }) {
                 <h2 className="mt-1 text-xl font-semibold text-ink">Reports</h2>
               </div>
               <button
-                className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-ink"
+                className="inline-flex size-10 items-center justify-center rounded-full border border-line/8 text-ink"
                 type="button"
                 onClick={() => setIsReportFilterOpen(false)}
                 aria-label="Close filters"
@@ -276,7 +276,7 @@ export function ReportsTab({ token }: { token: string }) {
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 Status
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                  className="h-12 rounded-full border border-line/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   value={reportFilter}
                   onChange={(event) => setReportFilter(event.target.value as ReportStatus | "ALL")}
                 >
@@ -290,7 +290,7 @@ export function ReportsTab({ token }: { token: string }) {
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 Violation
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                  className="h-12 rounded-full border border-line/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   value={reasonFilter}
                   onChange={(event) => setReasonFilter(event.target.value)}
                 >
@@ -305,7 +305,7 @@ export function ReportsTab({ token }: { token: string }) {
 
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button
-                className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-line/8 px-4 text-sm font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-50"
                 type="button"
                 onClick={() => {
                   setReportFilter("OPEN");
@@ -316,7 +316,7 @@ export function ReportsTab({ token }: { token: string }) {
                 Clear
               </button>
               <button
-                className="inline-flex h-12 items-center justify-center rounded-full bg-ink px-4 text-sm font-medium text-white"
+                className="inline-flex h-12 items-center justify-center rounded-full bg-action px-4 text-sm font-medium text-action-foreground"
                 type="button"
                 onClick={() => setIsReportFilterOpen(false)}
               >
@@ -330,7 +330,7 @@ export function ReportsTab({ token }: { token: string }) {
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center justify-end">
           <button
-            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-ink ${hasActiveReportFilter ? "border-brand bg-brand-tint" : "border-black/8 bg-surface"
+            className={`relative inline-flex size-10 items-center justify-center rounded-full border text-ink ${hasActiveReportFilter ? "border-brand bg-brand-tint" : "border-line/8 bg-surface"
               }`}
             type="button"
             onClick={() => setIsReportFilterOpen(true)}
@@ -338,7 +338,7 @@ export function ReportsTab({ token }: { token: string }) {
           >
             <SlidersHorizontal className="size-4" aria-hidden="true" />
             {hasActiveReportFilter ? (
-              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-strong text-[9px] font-semibold text-white">
+              <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-solid text-[9px] font-semibold text-white">
                 {activeFilterCount}
               </span>
             ) : null}
@@ -351,19 +351,19 @@ export function ReportsTab({ token }: { token: string }) {
           <ListSkeleton
             label="Loading reports"
             rows={5}
-            className={`${notice ? "mt-4" : ""} divide-y divide-black/[0.04] overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}
+            className={`${notice ? "mt-4" : ""} divide-y divide-line/[0.04] overflow-hidden rounded-3xl border border-line/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}
             rowClassName="px-4 py-3"
             hasAvatar={false}
             hasAction={false}
           />
         ) : visibleReports.length > 0 ? (
-          <div className={`${notice ? "mt-4" : ""} overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
+          <div className={`${notice ? "mt-4" : ""} overflow-hidden rounded-3xl border border-line/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
             {visibleReports.map((report) => (
               <ReportListItem key={report.id} report={report} />
             ))}
           </div>
         ) : (
-          <div className={`${notice ? "mt-4" : ""} grid min-h-64 place-items-center rounded-[28px] border border-black/5 p-6 text-center`}>
+          <div className={`${notice ? "mt-4" : ""} grid min-h-64 place-items-center rounded-[28px] border border-line/5 p-6 text-center`}>
             <div>
               <AlertTriangle className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h3 className="mt-3 text-2xl font-semibold">No reports here</h3>
@@ -484,7 +484,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center justify-between gap-3">
           <Link
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-surface text-ink"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-line/8 bg-surface text-ink"
             href="/reports"
             aria-label="Back to reports"
             title="Back"
@@ -493,7 +493,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
           </Link>
           <ActionButton
             isLoading={isLoadingReport} icon={<RefreshCw className="size-4" aria-hidden="true" />}
-            className="hidden h-10 items-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium md:inline-flex"
+            className="hidden h-10 items-center gap-2 rounded-full border border-line/8 px-4 text-sm font-medium md:inline-flex"
             type="button"
             onClick={() => loadReport()}
           >
@@ -507,7 +507,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
           <DetailSkeleton label="Loading report" />
         ) : report ? (
           <div className="mx-auto max-w-3xl">
-            <article className="rounded-[28px] border border-black/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+            <article className="rounded-[28px] border border-line/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -528,7 +528,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
               onSelectProfile={setSelectedProfileUser}
             />
 
-            <section className="mt-4 rounded-[28px] border border-black/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+            <section className="mt-4 rounded-[28px] border border-line/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">Admin decisions</p>
               </div>
@@ -537,7 +537,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
                 <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                   Reason
                   <input
-                    className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    className="h-11 rounded-full border border-line/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                     value={moderationReason}
                     onChange={(event) => setModerationReason(event.target.value)}
                     maxLength={500}
@@ -547,7 +547,7 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
                 <label className="grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                   Days
                   <input
-                    className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    className="h-11 rounded-full border border-line/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                     type="number"
                     min={1}
                     max={365}
@@ -605,13 +605,13 @@ export function ReportDetail({ token, reportId }: { token: string; reportId: str
             </section>
           </div>
         ) : (
-          <div className="mx-auto grid min-h-80 max-w-3xl place-items-center rounded-[28px] border border-black/5 p-6 text-center">
+          <div className="mx-auto grid min-h-80 max-w-3xl place-items-center rounded-[28px] border border-line/5 p-6 text-center">
             <div>
               <AlertTriangle className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Report not found</h2>
               <p className="mt-2 text-sm text-ink-600">This report may have been removed.</p>
               <Link
-                className="mt-5 inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium"
+                className="mt-5 inline-flex h-11 items-center justify-center rounded-full border border-line/8 px-5 text-sm font-medium"
                 href="/reports"
               >
                 Back to reports
@@ -642,7 +642,7 @@ function ReportListItem({ report }: { report: AdminReport }) {
 
   return (
     <Link
-      className="group flex items-center gap-3 border-b border-black/5 px-4 py-4 text-left transition last:border-b-0 hover:bg-surface-muted"
+      className="group flex items-center gap-3 border-b border-line/5 px-4 py-4 text-left transition last:border-b-0 hover:bg-surface-muted"
       href={`/reports/${report.id}`}
     >
       <div className="min-w-0 flex-1">
@@ -668,7 +668,7 @@ function ReportListItem({ report }: { report: AdminReport }) {
           </p>
         </div>
       </div>
-      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink-500 transition group-hover:border-brand group-hover:text-ink">
+      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-line/8 text-ink-500 transition group-hover:border-brand group-hover:text-ink">
         <ChevronRight className="size-4" aria-hidden="true" />
       </span>
     </Link>
@@ -685,7 +685,7 @@ function ReportAccountsCard({
   onSelectProfile: (user: AdminReportUser) => void;
 }) {
   return (
-    <section className="mt-4 rounded-[28px] border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+    <section className="mt-4 rounded-[28px] border border-line/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
       <div className="flex items-center gap-3">
         <ReportAccountButton
           user={reporter}
@@ -830,10 +830,10 @@ function ReportActionButton({
 }) {
   const className =
     tone === "solidDanger"
-      ? "bg-danger text-white"
+      ? "bg-danger-solid text-white"
       : tone === "danger"
         ? "border border-danger-border bg-surface text-danger"
-        : "border border-black/[0.08] bg-surface text-ink";
+        : "border border-line/[0.08] bg-surface text-ink";
 
   return (
     <button
@@ -870,7 +870,7 @@ function ConfirmationModal({
             <p className="mt-2 text-sm leading-6 text-ink-600">{action.body}</p>
           </div>
           <button
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-line/8 text-ink"
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
@@ -883,7 +883,7 @@ function ConfirmationModal({
 
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-line/8 px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
@@ -892,7 +892,7 @@ function ConfirmationModal({
           </button>
           <ActionButton
             isLoading={isSubmitting}
-            className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${isDanger ? "bg-danger text-white" : "bg-ink text-white"
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${isDanger ? "bg-danger-solid text-white" : "bg-action text-action-foreground"
               }`}
             type="button"
             onClick={onConfirm}

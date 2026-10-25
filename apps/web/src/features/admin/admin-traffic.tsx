@@ -40,7 +40,7 @@ export function AdminTraffic({ token, revision }: { token: string; revision: num
       <div><h2 id="website-traffic-title" className="text-lg font-semibold">Website traffic</h2>
         <p className="mt-1 text-xs text-ink-600">Daily totals use Nigerian time (WAT). Admin activity is excluded.</p></div>
       <label className="flex items-center gap-2 text-xs text-ink-600">Period
-        <select className="min-h-11 rounded-full border border-black/8 bg-surface px-3 text-sm text-ink" value={period} onChange={(event) => setPeriod(event.target.value)}>
+        <select className="min-h-11 rounded-full border border-line/8 bg-surface px-3 text-sm text-ink" value={period} onChange={(event) => setPeriod(event.target.value)}>
           {periods.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
       </label>

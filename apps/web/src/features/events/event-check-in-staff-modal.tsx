@@ -123,7 +123,7 @@ export function EventCheckInStaffModal({
             onClick={onClose}
             disabled={busy}
             aria-label="Close check-in staff"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/8"
           >
             <X className="size-4" />
           </button>
@@ -143,7 +143,7 @@ export function EventCheckInStaffModal({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               disabled={busy}
-              className="h-12 min-w-0 rounded-2xl border border-black/8 px-4 text-base"
+              className="h-12 min-w-0 rounded-2xl border border-line/8 px-4 text-base"
             />
           </label>
           <ActionButton
@@ -151,7 +151,7 @@ export function EventCheckInStaffModal({
             isLoading={saving}
             disabled={Boolean(removing)}
             icon={<UserPlus className="size-4" />}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground"
           >
             Add staff
           </ActionButton>
@@ -164,7 +164,7 @@ export function EventCheckInStaffModal({
           . Their access is limited to assigned events.
         </p>
         {error ? (
-          <p role="alert" className="mt-4 rounded-2xl bg-red-50 p-3 text-sm text-red-700">
+          <p role="alert" className="mt-4 rounded-2xl bg-danger-tint p-3 text-sm text-danger">
             {error}
           </p>
         ) : null}
@@ -172,13 +172,13 @@ export function EventCheckInStaffModal({
           {staff.map((entry) => (
             <div
               key={entry.userId}
-              className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-black/5 p-3"
+              className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-line/5 p-3"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold">{entry.user.displayName}</p>
                 <p className="truncate text-xs text-ink-600">{entry.user.email}</p>
                 {entry.user.accountStatus !== "ACTIVE" ? (
-                  <p className="text-xs text-red-700">Account unavailable</p>
+                  <p className="text-xs text-danger">Account unavailable</p>
                 ) : null}
               </div>
               <ActionButton
@@ -188,7 +188,7 @@ export function EventCheckInStaffModal({
                 disabled={busy && removing !== entry.userId}
                 icon={<Trash2 className="size-4" />}
                 aria-label={`Remove ${entry.user.displayName}`}
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-red-100 text-red-700"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-danger-border text-danger"
               />
             </div>
           ))}

@@ -49,7 +49,7 @@ function CheckInWorkspace({ token }: { token: string }) {
   }, [load]);
   if (accessDenied) {
     return (
-      <section role="alert" className="mt-8 rounded-3xl border border-black/5 p-6 text-center">
+      <section role="alert" className="mt-8 rounded-3xl border border-line/5 p-6 text-center">
         <ShieldCheck className="mx-auto size-10 text-brand-strong" aria-hidden="true" />
         <h1 className="mt-4 text-2xl font-semibold">Staff access only</h1>
         <p className="mt-2 text-sm leading-6 text-ink-600">
@@ -68,14 +68,14 @@ function CheckInWorkspace({ token }: { token: string }) {
           onClick={() => load()}
           aria-label="Refresh events"
           icon={<RefreshCw className="size-4" />}
-          className="inline-flex size-11 items-center justify-center rounded-full border border-black/8"
+          className="inline-flex size-11 items-center justify-center rounded-full border border-line/8"
         />
       </div>
       <p className="mt-2 text-sm leading-6 text-ink-600">
         Choose your assigned event to scan tickets. An internet connection is required.
       </p>
       {error ? (
-        <p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-sm text-red-700">
+        <p role="alert" className="mt-4 rounded-2xl bg-danger-tint p-4 text-sm text-danger">
           {error}
         </p>
       ) : null}
@@ -83,7 +83,7 @@ function CheckInWorkspace({ token }: { token: string }) {
         {events.map((event) => (
           <article
             key={event.id}
-            className="rounded-3xl border border-black/5 bg-surface p-5 shadow-sm"
+            className="rounded-3xl border border-line/5 bg-surface p-5 shadow-sm"
           >
             <h2 className="text-lg font-semibold">{event.title}</h2>
             <p className="mt-2 flex items-center gap-2 text-sm text-ink-600">
@@ -101,7 +101,7 @@ function CheckInWorkspace({ token }: { token: string }) {
               type="button"
               onClick={() => setSelected(event)}
               icon={<ScanLine className="size-4" />}
-              className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
+              className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground"
             >
               Scan tickets
             </ActionButton>
@@ -122,7 +122,7 @@ function CheckInWorkspace({ token }: { token: string }) {
           type="button"
           isLoading={loading}
           onClick={() => load(cursor)}
-          className="mt-4 h-11 w-full rounded-full border border-black/8 text-sm font-medium"
+          className="mt-4 h-11 w-full rounded-full border border-line/8 text-sm font-medium"
         >
           Load more events
         </ActionButton>
@@ -154,7 +154,7 @@ export default function CheckInPage() {
             <button
               type="button"
               onClick={() => logout()}
-              className="inline-flex size-11 items-center justify-center rounded-full border border-black/8"
+              className="inline-flex size-11 items-center justify-center rounded-full border border-line/8"
               aria-label="Log out"
             >
               <LogOut className="size-4" />
@@ -169,7 +169,7 @@ export default function CheckInPage() {
             aria-label="Checking session"
           />
         ) : !user || !token ? (
-          <section className="mt-8 rounded-3xl border border-black/5 p-6 text-center">
+          <section className="mt-8 rounded-3xl border border-line/5 p-6 text-center">
             <ScanLine className="mx-auto size-10 text-brand-strong" />
             <h1 className="mt-4 text-2xl font-semibold">Staff check-in</h1>
             <p className="mt-2 text-sm leading-6 text-ink-600">
@@ -177,13 +177,13 @@ export default function CheckInPage() {
             </p>
             <Link
               href="/?mode=login&next=%2Fcheck-in"
-              className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-ink px-6 text-sm font-medium text-white"
+              className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-action px-6 text-sm font-medium text-action-foreground"
             >
               Log in
             </Link>
           </section>
         ) : user.accountStatus !== "ACTIVE" ? (
-          <p className="mt-8 rounded-2xl bg-red-50 p-4 text-sm text-red-700">
+          <p className="mt-8 rounded-2xl bg-danger-tint p-4 text-sm text-danger">
             Your account is unavailable for check-in. Contact support or an admin.
           </p>
         ) : (

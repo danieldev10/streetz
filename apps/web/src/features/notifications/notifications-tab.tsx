@@ -105,7 +105,7 @@ function getEventAlertCopy(kind: NotificationFeedEventAlert["kind"]) {
       label: "Cancelled",
       title: "Event cancelled",
       description: "If you paid for a ticket, your refund is being processed and we will contact you by email.",
-      tone: "bg-danger/10 text-danger",
+      tone: "bg-danger-solid/10 text-danger",
     };
   }
 
@@ -134,7 +134,7 @@ function SectionHeader({ icon: Icon, label, count }: { icon: LucideIcon; label: 
       <Icon className="size-4 text-ink-400" aria-hidden="true" />
       <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">{label}</h2>
       {count > 0 ? (
-        <span className="grid min-w-5 place-items-center rounded-full bg-brand-strong px-1.5 text-[10px] font-semibold leading-5 text-white">
+        <span className="grid min-w-5 place-items-center rounded-full bg-brand-solid px-1.5 text-[10px] font-semibold leading-5 text-white">
           {count}
         </span>
       ) : null}
@@ -379,7 +379,7 @@ export function NotificationsTab({
             hasAction={false}
           />
         ) : feed && !hasSomeContent ? (
-          <div className="mx-auto grid min-h-105 max-w-3xl place-items-center rounded-[28px] border border-black/5 p-6 text-center">
+          <div className="mx-auto grid min-h-105 max-w-3xl place-items-center rounded-[28px] border border-line/5 p-6 text-center">
             <div>
               <Bell className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Nothing new</h2>
@@ -391,7 +391,7 @@ export function NotificationsTab({
         ) : feed ? (
           <div className="mx-auto max-w-3xl">
             <div className="mb-5">
-              <div className="grid grid-cols-3 gap-1 rounded-full bg-black/4 p-1.5">
+              <div className="grid grid-cols-3 gap-1 rounded-full bg-ink/4 p-1.5">
                 {notificationTabs.map((tab) => {
                   const isActive = activeNotificationTab === tab.id;
 
@@ -400,14 +400,14 @@ export function NotificationsTab({
                       key={tab.id}
                       type="button"
                       className={`whitespace-nowrap rounded-full px-0.5 py-2 text-sm font-medium leading-5 transition sm:px-2 ${isActive
-                        ? "bg-ink text-white shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
+                        ? "bg-action text-action-foreground shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
                         : "text-ink-600 hover:text-ink"
                         }`}
                       onClick={() => setActiveNotificationTab(tab.id)}
                     >
                       {tab.label}
                       {tab.count > 0 ? (
-                        <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-brand-strong px-1 text-[10px] font-semibold leading-4 text-white shadow-[0_0_0_1px_rgba(13,13,13,0.05)] sm:min-w-5 sm:px-1.5 sm:text-[11px] sm:leading-5">
+                        <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-brand-solid px-1 text-[10px] font-semibold leading-4 text-white shadow-[0_0_0_1px_rgba(13,13,13,0.05)] sm:min-w-5 sm:px-1.5 sm:text-[11px] sm:leading-5">
                           {tab.count}
                         </span>
                       ) : null}
@@ -418,7 +418,7 @@ export function NotificationsTab({
             </div>
 
             {!tabHasContent[activeNotificationTab] ? (
-              <div className="grid min-h-80 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
+              <div className="grid min-h-80 place-items-center rounded-[28px] border border-line/5 p-6 text-center">
                 <div>
                   <Bell className="mx-auto size-8 text-brand" aria-hidden="true" />
                   <h2 className="mt-3 text-2xl font-semibold">Nothing here</h2>
@@ -436,7 +436,7 @@ export function NotificationsTab({
                           trackNavigation
                           key={message.id}
                           type="button"
-                          className="group flex items-center gap-4 rounded-[20px] border border-black/5 bg-surface p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-center gap-4 rounded-[20px] border border-line/5 bg-surface p-3 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => router.push(`/messages/${message.matchId}`)}
                         >
                           <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-brand-tint">
@@ -445,7 +445,7 @@ export function NotificationsTab({
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
                               <p className="truncate text-sm font-semibold text-ink">{message.user.displayName}</p>
-                              <span className="grid min-w-5 place-items-center rounded-full bg-brand-strong px-1.5 text-[10px] font-semibold leading-5 text-white">
+                              <span className="grid min-w-5 place-items-center rounded-full bg-brand-solid px-1.5 text-[10px] font-semibold leading-5 text-white">
                                 {message.unreadCount}
                               </span>
                             </div>
@@ -473,7 +473,7 @@ export function NotificationsTab({
                             trackNavigation
                             key={`${alert.kind}:${alert.id}`}
                             type="button"
-                            className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                            className="group flex items-start gap-4 rounded-[20px] border border-line/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                             onClick={() => {
                               void markFeedItemSeen({ kind: alert.kind, entityId: alert.id });
                               router.push("/events");
@@ -485,7 +485,7 @@ export function NotificationsTab({
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <p className="truncate text-sm font-semibold text-ink">{copy.title}</p>
-                                <span className="rounded-full bg-black/4 px-2 py-0.5 text-[10px] font-semibold text-ink-600">
+                                <span className="rounded-full bg-ink/4 px-2 py-0.5 text-[10px] font-semibold text-ink-600">
                                   {copy.label}
                                 </span>
                               </div>
@@ -515,7 +515,7 @@ export function NotificationsTab({
                           trackNavigation
                           key={ticket.id}
                           type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-start gap-4 rounded-[20px] border border-line/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => {
                             void markFeedItemSeen({ kind: "TICKET_CONFIRMED", entityId: ticket.id });
                             router.push("/events");
@@ -547,7 +547,7 @@ export function NotificationsTab({
                           trackNavigation
                           key={event.id}
                           type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-start gap-4 rounded-[20px] border border-line/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => router.push("/events")}
                         >
                           <div className="grid size-11 shrink-0 place-items-center rounded-full bg-warning-solid/10">
@@ -579,7 +579,7 @@ export function NotificationsTab({
                           trackNavigation
                           key={alert.id}
                           type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-start gap-4 rounded-[20px] border border-line/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => {
                             void markFeedItemSeen({ kind: "SUBSCRIPTION_EXPIRING", entityId: alert.id });
                             router.push("/profile");
@@ -609,7 +609,7 @@ export function NotificationsTab({
                           trackNavigation
                           key={report.id}
                           type="button"
-                          className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                          className="group flex items-start gap-4 rounded-[20px] border border-line/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                           onClick={() => {
                             void markFeedItemSeen({ kind: "REPORT_STATUS_UPDATED", entityId: report.id });
                             router.push("/reports");
@@ -641,13 +641,13 @@ export function NotificationsTab({
                             trackNavigation
                             key={`${payment.kind}:${payment.id}`}
                             type="button"
-                            className="group flex items-start gap-4 rounded-[20px] border border-black/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+                            className="group flex items-start gap-4 rounded-[20px] border border-line/5 bg-surface p-4 text-left shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                             onClick={() => {
                               void markFeedItemSeen({ kind: payment.kind, entityId: payment.id });
                               router.push(payment.purpose === "EVENT_TICKET" ? "/events" : "/profile");
                             }}
                           >
-                            <div className={`grid size-11 shrink-0 place-items-center rounded-full ${isSuccess ? "bg-brand/10" : "bg-danger/10"}`}>
+                            <div className={`grid size-11 shrink-0 place-items-center rounded-full ${isSuccess ? "bg-brand/10" : "bg-danger-solid/10"}`}>
                               <CreditCard className={`size-5 ${isSuccess ? "text-brand-strong" : "text-danger"}`} aria-hidden="true" />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -671,7 +671,7 @@ export function NotificationsTab({
       <ActionButton
         isLoading={isLoading} icon={<RefreshCw className="size-4" aria-hidden="true" />}
         type="button"
-        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full border border-black/8 bg-surface text-ink-600 shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition hover:text-ink disabled:opacity-60 md:right-8"
+        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full border border-line/8 bg-surface text-ink-600 shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition hover:text-ink disabled:opacity-60 md:right-8"
         onClick={() => loadFeed()}
         disabled={isLoading}
         aria-label="Refresh notifications"

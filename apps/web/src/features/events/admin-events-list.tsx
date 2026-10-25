@@ -78,7 +78,7 @@ export function AdminEventsList({ token }: { token: string }) {
         <div className="mb-4 flex items-center justify-end gap-2">
           <ActionButton
             isLoading={isLoading} icon={<RefreshCw className="size-3.5" aria-hidden="true" />}
-            className="hidden h-9 items-center gap-2 rounded-full border border-black/8 px-3 text-sm font-medium md:inline-flex"
+            className="hidden h-9 items-center gap-2 rounded-full border border-line/8 px-3 text-sm font-medium md:inline-flex"
             type="button"
             onClick={() => loadEvents()}
           >
@@ -86,7 +86,7 @@ export function AdminEventsList({ token }: { token: string }) {
           </ActionButton>
           <ActionButton
             trackNavigation icon={<Plus className="size-3.5" aria-hidden="true" />}
-            className="inline-flex h-9 items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white"
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground"
             type="button"
             onClick={() => router.push("/events/create")}
           >
@@ -94,11 +94,11 @@ export function AdminEventsList({ token }: { token: string }) {
           </ActionButton>
         </div>
 
-        <div className="mb-4 grid grid-cols-2 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium md:max-w-sm">
+        <div className="mb-4 grid grid-cols-2 rounded-full border border-line/5 bg-surface-muted p-1 text-sm font-medium md:max-w-sm">
           <button
             type="button"
             className={`rounded-full px-4 py-2 ${
-              listMode === "active" ? "bg-ink text-white" : "text-ink-600"
+              listMode === "active" ? "bg-action text-action-foreground" : "text-ink-600"
             }`}
             onClick={() => setListMode("active")}
           >
@@ -107,7 +107,7 @@ export function AdminEventsList({ token }: { token: string }) {
           <button
             type="button"
             className={`rounded-full px-4 py-2 ${
-              listMode === "inactive" ? "bg-ink text-white" : "text-ink-600"
+              listMode === "inactive" ? "bg-action text-action-foreground" : "text-ink-600"
             }`}
             onClick={() => setListMode("inactive")}
           >
@@ -134,8 +134,8 @@ export function AdminEventsList({ token }: { token: string }) {
                   key={event.id}
                   className={`rounded-3xl border p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)] ${
                     isAdminInactiveEvent(event)
-                      ? "border-black/[0.03] bg-surface-muted opacity-70"
-                      : "border-black/5 bg-surface"
+                      ? "border-line/[0.03] bg-surface-muted opacity-70"
+                      : "border-line/5 bg-surface"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -177,7 +177,7 @@ export function AdminEventsList({ token }: { token: string }) {
                     </div>
                     <ActionButton
                       trackNavigation icon={<Pencil className="size-4" aria-hidden="true" />}
-                      className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
+                      className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/8"
                       type="button"
                       onClick={() => router.push(`/events/${event.id}/edit`)}
                       aria-label={`Edit ${event.title}`}
@@ -188,17 +188,17 @@ export function AdminEventsList({ token }: { token: string }) {
                   {event.status === "PUBLISHED" || event.status === "COMPLETED" ? (
                     <div className="mt-4 flex flex-wrap gap-2"><ActionButton type="button" icon={<ScanLine className="size-4" aria-hidden="true" />}
                       onClick={() => setCheckInEvent(event)}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white">
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground">
                       Scan tickets
                     </ActionButton><ActionButton type="button" icon={<UsersRound className="size-4" aria-hidden="true" />} onClick={() => setStaffEvent(event)}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 px-4 text-sm font-medium text-ink">Check-in staff</ActionButton></div>
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-line/8 px-4 text-sm font-medium text-ink">Check-in staff</ActionButton></div>
                   ) : null}
                 </article>
               );
             })}
           </div>
         ) : (
-          <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
+          <div className="grid min-h-90 place-items-center rounded-3xl border border-line/5 p-6 text-center">
             <div>
               <Ticket className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">

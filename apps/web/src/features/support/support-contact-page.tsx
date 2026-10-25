@@ -122,14 +122,14 @@ export function SupportContactPage({
         </section>
       ) : null}
 
-      <section className="mt-6 rounded-[28px] border border-black/[0.07] bg-surface p-5 md:p-7">
+      <section className="mt-6 rounded-[28px] border border-line/[0.07] bg-surface p-5 md:p-7">
         <form className="mt-6 grid gap-4" onSubmit={submitRequest}>
           {!isMember ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium">
                 Name
                 <input
-                  className="h-12 rounded-[16px] border border-black/[0.1] px-4 outline-none focus:border-black/30"
+                  className="h-12 rounded-[16px] border border-line/[0.1] px-4 outline-none focus:border-line/30"
                   minLength={2}
                   maxLength={80}
                   required
@@ -145,7 +145,7 @@ export function SupportContactPage({
               <label className="grid gap-2 text-sm font-medium">
                 Email
                 <input
-                  className="h-12 rounded-[16px] border border-black/[0.1] px-4 outline-none focus:border-black/30"
+                  className="h-12 rounded-[16px] border border-line/[0.1] px-4 outline-none focus:border-line/30"
                   type="email"
                   maxLength={254}
                   required
@@ -161,7 +161,7 @@ export function SupportContactPage({
           <label className="grid gap-2 text-sm font-medium">
             What do you need help with?
             <select
-              className="h-12 rounded-[16px] border border-black/[0.1] bg-surface px-4 outline-none focus:border-black/30"
+              className="h-12 rounded-[16px] border border-line/[0.1] bg-surface px-4 outline-none focus:border-line/30"
               value={form.category}
               onChange={(event) =>
                 setForm((current) => ({
@@ -182,7 +182,7 @@ export function SupportContactPage({
           <label className="grid gap-2 text-sm font-medium">
             Subject
             <input
-              className="h-12 rounded-[16px] border border-black/[0.1] px-4 outline-none focus:border-black/30"
+              className="h-12 rounded-[16px] border border-line/[0.1] px-4 outline-none focus:border-line/30"
               minLength={3}
               maxLength={140}
               required
@@ -197,7 +197,7 @@ export function SupportContactPage({
           <label className="grid gap-2 text-sm font-medium">
             Details
             <textarea
-              className="min-h-36 resize-y rounded-[16px] border border-black/[0.1] px-4 py-3 outline-none focus:border-black/30"
+              className="min-h-36 resize-y rounded-[16px] border border-line/[0.1] px-4 py-3 outline-none focus:border-line/30"
               minLength={10}
               maxLength={4_000}
               required
@@ -228,7 +228,7 @@ export function SupportContactPage({
 
           <ActionButton
             isLoading={isSubmitting} icon={<Send className="size-4" aria-hidden="true" />}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground disabled:cursor-not-allowed disabled:opacity-40"
             type="submit"
             disabled={status === "checking" || isSubmitting}
           >

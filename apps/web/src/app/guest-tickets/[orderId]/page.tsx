@@ -58,7 +58,7 @@ export default function GuestTicketsPage() {
   }, [params.orderId, token]);
 
   if (!booking && !error) return <main className="grid min-h-screen place-items-center"><LoaderCircle className="size-6 animate-spin text-brand-strong" aria-label="Loading tickets" /></main>;
-  if (error) return <main className="grid min-h-screen place-items-center px-5"><div className="max-w-sm text-center"><h1 className="text-2xl font-semibold">Tickets unavailable</h1><p className="mt-2 text-sm text-ink-600">{error}</p><Link className="mt-5 inline-flex rounded-full bg-black px-5 py-3 text-sm text-white" href="/events">Browse events</Link></div></main>;
+  if (error) return <main className="grid min-h-screen place-items-center px-5"><div className="max-w-sm text-center"><h1 className="text-2xl font-semibold">Tickets unavailable</h1><p className="mt-2 text-sm text-ink-600">{error}</p><Link className="mt-5 inline-flex rounded-full bg-action px-5 py-3 text-sm text-action-foreground" href="/events">Browse events</Link></div></main>;
 
   return (
     <main className="min-h-screen bg-surface-muted px-5 py-8 text-ink">
@@ -69,7 +69,7 @@ export default function GuestTicketsPage() {
         <p className="mt-2 flex gap-2 text-sm text-ink-600"><MapPin className="size-4 shrink-0" />{formatEventLocation(booking!.event)}</p>
         <div className="mt-6 grid gap-3">
           {booking!.tickets.map((ticket, index) => (
-            <article key={ticket.id} className="rounded-[20px] border border-black/8 bg-surface-muted p-4">
+            <article key={ticket.id} className="rounded-[20px] border border-line/8 bg-surface-muted p-4">
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400"><Ticket className="size-4" />{booking!.ticketType.name} · Ticket {index + 1}</p>
               <TicketQrCode code={ticket.code} available={booking!.event.status !== "CANCELLED" && ["PAID", "CONFIRMED"].includes(ticket.status)} />
               <p className="mt-2 break-all font-mono text-xl font-bold tracking-wide">{ticket.code}</p>
@@ -79,11 +79,11 @@ export default function GuestTicketsPage() {
         </div>
         <p className="mt-5 text-xs leading-5 text-ink-600">Booked for {booking!.displayName} · {booking!.email}</p>
         <ActionButton type="button" onClick={downloadTickets} icon={<Download className="size-4" aria-hidden="true" />}
-          className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white">
+          className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground">
           Download tickets
         </ActionButton>
-        {downloadError ? <p role="alert" className="mt-3 text-sm text-red-700">{downloadError}</p> : null}
-        <Link className="mt-5 inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium" href={`/events/${booking!.event.id}`}>View event</Link>
+        {downloadError ? <p role="alert" className="mt-3 text-sm text-danger">{downloadError}</p> : null}
+        <Link className="mt-5 inline-flex h-11 items-center justify-center rounded-full border border-line/8 px-5 text-sm font-medium" href={`/events/${booking!.event.id}`}>View event</Link>
       </section>
     </main>
   );

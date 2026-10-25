@@ -274,7 +274,7 @@ export function MemberApp({
               />
             ))}
           </nav>
-          <div className="mt-auto border-t border-black/5 pt-3">
+          <div className="mt-auto border-t border-line/5 pt-3">
             <PrivacyPolicyLink />
           </div>
         </aside>
@@ -288,7 +288,7 @@ export function MemberApp({
         </section>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.05] bg-surface/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line/[0.05] bg-surface/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
         <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${visibleBottomTabs.length}, minmax(0, 1fr))` }}>
           {visibleBottomTabs.map((tab) => (
             <AppNavButton

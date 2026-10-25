@@ -229,7 +229,7 @@ export function AdminEventForm({ token, mode, eventId }: {
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center">
           <button
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-line/8"
             type="button"
             onClick={closeForm}
             aria-label="Back to events"
@@ -248,7 +248,7 @@ export function AdminEventForm({ token, mode, eventId }: {
         {isLoadingEvent ? (
           <FormSkeleton label="Loading event" fields={6} />
         ) : isEditing && !editingEvent ? (
-          <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
+          <div className="grid min-h-90 place-items-center rounded-3xl border border-line/5 p-6 text-center">
             <div>
               <h2 className="text-xl font-semibold">Event unavailable</h2>
               <p className="mt-2 text-sm text-ink-600">

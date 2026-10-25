@@ -132,7 +132,7 @@ function PendingEventCheckoutReview({
 }) {
   if (preview.status === "loading" || preview.status === "idle") {
     return (
-      <div className="mb-4 rounded-[22px] border border-black/5 bg-surface-muted p-5">
+      <div className="mb-4 rounded-[22px] border border-line/5 bg-surface-muted p-5">
         <LoadingState label="Loading checkout" />
       </div>
     );
@@ -160,7 +160,7 @@ function PendingEventCheckoutReview({
   const totalKobo = MEMBERSHIP_AMOUNT_KOBO + ticketTotalKobo;
 
   return (
-    <div className="mb-4 rounded-[24px] border border-black/5 bg-surface-muted p-4">
+    <div className="mb-4 rounded-[24px] border border-line/5 bg-surface-muted p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Checkout review</p>
       <h2 className="mt-2 text-lg font-semibold text-ink">{preview.event.title}</h2>
       <p className="mt-1 text-sm font-medium text-ink-600">{formatEventDate(preview.event.startsAt)}</p>
@@ -169,7 +169,7 @@ function PendingEventCheckoutReview({
         <CheckoutRow label="Membership" value={formatNaira(MEMBERSHIP_AMOUNT_KOBO)} />
         <CheckoutRow label="Ticket" value={`${normalizeTicketTierName(ticketType.name)} x ${checkout.quantity}`} />
         <CheckoutRow label="Ticket total" value={formatNaira(ticketTotalKobo)} />
-        <div className="h-px bg-black/5" />
+        <div className="h-px bg-ink/5" />
         <CheckoutRow label="Total" value={formatNaira(totalKobo)} strong />
       </div>
     </div>

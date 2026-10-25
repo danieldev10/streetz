@@ -371,7 +371,7 @@ export function EventTicketsTab({
         <div className="mb-4 flex items-center gap-2">
           <ActionButton
             trackNavigation icon={<ArrowLeft className="size-4" aria-hidden="true" />}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 md:w-auto md:gap-2 md:bg-surface md:px-4"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/8 md:w-auto md:gap-2 md:bg-surface md:px-4"
             type="button"
             onClick={() => router.push(view === "tickets" ? `/events/${eventId}` : "/events")}
             aria-label={view === "tickets" ? "Back to event details" : "Back to events"}
@@ -384,7 +384,7 @@ export function EventTicketsTab({
               {view === "details" && (tickets.length > 0 || guestTicketsUrl) ? (
                 <ActionButton trackNavigation type="button"
                   icon={<Ticket className="size-4 shrink-0" aria-hidden="true" />}
-                  className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-black/8 px-3 text-xs font-semibold sm:px-4 sm:text-sm"
+                  className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-line/8 px-3 text-xs font-semibold sm:px-4 sm:text-sm"
                   onClick={() => {
                     if (isGuest && guestTicketsUrl) window.location.assign(guestTicketsUrl);
                     else router.push(`/events/${eventId}/tickets`);
@@ -393,7 +393,7 @@ export function EventTicketsTab({
                 </ActionButton>
               ) : null}
               <ActionButton type="button" isLoading={isBusy}
-                className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full bg-ink px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-sm"
+                className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full bg-action px-3 text-xs font-semibold text-action-foreground disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-sm"
                 onClick={openTicketCheckout} disabled={!canBookMore || isBusy}>
                 Get tickets
               </ActionButton>
@@ -416,7 +416,7 @@ export function EventTicketsTab({
         ) : event ? (
           <div className="grid grid-cols-1 gap-4">
             {view === "details" ? (
-              <article className="overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] lg:grid lg:grid-cols-2 lg:items-start">
+              <article className="overflow-hidden rounded-3xl border border-line/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] lg:grid lg:grid-cols-2 lg:items-start">
                 <div className="relative bg-surface-muted lg:sticky lg:top-24 lg:m-5 lg:mr-0 lg:overflow-hidden lg:rounded-2xl">
                   <Image
                     src={event.coverImage || FALLBACK_EVENT_IMAGE}
@@ -456,7 +456,7 @@ export function EventTicketsTab({
                     </p>
                   ) : null}
                   {event.description ? (
-                    <div className="mt-5 border-t border-black/5 pt-4">
+                    <div className="mt-5 border-t border-line/5 pt-4">
                       <h2 className="text-base font-semibold">About this event</h2>
                       <p className="mt-2 whitespace-pre-wrap wrap-break-word text-sm leading-7 text-ink-600 lg:text-base lg:leading-8">{event.description}</p>
                     </div>
@@ -473,7 +473,7 @@ export function EventTicketsTab({
                       ) : (
                         <UsersRound className="size-4" aria-hidden="true" />
                       )}
-                      className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-4 text-sm font-medium text-ink transition hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
+                      className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-line/8 bg-surface px-4 text-sm font-medium text-ink transition hover:border-brand disabled:cursor-not-allowed disabled:opacity-60"
                       type="button"
                       onClick={() => openEventRoom()}
                       disabled={isRoomBusy}
@@ -501,7 +501,7 @@ export function EventTicketsTab({
               <div className="grid grid-cols-1 gap-3">
                 {tickets.length > 0 ? (
                   <ActionButton type="button" onClick={downloadTickets} icon={<Download className="size-4" aria-hidden="true" />}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface px-5 text-sm font-medium text-ink">
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-line/8 bg-surface px-5 text-sm font-medium text-ink">
                     Download tickets
                   </ActionButton>
                 ) : null}
@@ -511,7 +511,7 @@ export function EventTicketsTab({
                     const Icon = state.icon;
 
                     return (
-                      <article key={ticket.id} className="min-w-0 rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+                      <article key={ticket.id} className="min-w-0 rounded-3xl border border-line/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
                         <TicketQrCode code={ticket.code} available={event.status !== "CANCELLED" && ["PAID", "CONFIRMED"].includes(ticket.status)} />
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                           <div className="min-w-0">
@@ -528,7 +528,7 @@ export function EventTicketsTab({
                           <div className="flex shrink-0 items-center gap-2">
                             <ActionButton
                               icon={<Share2 className="size-4" aria-hidden="true" />}
-                              className="inline-flex size-9 items-center justify-center rounded-full border border-black/8 text-ink-600 transition hover:border-brand hover:text-ink"
+                              className="inline-flex size-9 items-center justify-center rounded-full border border-line/8 text-ink-600 transition hover:border-brand hover:text-ink"
                               type="button"
                               onClick={() => shareEvent(ticket)}
                               aria-label={`Share ${event.title} ticket`}
@@ -545,7 +545,7 @@ export function EventTicketsTab({
                     );
                   })
                 ) : (
-                  <div className="grid min-h-48 place-items-center rounded-3xl border border-black/5 p-6 text-center">
+                  <div className="grid min-h-48 place-items-center rounded-3xl border border-line/5 p-6 text-center">
                     <div>
                       <Ticket className="mx-auto size-8 text-brand" aria-hidden="true" />
                       <h2 className="mt-3 text-2xl font-semibold">No tickets yet</h2>
@@ -557,7 +557,7 @@ export function EventTicketsTab({
             ) : null}
           </div>
         ) : (
-          <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
+          <div className="grid min-h-90 place-items-center rounded-3xl border border-line/5 p-6 text-center">
             <div>
               <Ticket className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">Event unavailable</h2>

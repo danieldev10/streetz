@@ -19,10 +19,10 @@ function formatSupportDate(value: string) {
 
 function statusClass(status: SupportRequest["status"]) {
   if (status === "RESOLVED") return "bg-success-tint text-success";
-  if (status === "CLOSED") return "bg-black/5 text-ink-600";
+  if (status === "CLOSED") return "bg-ink/5 text-ink-600";
   if (status === "WAITING_ON_USER") return "bg-warning-tint text-warning";
   if (status === "IN_PROGRESS") return "bg-info-tint text-info";
-  return "bg-violet-50 text-violet-700";
+  return "bg-brand-wash text-brand-strong";
 }
 
 export function SupportThread({
@@ -79,14 +79,14 @@ export function SupportThread({
     <section
       className={
         isConversation
-          ? `flex ${CHAT_PANEL_HEIGHT} flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-black/[0.07]`
-          : "overflow-hidden rounded-[24px] border border-black/[0.07] bg-surface"
+          ? `flex ${CHAT_PANEL_HEIGHT} flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-line/[0.07]`
+          : "overflow-hidden rounded-[24px] border border-line/[0.07] bg-surface"
       }
     >
-      <div className="flex shrink-0 items-start gap-3 border-b border-black/[0.06] p-5">
+      <div className="flex shrink-0 items-start gap-3 border-b border-line/[0.06] p-5">
         {backHref ? (
           <Link
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/[0.08] text-ink"
             href={backHref}
             aria-label={backLabel}
             title={backLabel}
@@ -115,7 +115,7 @@ export function SupportThread({
       <div className={isConversation ? "relative min-h-0 flex-1" : "relative"}>
         {isConversation && hasNewMessages ? (
           <button
-            className="absolute bottom-4 left-1/2 z-10 inline-flex h-10 -translate-x-1/2 items-center gap-2 rounded-full bg-ink px-4 text-xs font-semibold text-white shadow-lg"
+            className="absolute bottom-4 left-1/2 z-10 inline-flex h-10 -translate-x-1/2 items-center gap-2 rounded-full bg-action px-4 text-xs font-semibold text-action-foreground shadow-lg"
             type="button"
             onClick={() => scrollToBottom("smooth")}
           >
@@ -138,13 +138,13 @@ export function SupportThread({
                 key={message.id}
                 className={`max-w-[88%] rounded-[20px] p-4 ${
                   isOwnMessage
-                    ? "justify-self-end bg-ink text-white"
-                    : "justify-self-start border border-black/[0.06] bg-surface"
+                    ? "justify-self-end bg-action text-action-foreground"
+                    : "justify-self-start border border-line/[0.06] bg-surface"
                 }`}
               >
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <strong className="text-sm">{message.authorName}</strong>
-                  <span className={`text-xs ${isOwnMessage ? "text-white/60" : "text-ink-400"}`}>
+                  <span className={`text-xs ${isOwnMessage ? "text-action-foreground/70" : "text-ink-400"}`}>
                     {formatSupportDate(message.createdAt)}
                   </span>
                 </div>
@@ -156,13 +156,13 @@ export function SupportThread({
       </div>
 
       {canReply ? (
-        <form className="shrink-0 border-t border-black/[0.06] p-4" onSubmit={submitReply}>
+        <form className="shrink-0 border-t border-line/[0.06] p-4" onSubmit={submitReply}>
           {replyControls ? <div className="mb-3">{replyControls}</div> : null}
           <label className="sr-only" htmlFor={`support-reply-${request.id}`}>Reply</label>
           <div className="flex items-end gap-2">
             <textarea
               id={`support-reply-${request.id}`}
-              className="min-h-12 min-w-0 flex-1 resize-none rounded-[18px] border border-black/[0.1] px-4 py-3 text-sm outline-none transition focus:border-black/30"
+              className="min-h-12 min-w-0 flex-1 resize-none rounded-[18px] border border-line/[0.1] px-4 py-3 text-sm outline-none transition focus:border-line/30"
               maxLength={4_000}
               placeholder="Write a reply"
               rows={2}
@@ -172,7 +172,7 @@ export function SupportThread({
             />
             <ActionButton
               isLoading={isReplying} icon={<Send className="size-4" aria-hidden="true" />}
-              className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-ink text-white disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-action text-action-foreground disabled:cursor-not-allowed disabled:opacity-40"
               type="submit"
               disabled={!reply.trim() || isReplying}
               aria-label="Send reply"
@@ -182,7 +182,7 @@ export function SupportThread({
           {error ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
         </form>
       ) : (
-        <p className="shrink-0 border-t border-black/[0.06] p-4 text-center text-sm text-ink-500">
+        <p className="shrink-0 border-t border-line/[0.06] p-4 text-center text-sm text-ink-500">
           {closedMessage}
         </p>
       )}

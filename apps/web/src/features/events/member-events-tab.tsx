@@ -429,7 +429,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
                 <p className="text-xs font-medium uppercase tracking-[0.08em] text-ink-400">Filters</p>
                 <h2 className="mt-1 text-xl font-semibold text-ink">Location</h2>
               </div>
-              <button className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-ink" type="button" onClick={() => setIsEventFilterOpen(false)} aria-label="Close filters">
+              <button className="inline-flex size-10 items-center justify-center rounded-full border border-line/8 text-ink" type="button" onClick={() => setIsEventFilterOpen(false)} aria-label="Close filters">
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
@@ -438,7 +438,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 State
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                  className="h-12 rounded-full border border-line/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   value={eventFilterState}
                   onChange={(inputEvent) => {
                     setEventFilterState(inputEvent.target.value);
@@ -452,7 +452,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
               <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 City
                 <select
-                  className="h-12 rounded-full border border-black/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-surface-muted disabled:text-ink-300"
+                  className="h-12 rounded-full border border-line/8 bg-surface px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-surface-muted disabled:text-ink-300"
                   value={eventFilterCity}
                   onChange={(inputEvent) => setEventFilterCity(inputEvent.target.value)}
                   disabled={!eventFilterState}
@@ -465,7 +465,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
 
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button
-                className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-line/8 px-4 text-sm font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-50"
                 type="button"
                 onClick={() => {
                   setEventFilterState("");
@@ -475,7 +475,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
               >
                 Clear
               </button>
-              <button className="inline-flex h-12 items-center justify-center rounded-full bg-ink px-4 text-sm font-medium text-white" type="button" onClick={() => setIsEventFilterOpen(false)}>
+              <button className="inline-flex h-12 items-center justify-center rounded-full bg-action px-4 text-sm font-medium text-action-foreground" type="button" onClick={() => setIsEventFilterOpen(false)}>
                 Done
               </button>
             </div>
@@ -500,16 +500,16 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
         </h1>
         <div className="mb-4 flex items-center gap-3 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,15rem)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)_minmax(0,1fr)]">
           {!isGuest ? (
-            <div className="grid flex-1 grid-cols-2 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium md:col-start-2" role="group" aria-label="Event views">
-              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("events")}>Events</button>
-              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-ink text-white" : "text-ink-600"}`} onClick={() => setEventViewMode("history")}>History</button>
+            <div className="grid flex-1 grid-cols-2 rounded-full border border-line/5 bg-surface-muted p-1 text-sm font-medium md:col-start-2" role="group" aria-label="Event views">
+              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "events" ? "bg-action text-action-foreground" : "text-ink-600"}`} onClick={() => setEventViewMode("events")}>Events</button>
+              <button type="button" className={`rounded-full px-3 py-2 ${eventViewMode === "history" ? "bg-action text-action-foreground" : "text-ink-600"}`} onClick={() => setEventViewMode("history")}>History</button>
             </div>
           ) : null}
           <div className="ml-auto flex min-w-0 items-center justify-end gap-2 md:col-start-3 md:ml-0">
             {!isLoadingEvents ? <span className="hidden shrink-0 text-xs font-medium text-ink-500 md:inline" role="status">{visibleMemberEvents.length} {visibleMemberEvents.length === 1 ? "event" : "events"}</span> : null}
             {eventViewMode === "events" ? (
               <button
-                className={`relative inline-flex size-10 items-center justify-center rounded-full border text-ink lg:w-auto lg:min-w-0 lg:max-w-40 lg:gap-2 lg:px-4 ${hasEventLocationFilter ? "border-brand bg-brand-tint" : "border-black/8 bg-surface"}`}
+                className={`relative inline-flex size-10 items-center justify-center rounded-full border text-ink lg:w-auto lg:min-w-0 lg:max-w-40 lg:gap-2 lg:px-4 ${hasEventLocationFilter ? "border-brand bg-brand-tint" : "border-line/8 bg-surface"}`}
                 type="button"
                 onClick={() => setIsEventFilterOpen(true)}
                 aria-label="Filter events"
@@ -517,7 +517,7 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
                 <SlidersHorizontal className="size-4 shrink-0" aria-hidden="true" />
                 <span className="hidden truncate text-sm font-medium lg:inline">{eventFilterCity || eventFilterState || "Location"}</span>
                 {hasEventLocationFilter ? (
-                  <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-strong text-[9px] font-semibold text-white">
+                  <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-brand-solid text-[9px] font-semibold text-white">
                     {[eventFilterState, eventFilterCity].filter(Boolean).length}
                   </span>
                 ) : null}
@@ -529,11 +529,11 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
         <EventCategorySlider>
           <button
             type="button"
-            className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium md:flex md:w-auto md:items-center md:rounded-full md:border md:px-3 md:py-2 ${eventFilterCategory ? "text-ink-600 md:border-black/8 md:bg-surface" : "text-ink md:border-brand/30 md:bg-brand-tint"}`}
+            className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium md:flex md:w-auto md:items-center md:rounded-full md:border md:px-3 md:py-2 ${eventFilterCategory ? "text-ink-600 md:border-line/8 md:bg-surface" : "text-ink md:border-brand/30 md:bg-brand-tint"}`}
             onClick={() => setEventFilterCategory("")}
             aria-pressed={!eventFilterCategory}
           >
-            <span className={`grid size-14 place-items-center rounded-full border md:size-5 md:border-0 md:bg-transparent! ${eventFilterCategory ? "border-black/8 bg-surface" : "border-brand bg-brand-tint"}`}>
+            <span className={`grid size-14 place-items-center rounded-full border md:size-5 md:border-0 md:bg-transparent! ${eventFilterCategory ? "border-line/8 bg-surface" : "border-brand bg-brand-tint"}`}>
               <Sparkles className="size-5 md:size-4" aria-hidden="true" />
             </span>
             All
@@ -547,11 +547,11 @@ export function MemberEventsTab({ token, user, initialEvents, onAuthRequired }: 
               <button
                 key={category}
                 type="button"
-                className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium md:flex md:w-auto md:items-center md:rounded-full md:border md:px-3 md:py-2 ${isActiveCategory ? "text-ink md:border-brand/30 md:bg-brand-tint" : "text-ink-600 md:border-black/8 md:bg-surface"} ${hasCategoryEvents ? "" : "opacity-55"}`}
+                className={`grid w-[5.5rem] shrink-0 justify-items-center gap-2 text-center text-xs font-medium md:flex md:w-auto md:items-center md:rounded-full md:border md:px-3 md:py-2 ${isActiveCategory ? "text-ink md:border-brand/30 md:bg-brand-tint" : "text-ink-600 md:border-line/8 md:bg-surface"} ${hasCategoryEvents ? "" : "opacity-55"}`}
                 onClick={() => setEventFilterCategory(category)}
                 aria-pressed={isActiveCategory}
               >
-                <span className={`grid size-14 place-items-center rounded-full border md:size-5 md:border-0 md:bg-transparent! ${isActiveCategory ? "border-brand bg-brand-tint" : "border-black/8 bg-surface"}`}>
+                <span className={`grid size-14 place-items-center rounded-full border md:size-5 md:border-0 md:bg-transparent! ${isActiveCategory ? "border-brand bg-brand-tint" : "border-line/8 bg-surface"}`}>
                   <Icon className="size-5 md:size-4" aria-hidden="true" />
                 </span>
                 <span className="leading-tight md:whitespace-nowrap">{category}</span>

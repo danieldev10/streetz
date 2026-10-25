@@ -71,17 +71,17 @@ function MemberSupportConversation({
     <section className="min-h-[calc(100vh-80px)] bg-surface-sunken px-0 md:min-h-screen md:px-8 md:py-8">
       <div className="mx-auto max-w-3xl">
         {isLoading ? (
-          <div className={`${CHAT_PANEL_HEIGHT} animate-pulse bg-black/5 md:rounded-[24px]`} />
+          <div className={`${CHAT_PANEL_HEIGHT} animate-pulse bg-ink/5 md:rounded-[24px]`} />
         ) : null}
 
         {!isLoading && error ? (
-          <section className="mx-5 rounded-[24px] border border-black/[0.07] bg-surface p-7 text-center md:mx-0">
+          <section className="mx-5 rounded-[24px] border border-line/[0.07] bg-surface p-7 text-center md:mx-0">
             <h1 className="text-xl font-semibold">This support request is unavailable</h1>
             <p className="mt-2 text-sm leading-6 text-ink-600">
               It may not belong to this account, or it may no longer be available.
             </p>
             <Link
-              className="mt-5 inline-flex h-11 items-center rounded-full bg-ink px-5 text-sm font-medium text-white"
+              className="mt-5 inline-flex h-11 items-center rounded-full bg-action px-5 text-sm font-medium text-action-foreground"
               href="/support/requests"
             >
               Back to requests

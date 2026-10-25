@@ -4,6 +4,8 @@ import { ToastProvider } from "@/components/app/toast-provider";
 import { QueryProvider } from "@/components/app/query-provider";
 import { MarketingConsent } from "@/components/marketing-consent";
 import { WebsiteAnalytics } from "@/components/website-analytics";
+import { themeBootstrapScript } from "@/lib/theme";
+import { ThemeSync } from "@/components/theme-picker";
 import "./globals.css";
 
 function getOrigin(value: string | undefined) {
@@ -40,13 +42,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" data-theme="light" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         {resourceHintOrigins.map((origin) => (
           <link key={origin} rel="preconnect" href={origin} crossOrigin="" />
         ))}
       </head>
       <body className="min-h-full flex flex-col">
+        <ThemeSync />
         <ToastProvider>
           <QueryProvider>
             <SessionProvider><MarketingConsent>{children}<WebsiteAnalytics /></MarketingConsent></SessionProvider>

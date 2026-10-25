@@ -7,11 +7,12 @@ import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth-constraints
 import { BrandLogo } from "@/components/brand-logo";
 import type { StreetzUser } from "@/lib/types";
 import { useTrafficView } from "@/components/website-analytics";
+import { ThemeControl } from "@/components/theme-picker";
 
 export function CenteredShell({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <main className="grid min-h-screen place-items-center bg-surface px-4 text-ink">
-      <section className="w-full max-w-sm rounded-3xl border border-black/5 bg-surface p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+      <section className="w-full max-w-sm rounded-3xl border border-line/5 bg-surface p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
         <p className="text-3xl font-semibold text-ink">{title}</p>
         <p className="mt-2 text-sm font-medium text-ink-600">{subtitle}</p>
       </section>
@@ -52,9 +53,10 @@ export function AuthShell({
 }: AuthShellProps) {
   useTrafficView(`auth:${authMode}`, authMode === "login" ? "LOGIN" : "SIGNUP");
   return (
-    <main className="min-h-screen bg-surface text-ink">
-      <section className="mx-auto grid min-h-screen w-full max-w-6xl content-center items-center gap-5 px-5 py-8 md:grid-cols-[1fr_420px] md:gap-8 md:px-8">
-        <div className="relative overflow-hidden rounded-4xl border border-black/5 bg-[linear-gradient(180deg,var(--color-brand-wash)_0%,var(--color-surface)_100%)] p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)] md:p-10">
+    <main className="relative min-h-screen bg-surface text-ink">
+      <div className="absolute right-5 top-4 z-30"><ThemeControl /></div>
+      <section className="mx-auto grid min-h-screen w-full max-w-6xl content-center items-center gap-5 px-5 py-20 md:grid-cols-[1fr_420px] md:gap-8 md:px-8">
+        <div className="relative overflow-hidden rounded-4xl border border-line/5 bg-[linear-gradient(180deg,var(--color-brand-wash)_0%,var(--color-surface)_100%)] p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)] md:p-10">
 
           <h1 className="sr-only">Crushclub</h1>
           <BrandLogo size="hero" priority />
@@ -63,18 +65,18 @@ export function AuthShell({
           </p>
         </div>
 
-        <form onSubmit={onSubmit} className="rounded-3xl border border-black/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-          <div className="grid grid-cols-2 rounded-full border border-black/5 bg-surface-muted p-1 text-sm font-medium">
+        <form onSubmit={onSubmit} className="rounded-3xl border border-line/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+          <div className="grid grid-cols-2 rounded-full border border-line/5 bg-surface-muted p-1 text-sm font-medium">
             <button
               type="button"
-              className={`rounded-full px-4 py-2 ${authMode === "login" ? "bg-ink text-white" : "text-ink-600"}`}
+              className={`rounded-full px-4 py-2 ${authMode === "login" ? "bg-action text-action-foreground" : "text-ink-600"}`}
               onClick={() => onModeChange("login")}
             >
               Login
             </button>
             <button
               type="button"
-              className={`rounded-full px-4 py-2 ${authMode === "register" ? "bg-ink text-white" : "text-ink-600"}`}
+              className={`rounded-full px-4 py-2 ${authMode === "register" ? "bg-action text-action-foreground" : "text-ink-600"}`}
               onClick={() => onModeChange("register")}
             >
               Create
@@ -86,7 +88,7 @@ export function AuthShell({
               <label className="grid gap-2 text-sm font-medium">
                 Display name
                 <input
-                  className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                  className="h-12 rounded-full border border-line/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   value={displayName}
                   onChange={(event) => onDisplayNameChange(event.target.value)}
                   minLength={2}
@@ -99,7 +101,7 @@ export function AuthShell({
             <label className="grid gap-2 text-sm font-medium">
               Email
               <input
-                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="h-12 rounded-full border border-line/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                 type="email"
                 value={email}
                 onChange={(event) => onEmailChange(event.target.value)}
@@ -110,7 +112,7 @@ export function AuthShell({
             <label className="grid gap-2 text-sm font-medium">
               Password
               <input
-                className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="h-12 rounded-full border border-line/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                 type="password"
                 value={password}
                 onChange={(event) => onPasswordChange(event.target.value)}
@@ -121,9 +123,9 @@ export function AuthShell({
             </label>
 
             {authMode === "register" ? (
-              <label className="flex items-start gap-3 rounded-2xl border border-black/8 bg-surface-muted p-3 text-sm font-medium text-ink-700">
+              <label className="flex items-start gap-3 rounded-2xl border border-line/8 bg-surface-muted p-3 text-sm font-medium text-ink-700">
                 <input
-                  className="mt-0.5 size-4 rounded border-black/20 accent-brand"
+                  className="mt-0.5 size-4 rounded border-line/20 accent-brand"
                   type="checkbox"
                   checked={ageConfirmed}
                   onChange={(event) => onAgeConfirmedChange(event.target.checked)}
@@ -139,7 +141,7 @@ export function AuthShell({
           <ActionButton
             isLoading={isSubmitting}
             type="submit"
-            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
           >
             {authMode === "register" ? "Create account" : "Login"}
@@ -181,7 +183,7 @@ export function PaywallShell({
 }) {
   return (
     <main className="grid min-h-screen place-items-center bg-surface px-5 py-8 text-ink">
-      <section className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+      <section className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-line/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
         <div className="bg-[linear-gradient(180deg,var(--color-brand-wash)_0%,var(--color-surface)_100%)] p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -189,7 +191,7 @@ export function PaywallShell({
               <p className="mt-2 text-sm font-medium text-ink-600">{user.displayName}</p>
             </div>
             <button
-              className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-surface text-ink"
+              className="inline-flex size-10 items-center justify-center rounded-full border border-line/8 bg-surface text-ink"
               onClick={onLogout}
               aria-label="Logout"
               title="Logout"
@@ -207,7 +209,7 @@ export function PaywallShell({
 
           <ActionButton
             isLoading={isStartingPayment}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand-strong px-5 text-sm font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand-solid px-5 text-sm font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:cursor-not-allowed disabled:opacity-60"
             onClick={onStartSubscription}
             disabled={isStartingPayment || isActionDisabled}
           >
@@ -280,14 +282,14 @@ export function AccountStatusShell({
 
   return (
     <main className="grid min-h-screen place-items-center bg-surface px-5 py-8 text-ink">
-      <section className="w-full max-w-xl rounded-[28px] border border-black/5 bg-surface p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+      <section className="w-full max-w-xl rounded-[28px] border border-line/5 bg-surface p-6 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <BrandLogo size="header" priority />
             <p className="mt-2 text-sm font-medium text-ink-600">{user.displayName}</p>
           </div>
           <button
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 bg-surface text-ink"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-line/8 bg-surface text-ink"
             onClick={onLogout}
             aria-label="Logout"
             title="Logout"
@@ -310,7 +312,7 @@ export function AccountStatusShell({
           <div className="mt-6">
             <ActionButton
               isLoading={isSubmitting} icon={<RotateCcw className="size-4" aria-hidden="true" />}
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand-strong px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand-solid px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               type="button"
               onClick={onReactivate}
               disabled={isSubmitting}

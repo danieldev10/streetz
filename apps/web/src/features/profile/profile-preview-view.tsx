@@ -24,10 +24,10 @@ export function ProfilePreviewView({
   onBack: () => void;
 }) {
   return (
-    <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
+    <article className="overflow-hidden rounded-[28px] border border-line/[0.05] bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
       <div className="relative aspect-[4/5] min-h-[420px] bg-brand-tint">
         <button
-          className="absolute left-4 top-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-surface/95 text-ink shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur"
+          className="absolute left-4 top-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-line/[0.08] bg-surface/95 text-ink shadow-[0_2px_8px_rgba(0,0,0,0.12)] backdrop-blur"
           type="button"
           onClick={onBack}
           aria-label="Back to profile"

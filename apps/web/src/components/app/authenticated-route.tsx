@@ -57,12 +57,12 @@ function LoadingShell({ activeTab }: { activeTab: TabKey }) {
         <aside className={appSidebarClassName}>
           <div className="animate-pulse" aria-hidden="true">
             <div className="flex items-center gap-3 px-2 py-1">
-              <div className="size-11 rounded-2xl bg-black/5" />
-              <div className="h-7 w-24 rounded-full bg-black/5" />
+              <div className="size-11 rounded-2xl bg-ink/5" />
+              <div className="h-7 w-24 rounded-full bg-ink/5" />
             </div>
             <div className="mt-8 grid gap-2">
               {Array.from({ length: 6 }, (_, index) => (
-                <div key={index} className="h-12 rounded-2xl bg-black/[0.04]" />
+                <div key={index} className="h-12 rounded-2xl bg-ink/[0.04]" />
               ))}
             </div>
           </div>
@@ -70,13 +70,13 @@ function LoadingShell({ activeTab }: { activeTab: TabKey }) {
 
         <section className={appContentClassName}>
           <DesktopHeader activeTab={activeTab}>
-            <div className="h-12 w-36 animate-pulse rounded-full bg-black/5" aria-hidden="true" />
+            <div className="h-12 w-36 animate-pulse rounded-full bg-ink/5" aria-hidden="true" />
           </DesktopHeader>
-          <div className="sticky top-0 z-10 border-b border-black/[0.05] bg-surface/90 px-5 py-4 backdrop-blur md:hidden">
+          <div className="sticky top-0 z-10 border-b border-line/[0.05] bg-surface/90 px-5 py-4 backdrop-blur md:hidden">
             <div className="grid grid-cols-[44px_1fr_44px] items-center" aria-hidden="true">
-              <div className="size-11 animate-pulse rounded-full bg-black/5" />
+              <div className="size-11 animate-pulse rounded-full bg-ink/5" />
               <div className="justify-self-center">
-                <div className="size-14 animate-pulse rounded-2xl bg-black/5" />
+                <div className="size-14 animate-pulse rounded-2xl bg-ink/5" />
               </div>
               <span className="size-11" />
             </div>

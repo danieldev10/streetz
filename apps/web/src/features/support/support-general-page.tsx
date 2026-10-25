@@ -39,14 +39,14 @@ const supportDestinations: Array<{
 export function SupportGeneralPage() {
   return (
     <SupportShell>
-      <section className="overflow-hidden rounded-[32px] bg-ink p-7 text-white md:p-10">
+      <section className="overflow-hidden rounded-[32px] bg-action p-7 text-action-foreground md:p-10">
         <div className="max-w-2xl">
           <div className="inline-flex items-center gap-2 rounded-full bg-surface/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
             <LifeBuoy className="size-4" aria-hidden="true" />
             Support centre
           </div>
           <h1 className="mt-5 text-3xl font-semibold tracking-tight md:text-5xl">How can we help?</h1>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-white/70 md:text-base">
+          <p className="mt-4 max-w-xl text-sm leading-7 text-action-foreground/70 md:text-base">
             Find quick answers or send our team a request. Every request gets a reference and a
             private conversation.
           </p>
@@ -59,7 +59,7 @@ export function SupportGeneralPage() {
           return (
             <Link
               key={destination.href}
-              className="group rounded-[24px] border border-black/[0.06] bg-surface p-5 transition hover:border-black/15 hover:shadow-[0_10px_30px_rgba(0,0,0,0.04)]"
+              className="group rounded-[24px] border border-line/[0.06] bg-surface p-5 transition hover:border-line/15 hover:shadow-[0_10px_30px_rgba(0,0,0,0.04)]"
               href={destination.href}
             >
               <div className="flex items-center justify-between">

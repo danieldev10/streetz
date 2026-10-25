@@ -36,7 +36,7 @@ export function EventCategorySlider({ children }: { children: ReactNode }) {
     <div className="-mx-5 mb-4 flex min-w-0 items-center gap-2 md:mx-0 md:mb-6" role="group" aria-label="Event categories">
       <button
         type="button"
-        className="hidden size-8 shrink-0 items-center justify-center rounded-full border border-black/8 bg-surface text-ink transition disabled:opacity-30 md:inline-flex"
+        className="hidden size-8 shrink-0 items-center justify-center rounded-full border border-line/8 bg-surface text-ink transition disabled:opacity-30 md:inline-flex"
         aria-label="Previous categories"
         disabled={!canScrollBack}
         onClick={() => scrollCategories(-1)}
@@ -50,7 +50,7 @@ export function EventCategorySlider({ children }: { children: ReactNode }) {
       </div>
       <button
         type="button"
-        className="hidden size-8 shrink-0 items-center justify-center rounded-full border border-black/8 bg-surface text-ink transition disabled:opacity-30 md:inline-flex"
+        className="hidden size-8 shrink-0 items-center justify-center rounded-full border border-line/8 bg-surface text-ink transition disabled:opacity-30 md:inline-flex"
         aria-label="Next categories"
         disabled={!canScrollForward}
         onClick={() => scrollCategories(1)}

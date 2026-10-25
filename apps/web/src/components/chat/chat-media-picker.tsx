@@ -71,7 +71,7 @@ export function ChatMediaPicker({ onEmoji, onGif, disabled }: {
       </button>
 
       {panel ? (
-        <div className="absolute bottom-full left-0 z-40 mb-3 w-[min(22rem,calc(100vw-2rem))] rounded-[24px] border border-black/8 bg-surface p-3 shadow-[0_18px_55px_rgba(0,0,0,0.18)]">
+        <div className="absolute bottom-full left-0 z-40 mb-3 w-[min(22rem,calc(100vw-2rem))] rounded-[24px] border border-line/8 bg-surface p-3 shadow-[0_18px_55px_rgba(0,0,0,0.18)]">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-semibold">{panel === "emoji" ? "Emoji" : "Choose a GIF"}</p>
             <button type="button" className="inline-flex size-8 items-center justify-center rounded-full hover:bg-surface-muted" onClick={() => setPanel(null)} aria-label="Close picker"><X className="size-4" /></button>
@@ -84,7 +84,7 @@ export function ChatMediaPicker({ onEmoji, onGif, disabled }: {
             <>
               <div className="mb-3 flex gap-2" role="search">
                 <input
-                  className="h-10 min-w-0 flex-1 rounded-full border border-black/8 px-3 text-sm outline-none focus:border-brand"
+                  className="h-10 min-w-0 flex-1 rounded-full border border-line/8 px-3 text-sm outline-none focus:border-brand"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   onKeyDown={(event) => {
@@ -97,7 +97,7 @@ export function ChatMediaPicker({ onEmoji, onGif, disabled }: {
                   maxLength={50}
                 />
                 <ActionButton
-                  isLoading={isSearching} icon={<Search className="size-4" />} type="button" className="inline-flex size-10 items-center justify-center rounded-full bg-ink text-white" onClick={() => searchGifs()} aria-label="Search GIFs"></ActionButton>
+                  isLoading={isSearching} icon={<Search className="size-4" />} type="button" className="inline-flex size-10 items-center justify-center rounded-full bg-action text-action-foreground" onClick={() => searchGifs()} aria-label="Search GIFs"></ActionButton>
               </div>
               {error ? <p className="rounded-xl bg-danger-tint p-3 text-xs text-danger">{error}</p> : null}
               <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto">

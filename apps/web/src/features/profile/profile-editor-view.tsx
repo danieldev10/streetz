@@ -72,7 +72,7 @@ export function ProfileEditorView({
         onUploadPhoto={onUploadPhoto}
       />
 
-      <section className="rounded-[24px] border border-black/[0.05] bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+      <section className="rounded-[24px] border border-line/[0.05] bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
         <div className="flex items-start gap-3">
           <div className="relative size-16 shrink-0 overflow-hidden rounded-[18px] bg-brand-tint">
             <ProfilePhotoImage
@@ -103,7 +103,7 @@ export function ProfileEditorView({
           </Field>
           <Field label="Bio">
             <textarea
-              className="min-h-24 rounded-[18px] border border-black/[0.08] p-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="min-h-24 rounded-[18px] border border-line/[0.08] p-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               placeholder="Tell people a bit about yourself"
               value={form.bio}
               onChange={(event) => onChangeForm({ bio: event.target.value })}
@@ -207,7 +207,7 @@ export function ProfileEditorView({
               </select>
             </Field>
           </div>
-          <div className="rounded-[18px] border border-black/[0.06] bg-surface-muted p-3">
+          <div className="rounded-[18px] border border-line/[0.06] bg-surface-muted p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-ink">GPS distance</p>
@@ -217,7 +217,7 @@ export function ProfileEditorView({
               </div>
               <ActionButton
                 isLoading={isDetectingLocation} icon={<MapPin className="size-4" aria-hidden="true" />}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-line/[0.08] bg-surface px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={onDetectLocation}
                 disabled={isDetectingLocation || isSaving}
@@ -241,7 +241,7 @@ export function ProfileEditorView({
         <div className="mt-4 flex justify-end">
           <ActionButton
             isLoading={isSaving}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSaving}
           >
             {isSetupMode ? "Complete setup" : "Save"}
@@ -266,7 +266,7 @@ function ProfilePhotosEditor({
   onUploadPhoto: (event: ChangeEvent<HTMLInputElement>, index?: number) => void;
 }) {
   return (
-    <section className="rounded-[24px] border border-black/[0.05] bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+    <section className="rounded-[24px] border border-line/[0.05] bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Profile photo</h2>
@@ -280,7 +280,7 @@ function ProfilePhotosEditor({
       </div>
 
       <div className="mt-4 max-w-[240px]">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-[20px] border border-black/[0.06] bg-brand-tint">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-[20px] border border-line/[0.06] bg-brand-tint">
           {photo ? (
             <ProfilePhotoImage
               photo={photo}
@@ -355,7 +355,7 @@ function InterestsEditor({
           {selectedInterests.map((interest) => (
             <button
               key={interest}
-              className="inline-flex h-9 items-center gap-2 rounded-full bg-ink px-3 text-sm font-medium text-white"
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-action px-3 text-sm font-medium text-action-foreground"
               type="button"
               onClick={() => onRemove(interest)}
               aria-label={`Remove ${interest}`}
@@ -369,7 +369,7 @@ function InterestsEditor({
 
       <input
         id="profile-interest-search"
-        className="h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-300"
+        className="h-12 rounded-full border border-line/[0.08] px-4 text-sm font-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-300"
         placeholder={canAddMore ? "Search interests" : "Interest limit reached"}
         value={interestQuery}
         onChange={(event) => onChangeQuery(event.target.value)}
@@ -382,7 +382,7 @@ function InterestsEditor({
           {suggestedInterests.map((interest) => (
             <button
               key={interest}
-              className="inline-flex h-9 items-center justify-center rounded-full border border-black/[0.08] bg-surface px-3 text-sm font-medium text-ink-700 transition hover:border-brand hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-9 items-center justify-center rounded-full border border-line/[0.08] bg-surface px-3 text-sm font-medium text-ink-700 transition hover:border-brand hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
               type="button"
               onClick={() => onAdd(interest)}
               disabled={!canAddMore}
@@ -406,4 +406,4 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 const inputClassName =
-  "h-12 rounded-full border border-black/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand";
+  "h-12 rounded-full border border-line/[0.08] px-4 text-sm font-normal normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand";

@@ -37,7 +37,7 @@ export function GuestDiscoveryTab({ onRequireAuth }: { onRequireAuth: () => void
       <DiscoveryToolbar description="A preview of people in the pool. Log in to connect.">
         <button
           type="button"
-          className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-4 text-sm font-semibold text-ink-600 shadow-[0_8px_24px_rgba(0,0,0,0.14)] md:static md:z-auto md:h-10 md:min-w-0 md:shadow-none"
+          className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border border-line/[0.08] bg-surface px-4 text-sm font-semibold text-ink-600 shadow-[0_8px_24px_rgba(0,0,0,0.14)] md:static md:z-auto md:h-10 md:min-w-0 md:shadow-none"
           onClick={onRequireAuth}
           aria-label="Enter discovery pool"
         >
@@ -46,7 +46,7 @@ export function GuestDiscoveryTab({ onRequireAuth }: { onRequireAuth: () => void
         </button>
         <button
           type="button"
-          className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full bg-ink text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-ink/90 md:static md:z-auto md:h-10 md:w-auto md:gap-2 md:px-4 md:shadow-none"
+          className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full bg-action text-action-foreground shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-action/90 md:static md:z-auto md:h-10 md:w-auto md:gap-2 md:px-4 md:shadow-none"
           onClick={onRequireAuth}
           aria-label="Open discovery controls"
           aria-haspopup="dialog"
@@ -80,7 +80,7 @@ export function GuestDiscoveryTab({ onRequireAuth }: { onRequireAuth: () => void
         </div>
 
         {error ? (
-          <div className="mt-4 rounded-[22px] border border-black/[0.05] p-6 text-center" role="alert">
+          <div className="mt-4 rounded-[22px] border border-line/[0.05] p-6 text-center" role="alert">
             <p className="font-semibold">Could not load the preview</p>
             <p className="mt-2 text-sm text-ink-600">{error}</p>
             <button type="button" className="mt-4 text-sm font-semibold text-brand-strong" onClick={onRequireAuth}>Log in to discover people</button>
@@ -97,7 +97,7 @@ export function GuestDiscoveryTab({ onRequireAuth }: { onRequireAuth: () => void
             ))}
           </div>
         ) : (
-          <div className="mt-4 grid min-h-64 place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
+          <div className="mt-4 grid min-h-64 place-items-center rounded-[28px] border border-line/[0.05] p-6 text-center">
             <div>
               <UserRoundSearch className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-xl font-semibold">No profiles in the preview yet</h2>

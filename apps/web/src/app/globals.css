@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #0d0d0d;
+  color-scheme: light;
 }
 
 /*
@@ -15,6 +16,7 @@
   /* Brand purple, named by the job each shade does. */
   --color-brand: #bd40be; /* accents, focus rings, active borders */
   --color-brand-strong: #9d2a9e; /* solid fills: buttons, badges */
+  --color-brand-solid: #9d2a9e; /* retains white foreground contrast in both themes */
   --color-brand-deep: #7c1f7d; /* text sitting on a brand tint */
   --color-brand-tint: #f6e0f6; /* tinted surfaces */
   --color-brand-wash: #fbf2fb; /* faintest tint */
@@ -28,6 +30,9 @@
   --color-ink-400: #888888;
   --color-ink-300: #999999;
   --color-ink-200: #c6c6c6;
+  --color-action: #0d0d0d;
+  --color-action-foreground: #ffffff;
+  --color-line: #000000;
 
   /* Surfaces */
   --color-surface: #ffffff;
@@ -38,6 +43,7 @@
 
   /* Feedback */
   --color-danger: #b3261e;
+  --color-danger-solid: #b3261e;
   --color-danger-tint: #fdecec;
   --color-danger-border: #fecaca;
   --color-warning: #8a5a08;
@@ -52,6 +58,71 @@
 
   /* Likes and matches */
   --color-heart: #ff6b8a;
+}
+
+/* A charcoal canvas, raised plum surfaces and brighter purple text. Media and
+   QR colours stay untouched; only the interface's semantic roles change. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #121015;
+  --foreground: #f4eff7;
+  --color-brand: #da7cde;
+  --color-brand-strong: #e58ce8;
+  --color-brand-solid: #9d349f;
+  --color-brand-deep: #edb5ef;
+  --color-brand-tint: #39243e;
+  --color-brand-wash: #261c2c;
+  --color-brand-shade: #302237;
+  --color-ink: #f4eff7;
+  --color-ink-700: #dcd1e2;
+  --color-ink-600: #c2b6cb;
+  --color-ink-500: #afa1b9;
+  --color-ink-400: #a092aa;
+  --color-ink-300: #8f8199;
+  --color-ink-200: #584b62;
+  --color-action: #f0e6f4;
+  --color-action-foreground: #221727;
+  --color-line: #f4e8ff;
+  --color-surface: #1d1822;
+  --color-surface-muted: #17131c;
+  --color-surface-sunken: #121015;
+  --color-surface-shade: #2b2432;
+  --color-border-soft: #413449;
+  --color-danger: #ffa69f;
+  --color-danger-solid: #ad3029;
+  --color-danger-tint: #392127;
+  --color-danger-border: #6b3b43;
+  --color-warning: #f0c379;
+  --color-warning-tint: #332a1b;
+  --color-warning-border: #675335;
+  --color-success: #5bd8a7;
+  --color-success-deep: #88dfb6;
+  --color-success-tint: #193328;
+  --color-info: #9bc3ff;
+  --color-info-tint: #1d2c43;
+}
+
+.theme-dark-icon { display: none; }
+[data-theme="dark"] .theme-light-icon { display: none; }
+[data-theme="dark"] .theme-dark-icon { display: block; }
+
+::selection {
+  background: var(--color-brand-tint);
+  color: var(--color-brand-deep);
+}
+
+input, textarea, select {
+  accent-color: var(--color-brand-solid);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--color-ink-400);
+}
+
+/* Browser autofill should not leave white boxes in an otherwise dark form. */
+[data-theme="dark"] input:autofill {
+  -webkit-text-fill-color: var(--color-ink);
+  box-shadow: 0 0 0 1000px var(--color-surface) inset;
 }
 
 @theme inline {

@@ -534,7 +534,7 @@ export function ProfileTab({
         ) : profileView !== "preview" && !isSetupMode ? (
           <div className="mb-4 flex items-center">
             <button
-              className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] bg-surface text-ink"
+              className="inline-flex size-10 items-center justify-center rounded-full border border-line/[0.08] bg-surface text-ink"
               onClick={closeProfileEditor}
               aria-label="Back to profile"
               title="Back"
@@ -549,7 +549,7 @@ export function ProfileTab({
         {isLoadingProfile ? (
           <MediaDetailSkeleton
             label="Loading profile"
-            className="mx-auto max-w-[520px] overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+            className="mx-auto max-w-[520px] overflow-hidden rounded-[28px] border border-line/[0.05] bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
             mediaClassName="aspect-[1.05] min-h-80"
           />
         ) : (

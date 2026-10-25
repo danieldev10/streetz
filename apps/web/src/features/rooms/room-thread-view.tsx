@@ -109,11 +109,11 @@ export function RoomThreadView({
   return (
     <>
       <section className="px-0 md:px-8 md:py-8">
-        <article className={`mx-auto flex ${CHAT_PANEL_HEIGHT} max-w-3xl flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-black/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
-          <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
+        <article className={`mx-auto flex ${CHAT_PANEL_HEIGHT} max-w-3xl flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-line/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
+          <div className="flex items-center gap-3 border-b border-line/5 px-4 py-3">
             <button
               type="button"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/8 text-ink"
               onClick={onBack}
               aria-label="Back to events"
               title="Back"
@@ -146,7 +146,7 @@ export function RoomThreadView({
               <ActionButton
                 isLoading={isLeavingRoom} icon={<LogOut className="size-4" aria-hidden="true" />}
                 type="button"
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-sm font-medium md:h-10 md:w-auto md:gap-2 md:px-4"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/8 text-sm font-medium md:h-10 md:w-auto md:gap-2 md:px-4"
                 onClick={onRequestLeave}
                 disabled={isLeavingRoom}
                 aria-label={`Leave ${room.name}`}
@@ -168,7 +168,7 @@ export function RoomThreadView({
             {hasNewMessages ? (
               <button
                 type="button"
-                className="absolute bottom-4 left-1/2 z-10 inline-flex h-10 -translate-x-1/2 items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+                className="absolute bottom-4 left-1/2 z-10 inline-flex h-10 -translate-x-1/2 items-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
                 onClick={onJumpToLatest}
               >
                 <ArrowDown className="size-4" aria-hidden="true" />
@@ -205,7 +205,7 @@ export function RoomThreadView({
                         <div
                           className={`max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6 ${
                             isMine
-                              ? "rounded-br-md bg-brand-strong text-white"
+                              ? "rounded-br-md bg-brand-solid text-white"
                               : "rounded-bl-md bg-surface text-ink"
                           }`}
                         >
@@ -248,18 +248,18 @@ export function RoomThreadView({
           </div>
 
           {isAdmin || isGuest ? (
-            <div className="shrink-0 border-t border-black/5 bg-surface p-4 text-center text-sm font-medium text-ink-600">
+            <div className="shrink-0 border-t border-line/5 bg-surface p-4 text-center text-sm font-medium text-ink-600">
               <p>{readOnlyMessage ?? (isGuest ? "Read-only event chat · Guests cannot send messages" : "Moderator view only")}</p>
               {ticketHref ? (
-                <Link href={ticketHref} className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-white">
+                <Link href={ticketHref} className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-action px-5 text-sm font-medium text-action-foreground">
                   Get tickets
                 </Link>
               ) : null}
             </div>
           ) : (
-            <form onSubmit={onSubmitMessage} className="relative flex shrink-0 items-center gap-2 border-t border-black/5 bg-surface p-4">
+            <form onSubmit={onSubmitMessage} className="relative flex shrink-0 items-center gap-2 border-t border-line/5 bg-surface p-4">
               {selectedGifUrl ? (
-                <div className="absolute bottom-full left-4 mb-2 flex items-center gap-2 rounded-2xl border border-black/8 bg-surface p-2 shadow-lg">
+                <div className="absolute bottom-full left-4 mb-2 flex items-center gap-2 rounded-2xl border border-line/8 bg-surface p-2 shadow-lg">
                   <ChatGif url={selectedGifUrl} alt="Selected GIF" />
                   <button type="button" className="rounded-full px-2 py-1 text-xs font-semibold" onClick={onRemoveGif}>
                     Remove
@@ -273,7 +273,7 @@ export function RoomThreadView({
               />
               <div className="relative min-w-0 flex-1">
                 {isMentionMenuOpen ? (
-                  <div className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-y-auto rounded-[24px] border border-black/5 bg-surface p-2 shadow-[0_16px_38px_rgba(0,0,0,0.14)]">
+                  <div className="absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-y-auto rounded-[24px] border border-line/5 bg-surface p-2 shadow-[0_16px_38px_rgba(0,0,0,0.14)]">
                     {mentionSuggestions.map((member, index) => {
                       const location = [member.city, member.state].filter(Boolean).join(", ") || "Nigeria";
                       const isActiveMention = index === activeMentionSuggestionIndex;
@@ -304,7 +304,7 @@ export function RoomThreadView({
                 ) : null}
                 <input
                   ref={messageInputRef}
-                  className="h-12 w-full rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                  className="h-12 w-full rounded-full border border-line/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   placeholder="Write to the event chat or tag @name"
                   value={messageBody}
                   onChange={(event) => onMessageBodyChange(event.target.value, event.currentTarget)}
@@ -316,7 +316,7 @@ export function RoomThreadView({
               </div>
               <ActionButton
                 isLoading={isSendingMessage} icon={<SendHorizontal className="size-4" aria-hidden="true" />}
-                className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-strong text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-solid text-white disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSendingMessage || (!messageBody.trim() && !selectedGifUrl)}
                 aria-label="Send message"
                 title="Send"
@@ -345,7 +345,7 @@ export function RoomThreadView({
                 </p>
               </div>
               <button
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/8"
                 type="button"
                 onClick={onCloseLeave}
                 disabled={isLeavingRoom}
@@ -357,7 +357,7 @@ export function RoomThreadView({
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-line/8 px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={onCloseLeave}
                 disabled={isLeavingRoom}
@@ -366,7 +366,7 @@ export function RoomThreadView({
               </button>
               <ActionButton
                 isLoading={isLeavingRoom}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={onConfirmLeave}
                 disabled={isLeavingRoom}

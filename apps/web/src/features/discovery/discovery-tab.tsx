@@ -299,7 +299,7 @@ export function DiscoveryTab({
         footer={(
           <button
             type="button"
-            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white"
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground"
             onClick={() => openMessageComposer(viewedProfile)}
           >
             <MessageCircle className="size-4" aria-hidden="true" />
@@ -316,7 +316,7 @@ export function DiscoveryTab({
         <ActionButton
           isLoading={isUpdatingVisibility} icon={isInDiscoveryPool ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
           type="button"
-          className={`fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition disabled:cursor-not-allowed disabled:opacity-60 md:static md:z-auto md:h-10 md:min-w-0 md:shadow-none ${isInDiscoveryPool ? "border-brand/20 bg-brand-tint text-brand-deep" : "border-black/[0.08] bg-surface text-ink-600"}`}
+          className={`fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-5 z-30 inline-flex h-12 min-w-[7.5rem] items-center justify-center gap-2 rounded-full border px-4 text-sm font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.14)] transition disabled:cursor-not-allowed disabled:opacity-60 md:static md:z-auto md:h-10 md:min-w-0 md:shadow-none ${isInDiscoveryPool ? "border-brand/20 bg-brand-tint text-brand-deep" : "border-line/[0.08] bg-surface text-ink-600"}`}
           onClick={() => toggleDiscoveryPool()}
           disabled={isUpdatingVisibility}
           aria-pressed={isInDiscoveryPool}
@@ -327,7 +327,7 @@ export function DiscoveryTab({
         </ActionButton>
         <button
           type="button"
-          className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full bg-ink text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-ink/90 md:static md:z-auto md:h-10 md:w-auto md:gap-2 md:px-4 md:shadow-none"
+          className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-5 z-30 inline-flex size-12 items-center justify-center rounded-full bg-action text-action-foreground shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:bg-action/90 md:static md:z-auto md:h-10 md:w-auto md:gap-2 md:px-4 md:shadow-none"
           onClick={() => setIsControlsOpen(true)}
           aria-label="Open discovery controls"
           aria-haspopup="dialog"
@@ -343,7 +343,7 @@ export function DiscoveryTab({
         {notice ? <p className="rounded-[18px] bg-brand-tint p-4 text-sm font-medium text-brand-deep">{notice}</p> : null}
 
         {!isInDiscoveryPool ? (
-          <div className="grid min-h-64 place-items-center rounded-[28px] border border-black/[0.05] bg-surface-muted p-6 text-center">
+          <div className="grid min-h-64 place-items-center rounded-[28px] border border-line/[0.05] bg-surface-muted p-6 text-center">
             <div>
               <EyeOff className="mx-auto size-8 text-ink-400" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">You are out of the pool</h2>
@@ -353,7 +353,7 @@ export function DiscoveryTab({
             </div>
           </div>
         ) : isInitializing || (isSearching && !hasSearched) ? (
-          <div className="flex min-h-64 items-center justify-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center">
+          <div className="flex min-h-64 items-center justify-center rounded-[28px] border border-line/[0.05] bg-surface p-6 text-center">
             <div>
               <LoaderCircle className="mx-auto size-6 animate-spin text-brand" aria-hidden="true" />
               <p className="mt-3 text-sm font-medium text-ink-600">Finding people</p>
@@ -395,7 +395,7 @@ export function DiscoveryTab({
                 ))}
               </div>
             ) : (
-              <div className="mt-4 grid min-h-64 place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
+              <div className="mt-4 grid min-h-64 place-items-center rounded-[28px] border border-line/[0.05] p-6 text-center">
                 <div className="max-w-sm">
                   <UserRoundSearch className="mx-auto size-8 text-brand" aria-hidden="true" />
                   <h2 className="mt-3 text-2xl font-semibold">No one found yet</h2>
@@ -404,7 +404,7 @@ export function DiscoveryTab({
                   </p>
                   <button
                     type="button"
-                    className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/[0.08] px-5 text-sm font-semibold"
+                    className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-line/[0.08] px-5 text-sm font-semibold"
                     onClick={() => setIsControlsOpen(true)}
                     aria-haspopup="dialog"
                   >
@@ -418,7 +418,7 @@ export function DiscoveryTab({
               <ActionButton
                 isLoading={isLoadingMore}
                 type="button"
-                className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] text-sm font-semibold disabled:opacity-60"
+                className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-line/[0.08] text-sm font-semibold disabled:opacity-60"
                 onClick={() => loadMore()}
                 disabled={isLoadingMore}
               >
@@ -453,7 +453,7 @@ export function DiscoveryTab({
               </div>
               <button
                 type="button"
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/[0.08] text-ink"
                 onClick={() => setIsControlsOpen(false)}
                 aria-label="Close discovery controls"
               >
@@ -488,7 +488,7 @@ export function DiscoveryTab({
                 <ActionButton
                   isLoading={isSearching} icon={<Compass className="size-4" aria-hidden="true" />}
                   type="submit"
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isSearching || !isInDiscoveryPool}
                 >
                   {isSearching ? "Finding people" : "Discover"}

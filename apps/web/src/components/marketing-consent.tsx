@@ -48,7 +48,7 @@ export function MarketingConsent({ children }: { children: ReactNode }) {
       <p className="mt-2 text-sm leading-6 text-ink-600">Essential cookies keep you signed in. With your permission, we use optional cookies to measure our ads, event views, checkouts, purchases and sign-ups. You can change your choice in our <Link href="/privacy-policy" className="text-brand-strong underline">Privacy Policy</Link>.</p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <button type="button" className="min-h-11 rounded-full border border-border-soft px-4 py-3 text-sm font-semibold text-ink" onClick={() => choose(false)}>Reject optional</button>
-        <button type="button" className="min-h-11 rounded-full bg-ink px-4 py-3 text-sm font-semibold text-white" onClick={() => choose(true)}>Accept optional</button>
+        <button type="button" className="min-h-11 rounded-full bg-action px-4 py-3 text-sm font-semibold text-action-foreground" onClick={() => choose(true)}>Accept optional</button>
       </div>
       </section>}
     </CookiePreferencesContext.Provider>

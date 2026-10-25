@@ -103,7 +103,7 @@ export function GuestRoomView({ roomId, isMemberPreview = false }: { roomId: str
   if (!room) {
     return (
       <section className="px-5 py-8 md:px-8">
-        <div className="mx-auto grid min-h-72 max-w-3xl place-items-center rounded-[28px] border border-black/5 bg-surface p-6 text-center">
+        <div className="mx-auto grid min-h-72 max-w-3xl place-items-center rounded-[28px] border border-line/5 bg-surface p-6 text-center">
           <div>
             <p className="text-sm font-medium text-ink-600">
               {isLoading ? "Opening event chat..." : notice ?? "This event chat is not available."}
@@ -111,7 +111,7 @@ export function GuestRoomView({ roomId, isMemberPreview = false }: { roomId: str
             {!isLoading ? (
               <button
                 type="button"
-                className="mt-4 inline-flex h-11 items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-white"
+                className="mt-4 inline-flex h-11 items-center justify-center rounded-full bg-action px-5 text-sm font-medium text-action-foreground"
                 onClick={goBack}
               >
                 Back to events

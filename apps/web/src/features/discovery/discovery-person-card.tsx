@@ -8,10 +8,10 @@ import { formatConnectionStatus } from "@/lib/profile";
 import type { ConnectionStatus, PublicDiscoveryPerson } from "@/lib/types";
 
 const statusAppearance: Record<ConnectionStatus, { icon: LucideIcon; className: string }> = {
-  CHILL: { icon: Snowflake, className: "text-sky-600" },
-  PARTY: { icon: PartyPopper, className: "text-rose-600" },
-  FOODIE: { icon: UtensilsCrossed, className: "text-amber-600" },
-  OPEN_TO_ANYTHING: { icon: Sparkles, className: "text-violet-600" },
+  CHILL: { icon: Snowflake, className: "text-info" },
+  PARTY: { icon: PartyPopper, className: "text-heart" },
+  FOODIE: { icon: UtensilsCrossed, className: "text-warning" },
+  OPEN_TO_ANYTHING: { icon: Sparkles, className: "text-brand-strong" },
 };
 
 export function DiscoveryPersonCard({ person, showState = false, isProfileLoading = false, isProfileDisabled = false, onViewProfile, onMessage }: {
@@ -28,7 +28,7 @@ export function DiscoveryPersonCard({ person, showState = false, isProfileLoadin
   const StatusIcon = appearance.icon;
 
   return (
-    <article className="flex min-w-0 items-center gap-3 rounded-[22px] border border-black/[0.05] bg-surface p-3 shadow-[0_2px_6px_rgba(0,0,0,0.03)] md:gap-4 md:p-4 md:transition md:hover:border-brand/20 md:hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)]">
+    <article className="flex min-w-0 items-center gap-3 rounded-[22px] border border-line/[0.05] bg-surface p-3 shadow-[0_2px_6px_rgba(0,0,0,0.03)] md:gap-4 md:p-4 md:transition md:hover:border-brand/20 md:hover:shadow-[0_4px_16px_rgba(0,0,0,0.05)]">
       <button
         type="button"
         className="relative size-16 shrink-0 overflow-hidden rounded-[18px] bg-brand-tint md:size-20"
@@ -65,7 +65,7 @@ export function DiscoveryPersonCard({ person, showState = false, isProfileLoadin
           disabled={isProfileDisabled}
           icon={<UserRoundSearch className="size-4" aria-hidden="true" />}
           type="button"
-          className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-ink transition hover:border-black/[0.16] hover:bg-surface-muted"
+          className="inline-flex size-10 items-center justify-center rounded-full border border-line/[0.08] text-ink transition hover:border-line/[0.16] hover:bg-surface-muted"
           onClick={onViewProfile}
           aria-label={`View ${person.displayName} profile`}
           title="View profile"
@@ -73,7 +73,7 @@ export function DiscoveryPersonCard({ person, showState = false, isProfileLoadin
         </ActionButton>
         <button
           type="button"
-          className="inline-flex size-10 items-center justify-center rounded-full bg-brand-strong text-white transition hover:bg-brand-deep"
+          className="inline-flex size-10 items-center justify-center rounded-full bg-brand-solid text-white transition hover:bg-brand-solid/85"
           onClick={onMessage}
           disabled={isProfileDisabled}
           aria-label={`Message ${person.displayName}`}

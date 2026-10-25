@@ -99,7 +99,7 @@ export function RoomsProfileGate({
   return (
     <section>
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
-        <article className="grid min-h-90 place-items-center rounded-[28px] border border-black/[0.05] bg-surface p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+        <article className="grid min-h-90 place-items-center rounded-[28px] border border-line/[0.05] bg-surface p-6 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
           <div className="max-w-xs">
             <div className="mx-auto grid size-14 place-items-center rounded-full bg-success-tint text-success">
               <MessageCircle className="size-6" aria-hidden="true" />
@@ -111,7 +111,7 @@ export function RoomsProfileGate({
             {notice ? <p className="mt-3 rounded-2xl bg-danger-tint p-3 text-sm font-medium text-danger">{notice}</p> : null}
             <ActionButton
               trackNavigation icon={<UserRound className="size-4" aria-hidden="true" />}
-              className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
+              className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground"
               type="button"
               onClick={() => router.push("/profile?mode=setup")}
             >

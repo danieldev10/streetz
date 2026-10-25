@@ -1,5 +1,7 @@
 "use client";
 
+import { ThemeControl } from "@/components/theme-picker";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -104,7 +106,7 @@ function AuthPromptModal({ kind, nextPath, onClose }: { kind: AuthPromptKind; ne
           </div>
           <button
             type="button"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/8 text-ink"
             onClick={onClose}
             aria-label="Close"
             title="Close"
@@ -115,13 +117,13 @@ function AuthPromptModal({ kind, nextPath, onClose }: { kind: AuthPromptKind; ne
 
         <div className="mt-5 grid gap-3">
           <Link
-            className="inline-flex h-12 items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-white"
+            className="inline-flex h-12 items-center justify-center rounded-full bg-action px-5 text-sm font-medium text-action-foreground"
             href={"/?mode=create&next=" + encodedNext}
           >
             Create account
           </Link>
           <Link
-            className="inline-flex h-12 items-center justify-center rounded-full border border-black/8 px-5 text-sm font-medium text-ink"
+            className="inline-flex h-12 items-center justify-center rounded-full border border-line/8 px-5 text-sm font-medium text-ink"
             href={"/?next=" + encodedNext}
           >
             Login
@@ -141,7 +143,7 @@ function PublicNavButton({ tab, active, variant, onRequireAuth }: {
   const Icon = tab.icon;
   const isPublicTab = tab.id === "events" || tab.id === "discovery";
   const base = "inline-flex items-center justify-center gap-2 text-sm font-medium transition";
-  const activeClass = active ? "bg-ink text-white" : "text-ink-600 hover:text-ink";
+  const activeClass = active ? "bg-action text-action-foreground" : "text-ink-600 hover:text-ink";
   const className = variant === "side"
     ? base + " " + (active ? "bg-brand-tint text-brand-deep" : "text-ink-600 hover:bg-surface-muted hover:text-ink") + " h-12 w-full justify-start! gap-3 rounded-2xl px-4"
     : base + " " + activeClass + " min-h-14 rounded-[20px] px-2 py-2";
@@ -201,7 +203,7 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
             <div className="mb-4 rounded-2xl border border-brand/10 bg-brand-wash p-4">
               <p className="text-sm font-semibold">More with an account</p>
               <p className="mt-2 text-xs leading-5 text-ink-600">Get tickets, join the conversation, and meet people.</p>
-              <button type="button" className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-full bg-brand-strong px-3 text-xs font-semibold text-white hover:bg-brand-deep" onClick={() => onRequestAuth("account")}>Join Crushclub</button>
+              <button type="button" className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-full bg-brand-solid px-3 text-xs font-semibold text-white hover:bg-brand-solid/85" onClick={() => onRequestAuth("account")}>Join Crushclub</button>
             </div>
             <PrivacyPolicyLink />
           </div>
@@ -209,18 +211,21 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
 
         <section className={appContentClassName}>
           <DesktopHeader activeTab={activeTab}>
-            <button type="button" className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white transition hover:bg-ink-700" onClick={() => onRequestAuth("account")}>
+            <div className="flex items-center gap-3">
+            <ThemeControl />
+            <button type="button" className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground transition hover:bg-action/85" onClick={() => onRequestAuth("account")}>
               <LogIn className="size-4" aria-hidden="true" />
               Log in / Sign up
             </button>
+            </div>
           </DesktopHeader>
           {/* Mirrors MobileHeader's grid so the logo stays centred and the header
               keeps the same height when a viewer logs in or out. */}
-          <header className="sticky top-0 z-10 border-b border-black/[0.05] bg-surface/90 px-5 py-4 backdrop-blur md:hidden">
+          <header className="sticky top-0 z-10 border-b border-line/[0.05] bg-surface/90 px-5 py-4 backdrop-blur md:hidden">
             <div className="grid grid-cols-[44px_1fr_44px] items-center">
               <button
                 type="button"
-                className="inline-flex size-11 items-center justify-center rounded-full border border-black/[0.08] bg-brand-wash text-brand-strong shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                className="inline-flex size-11 items-center justify-center rounded-full border border-line/[0.08] bg-brand-wash text-brand-strong shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
                 onClick={() => onRequestAuth("account")}
                 aria-label="Open account options"
                 title="Account"
@@ -230,14 +235,14 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
               <div className="justify-self-center">
                 <BrandLogo size="header" priority />
               </div>
-              <span className="size-11" aria-hidden="true" />
+              <ThemeControl />
             </div>
           </header>
           {children}
         </section>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/[0.05] bg-surface/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line/[0.05] bg-surface/90 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 backdrop-blur md:hidden">
         <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: "repeat(" + bottomTabs.length + ", minmax(0, 1fr))" }}>
           {bottomTabs.map((tab) => (
             <PublicNavButton

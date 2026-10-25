@@ -84,7 +84,7 @@ export function MessageRequestModal({ token, target, onClose, onSent, onConversa
         </div>
         {error ? <p role="alert" className="mt-4 rounded-[16px] bg-danger-tint p-3 text-sm text-danger">{error}</p> : null}
         <textarea
-          className="mt-4 min-h-32 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm leading-6 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className="mt-4 min-h-32 w-full resize-none rounded-[20px] border border-line/[0.08] p-4 text-sm leading-6 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           aria-label="Introduction"
           placeholder="Introduce yourself"
           value={body}
@@ -94,13 +94,13 @@ export function MessageRequestModal({ token, target, onClose, onSent, onConversa
         />
         <p className="mt-1 text-right text-xs text-ink-400">{body.length}/{INTRO_MESSAGE_MAX_LENGTH}</p>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <button type="button" className="h-11 rounded-full border border-black/[0.08] text-sm font-semibold"
+          <button type="button" className="h-11 rounded-full border border-line/[0.08] text-sm font-semibold"
             onClick={onClose} disabled={isSending}>
             Cancel
           </button>
           <ActionButton isLoading={isSending} icon={<MessageCircle className="size-4" aria-hidden="true" />}
             type="submit"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink text-sm font-semibold text-white disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action text-sm font-semibold text-action-foreground disabled:opacity-60"
             disabled={isSending || !body.trim()}>
             Send request
           </ActionButton>

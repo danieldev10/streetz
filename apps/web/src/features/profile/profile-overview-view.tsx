@@ -63,7 +63,7 @@ export function ProfileOverviewView({
 
   return (
     <>
-      <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
+      <article className="overflow-hidden rounded-[28px] border border-line/[0.05] bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
         <div className="relative aspect-[1.05] min-h-[320px] bg-brand-tint">
           <ProfilePhotoImage
             photo={photo}
@@ -136,7 +136,7 @@ export function ProfileOverviewView({
           Preview Card
         </ProfileMenuButton>
         <button
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground"
           type="button"
           onClick={onEdit}
         >
@@ -144,7 +144,7 @@ export function ProfileOverviewView({
           Edit Profile
         </button>
         <ActionButton
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-5 text-sm font-medium text-ink"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-line/[0.08] bg-surface px-5 text-sm font-medium text-ink"
           type="button"
           icon={<Power className="size-4 shrink-0" aria-hidden="true" />}
           onClick={onOpenDeactivate}
@@ -156,7 +156,7 @@ export function ProfileOverviewView({
             <label className="grid gap-2 text-sm font-medium">
               Password
               <input
-                className="h-12 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-danger-border focus:ring-1 focus:ring-danger-border"
+                className="h-12 rounded-full border border-line/[0.08] px-4 text-sm outline-none focus:border-danger-border focus:ring-1 focus:ring-danger-border"
                 type="password"
                 value={deleteAccountPassword}
                 onChange={(event) => onChangeDeletePassword(event.target.value)}
@@ -167,7 +167,7 @@ export function ProfileOverviewView({
             </label>
             <ActionButton
               isLoading={isSubmittingAccountAction} icon={<Trash2 className="size-4" aria-hidden="true" />}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-danger px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-55"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-danger-solid px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-55"
               type="submit"
               disabled={isSubmittingAccountAction}
             >
@@ -215,7 +215,7 @@ function ProfileMenuButton({
 }) {
   return (
     <button
-      className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-surface px-5 text-sm font-medium text-ink"
+      className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-line/[0.08] bg-surface px-5 text-sm font-medium text-ink"
       type="button"
       onClick={onClick}
     >
@@ -252,7 +252,7 @@ function DeactivateProfileDialog({
             </p>
           </div>
           <button
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/[0.08]"
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
@@ -264,7 +264,7 @@ function DeactivateProfileDialog({
         </div>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-line/[0.08] px-5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
@@ -273,7 +273,7 @@ function DeactivateProfileDialog({
           </button>
           <ActionButton
             isLoading={isSubmitting}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onConfirm}
             disabled={isSubmitting}

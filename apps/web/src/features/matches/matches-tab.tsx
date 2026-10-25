@@ -107,11 +107,11 @@ function OpeningMatchShell({
 }) {
   return (
     <section className="px-0 md:px-8 md:py-8">
-      <article className={`mx-auto flex ${CHAT_PANEL_HEIGHT} max-w-3xl flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-black/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
-        <div className="flex items-center gap-3 border-b border-black/[0.05] px-4 py-3">
+      <article className={`mx-auto flex ${CHAT_PANEL_HEIGHT} max-w-3xl flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-line/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
+        <div className="flex items-center gap-3 border-b border-line/[0.05] px-4 py-3">
           <button
             type="button"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/[0.08] text-ink"
             onClick={onBack}
             aria-label="Back to messages"
             title="Back"
@@ -137,8 +137,8 @@ function OpeningMatchShell({
           <span className="sr-only">Loading chat</span>
         </div>
 
-        <div className="flex shrink-0 gap-3 border-t border-black/[0.05] bg-surface p-4">
-          <div className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] bg-surface-muted" />
+        <div className="flex shrink-0 gap-3 border-t border-line/[0.05] bg-surface p-4">
+          <div className="h-12 min-w-0 flex-1 rounded-full border border-line/[0.08] bg-surface-muted" />
           <div className="size-12 shrink-0 rounded-full bg-brand-tint" />
         </div>
       </article>
@@ -707,11 +707,11 @@ export function MatchesTab({
   if (selectedMatch) {
     return (
       <section className="px-0 md:px-8 md:py-8">
-        <article className={`mx-auto flex ${CHAT_PANEL_HEIGHT} max-w-3xl flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-black/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
-          <div className="flex items-center gap-3 border-b border-black/[0.05] px-4 py-3">
+        <article className={`mx-auto flex ${CHAT_PANEL_HEIGHT} max-w-3xl flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-line/[0.05] md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
+          <div className="flex items-center gap-3 border-b border-line/[0.05] px-4 py-3">
             <button
               type="button"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/[0.08] text-ink"
               onClick={closeMatch}
               aria-label="Back to messages"
               title="Back"
@@ -754,7 +754,7 @@ export function MatchesTab({
             {hasNewMessages ? (
               <button
                 type="button"
-                className="absolute bottom-4 left-1/2 z-10 inline-flex h-10 -translate-x-1/2 items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+                className="absolute bottom-4 left-1/2 z-10 inline-flex h-10 -translate-x-1/2 items-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
                 onClick={() => scrollToBottom("smooth")}
               >
                 <ArrowDown className="size-4" aria-hidden="true" />
@@ -787,7 +787,7 @@ export function MatchesTab({
                           <ChatAuthorAvatar author={selectedMatch.user} className="size-7" onOpen={setViewedMatchProfile} />
                         ) : null}
                         <div
-                          className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-brand-strong text-white" : "rounded-bl-md bg-surface text-ink"
+                          className={`max-w-[78%] rounded-[20px] px-4 py-3 text-sm leading-6 ${isMine ? "rounded-br-md bg-brand-solid text-white" : "rounded-bl-md bg-surface text-ink"
                             }`}
                         >
                           {message.gifUrl ? <ChatGif url={message.gifUrl} /> : null}
@@ -833,15 +833,15 @@ export function MatchesTab({
           </div>
 
           {selectedMatchUnavailableLabel ? (
-            <div className="shrink-0 border-t border-black/[0.05] bg-surface p-4">
+            <div className="shrink-0 border-t border-line/[0.05] bg-surface p-4">
               <p className="rounded-[18px] bg-warning-tint px-4 py-3 text-center text-sm font-medium leading-6 text-warning">
                 {selectedMatchUnavailableLabel}
               </p>
             </div>
           ) : (
-            <form onSubmit={sendMessage} className="relative flex shrink-0 items-center gap-2 border-t border-black/[0.05] bg-surface p-4">
+            <form onSubmit={sendMessage} className="relative flex shrink-0 items-center gap-2 border-t border-line/[0.05] bg-surface p-4">
               {selectedGifUrl ? (
-                <div className="absolute bottom-full left-4 mb-2 flex items-center gap-2 rounded-2xl border border-black/8 bg-surface p-2 shadow-lg">
+                <div className="absolute bottom-full left-4 mb-2 flex items-center gap-2 rounded-2xl border border-line/8 bg-surface p-2 shadow-lg">
                   <ChatGif url={selectedGifUrl} alt="Selected GIF" />
                   <button type="button" className="rounded-full px-2 py-1 text-xs font-semibold" onClick={() => setSelectedGifUrl(null)}>Remove</button>
                 </div>
@@ -852,7 +852,7 @@ export function MatchesTab({
                 onGif={setSelectedGifUrl}
               />
               <input
-                className="h-12 min-w-0 flex-1 rounded-full border border-black/[0.08] px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                className="h-12 min-w-0 flex-1 rounded-full border border-line/[0.08] px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                 placeholder="Write a message"
                 value={messageBody}
                 onChange={(event) => setMessageBody(event.target.value)}
@@ -860,7 +860,7 @@ export function MatchesTab({
               />
               <ActionButton
                 isLoading={isSendingMessage} icon={<SendHorizontal className="size-4" aria-hidden="true" />}
-                className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-strong text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-solid text-white disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSendingMessage || (!messageBody.trim() && !selectedGifUrl)}
                 aria-label="Send message"
                 title="Send"
@@ -905,7 +905,7 @@ export function MatchesTab({
               >
                 <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-ink-400">Requests</h2>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="grid min-w-6 place-items-center rounded-full bg-brand-strong px-1.5 text-xs font-semibold leading-6 text-white">
+                  <span className="grid min-w-6 place-items-center rounded-full bg-brand-solid px-1.5 text-xs font-semibold leading-6 text-white">
                     {conversationRequests.received.length}
                   </span>
                   <ChevronRight className="size-4 text-ink-400" aria-hidden="true" />
@@ -920,7 +920,7 @@ export function MatchesTab({
               >
                 <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-ink-400">Pending requests</h2>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="grid min-w-6 place-items-center rounded-full bg-brand-strong px-1.5 text-xs font-semibold leading-6 text-white">
+                  <span className="grid min-w-6 place-items-center rounded-full bg-brand-solid px-1.5 text-xs font-semibold leading-6 text-white">
                     {conversationRequests.sent.length}
                   </span>
                   <ChevronRight className="size-4 text-ink-400" aria-hidden="true" />
@@ -934,20 +934,20 @@ export function MatchesTab({
                   <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
                   <input
                     id="conversation-search"
-                    className="h-12 w-full rounded-full border border-black/[0.08] pl-11 pr-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    className="h-12 w-full rounded-full border border-line/[0.08] pl-11 pr-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                     placeholder="Search name, state, interest"
                     value={matchSearch}
                     onChange={(event) => setMatchSearch(event.target.value)}
                   />
                 </div>
 
-                <div className="mt-4 overflow-hidden rounded-[24px] border border-black/[0.05] bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+                <div className="mt-4 overflow-hidden rounded-[24px] border border-line/[0.05] bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
                   {filteredMatches.length > 0 ? filteredMatches.map((match) => {
                     const unreadCount = match.unreadCount ?? 0;
                     return (
                       <button
                         key={match.id}
-                        className="flex w-full items-center gap-4 border-b border-black/[0.05] px-4 py-4 text-left transition last:border-b-0 hover:bg-surface-muted"
+                        className="flex w-full items-center gap-4 border-b border-line/[0.05] px-4 py-4 text-left transition last:border-b-0 hover:bg-surface-muted"
                         onClick={() => openMatch(match.id)}
                       >
                         <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-brand-tint sm:size-20">
@@ -959,7 +959,7 @@ export function MatchesTab({
                               {match.user.accountStatus === "DELETED" ? "Deleted account" : match.user.displayName}
                             </p>
                             {unreadCount > 0 ? (
-                              <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-brand-strong px-1 text-[10px] font-semibold leading-5 text-white">
+                              <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-brand-solid px-1 text-[10px] font-semibold leading-5 text-white">
                                 {unreadCount > 9 ? "9+" : unreadCount}
                               </span>
                             ) : (
@@ -982,14 +982,14 @@ export function MatchesTab({
             ) : null}
           </div>
         ) : (
-          <div className="mx-auto grid min-h-[420px] max-w-3xl place-items-center rounded-[28px] border border-black/[0.05] p-6 text-center">
+          <div className="mx-auto grid min-h-[420px] max-w-3xl place-items-center rounded-[28px] border border-line/[0.05] p-6 text-center">
             <div>
               <MessagesSquare className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No messages yet</h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-ink-600">Discover people nearby and send an introduction to start a conversation.</p>
               <ActionButton
                 isLoading={isLoadingMatches} icon={<RefreshCw className="size-4" aria-hidden="true" />}
-                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/[0.08] px-5 text-sm font-medium"
+                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-line/[0.08] px-5 text-sm font-medium"
                 onClick={loadMatches}
               >
                 Refresh

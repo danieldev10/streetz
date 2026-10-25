@@ -145,7 +145,7 @@ export function MemberProfileView({
       <div className="px-5 pb-8 md:px-8">
         <div className="mx-auto max-w-[560px]">
           <button
-            className="mb-4 inline-flex h-10 items-center gap-2 rounded-full border border-black/[0.08] bg-surface px-4 text-sm font-medium text-ink shadow-[0_2px_4px_rgba(0,0,0,0.04)]"
+            className="mb-4 inline-flex h-10 items-center gap-2 rounded-full border border-line/[0.08] bg-surface px-4 text-sm font-medium text-ink shadow-[0_2px_4px_rgba(0,0,0,0.04)]"
             type="button"
             onClick={onBack}
             aria-label={backLabel}
@@ -153,7 +153,7 @@ export function MemberProfileView({
             <ArrowLeft className="size-4" aria-hidden="true" />
             {backLabel}
           </button>
-          <article className="overflow-hidden rounded-[28px] border border-black/[0.05] bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
+          <article className="overflow-hidden rounded-[28px] border border-line/[0.05] bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
             <div className="relative aspect-[1.05] min-h-[320px] bg-brand-tint">
 
               <ProfilePhotoImage
@@ -240,10 +240,10 @@ export function MemberProfileView({
 
               {canUseSafetyActions ? (
                 <div
-                  className={`mt-5 grid gap-2 border-t border-black/[0.05] pt-5 ${canUseUnmatchAction ? "grid-cols-[1fr_1.3fr_1fr]" : "grid-cols-2"}`}
+                  className={`mt-5 grid gap-2 border-t border-line/[0.05] pt-5 ${canUseUnmatchAction ? "grid-cols-[1fr_1.3fr_1fr]" : "grid-cols-2"}`}
                 >
                   <button
-                    className="inline-flex h-10 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-black/[0.08] px-1 text-xs font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-60 sm:gap-1.5 sm:px-2 sm:text-[13px]"
+                    className="inline-flex h-10 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-line/[0.08] px-1 text-xs font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-60 sm:gap-1.5 sm:px-2 sm:text-[13px]"
                     type="button"
                     onClick={() => {
                       setActionNotice(null);
@@ -259,7 +259,7 @@ export function MemberProfileView({
                   </button>
                   {canUseUnmatchAction ? (
                     <button
-                      className="inline-flex h-10 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-black/[0.08] bg-surface-muted px-1 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60 sm:gap-1.5 sm:px-2 sm:text-[13px]"
+                      className="inline-flex h-10 min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-line/[0.08] bg-surface-muted px-1 text-xs font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60 sm:gap-1.5 sm:px-2 sm:text-[13px]"
                       type="button"
                       onClick={() => {
                         setActionNotice(null);
@@ -307,7 +307,7 @@ export function MemberProfileView({
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-line/[0.08] px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={() => setIsBlockConfirmOpen(false)}
                 disabled={isSubmittingSafetyAction}
@@ -316,7 +316,7 @@ export function MemberProfileView({
               </button>
               <ActionButton
                 isLoading={isSubmittingSafetyAction}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={blockProfile}
                 disabled={isSubmittingSafetyAction}
@@ -344,7 +344,7 @@ export function MemberProfileView({
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-line/[0.08] px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={() => setIsUnmatchConfirmOpen(false)}
                 disabled={isSubmittingSafetyAction}
@@ -353,7 +353,7 @@ export function MemberProfileView({
               </button>
               <ActionButton
                 isLoading={isSubmittingSafetyAction}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={unmatchProfile}
                 disabled={isSubmittingSafetyAction}
@@ -384,7 +384,7 @@ export function MemberProfileView({
                 </div>
               </div>
               <button
-                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink"
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-line/[0.08] text-ink"
                 type="button"
                 onClick={() => {
                   setIsReportOpen(false);
@@ -399,7 +399,7 @@ export function MemberProfileView({
               </button>
             </div>
             <select
-              className="mt-4 h-11 w-full rounded-full border border-black/[0.08] bg-surface px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="mt-4 h-11 w-full rounded-full border border-line/[0.08] bg-surface px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               value={reportReason}
               onChange={(event) => {
                 setReportReason(event.target.value);
@@ -416,7 +416,7 @@ export function MemberProfileView({
               ))}
             </select>
             <textarea
-              className="mt-3 min-h-24 w-full resize-none rounded-[20px] border border-black/[0.08] p-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="mt-3 min-h-24 w-full resize-none rounded-[20px] border border-line/[0.08] p-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               placeholder="Optional details"
               value={reportDetails}
               onChange={(event) => {
@@ -429,7 +429,7 @@ export function MemberProfileView({
             {reportError ? <p className="mt-2 text-xs font-medium text-danger">{reportError}</p> : null}
             <ActionButton
               isLoading={isSubmittingSafetyAction}
-              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground disabled:cursor-not-allowed disabled:opacity-60"
               type="submit"
               disabled={isSubmittingSafetyAction || !reportReason}
             >

@@ -588,7 +588,7 @@ export function RoomsTab({
           }}
           footer={canMessageProfile ? (
             <button type="button"
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-white"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground"
               onClick={() => setIsDirectMessageOpen(true)}>
               <MessageCircle className="size-4" aria-hidden="true" />
               Message {viewedRoomProfile.displayName}

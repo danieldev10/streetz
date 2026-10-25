@@ -39,7 +39,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
 }) {
   if (events.length === 0) {
     return (
-      <div className="grid min-h-90 place-items-center rounded-3xl border border-black/5 p-6 text-center">
+      <div className="grid min-h-90 place-items-center rounded-3xl border border-line/5 p-6 text-center">
         <div>
           <Ticket className="mx-auto size-8 text-brand" aria-hidden="true" />
           <h2 className="mt-3 text-2xl font-semibold">{emptyTitle}</h2>
@@ -75,7 +75,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
         return (
           <article
             key={event.id}
-            className="relative isolate overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)] md:flex md:flex-col"
+            className="relative isolate overflow-hidden rounded-3xl border border-line/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)] transition hover:border-brand/30 hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)] md:flex md:flex-col"
           >
             <Link href={`/events/${event.id}`} aria-label={`View details for ${event.title}`}
               className="absolute inset-0 z-10 rounded-3xl focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand" />
@@ -156,7 +156,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
               <div className="relative z-20 mt-4 flex gap-2 md:mt-auto md:pt-5">
                 <ActionButton
                   trackNavigation={isHistoryCard} isLoading={isBusy} icon={!hasTickets ? <Ticket className="size-4 shrink-0" aria-hidden="true" /> : undefined}
-                  className={`inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-ink font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 ${hasTickets ? "px-3 text-xs" : "px-4 text-sm"}`}
+                  className={`inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-action font-medium text-action-foreground disabled:cursor-not-allowed disabled:opacity-60 ${hasTickets ? "px-3 text-xs" : "px-4 text-sm"}`}
                   type="button"
                   disabled={!isHistoryCard && (!canBookMore || isBusy)}
                   title={isHistoryCard ? "View details" : getTicketsLabel}
@@ -174,7 +174,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                 {hasTickets ? (
                   <ActionButton
                     trackNavigation
-                    className="inline-flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border border-black/8 bg-surface px-3 text-xs font-medium text-ink transition hover:border-brand"
+                    className="inline-flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border border-line/8 bg-surface px-3 text-xs font-medium text-ink transition hover:border-brand"
                     type="button"
                     onClick={(clickEvent) => {
                       clickEvent.stopPropagation();
@@ -191,7 +191,7 @@ export function EventCardList({ events, mode, isGuest, activeEventId, activeRoom
                     ) : (
                       <UsersRound className="size-4" aria-hidden="true" />
                     )}
-                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 bg-surface text-sm font-medium text-ink transition hover:border-brand ${compactChat ? "w-11 shrink-0" : "min-w-0 flex-1 px-4"}`}
+                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-full border border-line/8 bg-surface text-sm font-medium text-ink transition hover:border-brand ${compactChat ? "w-11 shrink-0" : "min-w-0 flex-1 px-4"}`}
                     type="button"
                     onClick={(clickEvent) => {
                       clickEvent.stopPropagation();

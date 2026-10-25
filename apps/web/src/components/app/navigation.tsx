@@ -15,7 +15,6 @@ import {
   LifeBuoy,
   Menu,
   MessagesSquare,
-  Palette,
   ShieldCheck,
   ScanLine,
   Ticket,
@@ -28,6 +27,7 @@ import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { BrandLogo } from "@/components/brand-logo";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { PrivacyPolicyLink } from "@/components/privacy-policy-link";
+import { ThemePicker } from "@/components/theme-picker";
 
 export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "events", label: "Events", icon: Ticket },
@@ -212,8 +212,8 @@ function AccountMenu({
       id={menuId}
       ref={drawerRef}
       className={isDropdown
-        ? "absolute right-0 top-full z-50 mt-2 flex max-h-[calc(100dvh-6rem)] w-72 flex-col overflow-y-auto rounded-2xl border border-black/[0.08] bg-surface p-2 shadow-[0_12px_36px_rgba(0,0,0,0.12)]"
-        : `absolute left-0 top-0 flex h-full w-[min(84vw,320px)] flex-col border-r border-black/[0.05] bg-surface p-5 opacity-100 shadow-[8px_0_24px_rgba(0,0,0,0.08)] transition-transform duration-200 ease-out ${
+        ? "absolute right-0 top-full z-50 mt-2 flex max-h-[calc(100dvh-6rem)] w-72 flex-col overflow-y-auto rounded-2xl border border-line/[0.08] bg-surface p-2 shadow-[0_12px_36px_rgba(0,0,0,0.12)]"
+        : `absolute left-0 top-0 flex h-full w-[min(84vw,320px)] flex-col border-r border-line/[0.05] bg-surface p-5 opacity-100 shadow-[8px_0_24px_rgba(0,0,0,0.08)] transition-transform duration-200 ease-out ${
         isOpen ? "translate-x-0" : "-translate-x-full"
       }`}
       role="dialog"
@@ -225,7 +225,7 @@ function AccountMenu({
           <BrandLogo size="sidebar" priority />
           <button
             type="button"
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-ink"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-line/[0.08] text-ink"
             onClick={closeMenu}
             aria-label="Close menu"
             tabIndex={isOpen ? 0 : -1}
@@ -342,22 +342,11 @@ function AccountMenu({
           </button>
         ) : null}
 
-        <button
-          type="button"
-          className="flex h-12 items-center justify-between rounded-full px-4 text-sm font-medium text-ink-300"
-          disabled
-          aria-disabled="true"
-        >
-          <span className="inline-flex items-center gap-3">
-            <Palette className="size-4" aria-hidden="true" />
-            Change Theme
-          </span>
-          <span className="rounded-full bg-surface-shade px-2 py-1 text-[11px] text-ink-400">Soon</span>
-        </button>
+        <div className="px-4 py-3"><ThemePicker /></div>
 
         <button
           type="button"
-          className="mt-3 inline-flex h-12 items-center gap-3 rounded-full bg-ink px-4 text-sm font-medium text-white"
+          className="mt-3 inline-flex h-12 items-center gap-3 rounded-full bg-action px-4 text-sm font-medium text-action-foreground"
           onClick={requestLogout}
           tabIndex={isOpen ? 0 : -1}
         >
@@ -365,7 +354,7 @@ function AccountMenu({
           Logout
         </button>
       </nav>
-      <div className="mt-4 shrink-0 border-t border-black/5 pt-3 pb-[env(safe-area-inset-bottom)]">
+      <div className="mt-4 shrink-0 border-t border-line/5 pt-3 pb-[env(safe-area-inset-bottom)]">
         <PrivacyPolicyLink onClick={closeMenu} tabIndex={isOpen ? 0 : -1} />
       </div>
     </aside>
@@ -411,7 +400,7 @@ function AccountMenu({
             <p className="mt-2 text-sm leading-6 text-ink-600">You will need to log in again to continue using crushclub.</p>
           </div>
           <button
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08]"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/[0.08]"
             type="button"
             onClick={closeLogoutConfirm}
             aria-label="Close"
@@ -422,14 +411,14 @@ function AccountMenu({
         </div>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/[0.08] px-5 text-sm font-medium"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-line/[0.08] px-5 text-sm font-medium"
             type="button"
             onClick={closeLogoutConfirm}
           >
             Cancel
           </button>
           <button
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground"
             type="button"
             onClick={confirmLogout}
           >
@@ -451,7 +440,7 @@ function AccountMenu({
       <button
         ref={triggerRef}
         type="button"
-        className={triggerClassName ?? "inline-flex size-10 items-center justify-center rounded-full border border-black/[0.08] text-ink"}
+        className={triggerClassName ?? "inline-flex size-10 items-center justify-center rounded-full border border-line/[0.08] text-ink"}
         onClick={isOpen ? closeMenu : openMenu}
         onKeyDown={(event) => {
           if (isDropdown && event.key === "ArrowDown") {
@@ -494,7 +483,7 @@ export function DesktopAccountMenu({ user, profilePhoto, onLogout }: { user: Str
       isAdmin={user.role === "ADMIN"}
       triggerTitle="Account options"
       variant="dropdown"
-      triggerClassName="inline-flex max-w-64 items-center gap-3 rounded-full border border-black/[0.06] bg-surface py-1.5 pl-3 pr-2 text-left transition hover:border-brand/30 hover:bg-brand-wash"
+      triggerClassName="inline-flex max-w-64 items-center gap-3 rounded-full border border-line/[0.06] bg-surface py-1.5 pl-3 pr-2 text-left transition hover:border-brand/30 hover:bg-brand-wash"
       trigger={
         <>
           <span className="min-w-0">
@@ -522,12 +511,12 @@ export function MobileHeader({
   onLogout: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-10 border-b border-black/[0.05] bg-surface/90 px-5 py-4 backdrop-blur md:hidden">
+    <header className="sticky top-0 z-10 border-b border-line/[0.05] bg-surface/90 px-5 py-4 backdrop-blur md:hidden">
       <div className="grid grid-cols-[44px_1fr_44px] items-center">
         <AccountMenu
           onLogout={onLogout}
           isAdmin={user.role === "ADMIN"}
-          triggerClassName="inline-flex size-11 items-center justify-center overflow-hidden rounded-full border border-black/[0.08] bg-brand-wash text-brand-strong shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          triggerClassName="inline-flex size-11 items-center justify-center overflow-hidden rounded-full border border-line/[0.08] bg-brand-wash text-brand-strong shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
           triggerTitle={user.displayName ? "Open " + user.displayName + "'s menu" : "Open menu"}
           trigger={
             user.role === "ADMIN" ? <Menu className="size-5" aria-hidden="true" /> : <ProfilePhotoImage
@@ -566,11 +555,11 @@ export function AppNavButton({
 }) {
   const Icon = tab.icon;
   const base = "inline-flex items-center justify-center gap-2 text-sm font-medium transition";
-  const activeClass = active ? "bg-ink text-white" : "text-ink-600 hover:text-ink";
+  const activeClass = active ? "bg-action text-action-foreground" : "text-ink-600 hover:text-ink";
   const badgeLabel = badgeCount > 99 ? "99+" : String(badgeCount);
   const badge =
     badgeCount > 0 ? (
-      <span className="absolute -right-2 -top-2 grid min-w-5 place-items-center rounded-full bg-brand-strong px-1 text-[10px] font-semibold leading-5 text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)]">
+      <span className="absolute -right-2 -top-2 grid min-w-5 place-items-center rounded-full bg-brand-solid px-1 text-[10px] font-semibold leading-5 text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)]">
         {badgeLabel}
       </span>
     ) : null;

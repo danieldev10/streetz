@@ -12,7 +12,7 @@ export function SupportFaqPage() {
           {supportFaqs.map((faq) => (
             <details
               key={faq.question}
-              className="group rounded-[20px] border border-black/[0.07] bg-surface p-5"
+              className="group rounded-[20px] border border-line/[0.07] bg-surface p-5"
             >
               <summary className="cursor-pointer list-none pr-6 font-medium marker:content-none">
                 {faq.question}
@@ -22,9 +22,9 @@ export function SupportFaqPage() {
           ))}
         </div>
 
-        <div className="mt-6 rounded-[24px] bg-ink p-6 text-white">
+        <div className="mt-6 rounded-[24px] bg-action p-6 text-action-foreground">
           <h2 className="text-xl font-semibold">Still need help?</h2>
-          <p className="mt-2 text-sm leading-6 text-white/70">
+          <p className="mt-2 text-sm leading-6 text-action-foreground/70">
             Send the support team a request and keep the conversation in one private place.
           </p>
           <Link

@@ -165,7 +165,7 @@ export function TicketCheckInModal({
             onClick={onClose}
             disabled={isChecking}
             aria-label="Close ticket check-in"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/8"
           >
             <X className="size-4" />
           </button>
@@ -179,7 +179,7 @@ export function TicketCheckInModal({
               nextTicket();
             }}
             aria-pressed={mode === "camera"}
-            className={`inline-flex items-center justify-center gap-2 rounded-full px-3 py-2 ${mode === "camera" ? "bg-ink text-white" : ""}`}
+            className={`inline-flex items-center justify-center gap-2 rounded-full px-3 py-2 ${mode === "camera" ? "bg-action text-action-foreground" : ""}`}
           >
             <Camera className="size-4" />
             Scan QR
@@ -193,14 +193,14 @@ export function TicketCheckInModal({
               nextTicket();
             }}
             aria-pressed={mode === "manual"}
-            className={`inline-flex items-center justify-center gap-2 rounded-full px-3 py-2 ${mode === "manual" ? "bg-ink text-white" : ""}`}
+            className={`inline-flex items-center justify-center gap-2 rounded-full px-3 py-2 ${mode === "manual" ? "bg-action text-action-foreground" : ""}`}
           >
             <Keyboard className="size-4" />
             Enter code
           </button>
         </div>
         {!online ? (
-          <p role="alert" className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+          <p role="alert" className="mt-3 rounded-xl bg-warning-tint p-3 text-sm text-warning">
             Internet is required to confirm admission. Scanning is paused.
           </p>
         ) : null}
@@ -212,7 +212,7 @@ export function TicketCheckInModal({
               onError={cameraFailed}
             />
           ) : (
-            <div className="mt-4 rounded-2xl border border-dashed border-black/15 p-6 text-center">
+            <div className="mt-4 rounded-2xl border border-dashed border-line/15 p-6 text-center">
               <ScanLine className="mx-auto size-12 text-brand-strong" />
               <p className="mt-3 text-sm text-ink-600">
                 Point the camera at the QR on a phone or printed ticket.
@@ -226,7 +226,7 @@ export function TicketCheckInModal({
                   nextTicket();
                 }}
                 icon={<Camera className="size-4" />}
-                className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white"
+                className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground"
               >
                 Open camera
               </ActionButton>
@@ -253,7 +253,7 @@ export function TicketCheckInModal({
                 spellCheck={false}
                 disabled={isChecking || Boolean(result || error)}
                 placeholder="CCLTIX-..."
-                className="h-12 min-w-0 rounded-2xl border border-black/8 px-4 font-mono text-base uppercase outline-none focus:border-brand"
+                className="h-12 min-w-0 rounded-2xl border border-line/8 px-4 font-mono text-base uppercase outline-none focus:border-brand"
               />
             </label>
             <ActionButton
@@ -261,14 +261,14 @@ export function TicketCheckInModal({
               isLoading={isChecking}
               disabled={!online || code.trim().length < 6 || Boolean(result || error)}
               icon={<ScanLine className="size-4" />}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground"
             >
               Check in ticket
             </ActionButton>
           </form>
         )}
         {cameraError ? (
-          <p role="alert" className="mt-3 text-sm text-red-700">
+          <p role="alert" className="mt-3 text-sm text-danger">
             {cameraError}
           </p>
         ) : null}
@@ -281,7 +281,7 @@ export function TicketCheckInModal({
         {error ? (
           <p
             role="alert"
-            className={`mt-4 rounded-2xl p-4 text-sm ${uncertain ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-700"}`}
+            className={`mt-4 rounded-2xl p-4 text-sm ${uncertain ? "bg-warning-tint text-warning" : "bg-danger-tint text-danger"}`}
           >
             {error}
           </p>
@@ -289,7 +289,7 @@ export function TicketCheckInModal({
         {result ? (
           <div
             role="status"
-            className={`mt-4 rounded-2xl p-4 text-sm ${result.alreadyCheckedIn ? "bg-amber-50 text-amber-800" : "bg-green-50 text-green-800"}`}
+            className={`mt-4 rounded-2xl p-4 text-sm ${result.alreadyCheckedIn ? "bg-warning-tint text-warning" : "bg-success-tint text-success-deep"}`}
           >
             <p className="flex items-center gap-2 font-semibold">
               {result.alreadyCheckedIn ? (
@@ -330,7 +330,7 @@ export function TicketCheckInModal({
                   void checkIn(code);
                 }}
                 icon={<RotateCcw className="size-4" />}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground"
               >
                 Retry this ticket
               </ActionButton>
@@ -338,7 +338,7 @@ export function TicketCheckInModal({
             <button
               type="button"
               onClick={nextTicket}
-              className="h-11 rounded-full border border-black/8 text-sm font-semibold"
+              className="h-11 rounded-full border border-line/8 text-sm font-semibold"
             >
               {mode === "camera" ? "Scan next ticket" : "Enter another ticket"}
             </button>

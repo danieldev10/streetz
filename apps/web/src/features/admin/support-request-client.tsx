@@ -96,7 +96,7 @@ function AdminSupportConversation({ requestId, token, backHref }: {
     <section className="bg-surface-sunken md:px-8 md:py-8">
       <div className="mx-auto max-w-3xl">
         {isLoading ? (
-          <div className={`${CHAT_PANEL_HEIGHT} animate-pulse bg-black/5 md:rounded-[28px]`} role="status" aria-label="Loading support conversation" />
+          <div className={`${CHAT_PANEL_HEIGHT} animate-pulse bg-ink/5 md:rounded-[28px]`} role="status" aria-label="Loading support conversation" />
         ) : request ? (
           <SupportThread
             request={request}
@@ -114,16 +114,16 @@ function AdminSupportConversation({ requestId, token, backHref }: {
                   {request.displayName} · {request.email}
                 </p>
                 <div className="mt-3 flex items-start gap-2">
-                  <details className="group min-w-0 flex-1 rounded-2xl border border-black/[0.07]">
+                  <details className="group min-w-0 flex-1 rounded-2xl border border-line/[0.07]">
                     <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 px-3 text-xs font-medium [&::-webkit-details-marker]:hidden">
                       Manage request
                       {isUpdating ? <LoaderCircle className="size-3.5 animate-spin" aria-label="Saving changes" /> : <ChevronDown className="size-3.5 transition group-open:rotate-180" aria-hidden="true" />}
                     </summary>
-                    <div className="grid grid-cols-2 gap-3 border-t border-black/[0.06] p-3">
+                    <div className="grid grid-cols-2 gap-3 border-t border-line/[0.06] p-3">
                       <label className="grid min-w-0 gap-1.5 text-xs text-ink-500">
                         Request status
                         <select
-                          className="h-10 min-w-0 rounded-xl border border-black/10 bg-surface px-2 text-sm text-ink"
+                          className="h-10 min-w-0 rounded-xl border border-line/10 bg-surface px-2 text-sm text-ink"
                           value={request.status}
                           disabled={isUpdating || isReplying || isRefreshing}
                           onChange={(event) => void updateRequest({ status: event.target.value as SupportRequestStatus })}
@@ -134,7 +134,7 @@ function AdminSupportConversation({ requestId, token, backHref }: {
                       <label className="grid min-w-0 gap-1.5 text-xs text-ink-500">
                         Request priority
                         <select
-                          className="h-10 min-w-0 rounded-xl border border-black/10 bg-surface px-2 text-sm text-ink"
+                          className="h-10 min-w-0 rounded-xl border border-line/10 bg-surface px-2 text-sm text-ink"
                           value={request.priority}
                           disabled={isUpdating || isReplying || isRefreshing}
                           onChange={(event) => void updateRequest({ priority: event.target.value as SupportPriority })}
@@ -145,7 +145,7 @@ function AdminSupportConversation({ requestId, token, backHref }: {
                     </div>
                   </details>
                   <ActionButton
-                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/[0.08] text-ink-500"
+                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/[0.08] text-ink-500"
                     type="button"
                     aria-label="Refresh conversation"
                     icon={<RefreshCw className="size-4" aria-hidden="true" />}
@@ -161,7 +161,7 @@ function AdminSupportConversation({ requestId, token, backHref }: {
               <label className="flex items-center gap-2 text-xs text-ink-500">
                 <span className="shrink-0">After reply</span>
                 <select
-                  className="h-8 min-w-0 flex-1 rounded-xl border border-black/10 bg-surface px-2 text-xs text-ink"
+                  className="h-8 min-w-0 flex-1 rounded-xl border border-line/10 bg-surface px-2 text-xs text-ink"
                   value={replyStatus}
                   disabled={isUpdating || isReplying || isRefreshing}
                   onChange={(event) => setReplyStatus(event.target.value as SupportRequestStatus)}
@@ -173,12 +173,12 @@ function AdminSupportConversation({ requestId, token, backHref }: {
           />
         ) : (
           <div className="px-5 py-8 md:px-0">
-            <section className="rounded-[24px] border border-black/[0.07] bg-surface p-6 text-center">
+            <section className="rounded-[24px] border border-line/[0.07] bg-surface p-6 text-center">
               <h1 className="text-xl font-semibold">Could not open this request</h1>
               <p className="mt-2 text-sm text-ink-600" role="alert">{loadError}</p>
               <div className="mt-5 flex flex-wrap justify-center gap-3">
-                <Link className="inline-flex h-11 items-center rounded-full border border-black/10 px-4 text-sm" href={backHref}>Back to support inbox</Link>
-                <ActionButton className="inline-flex h-11 items-center rounded-full bg-ink px-4 text-sm text-white" type="button" onClick={() => loadRequest()}>Try again</ActionButton>
+                <Link className="inline-flex h-11 items-center rounded-full border border-line/10 px-4 text-sm" href={backHref}>Back to support inbox</Link>
+                <ActionButton className="inline-flex h-11 items-center rounded-full bg-action px-4 text-sm text-action-foreground" type="button" onClick={() => loadRequest()}>Try again</ActionButton>
               </div>
             </section>
           </div>

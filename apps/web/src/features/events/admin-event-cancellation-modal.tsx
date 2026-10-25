@@ -39,7 +39,7 @@ export function AdminEventCancellationModal({
             </p>
           </div>
           <button
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink"
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-line/8 text-ink"
             type="button"
             onClick={onClose}
             disabled={isCancelling}
@@ -85,7 +85,7 @@ export function AdminEventCancellationModal({
         <label className="mt-4 grid gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
           Cancellation reason
           <textarea
-            className="min-h-24 rounded-2xl border border-black/8 px-4 py-3 text-sm font-medium normal-case leading-6 tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            className="min-h-24 rounded-2xl border border-line/8 px-4 py-3 text-sm font-medium normal-case leading-6 tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             value={reason}
             onChange={(inputEvent) =>
               onReasonChange(inputEvent.target.value.slice(0, EVENT_CANCELLATION_REASON_MAX_LENGTH))
@@ -101,7 +101,7 @@ export function AdminEventCancellationModal({
 
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button
-            className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-line/8 px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onClose}
             disabled={isCancelling}
@@ -110,7 +110,7 @@ export function AdminEventCancellationModal({
           </button>
           <ActionButton
             isLoading={isCancelling}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-danger px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-danger-solid px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             onClick={onConfirm}
             disabled={!canConfirm}

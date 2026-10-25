@@ -17,7 +17,7 @@ export function ListSkeleton({
   label,
   rows = 3,
   className = "grid gap-3",
-  rowClassName = "rounded-3xl border border-black/5 bg-surface p-4",
+  rowClassName = "rounded-3xl border border-line/5 bg-surface p-4",
   hasAvatar = true,
   hasAction = true,
   lines = 2,
@@ -34,12 +34,12 @@ export function ListSkeleton({
     <div className={className} role="status" aria-live="polite" aria-label={label}>
       {Array.from({ length: rows }, (_, index) => (
         <div key={index} className={`flex animate-pulse items-center gap-3 ${rowClassName}`} aria-hidden="true">
-          {hasAvatar ? <div className="size-14 shrink-0 rounded-full bg-black/5" /> : null}
+          {hasAvatar ? <div className="size-14 shrink-0 rounded-full bg-ink/5" /> : null}
           <div className="min-w-0 flex-1">
-            <div className="h-5 w-2/5 rounded-full bg-black/5" />
-            {lines === 2 ? <div className="mt-2 h-4 w-3/5 rounded-full bg-black/5" /> : null}
+            <div className="h-5 w-2/5 rounded-full bg-ink/5" />
+            {lines === 2 ? <div className="mt-2 h-4 w-3/5 rounded-full bg-ink/5" /> : null}
           </div>
-          {hasAction ? <div className="h-10 w-24 shrink-0 rounded-full bg-black/5" /> : null}
+          {hasAction ? <div className="h-10 w-24 shrink-0 rounded-full bg-ink/5" /> : null}
         </div>
       ))}
       <span className="sr-only">{label}</span>
@@ -50,7 +50,7 @@ export function ListSkeleton({
 /** A wide cover image above a title, meta lines and an action, for event and profile detail screens. */
 export function MediaDetailSkeleton({
   label,
-  className = "overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
+  className = "overflow-hidden rounded-3xl border border-line/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
   mediaClassName = "aspect-16/10",
 }: {
   label: string;
@@ -62,10 +62,10 @@ export function MediaDetailSkeleton({
       <div className="animate-pulse" aria-hidden="true">
         <div className={`bg-brand-shade ${mediaClassName}`} />
         <div className="p-4">
-          <div className="h-7 w-2/3 rounded-full bg-black/5" />
-          <div className="mt-3 h-4 w-1/2 rounded-full bg-black/5" />
-          <div className="mt-2 h-4 w-2/5 rounded-full bg-black/5" />
-          <div className="mt-4 h-11 w-full rounded-full bg-black/5" />
+          <div className="h-7 w-2/3 rounded-full bg-ink/5" />
+          <div className="mt-3 h-4 w-1/2 rounded-full bg-ink/5" />
+          <div className="mt-2 h-4 w-2/5 rounded-full bg-ink/5" />
+          <div className="mt-4 h-11 w-full rounded-full bg-ink/5" />
         </div>
       </div>
       <span className="sr-only">{label}</span>
@@ -80,21 +80,21 @@ export function DiscoveryCardSkeleton({ label = "Loading discovery" }: { label?:
       <div className="animate-pulse" aria-hidden="true">
         <div className="h-[clamp(320px,44svh,440px)] bg-brand-shade md:aspect-[4/5] md:h-auto md:min-h-[440px]" />
         <div className="p-4">
-          <div className="h-4 w-full rounded-full bg-black/5" />
-          <div className="mt-2 h-4 w-4/5 rounded-full bg-black/5" />
+          <div className="h-4 w-full rounded-full bg-ink/5" />
+          <div className="mt-2 h-4 w-4/5 rounded-full bg-ink/5" />
           <div className="mt-3 flex gap-2">
-            <div className="h-6.5 w-20 rounded-full bg-black/5" />
-            <div className="h-6.5 w-16 rounded-full bg-black/5" />
-            <div className="h-6.5 w-24 rounded-full bg-black/5" />
+            <div className="h-6.5 w-20 rounded-full bg-ink/5" />
+            <div className="h-6.5 w-16 rounded-full bg-ink/5" />
+            <div className="h-6.5 w-24 rounded-full bg-ink/5" />
           </div>
-          <div className="mt-3 h-11 rounded-full bg-black/5" />
+          <div className="mt-3 h-11 rounded-full bg-ink/5" />
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="h-11 rounded-full bg-black/5" />
-            <div className="h-11 rounded-full bg-black/5" />
+            <div className="h-11 rounded-full bg-ink/5" />
+            <div className="h-11 rounded-full bg-ink/5" />
           </div>
           <div className="mt-2 grid grid-cols-2 gap-3">
-            <div className="h-9 rounded-full bg-black/5" />
-            <div className="h-9 rounded-full bg-black/5" />
+            <div className="h-9 rounded-full bg-ink/5" />
+            <div className="h-9 rounded-full bg-ink/5" />
           </div>
         </div>
       </div>
@@ -107,7 +107,7 @@ export function DiscoveryCardSkeleton({ label = "Loading discovery" }: { label?:
 export function FormSkeleton({
   label,
   fields = 5,
-  className = "mx-auto max-w-2xl rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
+  className = "mx-auto max-w-2xl rounded-3xl border border-line/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
 }: {
   label: string;
   fields?: number;
@@ -116,14 +116,14 @@ export function FormSkeleton({
   return (
     <div className={className} role="status" aria-live="polite" aria-label={label}>
       <div className="animate-pulse" aria-hidden="true">
-        <div className="h-6 w-40 rounded-full bg-black/5" />
-        <div className="mt-2 h-4 w-64 max-w-full rounded-full bg-black/5" />
+        <div className="h-6 w-40 rounded-full bg-ink/5" />
+        <div className="mt-2 h-4 w-64 max-w-full rounded-full bg-ink/5" />
         <div className="mt-4 grid gap-3">
           {Array.from({ length: fields }, (_, index) => (
-            <div key={index} className="h-12 rounded-full bg-black/5" />
+            <div key={index} className="h-12 rounded-full bg-ink/5" />
           ))}
         </div>
-        <div className="mt-4 h-12 rounded-full bg-black/5" />
+        <div className="mt-4 h-12 rounded-full bg-ink/5" />
       </div>
       <span className="sr-only">{label}</span>
     </div>
@@ -150,7 +150,7 @@ export function MessageThreadSkeleton({
         return (
           <div key={index} className={`flex animate-pulse ${isOwn ? "justify-end" : "justify-start"}`} aria-hidden="true">
             <div
-              className={`h-14 rounded-[20px] bg-black/5 ${bubbleWidths[index % bubbleWidths.length]}`}
+              className={`h-14 rounded-[20px] bg-ink/5 ${bubbleWidths[index % bubbleWidths.length]}`}
             />
           </div>
         );
@@ -180,15 +180,15 @@ export function StatGridSkeleton({
       {Array.from({ length: tiles }, (_, index) => (
         <div
           key={index}
-          className="min-w-0 animate-pulse rounded-[20px] border border-black/5 bg-surface p-3 sm:p-4"
+          className="min-w-0 animate-pulse rounded-[20px] border border-line/5 bg-surface p-3 sm:p-4"
           aria-hidden="true"
         >
           <div className="flex h-8 items-center justify-between gap-2">
-            <div className="h-3 w-3/5 rounded-full bg-black/5" />
-            <div className="size-8 shrink-0 rounded-xl bg-black/5" />
+            <div className="h-3 w-3/5 rounded-full bg-ink/5" />
+            <div className="size-8 shrink-0 rounded-xl bg-ink/5" />
           </div>
-          <div className="mt-2 h-7 w-3/5 rounded-full bg-black/5" />
-          <div className="mt-2 h-8 w-full rounded-lg bg-black/5" />
+          <div className="mt-2 h-7 w-3/5 rounded-full bg-ink/5" />
+          <div className="mt-2 h-8 w-full rounded-lg bg-ink/5" />
         </div>
       ))}
       <span className="sr-only">{label}</span>
@@ -199,7 +199,7 @@ export function StatGridSkeleton({
 /** A single detail panel: heading, meta lines, then a body block. */
 export function DetailSkeleton({
   label,
-  className = "mx-auto max-w-3xl rounded-[28px] border border-black/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
+  className = "mx-auto max-w-3xl rounded-[28px] border border-line/5 bg-surface p-5 shadow-[0_2px_4px_rgba(0,0,0,0.03)]",
 }: {
   label: string;
   className?: string;
@@ -209,17 +209,17 @@ export function DetailSkeleton({
       <div className="animate-pulse" aria-hidden="true">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <div className="h-6 w-1/2 rounded-full bg-black/5" />
-            <div className="mt-2 h-4 w-1/3 rounded-full bg-black/5" />
+            <div className="h-6 w-1/2 rounded-full bg-ink/5" />
+            <div className="mt-2 h-4 w-1/3 rounded-full bg-ink/5" />
           </div>
-          <div className="h-8 w-20 shrink-0 rounded-full bg-black/5" />
+          <div className="h-8 w-20 shrink-0 rounded-full bg-ink/5" />
         </div>
         <div className="mt-5 grid gap-2">
-          <div className="h-4 w-full rounded-full bg-black/5" />
-          <div className="h-4 w-11/12 rounded-full bg-black/5" />
-          <div className="h-4 w-4/5 rounded-full bg-black/5" />
+          <div className="h-4 w-full rounded-full bg-ink/5" />
+          <div className="h-4 w-11/12 rounded-full bg-ink/5" />
+          <div className="h-4 w-4/5 rounded-full bg-ink/5" />
         </div>
-        <div className="mt-5 h-11 w-full rounded-full bg-black/5" />
+        <div className="mt-5 h-11 w-full rounded-full bg-ink/5" />
       </div>
       <span className="sr-only">{label}</span>
     </div>

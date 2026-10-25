@@ -169,7 +169,7 @@ export function AdminDashboard({ token }: { token: string }) {
           </div>
           <ActionButton
             isLoading={isLoadingMetrics} icon={<RefreshCw className="size-4" aria-hidden="true" />}
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 bg-surface text-ink-600 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm sm:font-medium"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/8 bg-surface text-ink-600 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm sm:font-medium"
             type="button"
             aria-label="Refresh metrics"
             onClick={() => { void loadMetrics(); setTrafficRevision((value) => value + 1); }}
@@ -185,14 +185,14 @@ export function AdminDashboard({ token }: { token: string }) {
         ) : metrics ? (
           <MetricGrid cards={cards} />
         ) : (
-          <div className="grid min-h-105 place-items-center rounded-[28px] border border-black/5 p-6 text-center">
+          <div className="grid min-h-105 place-items-center rounded-[28px] border border-line/5 p-6 text-center">
             <div>
               <Activity className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">No metrics available</h2>
               <p className="mt-2 text-sm text-ink-600">Try refreshing the admin overview.</p>
               <ActionButton
                 isLoading={isLoadingMetrics} icon={<RefreshCw className="size-4" aria-hidden="true" />}
-                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-black/8 px-5 text-sm font-medium"
+                className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-line/8 px-5 text-sm font-medium"
                 type="button"
                 onClick={() => { void loadMetrics(); setTrafficRevision((value) => value + 1); }}
               >

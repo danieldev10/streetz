@@ -64,7 +64,7 @@ export function AdminEventEditor({
   return (
     <form
       onSubmit={onSubmit}
-      className="mx-auto max-w-2xl rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+      className="mx-auto max-w-2xl rounded-3xl border border-line/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -75,7 +75,7 @@ export function AdminEventEditor({
 
       <div className="mt-4 grid gap-3">
         <input
-          className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className="h-12 rounded-full border border-line/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           placeholder="Event title"
           value={eventForm.title}
           onChange={(inputEvent) =>
@@ -88,7 +88,7 @@ export function AdminEventEditor({
         <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
           Category
           <select
-            className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            className="h-12 rounded-full border border-line/8 px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             value={eventForm.category}
             onChange={(inputEvent) =>
               setEventForm((current) => ({
@@ -112,7 +112,7 @@ export function AdminEventEditor({
           <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
             Event type
             <select
-              className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="h-12 rounded-full border border-line/8 px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               value={eventForm.eventType}
               onChange={(event) => setEventForm((current) => ({ ...current, eventType: event.target.value as EventType }))}
               required
@@ -130,7 +130,7 @@ export function AdminEventEditor({
           {eventForm.eventType !== "PUBLIC" ? <p className="text-xs leading-5 text-ink-600">Keep the venue address out of the flyer and description.</p> : null}
         </div>
         <textarea
-          className="min-h-28 rounded-[18px] border border-black/8 p-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className="min-h-28 rounded-[18px] border border-line/8 p-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           placeholder="Description"
           value={eventForm.description}
           onChange={(inputEvent) =>
@@ -138,7 +138,7 @@ export function AdminEventEditor({
           }
           maxLength={EVENT_DESCRIPTION_MAX_LENGTH}
         />
-        <div className="rounded-[20px] border border-black/8 p-3">
+        <div className="rounded-[20px] border border-line/8 p-3">
           <div className="relative grid aspect-video place-items-center overflow-hidden rounded-2xl bg-surface-muted text-center">
             {eventForm.coverImage ? (
               <Image
@@ -163,7 +163,7 @@ export function AdminEventEditor({
           <div className="mt-3 flex flex-wrap gap-2">
             <label
               aria-busy={isUploadingCoverImage}
-              className={`action-button inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-white ${
+              className={`action-button inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-action px-4 text-sm font-medium text-action-foreground ${
                 isSaving || isUploadingCoverImage ? "pointer-events-none opacity-60" : ""
               }`}
             >
@@ -183,7 +183,7 @@ export function AdminEventEditor({
             </label>
             {eventForm.coverImage ? (
               <button
-                className="inline-flex h-11 items-center justify-center rounded-full border border-black/8 px-4 text-sm font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-line/8 px-4 text-sm font-medium text-ink-600 disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={() => setEventForm((current) => ({ ...current, coverImage: "" }))}
                 disabled={isSaving || isUploadingCoverImage}
@@ -195,7 +195,7 @@ export function AdminEventEditor({
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <input
-            className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            className="h-12 rounded-full border border-line/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             placeholder="Venue"
             value={eventForm.venue}
             onChange={(inputEvent) =>
@@ -206,7 +206,7 @@ export function AdminEventEditor({
             required
           />
           <select
-            className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            className="h-12 rounded-full border border-line/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             value={eventForm.state}
             onChange={(inputEvent) =>
               setEventForm((current) => ({
@@ -228,7 +228,7 @@ export function AdminEventEditor({
           </select>
         </div>
         <select
-          className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          className="h-12 rounded-full border border-line/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           value={eventForm.city}
           onChange={(inputEvent) =>
             setEventForm((current) => ({ ...current, city: inputEvent.target.value }))
@@ -249,7 +249,7 @@ export function AdminEventEditor({
           <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
             Starts
             <input
-              className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="h-12 rounded-full border border-line/8 px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               type="datetime-local"
               value={eventForm.startsAt}
               onChange={(inputEvent) =>
@@ -261,7 +261,7 @@ export function AdminEventEditor({
           <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
             Ends
             <input
-              className="h-12 rounded-full border border-black/8 px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="h-12 rounded-full border border-line/8 px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               type="datetime-local"
               value={eventForm.endsAt}
               onChange={(inputEvent) =>
@@ -273,7 +273,7 @@ export function AdminEventEditor({
         <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
           Status
           {isEditingLockedEvent && editingEvent ? (
-            <div className="flex h-12 items-center rounded-full border border-black/8 bg-surface-muted px-4 text-sm font-medium normal-case tracking-normal text-ink-600">
+            <div className="flex h-12 items-center rounded-full border border-line/8 bg-surface-muted px-4 text-sm font-medium normal-case tracking-normal text-ink-600">
               {
                 eventStatusLabels[
                   editingEvent.status === "PUBLISHED" && hasEventEnded(editingEvent)
@@ -284,7 +284,7 @@ export function AdminEventEditor({
             </div>
           ) : (
             <select
-              className="h-12 rounded-full border border-black/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="h-12 rounded-full border border-line/8 px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               value={eventForm.status}
               onChange={(inputEvent) =>
                 setEventForm((current) => ({
@@ -301,14 +301,14 @@ export function AdminEventEditor({
             </select>
           )}
         </label>
-        <div className="rounded-[20px] border border-black/8 p-4">
+        <div className="rounded-[20px] border border-line/8 p-4">
           <h3 className="text-sm font-semibold text-ink">Ticket tiers</h3>
           <p className="mt-1 text-xs leading-5 text-ink-600">Set prices for Early Bird, Regular or VIP. Leave unused options blank. If every price is empty, the event is free.</p>
           <div className="mt-4 grid gap-4">
             {INDIVIDUAL_TICKET_TIER_NAMES.map((name) => <TicketTierFields key={name} name={name} eventForm={eventForm} setEventForm={setEventForm} />)}
           </div>
         </div>
-        <div className="rounded-[20px] border border-black/8 p-4">
+        <div className="rounded-[20px] border border-line/8 p-4">
           <h3 className="text-sm font-semibold text-ink">Tables</h3>
           <p className="mt-1 text-xs leading-5 text-ink-600">Set a price for each size you want to sell. Prices are for a whole table. Capacity and purchase limits are measured in tables.</p>
           <div className="mt-4 grid gap-4">
@@ -318,7 +318,7 @@ export function AdminEventEditor({
             ) : null}
           </div>
         </div>
-        <div className="rounded-[20px] border border-black/8 p-4">
+        <div className="rounded-[20px] border border-line/8 p-4">
           <span className="block text-sm font-semibold text-ink">Guest booking</span>
           <span className="mt-1 block text-xs leading-5 text-ink-600">
             Free events automatically allow verified-email guest booking. Paid events remain
@@ -329,7 +329,7 @@ export function AdminEventEditor({
 
       <ActionButton
         isLoading={isSaving || isUploadingCoverImage} icon={<Save className="size-4" aria-hidden="true" />}
-        className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-medium text-action-foreground disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isSaving || isUploadingCoverImage}
       >
         {isUploadingCoverImage ? "Uploading image" : isEditing ? "Save event" : "Create event"}
@@ -368,7 +368,7 @@ function TicketTierFields({ name, eventForm, setEventForm }: {
     <div className="clear-both grid gap-3 pt-3 sm:grid-cols-3 sm:items-end">
       {fields.map((field) => <label key={field.key} className="grid min-w-0 gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-400">
         {field.label}
-        <input className="h-11 min-w-0 w-full rounded-full border border-black/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+        <input className="h-11 min-w-0 w-full rounded-full border border-line/8 bg-surface px-4 text-sm font-medium normal-case tracking-normal text-ink outline-none focus:border-brand focus:ring-1 focus:ring-brand"
           min={field.min} step={field.step} type="number" placeholder={field.placeholder} value={tier[field.key]}
           onChange={(event) => update(field.key, event.target.value)} required={field.key !== "priceNaira"} />
       </label>)}

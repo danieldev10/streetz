@@ -22,11 +22,11 @@ export function RoomMembersView({
 }) {
   return (
     <section className="px-0 md:px-8 md:py-8">
-      <article className={`mx-auto flex ${CHAT_PANEL_HEIGHT} max-w-3xl flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-black/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
-        <div className="flex items-center gap-3 border-b border-black/5 px-4 py-3">
+      <article className={`mx-auto flex ${CHAT_PANEL_HEIGHT} max-w-3xl flex-col overflow-hidden bg-surface md:rounded-[28px] md:border md:border-line/5 md:shadow-[0_2px_4px_rgba(0,0,0,0.03)]`}>
+        <div className="flex items-center gap-3 border-b border-line/5 px-4 py-3">
           <button
             type="button"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-black/8 text-ink"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-line/8 text-ink"
             onClick={onBack}
             aria-label="Back to room chat"
             title="Back"
@@ -46,7 +46,7 @@ export function RoomMembersView({
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-surface-muted px-4 py-5">
           {isLoading ? (
-            <ListSkeleton label="Loading event chat members" rows={6} className="grid gap-3 p-4" hasAction={false} rowClassName="rounded-3xl border border-black/5 bg-surface p-3" />
+            <ListSkeleton label="Loading event chat members" rows={6} className="grid gap-3 p-4" hasAction={false} rowClassName="rounded-3xl border border-line/5 bg-surface p-3" />
           ) : members.length > 0 ? (
             <div className="grid gap-3">
               {members.map((member) => {
@@ -56,7 +56,7 @@ export function RoomMembersView({
                   <button
                     key={member.id}
                     type="button"
-                    className="flex items-center gap-3 rounded-[24px] border border-black/5 bg-surface p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition hover:border-brand/40"
+                    className="flex items-center gap-3 rounded-[24px] border border-line/5 bg-surface p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition hover:border-brand/40"
                     onClick={() => onOpenMember(member)}
                     aria-label={`View ${member.displayName} profile`}
                   >

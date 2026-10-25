@@ -51,7 +51,7 @@ function StatusChip({ status }: { status: AccountStatus }) {
   const map: Record<AccountStatus, { label: string; cls: string }> = {
     ACTIVE: { label: "Active", cls: "bg-brand-tint text-brand-strong" },
     DEACTIVATED: { label: "Deactivated", cls: "bg-surface-muted text-ink-600" },
-    SUSPENDED: { label: "Suspended", cls: "bg-orange-50 text-orange-700" },
+    SUSPENDED: { label: "Suspended", cls: "bg-warning-tint text-warning" },
     BANNED: { label: "Banned", cls: "bg-danger-tint text-danger" },
     DELETED: { label: "Deleted", cls: "bg-danger-tint text-danger" },
   };
@@ -102,7 +102,7 @@ function UserDetailView({
       <div className="px-5 pb-8 pt-6 md:px-8 md:pt-8">
         <div className="mb-4 flex items-center">
           <button
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-line/8"
             type="button"
             onClick={onBack}
             aria-label="Back to users"
@@ -112,7 +112,7 @@ function UserDetailView({
         </div>
 
         {/* User header */}
-        <div className="mb-5 rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+        <div className="mb-5 rounded-3xl border border-line/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xl font-semibold">{user.displayName}</p>
@@ -143,8 +143,8 @@ function UserDetailView({
             </div>
             {user.suspendedUntil && (
               <div>
-                <span className="font-medium text-orange-600">Suspended until</span>
-                <p className="mt-0.5 text-orange-700">{formatDate(user.suspendedUntil)}</p>
+                <span className="font-medium text-warning">Suspended until</span>
+                <p className="mt-0.5 text-warning">{formatDate(user.suspendedUntil)}</p>
               </div>
             )}
           </div>
@@ -156,13 +156,13 @@ function UserDetailView({
         </div>
 
         {/* Activity tabs */}
-        <div className="mb-4 flex gap-1 overflow-x-auto rounded-full bg-black/[0.04] p-1">
+        <div className="mb-4 flex gap-1 overflow-x-auto rounded-full bg-ink/[0.04] p-1">
           {activityTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
               className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition ${
-                activeTab === tab.id ? "bg-ink text-white shadow" : "text-ink-600"
+                activeTab === tab.id ? "bg-action text-action-foreground shadow" : "text-ink-600"
               }`}
               onClick={() => setActiveTab(tab.id)}
             >
@@ -174,7 +174,7 @@ function UserDetailView({
         {/* Profile tab */}
         {activeTab === "profile" && (
           <div className="space-y-4">
-            <div className="rounded-3xl border border-black/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+            <div className="rounded-3xl border border-line/5 bg-surface p-4 shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Profile</p>
               {user.profile ? (
                 <div className="grid gap-2 text-sm">
@@ -363,7 +363,7 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-2xl border border-black/5 bg-surface p-3 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+    <div className="rounded-2xl border border-line/5 bg-surface p-3 text-center shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
       <Icon className={`mx-auto size-5 ${color}`} aria-hidden="true" />
       <p className="mt-1 text-xl font-semibold">{value}</p>
       <p className="text-[11px] text-ink-400">{label}</p>
@@ -388,19 +388,19 @@ function ActivityList({
   }>;
 }) {
   return (
-    <div className="rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-      <div className="border-b border-black/5 px-4 py-3">
+    <div className="rounded-3xl border border-line/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+      <div className="border-b border-line/5 px-4 py-3">
         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">{title}</p>
       </div>
       {items.length === 0 ? (
         <p className="px-4 py-6 text-center text-sm text-ink-400">{empty}</p>
       ) : (
-        <div className="divide-y divide-black/[0.04]">
+        <div className="divide-y divide-line/[0.04]">
           {items.map((item) => {
             const Icon = item.icon;
             return (
               <div key={item.key} className="flex items-center gap-3 px-4 py-3">
-                <div className={`grid size-8 shrink-0 place-items-center rounded-full bg-black/[0.03]`}>
+                <div className={`grid size-8 shrink-0 place-items-center rounded-full bg-ink/[0.03]`}>
                   <Icon className={`size-4 ${item.iconCls}`} aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -515,7 +515,7 @@ export function UsersTab({ token }: { token: string }) {
         <div className="mb-4 flex items-center justify-end">
           <ActionButton
             isLoading={isLoadingUsers} icon={<RefreshCw className="size-4" aria-hidden="true" />}
-            className="inline-flex size-10 items-center justify-center rounded-full border border-black/8 text-ink-600"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-line/8 text-ink-600"
             onClick={() => loadUsers()}
             disabled={isListBusy}
             aria-label="Refresh users"
@@ -531,7 +531,7 @@ export function UsersTab({ token }: { token: string }) {
           <div className="relative flex-1 min-w-48">
             <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden="true" />
             <input
-              className="h-11 w-full rounded-full border border-black/8 bg-surface pl-10 pr-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="h-11 w-full rounded-full border border-line/8 bg-surface pl-10 pr-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               placeholder="Search name or email"
               aria-label="Search users by name or email"
               maxLength={200}
@@ -540,7 +540,7 @@ export function UsersTab({ token }: { token: string }) {
             />
           </div>
           <select
-            className="h-11 rounded-full border border-black/8 bg-surface px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            className="h-11 rounded-full border border-line/8 bg-surface px-4 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             aria-label="Filter users by account status"
             value={query.status}
             onChange={(e) => {
@@ -557,7 +557,7 @@ export function UsersTab({ token }: { token: string }) {
         </div>
 
         {openingUser ? (
-          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-black/5 bg-surface-muted p-3 text-sm font-medium text-ink-600">
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-line/5 bg-surface-muted p-3 text-sm font-medium text-ink-600">
             <LoaderCircle className="size-4 animate-spin text-brand" aria-hidden="true" />
             Opening {openingUser.displayName}
           </div>
@@ -567,14 +567,14 @@ export function UsersTab({ token }: { token: string }) {
           <ListSkeleton
             label="Loading users"
             rows={8}
-            className="divide-y divide-black/[0.04] overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
+            className="divide-y divide-line/[0.04] overflow-hidden rounded-3xl border border-line/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]"
             rowClassName="px-4 py-3"
             hasAvatar={false}
             hasAction={false}
             lines={1}
           />
         ) : users.length === 0 ? (
-          <div className="grid min-h-80 place-items-center rounded-3xl border border-black/5 p-6 text-center">
+          <div className="grid min-h-80 place-items-center rounded-3xl border border-line/5 p-6 text-center">
             <div>
               <UserRound className="mx-auto size-8 text-brand" aria-hidden="true" />
               <h2 className="mt-3 text-2xl font-semibold">{notice ? "Unable to load users" : "No users found"}</h2>
@@ -582,15 +582,15 @@ export function UsersTab({ token }: { token: string }) {
             </div>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-3xl border border-black/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-4 border-b border-black/5 px-4 py-2.5">
+          <div className="overflow-hidden rounded-3xl border border-line/5 bg-surface shadow-[0_2px_4px_rgba(0,0,0,0.03)]">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-4 border-b border-line/5 px-4 py-2.5">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">
                 Name ({pagination?.total ?? users.length})
               </p>
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-400">Email</p>
               <span className="size-4" aria-hidden="true" />
             </div>
-            <div className="divide-y divide-black/[0.04]">
+            <div className="divide-y divide-line/[0.04]">
               {users.map((user) => (
                 <ActionButton
                   isLoading={openingUserId === user.id} iconPosition="end" icon={<span className="size-4" aria-hidden="true" />}
@@ -618,7 +618,7 @@ export function UsersTab({ token }: { token: string }) {
                 isLoading={isLoadingUsers && query.page < pagination.page}
                 disabled={isListBusy || openingUserId !== null || pagination.page <= 1}
                 onClick={() => changePage(pagination.page - 1)}
-                className="inline-flex h-10 items-center justify-center gap-1 rounded-full border border-black/8 px-3 text-sm font-medium text-ink disabled:opacity-50">
+                className="inline-flex h-10 items-center justify-center gap-1 rounded-full border border-line/8 px-3 text-sm font-medium text-ink disabled:opacity-50">
                 Previous
               </ActionButton>
               <span className="whitespace-nowrap text-xs text-ink-600">Page {pagination.page} of {pagination.totalPages}</span>
@@ -626,7 +626,7 @@ export function UsersTab({ token }: { token: string }) {
                 isLoading={isLoadingUsers && query.page > pagination.page}
                 disabled={isListBusy || openingUserId !== null || pagination.page >= pagination.totalPages}
                 onClick={() => changePage(pagination.page + 1)}
-                className="inline-flex h-10 items-center justify-center gap-1 rounded-full border border-black/8 px-3 text-sm font-medium text-ink disabled:opacity-50">
+                className="inline-flex h-10 items-center justify-center gap-1 rounded-full border border-line/8 px-3 text-sm font-medium text-ink disabled:opacity-50">
                 Next
               </ActionButton>
             </div>
