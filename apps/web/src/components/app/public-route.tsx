@@ -1,6 +1,6 @@
 "use client";
 
-import { ThemeControl } from "@/components/theme-picker";
+import { SettingsLink } from "@/components/settings-link";
 
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -212,7 +212,7 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
         <section className={appContentClassName}>
           <DesktopHeader activeTab={activeTab}>
             <div className="flex items-center gap-3">
-            <ThemeControl />
+            <SettingsLink />
             <button type="button" className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-action px-5 text-sm font-semibold text-action-foreground transition hover:bg-action/85" onClick={() => onRequestAuth("account")}>
               <LogIn className="size-4" aria-hidden="true" />
               Log in / Sign up
@@ -235,7 +235,7 @@ function PublicAppShell({ activeTab, children, onRequestAuth }: { activeTab: Tab
               <div className="justify-self-center">
                 <BrandLogo size="header" priority />
               </div>
-              <ThemeControl />
+              <SettingsLink />
             </div>
           </header>
           {children}

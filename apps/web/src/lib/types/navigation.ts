@@ -8,4 +8,5 @@ export type TabKey =
   | "admin"
   | "reports"
   | "users"
+  | "settings"
   | "support";

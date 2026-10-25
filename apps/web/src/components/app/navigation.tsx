@@ -15,6 +15,7 @@ import {
   LifeBuoy,
   Menu,
   MessagesSquare,
+  Settings,
   ShieldCheck,
   ScanLine,
   Ticket,
@@ -27,7 +28,6 @@ import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { BrandLogo } from "@/components/brand-logo";
 import { ProfilePhotoImage } from "@/components/profile-photo-image";
 import { PrivacyPolicyLink } from "@/components/privacy-policy-link";
-import { ThemePicker } from "@/components/theme-picker";
 
 export const tabs: Array<{ id: TabKey; label: string; icon: LucideIcon }> = [
   { id: "events", label: "Events", icon: Ticket },
@@ -61,6 +61,7 @@ export const tabRoutes: Record<TabKey, string> = {
   reports: "/reports",
   users: "/users",
   support: "/admin/support",
+  settings: "/settings",
 };
 
 function AccountMenu({
@@ -342,7 +343,15 @@ function AccountMenu({
           </button>
         ) : null}
 
-        <div className="px-4 py-3"><ThemePicker /></div>
+        <Link
+          className="flex h-12 items-center gap-3 rounded-full px-4 text-sm font-medium text-ink transition hover:bg-surface-muted"
+          href="/settings"
+          onClick={closeMenu}
+          tabIndex={isOpen ? 0 : -1}
+        >
+          <Settings className="size-4" aria-hidden="true" />
+          Settings
+        </Link>
 
         <button
           type="button"

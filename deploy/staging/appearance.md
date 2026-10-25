@@ -1,8 +1,9 @@
 # Appearance preview
 
-The staging website supports Light, Dark and System under **My account → Change
-Theme** (the profile/menu button on mobile). Guests and the login screen have a
-sun/moon control in the top-right corner.
+The staging website supports Light, Dark and System under **My account → Settings
+→ Appearance** (the profile/menu button on mobile). Guests and the login screen
+have a settings control in the top-right corner. All theme choices live on the
+dedicated `/settings` page, which is available to guests, members and admins.
 
 Light remains the default for new visitors. The choice is saved in this browser,
 applies before the first paint, survives navigation and reloads, and syncs across

@@ -102,10 +102,6 @@
   --color-info-tint: #1d2c43;
 }
 
-.theme-dark-icon { display: none; }
-[data-theme="dark"] .theme-light-icon { display: none; }
-[data-theme="dark"] .theme-dark-icon { display: block; }
-
 ::selection {
   background: var(--color-brand-tint);
   color: var(--color-brand-deep);

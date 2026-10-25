@@ -16,6 +16,7 @@ const pageLabels: Record<TabKey, string> = {
   reports: "Reports",
   users: "Users",
   support: "Support",
+  settings: "Settings",
 };
 
 export function DesktopHeader({ activeTab, children }: { activeTab: TabKey; children?: ReactNode }) {
