@@ -64,7 +64,9 @@
    QR colours stay untouched; only the interface's semantic roles change. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #121015;
+  /* Safari can tint its surrounding UI from the page canvas. Match the mobile
+     app surface so its status/toolbar areas do not pick up a darker shade. */
+  --background: var(--color-surface);
   --foreground: #f4eff7;
   --color-brand: #da7cde;
   --color-brand-strong: #e58ce8;
@@ -129,6 +131,7 @@ input::placeholder, textarea::placeholder {
 }
 
 html {
+  background: var(--background);
   /* Reserve scrollbar space so the centered layout doesn't shift when
      content height crosses the viewport (e.g. after loading states). */
   scrollbar-gutter: stable;

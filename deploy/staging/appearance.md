@@ -18,6 +18,11 @@ Text, borders, inputs, status messages, navigation, dialogs, skeletons and chat
 bubbles use semantic theme colours. Photos/flyers retain their original colours;
 ticket QR canvases retain black modules on a white background.
 
+The dark HTML/body canvas matches the mobile app surface (`#1d1822`) so Safari
+does not pick up the darker desktop canvas for its surrounding areas. Light mode
+keeps its white canvas. Safari still controls its own toolbar tint and materials;
+the final status/address-bar appearance needs an on-device iPhone check.
+
 Validation: web lint, typecheck, unit tests and production build; browser checks
 at mobile and desktop sizes for guests, members and administrators, reloads,
 multiple tabs, System changes, forms, checkout, tickets/QRs, profiles and chat.
