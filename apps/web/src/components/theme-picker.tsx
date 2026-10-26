@@ -14,7 +14,7 @@ export function ThemePicker() {
   const preference = useSyncExternalStore(subscribeTheme, getThemePreference, () => "light");
   return (
     <fieldset className="min-w-0">
-      <legend className="mb-3 text-sm font-medium text-ink">Theme</legend>
+      <legend className="sr-only">Theme</legend>
       <div className="grid grid-cols-3 gap-1 rounded-2xl border border-line/8 bg-surface-muted p-1">
         {([{ value: "light", label: "Light", icon: Sun }, { value: "dark", label: "Dark", icon: Moon }, { value: "system", label: "System", icon: Monitor }] as const).map(({ value, label, icon: Icon }) => (
           <button key={value} type="button" aria-pressed={preference === value} onClick={() => setThemePreference(value)}

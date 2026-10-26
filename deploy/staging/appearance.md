@@ -4,6 +4,8 @@ The staging website supports Light, Dark and System under **My account → Setti
 → Appearance** (the profile/menu button on mobile). Guests and the login screen
 have a settings control in the top-right corner. All theme choices live on the
 dedicated `/settings` page, which is available to guests, members and admins.
+Settings shows an Appearance row; selecting it opens a modal with the three
+theme choices. The modal closes with its close button, Escape or the backdrop.
 
 Light remains the default for new visitors. The choice is saved in this browser,
 applies before the first paint, survives navigation and reloads, and syncs across
